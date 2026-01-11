@@ -1,0 +1,340 @@
+/* Invoices Page */
+.invoices-page {
+    width: 100%;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #1F2937;
+    margin: 0 0 0.5rem 0;
+}
+
+.page-header p {
+    color: #6B7280;
+    margin: 0;
+}
+
+/* Stats */
+.invoices-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.stat-info {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 0.813rem;
+    color: #6B7280;
+    margin-bottom: 0.25rem;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1F2937;
+}
+
+/* Search */
+.invoices-search {
+    margin-bottom: 1.5rem;
+}
+
+.search-box {
+    position: relative;
+    max-width: 600px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9CA3AF;
+    pointer-events: none;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.75rem 3rem 0.75rem 3rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    font-size: 0.938rem;
+    color: #1F2937 !important;
+    background: white !important;
+    transition: all 0.2s;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #03C9D7;
+    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1);
+}
+
+.search-box input::placeholder {
+    color: #9CA3AF;
+}
+
+.clear-search {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6B7280;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.clear-search:hover {
+    color: #EF4444;
+}
+
+/* Filters */
+.invoices-filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid #E5E7EB;
+    background: white;
+    border-radius: 0.5rem;
+    color: #6B7280;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-btn:hover {
+    border-color: #03C9D7;
+    color: #03C9D7;
+}
+
+.filter-btn.active {
+    background: #03C9D7;
+    border-color: #03C9D7;
+    color: white;
+}
+
+/* Table */
+.invoices-table {
+    background: white;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-header {
+    display: grid;
+    grid-template-columns: 1.5fr 1.2fr 0.8fr 1fr 1fr 0.8fr;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #F9FAFB;
+    border-bottom: 1px solid #E5E7EB;
+    font-weight: 600;
+    font-size: 0.813rem;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1.2fr 0.8fr 1fr 1fr 0.8fr;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #E5E7EB;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.table-row:hover {
+    background: #F9FAFB;
+}
+
+.table-row:last-child {
+    border-bottom: none;
+}
+
+.invoice-id {
+    font-weight: 600;
+    color: #1F2937;
+    font-size: 0.875rem;
+}
+
+.contract-id {
+    color: #7460EE;
+    font-size: 0.813rem;
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+}
+
+.device-id {
+    color: #6B7280;
+    font-size: 0.875rem;
+    font-family: 'Courier New', monospace;
+}
+
+.invoice-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6B7280;
+    font-size: 0.875rem;
+}
+
+.invoice-amount {
+    font-weight: 600;
+    color: #1F2937;
+    font-size: 0.875rem;
+}
+
+.invoice-status {
+    font-size: 0.875rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.payment-ref {
+    color: #6B7280;
+    font-size: 0.813rem;
+    font-family: 'Courier New', monospace;
+}
+
+/* States */
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 1rem;
+    border: 3px solid #E5E7EB;
+    border-top-color: #03C9D7;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-state p {
+    color: #6B7280;
+    margin: 0;
+}
+
+.empty-state svg {
+    color: #D1D5DB;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    font-size: 1.25rem;
+    color: #1F2937;
+    margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+    color: #6B7280;
+    margin: 0;
+}
+
+/* Results Info */
+.results-info {
+    text-align: center;
+    padding: 1rem;
+    color: #6B7280;
+    font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+
+    .table-header,
+    .table-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .table-header {
+        display: none;
+    }
+
+    .table-row {
+        padding: 1rem;
+    }
+
+    .table-row>div::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6B7280;
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+}
+
+/* Mobile Stats Grid (<600px) */
+@media (max-width: 600px) {
+    .invoices-stats {
+        grid-template-columns: 1fr;
+    }
+}

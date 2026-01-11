@@ -1,0 +1,206 @@
+/* Contract Stats Component - White Theme */
+.contract-stats {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    transition: all 0.2s;
+    color: #1F2937;
+    border: 1px solid #E5E7EB;
+}
+
+.contract-stats:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.card-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1F2937;
+    margin: 0;
+}
+
+/* Progress Section */
+.progress-section {
+    margin: 1.5rem 0;
+}
+
+.progress-bar-container {
+    height: 24px;
+    background: #F3F4F6;
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 0.75rem;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #03C9D7, #0394A3);
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+}
+
+.progress-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+/* Financial Summary */
+.contract-summary {
+    background: #F9FAFB;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    border: 1px solid #F3F4F6;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.summary-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.summary-row:first-child {
+    padding-top: 0;
+}
+
+.summary-label {
+    color: #6B7280;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.summary-value {
+    font-weight: 600;
+    color: #1F2937;
+    font-size: 0.938rem;
+}
+
+.summary-value.success {
+    color: #059669;
+}
+
+.summary-value.warning {
+    color: #D97706;
+}
+
+/* Date Items */
+.contract-dates {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.date-item {
+    background: #F9FAFB;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    text-align: center;
+    border: 1px solid #F3F4F6;
+}
+
+.date-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6B7280;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.date-value {
+    display: block;
+    font-size: 0.938rem;
+    font-weight: 600;
+    color: #1F2937;
+}
+
+/* Contract ID Footer */
+.contract-id {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #E5E7EB;
+}
+
+.contract-id small {
+    color: #9CA3AF;
+    font-family: monospace;
+    font-size: 0.813rem;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-badge.active {
+    background: #D1FAE5;
+    color: #059669;
+}
+
+.status-badge.completed {
+    background: #DBEAFE;
+    color: #2563EB;
+}
+
+.status-badge.suspended {
+    background: #FEF3C7;
+    color: #D97706;
+}
+
+.status-badge.cancelled {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+/* Loading State */
+.spinner {
+    width: 40px;
+    height: 40px;
+    margin: 2rem auto;
+    border: 3px solid #E5E7EB;
+    border-top-color: #03C9D7;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

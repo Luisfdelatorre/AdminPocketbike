@@ -1,0 +1,100 @@
+/* Payment Page - White Theme */
+.payment-page-container {
+    background-color: #FAFBFB;
+    min-height: 100vh;
+    padding: 2rem 0;
+    color: #1F2937;
+}
+
+/* Generic Card Styles for all child components */
+.info-card,
+.payment-card,
+.invoices-card,
+.history-card,
+.contract-stats {
+    background: white !important;
+    border-radius: 0.75rem !important;
+    padding: 1.5rem !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    margin-bottom: 2rem;
+    border: 1px solid #E5E7EB !important;
+    color: #1F2937 !important;
+}
+
+/* Header Card Specifics */
+.info-card h2 {
+    color: #1F2937 !important;
+}
+
+.info-card p {
+    color: #6B7280 !important;
+}
+
+/* Payment Card Overrides */
+.payment-info {
+    background: #F9FAFB !important;
+    border: 1px solid #E5E7EB !important;
+    border-left: 3px solid #03C9D7 !important;
+}
+
+.info-text {
+    color: #6B7280 !important;
+}
+
+.currency {
+    color: #9CA3AF !important;
+}
+
+.amount {
+    /* Keep gradient text or make it solid dark? Dashboard uses dark for values usually but gradient for big numbers is fine. */
+    /* text-fill-color is usually handled by background-clip */
+}
+
+/* Invoices List Overrides */
+.invoice-item,
+.history-item {
+    background: #F9FAFB !important;
+    border: 1px solid #E5E7EB !important;
+}
+
+.invoice-item:hover,
+.history-item:hover {
+    background: white !important;
+    border-color: #03C9D7 !important;
+}
+
+.invoice-date,
+.history-info p {
+    color: #6B7280 !important;
+}
+
+.invoice-id {
+    color: #9CA3AF !important;
+}
+
+.invoice-amount,
+.history-amount .amount {
+    color: #1F2937 !important;
+}
+
+/* Empty States */
+.empty-state-text {
+    color: #6B7280 !important;
+}
+
+/* Titles */
+.card-title {
+    color: #1F2937 !important;
+}
+
+/* Buttons */
+.btn-secondary {
+    background: #F3F4F6 !important;
+    color: #1F2937 !important;
+    border: 1px solid #D1D5DB !important;
+}
+
+.btn-secondary:hover {
+    background: #E5E7EB !important;
+    border-color: #9CA3AF !important;
+}
