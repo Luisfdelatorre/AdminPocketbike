@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, Copy } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical } from 'lucide-react';
 import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess } from '../services/api';
+import DeviceFormModal from '../components/modals/DeviceFormModal';
+import PinInputModal from '../components/modals/PinInputModal';
+import PinDisplayModal from '../components/modals/PinDisplayModal';
+import ShareDeviceModal from '../components/modals/ShareDeviceModal';
+import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import './DeviceSelector.css';
+
+const MobileHeaderAction = ({ children }) => {
+    const [container, setContainer] = useState(null);
+
+    useEffect(() => {
+        setContainer(document.getElementById('mobile-header-actions'));
+    }, []);
+
+    return container ? createPortal(children, container) : null;
+};
 
 const DeviceManagement = () => {
     const navigate = useNavigate();
@@ -19,10 +34,12 @@ const DeviceManagement = () => {
     const [shareUrl, setShareUrl] = useState('');
     const [generatedPin, setGeneratedPin] = useState('');
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
+    const [customPin, setCustomPin] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deviceToDelete, setDeviceToDelete] = useState(null);
     const [filter, setFilter] = useState('all'); // all, active, available
+    const [activeMenuId, setActiveMenuId] = useState(null);
 
     const [formData, setFormData] = useState({
         _id: '',
@@ -37,6 +54,16 @@ const DeviceManagement = () => {
         loadDevices();
     }, []);
 
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (activeMenuId && !event.target.closest('.action-menu-container')) {
+                setActiveMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeMenuId]);
+
     const handleShare = (device) => {
         const url = `${window.location.origin}/#/Id/${device._id}`;
         setShareUrl(url);
@@ -44,9 +71,26 @@ const DeviceManagement = () => {
         setShowShareModal(true);
     };
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(shareUrl);
-        alert('Link copied to clipboard!');
+    const copyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+
+            const textArea = document.createElement("textarea");
+            textArea.value = shareUrl;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            textArea.setSelectionRange(0, 99999); /* For mobile devices */
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Unable to copy', err);
+                alert('Failed to copy link manually.');
+            }
+            document.body.removeChild(textArea);
+        }
     };
 
     const loadDevices = async () => {
@@ -240,20 +284,34 @@ const DeviceManagement = () => {
         <div className="devices-page">
             {/* Header */}
             <div className="page-header">
-                <div>
-                    <h1>🏍️ {t('devices.title')}</h1>
-                    <p>{t('devices.subtitle')}</p>
+                <div className="desktop-only">
+                    <h1>{t('devices.title')}</h1>
                 </div>
-                <button className="btn-secondary" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
+
+                <button className="btn-secondary desktop-only" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
                     <RefreshCw className={loading ? 'spin' : ''} /> {t('devices.sync')}
                 </button>
-                <button className="btn-primary" onClick={handleAddDevice}>
+                <button className="btn-primary desktop-only" onClick={handleAddDevice}>
                     <Plus /> {t('devices.addDevice')}
                 </button>
+
+                <MobileHeaderAction>
+                    <button
+                        onClick={handleAddDevice}
+                        className="btn-mobile-header-action"
+
+                    >
+                        <Plus size={24} />
+                    </button>
+                    <button onClick={handleSync} className="btn-mobile-header-action">
+                        <RefreshCw size={20} />
+                    </button>
+                </MobileHeaderAction>
+
             </div>
 
             {/* Stats Cards */}
-            <div className="devices-stats">
+            <div className="devices-stats desktop-only">
                 <div className="stat-card">
                     <div className="stat-icon" style={{ background: '#03C9D7' }}>
                         <Users />
@@ -326,375 +384,165 @@ const DeviceManagement = () => {
                 </button>
             </div>
 
-            {/* Devices Table */}
-            <div className="devices-table-container">
-                <table className="devices-table">
-                    <thead>
-                        <tr>
-                            { /*<th>Device ID</th>*/}
-                            <th>{t('devices.table.name')}</th>
-                            <th>{t('devices.table.nequi')}</th>
-                            <th>{t('devices.table.sim')}</th>
-                            <th>{t('devices.table.status')}</th>
-                            <th>{t('devices.table.pin')}</th>
-                            <th>{t('devices.table.contract')}</th>
-                            <th>{t('devices.table.actions')}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredDevices.map((device) => (
-                            <tr key={device._id}>
-                                {/* <td className="device-id-cell">{device._id}</td> */}
-                                <td>{device.deviceName}</td>
-                                <td>{device.nequiNumber || '-'}</td>
-                                <td>{device.simCardNumber || '-'}</td>
-                                <td>
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100">
+                {/* Header Row */}
+                <div className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 border-b border-gray-100">
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.name')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.nequi')}</div>
+                    {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.sim')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.status')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.pin')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.contract')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
+                </div>
+
+                {/* Body Rows */}
+                <div className="divide-y divide-gray-50">
+                    {filteredDevices.map((device) => (
+                        <div key={device._id} className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 hover:bg-gray-50/50 transition-colors items-center text-sm">
+                            <div className="font-semibold text-gray-900 flex items-center">{device.deviceName}</div>
+                            <div className="text-gray-700 flex items-center">{device.nequiNumber || '-'}</div>
+                            {/* Hiding SIM and Status content on Mobile/Tablet */}
+                            <div className="text-gray-500 hidden lg:flex items-center">{device.simCardNumber || '-'}</div>
+                            <div className="hidden lg:flex items-center">
+                                <button
+                                    className={`status-toggle ${device.isActive ? 'active' : 'inactive'}`}
+                                    onClick={() => handleToggleActive(device)}
+                                >
+                                    {device.isActive ? <><Check size={14} /> {t('common.active')}</> : <><X size={14} /> {t('common.inactive')}</>}
+                                </button>
+                            </div>
+                            <div className="flex items-center">
+                                {device.hasPin ? (
+                                    <div className="pin-actions flex items-center gap-2">
+                                        <span className="pin-set font-mono text-emerald-500 font-medium">●●●●</span>
+                                        <button
+                                            className="btn-icon p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                            onClick={() => handleOpenPinInput(device._id)}
+                                            title={t('devices.pin.regenerate')}
+                                        >
+                                            <RefreshCw size={14} />
+                                        </button>
+                                    </div>
+                                ) : (
                                     <button
-                                        className={`status - toggle ${device.isActive ? 'active' : 'inactive'} `}
-                                        onClick={() => handleToggleActive(device)}
+                                        className="btn-generate-pin flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors"
+                                        onClick={() => handleOpenPinInput(device._id)}
                                     >
-                                        {device.isActive ? <><Check size={14} /> {t('common.active')}</> : <><X size={14} /> {t('common.inactive')}</>}
+                                        <Key size={14} /> {t('devices.pin.generate')}
                                     </button>
-                                </td>
-                                <td>
-                                    {device.hasPin ? (
-                                        <div className="pin-actions">
-                                            <span className="pin-set">●●●● {t('devices.pin.set')}</span>
+                                )}
+                            </div>
+                            <div className="text-gray-500 hidden lg:flex items-center">
+                                {device.hasActiveContract ? (
+                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">{t('common.active')}</span>
+                                ) : (
+                                    <span className="contract-none text-gray-300">-</span>
+                                )}
+                            </div>
+                            <div className="flex items-center justify-center relative action-menu-container">
+                                <button
+                                    className={`p-2 rounded-full transition-all duration-200 ${activeMenuId === device._id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveMenuId(activeMenuId === device._id ? null : device._id);
+                                    }}
+                                >
+                                    <MoreVertical size={20} />
+                                </button>
+
+                                {activeMenuId === device._id && (
+                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden transform origin-top-right animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="py-1">
                                             <button
-                                                className="btn-icon"
-                                                onClick={() => handleOpenPinInput(device._id)}
-                                                title={t('devices.pin.regenerate')}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleShare(device);
+                                                    setActiveMenuId(null);
+                                                }}
                                             >
-                                                <RefreshCw size={14} />
+                                                <Share2 size={16} className="text-gray-500" />
+                                                {t('devices.share.title')}
+                                            </button>
+                                            <button
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEditDevice(device);
+                                                    setActiveMenuId(null);
+                                                }}
+                                            >
+                                                <Edit size={16} className="text-gray-500" />
+                                                {t('common.edit')}
+                                            </button>
+                                            <div className="border-t border-gray-100 my-1"></div>
+                                            <button
+                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteClick(device);
+                                                    setActiveMenuId(null);
+                                                }}
+                                            >
+                                                <Trash2 size={16} />
+                                                {t('common.delete')}
                                             </button>
                                         </div>
-                                    ) : (
-                                        <button
-                                            className="btn-generate-pin"
-                                            onClick={() => handleOpenPinInput(device._id)}
-                                        >
-                                            <Key size={14} /> {t('devices.pin.generate')}
-                                        </button>
-                                    )}
-                                </td>
-                                <td>
-                                    {device.hasActiveContract ? (
-                                        <span className="contract-active">{t('common.active')}</span>
-                                    ) : (
-                                        <span className="contract-none">-</span>
-                                    )}
-                                </td>
-                                <td className="actions-cell">
-                                    <button
-                                        className="btn-icon"
-                                        onClick={() => handleShare(device)}
-                                        title={t('devices.share.title')}
-                                    >
-                                        <Share2 size={16} />
-                                    </button>
-                                    <button
-                                        className="btn-icon"
-                                        onClick={() => handleEditDevice(device)}
-                                        title={t('common.edit')}
-                                    >
-                                        <Edit size={16} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-icon btn-delete"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteClick(device);
-                                        }}
-                                        title={t('common.delete')}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                {devices.length === 0 && (
-                    <div className="empty-state">
-                        <p>{t('devices.emptyState')}</p>
-                    </div>
-                )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            {/* Add/Edit Device Modal */}
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>{editingDevice ? t('devices.form.editTitle') : t('devices.form.addTitle')}</h2>
 
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-grid">
-                                <div className="form-group">
-                                    <label>{t('devices.form.deviceId')}</label>
-                                    <input
-                                        type="text"
-                                        value={formData._id}
-                                        onChange={(e) => setFormData({ ...formData, _id: e.target.value })}
-                                        disabled={!!editingDevice}
-                                        required
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label>{t('devices.form.name')}</label>
-                                    <input
-                                        type="text"
-                                        value={formData.deviceName}
-                                        onChange={(e) => setFormData({ ...formData, deviceName: e.target.value })}
-                                        required
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label>{t('devices.form.nequi')}</label>
-                                    <input
-                                        type="text"
-                                        value={formData.nequiNumber}
-                                        onChange={(e) => setFormData({ ...formData, nequiNumber: e.target.value })}
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label>{t('devices.form.sim')}</label>
-                                    <input
-                                        type="text"
-                                        value={formData.simCardNumber}
-                                        onChange={(e) => setFormData({ ...formData, simCardNumber: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>{t('devices.form.notes')}</label>
-                                <textarea
-                                    value={formData.notes}
-                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                    rows="3"
-                                />
-                            </div>
-
-                            <div className="form-group checkbox-group">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.isActive}
-                                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                                    />
-                                    {t('devices.form.active')}
-                                </label>
-                            </div>
-
-                            <div className="modal-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                                    {t('common.cancel')}
-                                </button>
-                                <button type="submit" className="btn-primary">
-                                    {editingDevice ? t('common.update') : t('common.create')}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+            {filteredDevices.length === 0 && (
+                <div className="empty-state">
+                    <p>{t('devices.emptyState')}</p>
                 </div>
             )}
 
-            {/* PIN Input Modal */}
-            {showPinInputModal && (
-                <div className="modal-overlay" onClick={() => setShowPinInputModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>{t('devices.pin.modalTitle')}</h2>
-                        <p>{t('devices.pin.modalSubtitle')} <strong>{selectedDeviceId}</strong></p>
+            <DeviceFormModal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                onSubmit={handleSubmit}
+                formData={formData}
+                setFormData={setFormData}
+                isEditing={!!editingDevice}
+            />
 
-                        <div className="pin-input-section">
-                            <label>{t('devices.pin.customLabel')}</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                maxLength="4"
-                                value={customPin}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (/^\d*$/.test(value)) {
-                                        setCustomPin(value);
-                                    }
-                                }}
-                                placeholder={t('devices.pin.customPlaceholder')}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    border: '1px solid #D1D5DB',
-                                    borderRadius: '0.5rem',
-                                    fontSize: '1.5rem',
-                                    textAlign: 'center',
-                                    letterSpacing: '0.5rem',
-                                    marginTop: '0.5rem'
-                                }}
-                            />
-                            <p style={{ color: '#6B7280', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                                {t('devices.pin.autoHelper')}
-                            </p>
-                        </div>
+            <PinInputModal
+                isOpen={showPinInputModal}
+                onClose={() => setShowPinInputModal(false)}
+                deviceId={selectedDeviceId}
+                customPin={customPin}
+                setCustomPin={setCustomPin}
+                onSubmit={handleSubmitPin}
+            />
 
-                        <div className="modal-actions">
-                            <button
-                                className="btn-secondary"
-                                onClick={() => setShowPinInputModal(false)}
-                            >
-                                {t('common.cancel')}
-                            </button>
-                            {customPin.length === 4 ? (
-                                <button
-                                    className="btn-primary"
-                                    onClick={() => handleSubmitPin(true)}
-                                >
-                                    {t('devices.pin.useCustom')}
-                                </button>
-                            ) : (
-                                <button
-                                    className="btn-primary"
-                                    onClick={() => handleSubmitPin(false)}
-                                >
-                                    {t('devices.pin.autoGenerate')}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
+            <PinDisplayModal
+                isOpen={showPinModal}
+                onClose={() => setShowPinModal(false)}
+                deviceId={selectedDeviceId}
+                pin={generatedPin}
+            />
 
-            {/* PIN Display Modal */}
-            {showPinModal && (
-                <div className="modal-overlay" onClick={() => setShowPinModal(false)}>
-                    <div className="modal-content pin-modal" onClick={(e) => e.stopPropagation()}>
-                        <h2>{t('devices.pin.generatedTitle')}</h2>
-                        <p>{t('devices.pin.saveWarning')}</p>
+            <ShareDeviceModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                shareUrl={shareUrl}
+                onCopy={copyToClipboard}
+            />
 
-                        <div className="pin-display">
-                            <div className="device-info">Device: <strong>{selectedDeviceId}</strong></div>
-                            <div className="pin-code">{generatedPin}</div>
-                        </div>
-
-                        <div className="pin-instructions">
-                            <p>{t('devices.pin.instruction1')}</p>
-                            <p>{t('devices.pin.instruction2')}</p>
-                            <p>{t('devices.pin.instruction3')}</p>
-                        </div>
-
-                        <button className="btn-primary full-width" onClick={() => setShowPinModal(false)}>
-                            {t('common.gotIt')}
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Share Modal */}
-            {showShareModal && (
-                <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>{t('devices.share.title')}</h2>
-                        <p>{t('devices.share.subtitle')}</p>
-
-                        <div className="qr-code-display" style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            margin: '1.5rem 0',
-                            padding: '1rem',
-                            background: 'white',
-                            borderRadius: '0.5rem'
-                        }}>
-                            <QRCodeSVG value={shareUrl} size={200} />
-                        </div>
-
-                        <div className="share-link-box" style={{
-                            display: 'flex',
-                            gap: '0.5rem',
-                            marginBottom: '1.5rem',
-                            background: '#F3F4F6',
-                            padding: '0.75rem',
-                            borderRadius: '0.5rem',
-                            border: '1px solid #E5E7EB'
-                        }}>
-                            <input
-                                type="text"
-                                value={shareUrl}
-                                readOnly
-                                style={{
-                                    flex: 1,
-                                    background: 'transparent',
-                                    border: 'none',
-                                    fontSize: '0.875rem',
-                                    color: '#4B5563',
-                                    outline: 'none'
-                                }}
-                            />
-                            <button
-                                onClick={copyToClipboard}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: '#03C9D7',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem'
-                                }}
-                            >
-                                <Copy /> {t('devices.share.copy')}
-                            </button>
-                        </div>
-
-                        <div className="pin-warning" style={{
-                            background: '#FEF3C7',
-                            color: '#92400E',
-                            padding: '0.75rem',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.875rem',
-                            marginBottom: '1.5rem'
-                        }}>
-                            <strong>{t('devices.share.note')}</strong> {t('devices.share.noteText')}
-                        </div>
-
-                        <button className="btn-primary full-width" onClick={() => setShowShareModal(false)}>
-                            {t('common.done')}
-                        </button>
-                    </div>
-                </div>
-            )}
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && (
-                <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                        <h2>{t('common.confirmDelete')}</h2>
-                        <p>{t('devices.deleteConfirmText')} <strong>{deviceToDelete?._id}</strong>?</p>
-                        <p style={{ color: '#6B7280', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                            {t('devices.deleteNote')}
-                        </p>
-
-                        <div className="modal-actions">
-                            <button
-                                className="btn-secondary"
-                                onClick={() => setShowDeleteModal(false)}
-                            >
-                                {t('common.cancel')}
-                            </button>
-                            <button
-                                className="btn-primary"
-                                style={{ background: '#EF4444' }}
-                                onClick={confirmDelete}
-                            >
-                                {t('common.delete')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteConfirmationModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={confirmDelete}
+                deviceId={deviceToDelete?._id}
+            />
         </div>
     );
 };

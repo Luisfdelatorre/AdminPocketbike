@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.force-text-dark {
+    color: #111827 !important;
+}
+
+.force-text-dark * {
+    color: #111827 !important;
+}
+
+.force-text-dark button {
+    color: inherit !important;
+}
+
+/* Except status toggles usually need specific colors */
+.force-text-dark .status-toggle.active {
+    color: #10B981 !important;
+}
+
+.force-text-dark .status-toggle.inactive {
+    color: #EF4444 !important;
+}
+
+/* And pin sets */
+.force-text-dark .pin-set {
+    color: #10B981 !important;
+    /* emerald-500 */
+}

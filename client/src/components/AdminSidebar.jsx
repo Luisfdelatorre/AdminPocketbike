@@ -33,6 +33,18 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
     // Strict path matching
     const isActive = (path) => location.pathname === path;
 
+    // Get title based on current path
+    const getPageTitle = () => {
+        const path = location.pathname;
+        if (path === '/') return t('sidebar.dashboard');
+        if (path.startsWith('/devices')) return t('sidebar.devices');
+        if (path.startsWith('/contracts')) return t('sidebar.contracts');
+        if (path.startsWith('/payments')) return t('sidebar.payments');
+        if (path.startsWith('/invoices')) return t('sidebar.invoices');
+        if (path.startsWith('/settings')) return t('sidebar.settings');
+        return 'PocketBike';
+    };
+
     return (
         <>
             {/* Mobile Header (Replaces floating button) */}
@@ -41,9 +53,9 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                     <Menu size={24} />
                 </button>
                 <div className="logo-container">
-                    <h2>PocketBike</h2>
+                    <h2>{getPageTitle()}</h2>
                 </div>
-                <div style={{ width: 40 }}></div> {/* Spacer for balance */}
+                <div id="mobile-header-actions" style={{ minWidth: 40, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}></div>{/* Action Portal Target */}
             </div>
 
             {/* Overlay for mobile */}

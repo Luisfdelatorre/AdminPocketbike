@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { formatCurrency } from '../utils/helpers';
+import { getContractStats } from '../services/api';
 
 const ContractStats = ({ deviceId }) => {
     const [contract, setContract] = useState(null);
@@ -14,8 +15,7 @@ const ContractStats = ({ deviceId }) => {
 
     const loadContractStats = async () => {
         try {
-            const response = await fetch(`/api/contracts/${deviceId}/stats`);
-            const result = await response.json();
+            const result = await getContractStats(deviceId);
 
             if (result.success) {
                 setContract(result.data);

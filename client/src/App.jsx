@@ -1,43 +1,54 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import './i18n'; // Initialize i18next
-import AdminLayout from './components/AdminLayout';
-import AdminLogin from './pages/AdminLogin';
-import DevicePinLogin from './pages/DevicePinLogin';
-import AdminDashboard from './pages/AdminDashboard';
-import DeviceSelector from './pages/DeviceSelector';
-import Contracts from './pages/Contracts';
-import Payments from './pages/Payments';
-import Invoices from './pages/Invoices';
-import Settings from './pages/Settings';
-import PaymentPage from './pages/PaymentPage';
+
+// Lazy Load Pages
+const AdminLayout = lazy(() => import('./components/AdminLayout'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const DevicePinLogin = lazy(() => import('./pages/DevicePinLogin'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const DeviceSelector = lazy(() => import('./pages/DeviceSelector'));
+const Contracts = lazy(() => import('./pages/Contracts'));
+const Payments = lazy(() => import('./pages/Payments'));
+const Invoices = lazy(() => import('./pages/Invoices'));
+const Settings = lazy(() => import('./pages/Settings'));
+const PaymentPage = lazy(() => import('./pages/PaymentPage'));
+
+// Simple Loading Component
+const LoadingSpinner = () => (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+);
 
 function App() {
     return (
         <HashRouter>
             <AuthProvider>
-                <Routes>
-                    {/* Public Routes */}
-                    <Route path="/admin/login" element={<AdminLogin />} />
-                    <Route path="/device/login" element={<DevicePinLogin />} />
+                <Suspense fallback={<LoadingSpinner />}>
+                    <Routes>
+                        {/* Public Routes */}
+                        <Route path="/admin/login" element={<AdminLogin />} />
+                        <Route path="/device/login" element={<DevicePinLogin />} />
 
-                    {/* Public Device Payment Route (PIN protected only) */}
-                    <Route path="/Id/:deviceId" element={<PaymentPage />} />
+                        {/* Public Device Payment Route (PIN protected only) */}
+                        <Route path="/Id/:deviceId" element={<PaymentPage />} />
 
-                    {/* Admin Routes */}
-                    <Route path="/" element={<AdminLayout />}>
-                        <Route index element={<AdminDashboard />} />
-                        <Route path="devices" element={<DeviceSelector />} />
-                        <Route path="contracts" element={<Contracts />} />
-                        <Route path="payments" element={<Payments />} />
-                        <Route path="invoices" element={<Invoices />} />
-                        <Route path="settings" element={<Settings />} />
-                    </Route>
+                        {/* Admin Routes */}
+                        <Route path="/" element={<AdminLayout />}>
+                            <Route index element={<AdminDashboard />} />
+                            <Route path="devices" element={<DeviceSelector />} />
+                            <Route path="contracts" element={<Contracts />} />
+                            <Route path="payments" element={<Payments />} />
+                            <Route path="invoices" element={<Invoices />} />
+                            <Route path="settings" element={<Settings />} />
+                        </Route>
 
-                    {/* Default redirect */}
-                    <Route path="*" element={<Navigate to="/admin/login" replace />} />
-                </Routes>
+                        {/* Default redirect */}
+                        <Route path="*" element={<Navigate to="/admin/login" replace />} />
+                    </Routes>
+                </Suspense>
             </AuthProvider>
         </HashRouter>
     );

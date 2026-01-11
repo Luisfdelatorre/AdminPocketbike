@@ -5,7 +5,26 @@ import AdminSidebar from './AdminSidebar';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+
+    useEffect(() => {
+        const handleResize = () => {
+            // Only auto-close/open if crossing the breakpoint? 
+            // Or just let user control it? 
+            // Common pattern: if resizing to desktop, ensure it's open (or not, user pref).
+            // For now, simpler is creating the initial state correctly.
+            // If the user RESIZES, we might want to adapt, but just fixing the *initial* load is the main request.
+            if (window.innerWidth <= 768) {
+                setSidebarOpen(false);
+            } else {
+                setSidebarOpen(true);
+            }
+        };
+
+        // Optional: Listen to resize to adapt dynamically
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
     const { isAuthenticated, authType, user } = useAuth();
 
     // Redirect device users to their payment page

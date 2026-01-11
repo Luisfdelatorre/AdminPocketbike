@@ -26,9 +26,9 @@ const resources = {
                 name: 'Name'
             },
             login: {
-                adminTitle: '🔐 Admin Login',
+                adminTitle: 'Admin Login',
                 adminSubtitle: 'Payments-Wompi Management System',
-                deviceTitle: '🏍️ Device Access',
+                deviceTitle: 'Device Access',
                 deviceSubtitle: 'Enter your device ID and PIN',
                 email: 'Email',
                 password: 'Password',
@@ -45,7 +45,8 @@ const resources = {
                 loginFailed: 'Login Failed',
                 accessGranted: 'Access Granted!',
                 accessDenied: 'Access Denied',
-                invalidPin: 'Invalid PIN'
+                invalidPin: 'Invalid PIN',
+                rememberMe: 'Remember me'
             },
             sidebar: {
                 main: 'Main',
@@ -60,7 +61,7 @@ const resources = {
                 logout: 'Logout'
             },
             devices: {
-                title: '🏍️ Device Management',
+                title: 'Device Management',
                 subtitle: 'Manage devices, PINs, and payment information',
                 addDevice: 'Add Device',
                 totalDevices: 'Total Devices',
@@ -83,25 +84,27 @@ const resources = {
                     set: 'Set',
                     generate: 'Generate',
                     regenerate: 'Regenerate PIN',
-                    modalTitle: '🔑 Set Device PIN',
+                    modalTitle: 'Set Device PIN',
                     modalSubtitle: 'Generate a random PIN or enter a custom 4-digit PIN for',
                     customLabel: 'Custom PIN (optional)',
                     customPlaceholder: 'Enter 4 digits or leave empty',
                     autoHelper: 'Leave empty to auto-generate a random PIN',
                     useCustom: 'Use Custom PIN',
                     autoGenerate: 'Auto-Generate PIN',
-                    generatedTitle: '🔑 Device PIN Generated',
+                    generatedTitle: 'Device PIN Generated',
                     saveWarning: 'Save this PIN! It won\'t be shown again.',
                     instruction1: '✓ Share this PIN with the device user',
                     instruction2: '✓ They\'ll use it to access payment page',
                     instruction3: '✓ You can regenerate it anytime'
                 },
                 share: {
-                    title: '🔗 Share Payment Link',
+                    title: 'Share Payment Link',
                     subtitle: 'Share this link with the user to access the payment page.',
                     copy: 'Copy',
                     note: 'Note:',
-                    noteText: 'Users will need their 4-digit PIN to access this page.'
+                    noteText: 'Users will need their 4-digit PIN to access this page.',
+                    copySuccess: 'Link copied to clipboard!',
+                    copySuccess2: 'Link copied to clipboard!'
                 },
                 form: {
                     editTitle: 'Edit Device',
@@ -141,9 +144,9 @@ const resources = {
                 name: 'Nombre'
             },
             login: {
-                adminTitle: '🔐 Acceso Admin',
+                adminTitle: 'Acceso Admin',
                 adminSubtitle: 'Sistema de Gestión Payments-Wompi',
-                deviceTitle: '🏍️ Acceso a Pagos',
+                deviceTitle: 'Acceso a Pagos',
                 deviceSubtitle: 'Ingresa tu ID de moto y PIN',
                 email: 'Correo',
                 password: 'Contraseña',
@@ -160,7 +163,8 @@ const resources = {
                 loginFailed: 'Error de ingreso',
                 accessGranted: '¡Acceso Concedido!',
                 accessDenied: 'Acceso Denegado',
-                invalidPin: 'PIN Inválido'
+                invalidPin: 'PIN Inválido',
+                rememberMe: 'Recuérdame'
             },
             sidebar: {
                 main: 'Principal',
@@ -175,9 +179,9 @@ const resources = {
                 logout: 'Salir'
             },
             devices: {
-                title: '🏍️ Gestión de Dispositivos',
+                title: 'Gestión de Dispositivos',
                 subtitle: 'Administra dispositivos, PINs e información de pago',
-                addDevice: 'Agregar Dispositivo',
+                addDevice: 'Nuevo',
                 totalDevices: 'Total Dispositivos',
                 activeContracts: 'Contratos Activos',
                 available: 'Disponibles',
@@ -187,8 +191,8 @@ const resources = {
                 filterAvailable: 'Disponibles',
                 table: {
                     name: 'Nombre',
-                    nequi: 'Número Nequi',
-                    sim: 'Número SIM',
+                    nequi: 'Nequi',
+                    sim: 'SIM',
                     status: 'Estado',
                     pin: 'PIN',
                     contract: 'Contrato',
@@ -198,33 +202,35 @@ const resources = {
                     set: 'Configurado',
                     generate: 'Generar',
                     regenerate: 'Regenerar PIN',
-                    modalTitle: '🔑 Configurar PIN',
+                    modalTitle: 'Configurar PIN',
                     modalSubtitle: 'Genera un PIN aleatorio o ingresa uno personalizado para',
                     customLabel: 'PIN Personalizado (opcional)',
                     customPlaceholder: 'Ingresa 4 dígitos o deja vacío',
                     autoHelper: 'Deja vacío para generar automáticamente',
                     useCustom: 'Usar PIN Propio',
                     autoGenerate: 'Generar Auto',
-                    generatedTitle: '🔑 PIN Generado',
+                    generatedTitle: 'PIN Generado',
                     saveWarning: '¡Guarda este PIN! No se mostrará de nuevo.',
                     instruction1: '✓ Comparte este PIN con el usuario',
                     instruction2: '✓ Lo usarán para ingresar a pagos',
                     instruction3: '✓ Puedes regenerarlo cuando quieras'
                 },
                 share: {
-                    title: '🔗 Compartir Link de Pago',
+                    title: 'Compartir Link de Pago',
                     subtitle: 'Comparte este link para acceder a la página de pago.',
                     copy: 'Copiar',
                     note: 'Nota:',
-                    noteText: 'El usuario necesitará su PIN de 4 dígitos.'
+                    noteText: 'El usuario necesitará su PIN de 4 dígitos.',
+                    copySuccess: '¡Link copiado al portapapeles!',
+                    copySuccess2: '¡Link copiado al portapapeles!'
                 },
                 form: {
                     editTitle: 'Editar Dispositivo',
                     addTitle: 'Agregar Dispositivo',
                     deviceId: 'ID Dispositivo *',
                     name: 'Nombre *',
-                    nequi: 'Número Nequi',
-                    sim: 'Número SIM',
+                    nequi: 'Nequi',
+                    sim: 'SIM',
                     notes: 'Notas',
                     active: 'Activo'
                 },

@@ -9,6 +9,7 @@ import './Login.css';
 const AdminLogin = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(true);
     const [loading, setLoading] = useState(false);
     const { loginAdmin } = useAuth();
     const { t } = useTranslation();
@@ -18,7 +19,7 @@ const AdminLogin = () => {
         e.preventDefault();
         setLoading(true);
 
-        const result = await loginAdmin(email, password);
+        const result = await loginAdmin(email, password, rememberMe);
 
         if (result.success) {
             showToast('success', t('login.welcome'), t('login.loginSuccess'));
@@ -63,6 +64,17 @@ const AdminLogin = () => {
                             required
                             autoComplete="current-password"
                         />
+                    </div>
+
+                    <div className="form-group checkbox-group" style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="rememberMe"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            style={{ marginRight: '0.5rem', width: 'auto' }}
+                        />
+                        <label htmlFor="rememberMe" style={{ marginBottom: 0 }}>{t('login.rememberMe') || 'Remember me'}</label>
                     </div>
 
                     <button

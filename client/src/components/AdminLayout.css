@@ -8,7 +8,7 @@
 .admin-content {
     flex: 1;
     margin-left: 280px;
-    padding: 2rem;
+    padding: .5rem;
     transition: margin-left 0.3s ease;
     min-height: 100vh;
     min-width: 0;
@@ -23,7 +23,7 @@
 @media (max-width: 768px) {
     .admin-content {
         margin-left: 0 !important;
-        padding: 1rem;
+        padding: .5rem;
     }
 
     .admin-content.sidebar-closed {

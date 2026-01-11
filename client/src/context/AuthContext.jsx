@@ -17,11 +17,11 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [authType, setAuthType] = useState(null); // 'admin' or 'device'
 
-    // Load token from localStorage on mount
+    // Load token from storage on mount
     useEffect(() => {
-        const storedToken = localStorage.getItem('auth_token');
-        const storedType = localStorage.getItem('auth_type');
-        const storedUser = localStorage.getItem('auth_user');
+        const storedToken = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        const storedType = localStorage.getItem('auth_type') || sessionStorage.getItem('auth_type');
+        const storedUser = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user');
 
         if (storedToken) {
             setToken(storedToken);
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // Admin login
-    const loginAdmin = async (email, password) => {
+    const loginAdmin = async (email, password, rememberMe = true) => {
         try {
             const result = await login({ email, password });
 
@@ -43,9 +43,10 @@ export const AuthProvider = ({ children }) => {
                 setUser(result.data.user);
                 setAuthType('admin');
 
-                localStorage.setItem('auth_token', result.data.token);
-                localStorage.setItem('auth_type', 'admin');
-                localStorage.setItem('auth_user', JSON.stringify(result.data.user));
+                const storage = rememberMe ? localStorage : sessionStorage;
+                storage.setItem('auth_token', result.data.token);
+                storage.setItem('auth_type', 'admin');
+                storage.setItem('auth_user', JSON.stringify(result.data.user));
 
                 return { success: true };
             } else {
@@ -88,6 +89,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_type');
         localStorage.removeItem('auth_user');
+
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_type');
+        sessionStorage.removeItem('auth_user');
     };
 
     // Check if user is authenticated
