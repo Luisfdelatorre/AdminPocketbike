@@ -20,7 +20,8 @@ const Contracts = () => {
         dailyRate: 3000000, // 30,000 COP in cents
         contractDays: 500,
         startDate: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        devicePin: ''
     });
 
     useEffect(() => {
@@ -68,7 +69,8 @@ const Contracts = () => {
             dailyRate: 3000000,
             contractDays: 500,
             startDate: new Date().toISOString().split('T')[0],
-            notes: ''
+            notes: '',
+            devicePin: Math.floor(1000 + Math.random() * 9000).toString()
         });
         setShowModal(true);
     };
@@ -84,7 +86,8 @@ const Contracts = () => {
             dailyRate: contract.dailyRate,
             contractDays: contract.contractDays,
             startDate: contract.startDate,
-            notes: contract.notes || ''
+            notes: contract.notes || '',
+            devicePin: '' // Keep empty to not change unless user enters new one
         });
         setShowModal(true);
     };
@@ -101,20 +104,20 @@ const Contracts = () => {
             if (result.success) {
                 setShowModal(false);
                 loadContracts();
-                alert(editingContract ? 'Contract updated successfully!' : 'Contract created successfully!');
+                alert(editingContract ? '¡Contrato actualizado exitosamente!' : '¡Contrato creado exitosamente!');
             } else {
                 alert(`Error: ${result.error}`);
             }
         } catch (error) {
             console.error('Error saving contract:', error);
-            alert('Failed to save contract');
+            alert('Error al guardar contrato');
         } finally {
             setLoading(false);
         }
     };
 
     const handleStatusChange = async (contractId, newStatus) => {
-        if (!confirm(`Are you sure you want to change the status to ${newStatus}?`)) {
+        if (!confirm(`¿Está seguro de cambiar el estado a ${newStatus}?`)) {
             return;
         }
 
@@ -123,13 +126,13 @@ const Contracts = () => {
 
             if (result.success) {
                 loadContracts();
-                alert('Status updated successfully!');
+                alert('¡Estado actualizado exitosamente!');
             } else {
                 alert(`Error: ${result.error}`);
             }
         } catch (error) {
             console.error('Error updating status:', error);
-            alert('Failed to update status');
+            alert('Error al actualizar estado');
         }
     };
 
@@ -183,36 +186,36 @@ const Contracts = () => {
         <div className="contracts-page">
             <div className="page-header">
                 <div>
-                    <h1>📋 Contracts Management</h1>
-                    <p>Manage 500-day rental contracts for all devices</p>
+                    <h1>📋 Gestión de Contratos</h1>
+                    <p>Gestionar contratos de alquiler de 500 días para todos los dispositivos</p>
                 </div>
                 <button className="btn-primary" onClick={handleNewContract}>
-                    <Plus /> New Contract
+                    <Plus /> Nuevo Contrato
                 </button>
             </div>
 
             {/* Summary Stats */}
             <div className="contracts-stats">
                 <StatCard
-                    title="Total Contracts"
+                    title="Total Contratos"
                     value={contracts.length}
                     icon={FileText}
                     color="#03C9D7"
                 />
                 <StatCard
-                    title="Active"
+                    title="Activos"
                     value={contracts.filter(c => c.status === 'ACTIVE').length}
                     icon={TrendingUp}
                     color="#00C292"
                 />
                 <StatCard
-                    title="Completed"
+                    title="Completados"
                     value={contracts.filter(c => c.status === 'COMPLETED').length}
                     icon={Check}
                     color="#7460EE"
                 />
                 <StatCard
-                    title="Total Value"
+                    title="Valor Total"
                     value={formatCurrency(contracts.reduce((sum, c) => sum + c.totalAmount, 0))}
                     icon={DollarSign}
                     color="#FB9678"
@@ -225,7 +228,7 @@ const Contracts = () => {
                     <Search className="search-icon" />
                     <input
                         type="text"
-                        placeholder="Search by device ID, contract ID, customer name or email..."
+                        placeholder="Buscar por ID, nombre o email..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -247,25 +250,25 @@ const Contracts = () => {
                     className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                     onClick={() => setFilter('all')}
                 >
-                    All Contracts
+                    Todos
                 </button>
                 <button
                     className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
                     onClick={() => setFilter('active')}
                 >
-                    Active
+                    Activos
                 </button>
                 <button
                     className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
                     onClick={() => setFilter('completed')}
                 >
-                    Completed
+                    Completados
                 </button>
                 <button
                     className={`filter-btn ${filter === 'cancelled' ? 'active' : ''}`}
                     onClick={() => setFilter('cancelled')}
                 >
-                    Cancelled
+                    Cancelados
                 </button>
             </div>
 
@@ -274,20 +277,30 @@ const Contracts = () => {
                 {loading ? (
                     <div className="loading-state">
                         <div className="spinner"></div>
-                        <p>Loading contracts...</p>
+                        <p>Cargando contratos...</p>
                     </div>
                 ) : filteredContracts.length === 0 ? (
                     <div className="empty-state">
                         <FileText size={48} />
-                        <h3>No contracts found</h3>
-                        <p>Create a new contract to get started</p>
+                        <h3>No se encontraron contratos</h3>
+                        <p>Cree un nuevo contrato para comenzar</p>
                     </div>
                 ) : (
                     filteredContracts.map(contract => (
                         <div key={contract.contractId} className="contract-card">
                             <div className="contract-header">
                                 <div className="contract-title">
-                                    <h3>{contract.deviceId}</h3>
+                                    <h3>
+                                        <a
+                                            href={`/pagos/${contract.deviceIdName || contract.deviceId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-gray-900 hover:text-indigo-600 transition-colors"
+                                            title="Open Payment Page"
+                                        >
+                                            {contract.deviceIdName || contract.deviceId}
+                                        </a>
+                                    </h3>
                                     <span
                                         className="status-badge"
                                         style={{
@@ -306,26 +319,27 @@ const Contracts = () => {
                             <div className="contract-body">
                                 <div className="contract-info-grid">
                                     <div className="info-item">
-                                        <span className="info-label">Customer</span>
+                                        <span className="info-label">Cliente</span>
                                         <span className="info-value">{contract.customerName || 'N/A'}</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Daily Rate</span>
+                                        <span className="info-label">Tarifa Diaria</span>
                                         <span className="info-value">{formatCurrency(contract.dailyRate)}</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Total Days</span>
-                                        <span className="info-value">{contract.contractDays} days</span>
+                                        <span className="info-label">Días Totales</span>
+                                        <span className="info-value">{contract.contractDays} días</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Total Amount</span>
+                                        <span className="info-label">Monto Total</span>
                                         <span className="info-value">{formatCurrency(contract.totalAmount)}</span>
                                     </div>
+
                                 </div>
 
                                 <div className="contract-progress">
                                     <div className="progress-header">
-                                        <span>Progress: {contract.paidDays} / {contract.contractDays} days</span>
+                                        <span>Progreso: {contract.paidDays} / {contract.contractDays} días</span>
                                         <span className="progress-percent">
                                             {((contract.paidDays / contract.contractDays) * 100).toFixed(1)}%
                                         </span>
@@ -342,7 +356,7 @@ const Contracts = () => {
                                     <div className="progress-details">
                                         <div>
                                             <Check size={14} />
-                                            Paid: {formatCurrency(contract.paidAmount)}
+                                            Pagado: {formatCurrency(contract.paidAmount)}
                                         </div>
                                         <div>
                                             <Calendar size={14} />
@@ -354,7 +368,7 @@ const Contracts = () => {
 
                             <div className="contract-actions">
                                 <button className="btn-text btn-complete" onClick={() => handleEdit(contract)}>
-                                    <Edit /> Edit
+                                    <Edit /> Editar
                                 </button>
                                 {contract.status === 'ACTIVE' && (
                                     <>
@@ -362,13 +376,13 @@ const Contracts = () => {
                                             className="btn-text btn-complete"
                                             onClick={() => handleStatusChange(contract.contractId, 'COMPLETED')}
                                         >
-                                            <Check /> Mark Complete
+                                            <Check /> Completar
                                         </button>
                                         <button
                                             className="btn-text btn-cancel"
                                             onClick={() => handleStatusChange(contract.contractId, 'CANCELLED')}
                                         >
-                                            <X /> Cancel
+                                            <X /> Cancelar
                                         </button>
                                     </>
                                 )}
@@ -383,13 +397,13 @@ const Contracts = () => {
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>{editingContract ? 'Edit Contract' : 'New Contract'}</h2>
+                            <h2>{editingContract ? 'Editar Contrato' : 'Nuevo Contrato'}</h2>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <form onSubmit={handleSubmit} className="contract-form">
                             <div className="form-grid">
                                 <div className="form-group">
-                                    <label>Device ID *</label>
+                                    <label>ID Dispositivo *</label>
                                     {editingContract ? (
                                         <input
                                             type="text"
@@ -403,25 +417,24 @@ const Contracts = () => {
                                                 onChange={(e) => setFormData({ ...formData, deviceId: e.target.value })}
                                                 required
                                             >
-                                                <option value="">Select a device...</option>
-                                                {availableDevices.map(device => (
+                                                <option value="">Seleccionar dispositivo...</option>
+                                                {availableDevices.filter(d => !d.hasActiveContract).map(device => (
                                                     <option
                                                         key={device.deviceId}
                                                         value={device.deviceId}
-                                                        disabled={device.hasActiveContract}
                                                     >
-                                                        {device.deviceId} {device.hasActiveContract ? '(Has Active Contract)' : '(Available)'}
+                                                        {device.name || ''}
                                                     </option>
                                                 ))}
                                             </select>
                                             <small style={{ color: '#6B7280', fontSize: '0.813rem', marginTop: '0.25rem', display: 'block' }}>
-                                                Each device can only have one active contract. Cancel existing contracts before creating a new one.
+                                                Cada dispositivo solo puede tener un contrato activo. Cancele los contratos existentes antes de crear uno nuevo.
                                             </small>
                                         </>
                                     )}
                                 </div>
                                 <div className="form-group">
-                                    <label>Start Date *</label>
+                                    <label>Fecha Inicio *</label>
                                     <input
                                         type="date"
                                         value={formData.startDate}
@@ -431,7 +444,41 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Customer Name</label>
+                                    <label>PIN del Dispositivo {editingContract ? '(Dejar vacío para mantener el actual)' : '*'}</label>
+                                    <input
+                                        type="text"
+                                        value={formData.devicePin}
+                                        onChange={(e) => setFormData({ ...formData, devicePin: e.target.value })}
+                                        placeholder="PIN de 4 dígitos"
+                                        maxLength="4"
+                                        className="font-mono"
+                                        required={!editingContract}
+                                    />
+                                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center' }}>
+                                        <input
+                                            type="checkbox"
+                                            id="usePhonePin"
+                                            style={{ marginRight: '0.5rem', width: 'auto' }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    const phone = formData.customerPhone || '';
+                                                    const digits = phone.replace(/\D/g, '');
+                                                    if (digits.length >= 4) {
+                                                        setFormData(prev => ({ ...prev, devicePin: digits.slice(-4) }));
+                                                    } else {
+                                                        alert('Ingrese un número de celular válido primero');
+                                                        e.target.checked = false;
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <label htmlFor="usePhonePin" style={{ fontSize: '0.9rem', color: '#4B5563', cursor: 'pointer' }}>
+                                            Usa los últimos 4 del celular
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>Nombre del Cliente</label>
                                     <input
                                         type="text"
                                         value={formData.customerName}
@@ -440,16 +487,16 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Customer Email</label>
+                                    <label>Email del Cliente</label>
                                     <input
                                         type="email"
                                         value={formData.customerEmail}
                                         onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
-                                        placeholder="customer@email.com"
+                                        placeholder="cliente@email.com"
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Customer Phone</label>
+                                    <label>Teléfono del Cliente</label>
                                     <input
                                         type="tel"
                                         value={formData.customerPhone}
@@ -458,16 +505,16 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Customer Document</label>
+                                    <label>Documento del Cliente</label>
                                     <input
                                         type="text"
                                         value={formData.customerDocument}
                                         onChange={(e) => setFormData({ ...formData, customerDocument: e.target.value })}
-                                        placeholder="ID/CC Number"
+                                        placeholder="Cédula/NIT"
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Daily Rate (COP)</label>
+                                    <label>Tarifa Diaria (COP)</label>
                                     <input
                                         type="number"
                                         value={formData.dailyRate / 100}
@@ -478,7 +525,7 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Contract Days</label>
+                                    <label>Días de Contrato</label>
                                     <input
                                         type="number"
                                         value={formData.contractDays}
@@ -490,20 +537,20 @@ const Contracts = () => {
                                 </div>
                             </div>
                             <div className="form-group full-width">
-                                <label>Notes</label>
+                                <label>Notas</label>
                                 <textarea
                                     value={formData.notes}
                                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                     rows="3"
-                                    placeholder="Additional notes..."
+                                    placeholder="Notas adicionales..."
                                 />
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                                    Cancel
+                                    Cancelar
                                 </button>
                                 <button type="submit" className="btn-primary" disabled={loading}>
-                                    {loading ? 'Saving...' : editingContract ? 'Update Contract' : 'Create Contract'}
+                                    {loading ? 'Guardando...' : editingContract ? 'Actualizar Contrato' : 'Crear Contrato'}
                                 </button>
                             </div>
                         </form>

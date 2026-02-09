@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Payments.css';
+import { getAllPayments } from '../services/api';
 
 const Payments = () => {
     const [payments, setPayments] = useState([]);
@@ -24,10 +25,10 @@ const Payments = () => {
         setLoading(true);
         try {
             // Build query params
-            const params = new URLSearchParams({
-                page: pagination.page.toString(),
-                limit: pagination.limit.toString()
-            });
+            const queryParams = {
+                page: pagination.page,
+                limit: pagination.limit
+            };
 
             // Add status filter if not 'all'
             if (filter !== 'all') {
@@ -37,12 +38,11 @@ const Payments = () => {
                     'failed': 'DECLINED'
                 };
                 if (statusMap[filter]) {
-                    params.append('status', statusMap[filter]);
+                    queryParams.status = statusMap[filter];
                 }
             }
 
-            const response = await fetch(`/api/payments/all?${params}`);
-            const result = await response.json();
+            const result = await getAllPayments(queryParams);
 
             if (result.success) {
                 setPayments(result.payments || []);

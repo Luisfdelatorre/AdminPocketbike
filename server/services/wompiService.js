@@ -1,12 +1,13 @@
-import { config, WOMPI_STATUS_MAP } from '../config/config.js';
+import { Url, Login, Transaction } from '../config/config.js';
 import crypto from 'crypto';
 
 export class WompiService {
+
     constructor() {
-        this.apiUrl = config.wompi.apiUrl;
-        this.publicKey = config.wompi.publicKey;
-        this.privateKey = config.wompi.privateKey;
-        this.integritySecret = config.wompi.integritySecret;
+        this.apiUrl = Url.WompiBaseUrl;
+        this.publicKey = Login.Wompi.publicKey;
+        this.privateKey = Login.Wompi.privateKey;
+        this.integritySecret = Login.Wompi.secretIntegrity;
         this.signature = null;
         this.timestamp = null;
         this.eventData = null;
@@ -275,7 +276,7 @@ export class WompiService {
      * Map Wompi status to internal status
      */
     mapStatus(wompiStatus) {
-        return WOMPI_STATUS_MAP[wompiStatus] || wompiStatus;
+        return config.WOMPI_STATUS_MAP[wompiStatus] || wompiStatus;
     }
 }
 

@@ -1,6 +1,10 @@
 import invoiceRepository from '../repositories/invoiceRepository.js';
 // Import dependencies for direct queries if needed, or use repository
 import { Invoice } from '../models/Invoice.js';
+import { resolveDeviceId } from '../utils/deviceResolver.js';
+import invoiceServices from '../services/invoiceServices.js';
+import logger from '../config/logger.js';
+
 
 /**
  * Create a daily invoice for a device
@@ -85,7 +89,8 @@ const getAllInvoices = async (req, res) => {
  */
 const getInvoicesByDevice = async (req, res) => {
     try {
-        const { deviceId } = req.params;
+        const identifier = req.params.deviceId;
+        const deviceId = await resolveDeviceId(identifier);
         const limit = parseInt(req.query.limit) || 50;
 
         const invoices = await invoiceRepository.getInvoicesByDevice(deviceId, limit);
@@ -103,12 +108,28 @@ const getInvoicesByDevice = async (req, res) => {
     }
 };
 
+const getInvoiceHistory = async (req, res) => {
+    // try {
+    const { deviceIdName } = req.paymentAuth;
+
+    // Delegate to service
+    const history = await invoiceServices.getInvoiceHistory(deviceIdName);
+
+    res.json({ history });
+
+    // } catch (error) {
+    //     logger.error('Get payment history error:', error.message);
+    //     res.status(500).json({ error: 'Failed to get payment history' });
+    // }
+};
+
 /**
  * Get unpaid invoices for a device
  */
 const getUnpaidInvoices = async (req, res) => {
     try {
-        const { deviceId } = req.params;
+        const identifier = req.params.deviceId;
+        const deviceId = await resolveDeviceId(identifier);
 
         const invoices = await invoiceRepository.getUnpaidInvoicesByDevice(deviceId);
 
@@ -127,6 +148,7 @@ const getUnpaidInvoices = async (req, res) => {
 
 export default {
     createInvoice,
+    getInvoiceHistory,
     getAllInvoices,
     getInvoicesByDevice,
     getUnpaidInvoices

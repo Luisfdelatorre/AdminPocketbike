@@ -117,6 +117,16 @@ const resources = {
                     active: 'Active'
                 },
                 emptyState: 'No devices found. Add your first device to get started.'
+            },
+            invoices: {
+                title: 'Invoices',
+                subtitle: 'View and manage all invoices across devices',
+                empty: 'No invoices found',
+                searchPlaceholder: 'Search by invoice ID, device ID, contract ID...',
+                filterAll: 'All Invoices',
+                filterPaid: 'Paid',
+                filterUnpaid: 'Unpaid',
+                filterPending: 'Pending'
             }
         }
     },
@@ -192,7 +202,7 @@ const resources = {
                 table: {
                     name: 'Nombre',
                     nequi: 'Nequi',
-                    sim: 'SIM',
+                    driver: 'Conductor',
                     status: 'Estado',
                     pin: 'PIN',
                     contract: 'Contrato',
@@ -235,6 +245,16 @@ const resources = {
                     active: 'Activo'
                 },
                 emptyState: 'No se encontraron dispositivos. Agrega el primero para comenzar.'
+            },
+            invoices: {
+                title: 'Facturas',
+                subtitle: 'Ver y gestionar todas las facturas de los dispositivos',
+                empty: 'No se encontraron facturas',
+                searchPlaceholder: 'Buscar por ID factura, dispositivo o contrato...',
+                filterAll: 'Todas',
+                filterPaid: 'Pagadas',
+                filterUnpaid: 'Pendientes',
+                filterPending: 'En Proceso'
             }
         }
     }
@@ -244,7 +264,7 @@ i18n
     .use(initReactI18next)
     .init({
         resources,
-        lng: localStorage.getItem('app_language') || 'en',
+        lng: localStorage.getItem('app_language') || 'es', // Default to Spanish if no pref
         fallbackLng: 'en',
         interpolation: {
             escapeValue: false

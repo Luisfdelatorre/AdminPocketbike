@@ -6,7 +6,7 @@ export class ContractRepository {
      * Create a new contract
      */
     async createContract({
-        deviceId,
+        deviceIdName,
         dailyRate,
         contractDays = 500,
         startDate,
@@ -14,11 +14,12 @@ export class ContractRepository {
         customerEmail,
         customerPhone,
         customerDocument,
-        notes
+        notes,
+        devicePin
     }) {
         // Create contract ID with device and start date for easy searching
         // Format: CONTRACT-BIKE001-2026-01-06-abc123
-        const contractId = `C${deviceId}${nanoid(2).toUpperCase()}`;
+        const contractId = `C${deviceIdName}${nanoid(2).toUpperCase()}`;
 
         // Calculate end date
         const start = new Date(startDate);
@@ -31,7 +32,7 @@ export class ContractRepository {
 
         const contract = await Contract.create({
             contractId,
-            deviceId,
+            deviceIdName,
             dailyRate,
             contractDays,
             startDate,
@@ -43,6 +44,7 @@ export class ContractRepository {
             customerPhone,
             customerDocument,
             notes,
+            devicePin,
             status: 'ACTIVE',
         });
 
@@ -59,9 +61,9 @@ export class ContractRepository {
     /**
      * Get active contract for a device
      */
-    async getActiveContractByDevice(deviceId) {
+    async getActiveContractByDevice(deviceIdName) {
         return await Contract.findOne({
-            deviceId,
+            deviceIdName,
             status: 'ACTIVE',
         }).lean();
     }
@@ -69,8 +71,8 @@ export class ContractRepository {
     /**
      * Get all contracts for a device
      */
-    async getContractsByDevice(deviceId) {
-        return await Contract.find({ deviceId })
+    async getContractsByDevice(deviceIdName) {
+        return await Contract.find({ deviceIdName })
             .sort({ createdAt: -1 })
             .lean();
     }
@@ -140,8 +142,8 @@ export class ContractRepository {
     /**
      * Get contract statistics
      */
-    async getContractStats(deviceId) {
-        const contract = await this.getActiveContractByDevice(deviceId);
+    async getContractStats(deviceIdName) {
+        const contract = await this.getActiveContractByDevice(deviceIdName);
 
         if (!contract) {
             return null;
@@ -149,7 +151,7 @@ export class ContractRepository {
 
         return {
             contractId: contract.contractId,
-            deviceId: contract.deviceId,
+            deviceId: contract.deviceIdName,
             totalDays: contract.contractDays,
             paidDays: contract.paidDays,
             remainingDays: contract.remainingDays,
@@ -168,23 +170,51 @@ export class ContractRepository {
      * Update contract details (customer info, daily rate, notes)
      */
     async updateContract(contractId, updates) {
-        const contract = await Contract.findOneAndUpdate(
-            { contractId },
-            {
-                $set: {
-                    ...(updates.customerName !== undefined && { customerName: updates.customerName }),
-                    ...(updates.customerEmail !== undefined && { customerEmail: updates.customerEmail }),
-                    ...(updates.customerPhone !== undefined && { customerPhone: updates.customerPhone }),
-                    ...(updates.customerDocument !== undefined && { customerDocument: updates.customerDocument }),
-                    ...(updates.dailyRate !== undefined && { dailyRate: updates.dailyRate }),
-                    ...(updates.notes !== undefined && { notes: updates.notes }),
-                }
-            },
-            { new: true }
-        );
+        const contract = await Contract.findOne({ contractId });
 
-        return contract;
+        if (!contract) {
+            throw new Error('Contract not found');
+        }
+
+        if (updates.customerName !== undefined) contract.customerName = updates.customerName;
+        if (updates.customerEmail !== undefined) contract.customerEmail = updates.customerEmail;
+        if (updates.customerPhone !== undefined) contract.customerPhone = updates.customerPhone;
+        if (updates.customerDocument !== undefined) contract.customerDocument = updates.customerDocument;
+        if (updates.dailyRate !== undefined) contract.dailyRate = updates.dailyRate;
+        if (updates.notes !== undefined) contract.notes = updates.notes;
+
+        // Handle PIN update - pre-save hook will hash it
+        if (updates.devicePin !== undefined && updates.devicePin) {
+            contract.devicePin = updates.devicePin;
+        }
+
+        await contract.save();
+        return contract.toObject();
     }
+
+    async validateDevicePin(deviceIdName, pin) {
+        const contract = await this.getActiveContractByDevice(deviceIdName);
+
+        if (!contract) {
+            return { valid: false, error: 'No active contract found for this device' };
+        }
+
+        if (!contract.devicePin) {
+            return { valid: false, error: 'This contract does not have a PIN set. Please contact admin to set a PIN.' };
+        }
+
+        const bcrypt = require('bcryptjs');
+        const isValid = await bcrypt.compare(pin, contract.devicePin);
+
+        if (!isValid) {
+            return { valid: false, error: 'Invalid PIN' };
+        }
+
+        return { valid: true, contract };
+    }
+
+
+
 }
 
 export default new ContractRepository();

@@ -108,7 +108,8 @@ export const AuthProvider = ({ children }) => {
     // Check if user has access to device
     const hasDeviceAccess = (deviceId) => {
         if (authType === 'admin') return true;
-        if (authType === 'device' && user?.deviceId === deviceId) return true;
+        // Use loose equality to handle string/number differences
+        if (authType === 'device' && user?.deviceId == deviceId) return true;
         return false;
     };
 

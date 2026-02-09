@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import { PAYMENT_STATUS } from '../config/config.js';
+import { Transaction } from '../config/config.js';
+const { PAYMENT_STATUS } = Transaction;
 
 const paymentSchema = new mongoose.Schema({
     paymentId: {

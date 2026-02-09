@@ -2,8 +2,10 @@ import paymentRepository from '../repositories/paymentRepository.js';
 import invoiceRepository from '../repositories/invoiceRepository.js';
 import webhookRepository from '../repositories/webhookRepository.js';
 import wompiService from './wompiService.js';
-import { PAYMENT_STATUS, INVOICE_STATUS, WOMPI_EVENTS } from '../config/config.js';
 import { sseService } from '../utils/sseService.js';
+import { Transaction, WOMPI_EVENTS } from '../config/config.js';
+
+const { PAYMENT_STATUS, INVOICE_DAYTYPE: INVOICE_STATUS } = Transaction;
 
 export class WebhookService {
     /**

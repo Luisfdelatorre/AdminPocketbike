@@ -51,6 +51,16 @@ const login = async (req, res) => {
 
         const result = await authService.loginUser(email, password);
 
+        // Forward Traccar cookies if present
+        if (result.traccarCookies && Array.isArray(result.traccarCookies)) {
+            result.traccarCookies.forEach(cookie => {
+                // Parse simple cookie string to get name, value and options? 
+                // Or just blindly forward as Set-Cookie?
+                // Express res.append('Set-Cookie', cookie) works for multiple cookies
+                res.append('Set-Cookie', cookie);
+            });
+        }
+
         res.json({
             success: true,
             data: result,
@@ -67,27 +77,20 @@ const login = async (req, res) => {
 /**
  * Verify device PIN and get access token
  */
-const verifyDevicePin = async (req, res) => {
+const authenticateDevice = async (req, res) => {
     try {
-        const { deviceId, pin } = req.body;
+        const { deviceIdName, pin } = req.body;
 
-        if (!deviceId || !pin) {
+        if (!deviceIdName || !pin) {
             return res.status(400).json({
                 success: false,
                 error: 'Device ID and PIN are required',
             });
         }
 
-        const result = await authService.verifyDevicePin(deviceId, pin);
+        const result = await authService.verifyDevicePin(deviceIdName, pin);
 
-        res.json({
-            success: true,
-            data: {
-                deviceId: result.access.deviceId,
-                token: result.token,
-                expiresAt: result.access.expiresAt,
-            },
-        });
+        res.json(result);
     } catch (error) {
         console.error('Device PIN error:', error);
         res.status(401).json({
@@ -206,7 +209,7 @@ const verifyToken = async (req, res) => {
 export default {
     register,
     login,
-    verifyDevicePin,
+    authenticateDevice,
     createDevicePin,
     getMe,
     verifyToken

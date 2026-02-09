@@ -1,22 +1,24 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { config } from './config/config.js';
+import * as config from './config/config.js';
 import { connectDatabase } from './database/connection.js';
 
 // Routes
 import authRouter from './routes/auth.js';
-import paymentsRouter from './routes/payments.js';
+import paymentsRouter from './routes/paymentsRoutes.js';
 import webhooksRouter from './routes/webhooks.js';
 import sseRouter from './routes/sse.js';
-import invoicesRouter from './routes/invoices.js';
+
+import invoicesRouter from './routes/invoicesRoutes.js';
 import contractsRouter from './routes/contracts.js';
 import dashboardRouter from './routes/dashboard.js';
 import deviceAccessRouter from './routes/deviceAccess.js';
-import devicesRouter from './routes/devices.js';
+import devicesRouter from './routes/devicesRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const PORT = process.env.PORT || 8083;
 
 const app = express();
 
@@ -44,18 +46,34 @@ app.use((req, res, next) => {
 });
 
 // API Routes
-app.use('/api/auth', authRouter);
-app.use('/api/payments', paymentsRouter);
-app.use('/api/webhooks', webhooksRouter);
-app.use('/api/sse', sseRouter);
-app.use('/api/invoices', invoicesRouter);
-app.use('/api/contracts', contractsRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/device-access', deviceAccessRouter);
-app.use('/api/devices', devicesRouter);
+app.use('/apinode/auth', authRouter);
+app.use('/apinode/payments', paymentsRouter);
+app.use('/apinode/webhooks', webhooksRouter);
+app.use('/apinode/sse', sseRouter);
+app.use('/apinode/invoices', invoicesRouter);
+app.use('/apinode/contracts', contractsRouter);
+app.use('/apinode/dashboard', dashboardRouter);
+app.use('/apinode/device-access', deviceAccessRouter);
+app.use('/apinode/devices', devicesRouter);
+
+
+// Serve static files from dist directory (Production Build) - PRIORITY
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Custom Payment Page (Vanilla JS)
+// Serve static assets for the custom page
+app.use('/js', express.static(path.join(__dirname, '../client/js')));
+app.use('/css', express.static(path.join(__dirname, '../client/css')));
+app.use('/assets', express.static(path.join(__dirname, '../client/assets'))); // Serve assets if needed
+// app.use(express.static(path.join(__dirname, '../client'))); // REMOVED to prevent index.html conflict
+
+// Custom Payment Route
+app.get('/pagos/:id', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/pay/index.html'));
+});
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/apinode/health', (req, res) => {
     res.json({
         success: true,
         message: 'Server is running',
@@ -63,13 +81,12 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Serve static files from client directory
-app.use(express.static(path.join(__dirname, '../client')));
+// Serve static files from dist directory (Moved to top)
 
 // Serve index.html for all non-API routes (SPA support)
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, '../client/index.html'));
+        res.sendFile(path.join(__dirname, '../dist/index.html'));
     } else {
         res.status(404).json({ error: 'API endpoint not found' });
     }
@@ -107,7 +124,7 @@ async function startServer() {
             console.log('================================');
             console.log(`📍 Server: http://localhost:${config.server.port}`);
             console.log(`🌍 Environment: ${config.server.env}`);
-            console.log(`💳 Wompi API: ${config.wompi.apiUrl}`);
+            console.log(`💳 Wompi API: ${config.Url.WompiBaseUrl}`);
             console.log('================================');
             console.log('');
         });

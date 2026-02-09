@@ -20,7 +20,7 @@ router.post('/login', authController.login);
  * POST /api/auth/device-pin
  * Verify device PIN and get access token
  */
-router.post('/device-pin', authController.verifyDevicePin);
+router.post('/pin-login', authController.authenticateDevice);
 
 /**
  * POST /api/auth/create-device-pin

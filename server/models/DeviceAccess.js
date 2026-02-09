@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 
 const deviceAccessSchema = new mongoose.Schema({
     deviceId: {
-        type: Number,
+        type: String,
         required: true,
         index: true,
     },

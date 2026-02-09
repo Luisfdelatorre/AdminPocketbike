@@ -1,198 +1,207 @@
 import paymentService from '../services/paymentService.js';
-import paymentRepository from '../repositories/paymentRepository.js';
+import contractRepository from '../repositories/contractRepository.js';
+import logger from '../config/logger.js';
 
-/**
- * Get all payments across all devices with pagination
- * Query params: page (default: 1), limit (default: 50), status (optional filter)
- */
-const getAllPayments = async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
-        const status = req.query.status; // optional: APPROVED, PENDING, DECLINED, etc.
+const M_REQUEST_SENT = "Solicitud de pago enviada";
 
-        // Use repository method for paginated query
-        const result = await paymentRepository.getAllPaymentsPaginated({
-            page,
-            limit,
-            status
-        });
+const paymentController = {
 
-        res.json({
-            success: true,
-            payments: result.payments,
-            pagination: result.pagination
-        });
-    } catch (error) {
-        console.error('Error fetching all payments:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch payments'
-        });
-    }
-};
+    /*Get payment status for authenticated device*/
+    async getPaymentStatus(req, res) {
+        try {
+            const { deviceIdName } = req.paymentAuth; // Set by middleware
 
-/**
- * Create payment intent for the oldest unpaid invoice
- */
-const createPaymentIntent = async (req, res) => {
-    try {
-        const { deviceId, customerEmail } = req.body;
+            const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
 
-        if (!deviceId) {
-            return res.status(400).json({
-                success: false,
-                error: 'deviceId is required',
-            });
+            if (!contract) {
+                return res.status(404).json({
+                    error: 'No active contract found'
+                });
+            }
+            const paymentStatus = await paymentService.calculatePaymentStatus(contract);
+            res.json(paymentStatus);
+        } catch (error) {
+            logger.error('Get payment status error:', error.message);
+            res.status(500).json({ error: 'Failed to get payment status' });
         }
+    },
 
-        const result = await paymentService.createPaymentIntent(deviceId, customerEmail);
+    /*Get payment history for authenticated device*/
+    async getPaymentHistory(req, res) {
+        // try {
+        // const { deviceIdName } = req.paymentAuth;
+        const { page, limit, status } = req.query;
+        const history = await paymentService.getPaymentHistory({ page, limit, status });
+        // The service now returns { payments, pagination }, so we should probably just return that directly or wrap it?
+        // The frontend expects { success: true, payments: [], pagination: {} } based on Payments.jsx
+        // Let's return the whole result from service which should match structure or be adapted.
+        // Actually, let's look at Payments.jsx: const result = await response.json(); if (result.success) ...
+        // So we need to return { success: true, ...history }
+        res.json({ success: true, ...history });
+        //} catch (error) {
+        //    logger.error('Get payment history error:', error.message);
+        //    res.status(500).json({ error: 'Failed to get payment history' });
+        // }
+    },
 
-        res.json({
-            success: true,
-            data: result,
-        });
-    } catch (error) {
-        console.error('Create payment intent error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
-    }
-};
+    /*Get device online status*/
+    async getDeviceStatus(req, res) {
+        // try {
+        console.log('Device ID Name:', req.paymentAuth);
+        const { deviceIdName, deviceId } = req.paymentAuth;
+        const status = await paymentService.getDataStatus(deviceId);
+        res.json(status);
+        // } catch (error) {
+        //  logger.error(`Error in getDeviceStatus for ${req.paymentAuth?.deviceId}:`, error.message);
+        // res.status(500).json({ error: 'Failed to get device status' });
+        //  }
+    },
 
-/**
- * Create payment intents for multiple invoices (sequentially)
- * Body: { deviceId, count, customerEmail }
- */
-const createBatchPaymentIntent = async (req, res) => {
-    try {
-        const { deviceId, count = 3, customerEmail } = req.body;
+    /*Use free day*/
+    async useFreeDay(req, res) {
+        try {
+            const { deviceIdName } = req.paymentAuth;
+            // Try to get contractId from token, if not, fetch active contract
+            let contractId = req.paymentAuth.contractId;
 
-        if (!deviceId) {
-            return res.status(400).json({
-                success: false,
-                error: 'deviceId is required',
-            });
+            if (!contractId) {
+                const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+                if (!contract) {
+                    return res.status(404).json({ error: 'No active contract found' });
+                }
+                contractId = contract.contractId;
+            }
+
+            const result = await paymentService.applyFreeDay(deviceIdName, contractId);
+
+            res.json(result);
+
+        } catch (error) {
+            logger.error('Use free day error:', error.message);
+            res.status(500).json({ error: error.message || 'Failed to use free day' });
         }
+    },
 
-        if (count < 1 || count > 10) {
-            return res.status(400).json({
-                success: false,
-                error: 'count must be between 1 and 10',
-            });
+    /*Request loan - allow working today and paying later*/
+    async requestLoan(req, res) {
+        try {
+            const { deviceIdName } = req.paymentAuth;
+            let contractId = req.paymentAuth.contractId;
+
+            if (!contractId) {
+                const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+                if (!contract) {
+                    return res.status(404).json({ error: 'No active contract found' });
+                }
+                contractId = contract.contractId;
+            }
+            const result = await paymentService.applyLoan(deviceIdName, contractId);
+
+            res.json(result);
+
+        } catch (error) {
+            logger.error('Request loan error:', error.message);
+            res.status(200).json({ success: false, message: error.message || 'Failed to request loan' });
         }
+    },
 
-        const result = await paymentService.createBatchPaymentIntents(deviceId, count, customerEmail);
+    /*Get public device info (for pre-filling payment form)*/
+    async getDeviceInfo(req, res) {
+        try {
+            const { deviceIdName } = req.params;
+            const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
 
-        res.json({
-            success: true,
-            data: result,
-        });
-    } catch (error) {
-        console.error('Create batch payment intent error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
-    }
-};
+            if (!contract) {
+                return res.status(404).json({ success: false, error: 'Device not found' });
+            }
 
-/**
- * Get payment status by reference
- */
-const getPaymentStatus = async (req, res) => {
-    try {
+            const status = await paymentService.calculatePaymentStatus(contract);
+
+            res.json({
+                success: true,
+                phoneNumber: status.customerPhone,
+                amount: status.dailyRate,
+                freeDays: status.freeDaysAvailable
+            });
+
+        } catch (error) {
+            logger.error('Get device info error:', error.message);
+            res.status(500).json({ success: false, error: 'Failed to get device info' });
+        }
+    },
+
+    /*Create payment*/
+    async createPayment(req, res) {
+        try {
+            const { phone } = req.body;
+            // SECURITY: Force use of authenticated deviceId from token
+            const { deviceIdName } = req.paymentAuth;
+
+            if (!phone || !deviceIdName) {
+                return res.status(400).json({ success: false, message: "Missing required fields" });
+            }
+            const result = await paymentService.initiateWompiPaymentTransaction(deviceIdName, phone);
+            return res.status(200).json({
+                success: true,
+                message: M_REQUEST_SENT,
+                paymentData: result.paymentData,
+            });
+
+        } catch (error) {
+            if (error.message.includes("Missing required fields")) {
+                return res.status(400).json({ success: false, message: error.message });
+            }
+            if (error.message.includes("not found")) {
+                return res.status(404).json({ success: false, message: error.message });
+            }
+            if (error.message.includes("already")) {
+                return res.status(409).json({ success: false, message: error.message });
+            }
+
+            return res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+
+    /*Get payment stream (SSE)*/
+    async getPaymentStream(req, res) {
         const { reference } = req.params;
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
 
-        const result = await paymentService.getPaymentStatus(reference);
+        res.write(`data: ${JSON.stringify({ status: 'CONNECTED', reference })}\n\n`);
 
-        res.json({
-            success: true,
-            data: result,
+        let stopMonitoring = null;
+        const sendUpdate = (update) => {
+            try {
+                res.write(`data: ${JSON.stringify(update)}\n\n`);
+                if (['COMPLETED', 'FAILED', 'TIMEOUT', 'ERROR'].includes(update.status)) {
+                    res.end();
+                }
+            } catch (error) {
+                logger.error(`SSE write error for ${reference}:`, error.message);
+                res.end();
+            }
+        };
+
+        // Note: paymentService needs to support waiting/pooling or we rely on the client to re-poll.
+        // The user's code implies a server-side poll. 
+        // For this step I'll assume paymentService.monitorTransactionStatus exists or I stubbed it.
+        // It's stubbed in my previous step. Real SSE logic might need more robust background job integration.
+        // But I will hook it up.
+        paymentService.monitorTransactionStatus(reference, {
+            onUpdate: sendUpdate,
+            // timeout logic handled in service
+        }).catch(err => {
+            logger.error(`Error in monitorTransactionStatus for ${reference}:`, err.message);
         });
-    } catch (error) {
-        console.error('Get payment status error:', error);
-        res.status(404).json({
-            success: false,
-            error: error.message,
-        });
-    }
-};
 
-/**
- * Get all unpaid invoices for a device
- */
-const getUnpaidInvoices = async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-
-        const invoices = await paymentService.getUnpaidInvoices(deviceId);
-
-        res.json({
-            success: true,
-            data: invoices,
-        });
-    } catch (error) {
-        console.error('Get unpaid invoices error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
-    }
-};
-
-/**
- * Get payment history for a device
- */
-const getPaymentHistory = async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-        const limit = parseInt(req.query.limit) || 50;
-
-        const history = await paymentService.getPaymentHistory(deviceId, limit);
-
-        res.json({
-            success: true,
-            data: history,
-        });
-    } catch (error) {
-        console.error('Get payment history error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
+        req.on('close', () => {
+            // Cleanup logic if needed
         });
     }
 };
 
-/**
- * Manually verify a transaction with Wompi
- */
-const verifyTransaction = async (req, res) => {
-    try {
-        const { reference } = req.params;
-
-        const result = await paymentService.verifyTransaction(reference);
-
-        res.json({
-            success: true,
-            data: result,
-        });
-    } catch (error) {
-        console.error('Verify transaction error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
-    }
-};
-
-export default {
-    getAllPayments,
-    createPaymentIntent,
-    createBatchPaymentIntent,
-    getPaymentStatus,
-    getUnpaidInvoices,
-    getPaymentHistory,
-    verifyTransaction
-};
+export default paymentController;

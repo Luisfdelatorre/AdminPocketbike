@@ -5,8 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical } from 'lucide-react';
 import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess } from '../services/api';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
-import PinInputModal from '../components/modals/PinInputModal';
-import PinDisplayModal from '../components/modals/PinDisplayModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import './DeviceSelector.css';
@@ -28,13 +26,9 @@ const DeviceManagement = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
-    const [showPinModal, setShowPinModal] = useState(false);
-    const [showPinInputModal, setShowPinInputModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareUrl, setShareUrl] = useState('');
-    const [generatedPin, setGeneratedPin] = useState('');
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
-    const [customPin, setCustomPin] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deviceToDelete, setDeviceToDelete] = useState(null);
@@ -65,7 +59,7 @@ const DeviceManagement = () => {
     }, [activeMenuId]);
 
     const handleShare = (device) => {
-        const url = `${window.location.origin}/#/Id/${device._id}`;
+        const url = `${window.location.origin}/pay/#/Id/${device.name}`;
         setShareUrl(url);
         setSelectedDeviceId(device.deviceId);
         setShowShareModal(true);
@@ -203,41 +197,7 @@ const DeviceManagement = () => {
         }
     };
 
-    const handleOpenPinInput = (deviceId) => {
-        setSelectedDeviceId(deviceId);
-        setCustomPin('');
-        setShowPinInputModal(true);
-    };
 
-    const handleSubmitPin = async (useCustom) => {
-        const deviceId = selectedDeviceId;
-        const pinToUse = useCustom ? customPin : undefined;
-
-        // Validate custom PIN
-        if (useCustom && (!/^\d{4}$/.test(customPin))) {
-            alert('PIN must be exactly 4 digits');
-            return;
-        }
-
-        try {
-            const result = await createDeviceAccess({
-                deviceId,
-                pin: pinToUse
-            });
-
-            if (result.success) {
-                setGeneratedPin(result.data.pin);
-                setShowPinInputModal(false);
-                setShowPinModal(true);
-                loadDevices();
-            } else {
-                alert(result.error);
-            }
-        } catch (err) {
-            console.error('Error generating PIN:', err);
-            alert('Failed to generate PIN');
-        }
-    };
 
     const handleToggleActive = async (device) => {
         try {
@@ -390,10 +350,11 @@ const DeviceManagement = () => {
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.name')}</div>
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.nequi')}</div>
                     {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.sim')}</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.status')}</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.pin')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.driver')}</div>
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.contract')}</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.status')}</div>
+
+
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
                 </div>
 
@@ -401,10 +362,19 @@ const DeviceManagement = () => {
                 <div className="divide-y divide-gray-50">
                     {filteredDevices.map((device) => (
                         <div key={device._id} className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 hover:bg-gray-50/50 transition-colors items-center text-sm">
-                            <div className="font-semibold text-gray-900 flex items-center">{device.deviceName}</div>
-                            <div className="text-gray-700 flex items-center">{device.nequiNumber || '-'}</div>
+                            <div className="font-semibold text-gray-900 flex items-center">
+                                <a
+                                    href={`/pay/#/Id/${device.name}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-gray-900 cursor-pointer hover:text-gray-600"
+                                >
+                                    {device.name}
+                                </a>
+                            </div>
+                            <div className="text-gray-700 flex items-center">{device.nequiNumber || device.phone || '-'}</div>
                             {/* Hiding SIM and Status content on Mobile/Tablet */}
-                            <div className="text-gray-500 hidden lg:flex items-center">{device.simCardNumber || '-'}</div>
+                            <div className="text-gray-500 hidden lg:flex items-center">{device.driverName || '-'}</div>
                             <div className="hidden lg:flex items-center">
                                 <button
                                     className={`status-toggle ${device.isActive ? 'active' : 'inactive'}`}
@@ -413,27 +383,7 @@ const DeviceManagement = () => {
                                     {device.isActive ? <><Check size={14} /> {t('common.active')}</> : <><X size={14} /> {t('common.inactive')}</>}
                                 </button>
                             </div>
-                            <div className="flex items-center">
-                                {device.hasPin ? (
-                                    <div className="pin-actions flex items-center gap-2">
-                                        <span className="pin-set font-mono text-emerald-500 font-medium">●●●●</span>
-                                        <button
-                                            className="btn-icon p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                                            onClick={() => handleOpenPinInput(device._id)}
-                                            title={t('devices.pin.regenerate')}
-                                        >
-                                            <RefreshCw size={14} />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        className="btn-generate-pin flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors"
-                                        onClick={() => handleOpenPinInput(device._id)}
-                                    >
-                                        <Key size={14} /> {t('devices.pin.generate')}
-                                    </button>
-                                )}
-                            </div>
+
                             <div className="text-gray-500 hidden lg:flex items-center">
                                 {device.hasActiveContract ? (
                                     <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">{t('common.active')}</span>
@@ -514,21 +464,7 @@ const DeviceManagement = () => {
                 isEditing={!!editingDevice}
             />
 
-            <PinInputModal
-                isOpen={showPinInputModal}
-                onClose={() => setShowPinInputModal(false)}
-                deviceId={selectedDeviceId}
-                customPin={customPin}
-                setCustomPin={setCustomPin}
-                onSubmit={handleSubmitPin}
-            />
 
-            <PinDisplayModal
-                isOpen={showPinModal}
-                onClose={() => setShowPinModal(false)}
-                deviceId={selectedDeviceId}
-                pin={generatedPin}
-            />
 
             <ShareDeviceModal
                 isOpen={showShareModal}

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, DollarSign, Check, X, Search, Filter } from 'lucide-react';
 import './Invoices.css';
+import { getAllInvoices } from '../services/api';
 
 const Invoices = () => {
+    const { t } = useTranslation();
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, paid, unpaid, pending
@@ -15,8 +18,7 @@ const Invoices = () => {
     const loadInvoices = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/invoices/all?page=1&limit=1000');
-            const result = await response.json();
+            const result = await getAllInvoices({ page: 1, limit: 1000 });
 
             if (result.success) {
                 setInvoices(result.invoices || []);
@@ -86,8 +88,8 @@ const Invoices = () => {
             {/* Header */}
             <div className="page-header">
                 <div>
-                    <h1>💰 Invoices</h1>
-                    <p>View and manage all invoices across devices</p>
+                    <h1>{t('invoices.title')}</h1>
+                    <p>{t('invoices.subtitle')}</p>
                 </div>
             </div>
 
@@ -98,7 +100,7 @@ const Invoices = () => {
                         <FileText />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Total Invoices</div>
+                        <div className="stat-label">Total</div>
                         <div className="stat-number">{stats.total}</div>
                     </div>
                 </div>
@@ -107,7 +109,7 @@ const Invoices = () => {
                         <Check />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Paid</div>
+                        <div className="stat-label">{t('invoices.filterPaid')}</div>
                         <div className="stat-number">{stats.paid}</div>
                     </div>
                 </div>
@@ -116,7 +118,7 @@ const Invoices = () => {
                         <X />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Unpaid</div>
+                        <div className="stat-label">{t('invoices.filterUnpaid')}</div>
                         <div className="stat-number">{stats.unpaid}</div>
                     </div>
                 </div>
@@ -137,7 +139,7 @@ const Invoices = () => {
                     <Search className="search-icon" />
                     <input
                         type="text"
-                        placeholder="Search by invoice ID, device ID, contract ID, or payment reference..."
+                        placeholder={t('invoices.searchPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -158,25 +160,25 @@ const Invoices = () => {
                     className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                     onClick={() => setFilter('all')}
                 >
-                    <Filter /> All
+                    <Filter /> {t('invoices.filterAll')}
                 </button>
                 <button
                     className={`filter-btn ${filter === 'paid' ? 'active' : ''}`}
                     onClick={() => setFilter('paid')}
                 >
-                    Paid
+                    {t('invoices.filterPaid')}
                 </button>
                 <button
                     className={`filter-btn ${filter === 'unpaid' ? 'active' : ''}`}
                     onClick={() => setFilter('unpaid')}
                 >
-                    Unpaid
+                    {t('invoices.filterUnpaid')}
                 </button>
                 <button
                     className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
                     onClick={() => setFilter('pending')}
                 >
-                    Pending
+                    {t('invoices.filterPending')}
                 </button>
             </div>
 
@@ -184,30 +186,28 @@ const Invoices = () => {
             {loading ? (
                 <div className="loading-state">
                     <div className="spinner"></div>
-                    <p>Loading invoices...</p>
+                    <p>{t('common.loading')}</p>
                 </div>
             ) : filteredInvoices.length === 0 ? (
                 <div className="empty-state">
                     <FileText size={48} />
-                    <h3>No Invoices Found</h3>
+                    <h3>{t('invoices.empty')}</h3>
                     <p>
                         {searchQuery
-                            ? `No invoices match "${searchQuery}"`
-                            : filter === 'all'
-                                ? 'No invoices have been created yet'
-                                : `No ${filter} invoices`}
+                            ? `"${searchQuery}"`
+                            : t('invoices.empty')}
                     </p>
                 </div>
             ) : (
                 <>
                     <div className="invoices-table">
                         <div className="table-header">
-                            <div>Invoice ID</div>
-                            <div>Contract ID</div>
-                            <div>Device</div>
+                            <div>ID</div>
+                            <div>{t('devices.table.contract')}</div>
+                            <div>{t('login.deviceId')}</div>
                             <div>Date</div>
                             <div>Amount</div>
-                            <div>Status</div>
+                            <div>{t('common.status')}</div>
                         </div>
                         {filteredInvoices.map((invoice) => (
                             <div key={invoice.invoiceId} className="table-row">

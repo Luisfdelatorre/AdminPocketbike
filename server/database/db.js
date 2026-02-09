@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { config } from '../config/config.js';
+import config from '../config/index.js';
 
 let db = null;
 

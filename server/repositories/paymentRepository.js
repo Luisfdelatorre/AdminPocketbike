@@ -1,6 +1,11 @@
 import { Payment } from '../models/index.js';
 import { nanoid } from 'nanoid';
-import { PAYMENT_STATUS } from '../config/config.js';
+import { Transaction } from '../config/config.js';
+import helpers from '../utils/helpers.js';
+const { getToday } = helpers;
+import logger from '../config/logger.js';
+
+const { PAYMENT_STATUS } = Transaction;
 
 export class PaymentRepository {
     /**
@@ -10,14 +15,14 @@ export class PaymentRepository {
         // Parse invoiceId to extract device ID
         // Format: INV-BIKE001-2026-01-05
         const invoiceParts = invoiceId.split('-');
-        const deviceId = invoiceParts[1]; // BIKE001
+        const deviceIdName = invoiceParts[1]; // BIKE001
 
         // Use today's date for the payment
         const today = new Date();
         const date = today.toISOString().split('T')[0]; // YYYY-MM-DD format
         const shortId = nanoid(6); // Short random ID for uniqueness
 
-        const paymentId = `PAY-${deviceId}-${date}-${shortId}`;
+        const paymentId = `PAY-${deviceIdName}-${date}-${shortId}`;
 
         // Use invoiceId as the payment reference - it's unique and deterministic
         // This way Wompi webhooks can directly reference the invoice
@@ -138,6 +143,23 @@ export class PaymentRepository {
             .lean();
     }
 
+    async findPendingPayment(deviceName, pendingMilliseconds) {
+        try {
+            const cutoffTime = getToday().subtract(pendingMilliseconds, 'milliseconds').toDate();
+            const pendingPayment = await Payment.findOne({
+                deviceIdName: deviceName,
+                status: PAYMENT_STATUS.PENDING,
+                createdAt: { $gte: cutoffTime }
+            }).sort({ createdAt: -1 });
+            return pendingPayment;
+        } catch (error) {
+            logger.error(`Error finding pending payment for ${deviceName}:`, error);
+            throw error;
+        }
+    }
+
+
+
     /**
      * Get all payments with pagination and optional status filter
      */
@@ -170,10 +192,10 @@ export class PaymentRepository {
     /**
      * Get payment history for a device
      */
-    async getPaymentHistory(deviceId, limit = 50) {
+    async getPaymentHistory(deviceIdName, limit = 50) {
         // Get invoices for this device
         const Invoice = (await import('../models/index.js')).Invoice;
-        const invoices = await Invoice.find({ deviceId }).select('invoiceId').lean();
+        const invoices = await Invoice.find({ deviceIdName }).select('invoiceId').lean();
         const invoiceIds = invoices.map(inv => inv.invoiceId);
 
         return await Payment.find({ invoiceId: { $in: invoiceIds } })

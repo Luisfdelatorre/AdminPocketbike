@@ -12,7 +12,7 @@ const Layout = () => {
 
         // Setup SSE connection
         const clientId = `client-${Math.random().toString(36).substr(2, 9)}`;
-        const sseUrl = `/api/sse/subscribe?clientId=${clientId}`;
+        const sseUrl = `/apinode/sse/subscribe?clientId=${clientId}`;
 
         const eventSource = new EventSource(sseUrl);
 

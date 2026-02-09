@@ -1,33 +1,30 @@
 import contractRepository from '../repositories/contractRepository.js';
+import deviceRepository from '../repositories/deviceRepository.js';
+import { resolveDeviceId } from '../utils/deviceResolver.js';
 
 /**
  * Get all devices with contracts for device selector
  */
 const getDevicesWithContracts = async (req, res) => {
     try {
-        const allContracts = await contractRepository.getAllContracts();
+        // Fetch all devices directly from the repository
+        const devices = await deviceRepository.getAllDevices();
 
-        // Get unique devices with their most recent contract
-        const deviceMap = new Map();
-
-        allContracts.forEach(contract => {
-            if (!deviceMap.has(contract.deviceId)) {
-                deviceMap.set(contract.deviceId, {
-                    deviceId: contract.deviceId,
-                    deviceName: `Pocketbike ${contract.deviceId}`,
-                    deviceType: 'pocketbike',
-                    icon: '🏍️',
-                    hasActiveContract: contract.status === 'ACTIVE',
-                    contractId: contract.contractId
-                });
-            }
-        });
-
-        const devices = Array.from(deviceMap.values());
+        // Map devices to the response format (relying on denormalized fields)
+        const mappedDevices = devices.map(device => ({
+            deviceId: device._id, // Assuming _id is the deviceId/plate
+            deviceName: device.name || `Pocketbike ${device._id}`,
+            deviceType: 'pocketbike',
+            icon: '🏍️',
+            hasActiveContract: device.hasActiveContract || false,
+            contractId: device.activeContractId || null,
+            name: device.name,
+            nequiNumber: device.nequiNumber
+        }));
 
         res.json({
             success: true,
-            devices
+            devices: mappedDevices
         });
     } catch (error) {
         console.error('Error fetching devices:', error);
@@ -80,7 +77,8 @@ const createContract = async (req, res) => {
             customerEmail,
             customerPhone,
             customerDocument,
-            notes
+            notes,
+            devicePin
         } = req.body;
 
         if (!deviceId || !startDate) {
@@ -100,7 +98,7 @@ const createContract = async (req, res) => {
         }
 
         const contract = await contractRepository.createContract({
-            deviceId,
+            deviceIdName: deviceId, // Pass as deviceIdName to match repository
             dailyRate,
             contractDays,
             startDate,
@@ -109,7 +107,11 @@ const createContract = async (req, res) => {
             customerPhone,
             customerDocument,
             notes,
+            devicePin
         });
+
+        // Sync to Device (Denormalization)
+        await deviceRepository.updateContractStatus(deviceId, contract.contractId, true);
 
         res.json({
             success: true,
@@ -129,7 +131,8 @@ const createContract = async (req, res) => {
  */
 const getActiveContract = async (req, res) => {
     try {
-        const { deviceId } = req.params;
+        const identifier = req.params.deviceId;
+        const deviceId = await resolveDeviceId(identifier);
 
         const contract = await contractRepository.getActiveContractByDevice(deviceId);
 
@@ -158,7 +161,8 @@ const getActiveContract = async (req, res) => {
  */
 const getContractStats = async (req, res) => {
     try {
-        const { deviceId } = req.params;
+        const identifier = req.params.deviceId;
+        const deviceId = await resolveDeviceId(identifier);
 
         const stats = await contractRepository.getContractStats(deviceId);
 
@@ -221,6 +225,20 @@ const updateContractStatus = async (req, res) => {
 
         const contract = await contractRepository.updateContractStatus(contractId, status);
 
+        // Sync to Device (Denormalization)
+        // If status is NOT active (i.e. COMPLETED, CANCELLED), clear the device's contract
+        // If status is ACTIVE, set it (though usually set on creation)
+        const hasActiveContract = status === 'ACTIVE';
+        const activeContractId = hasActiveContract ? contractId : null;
+
+        if (contract && contract.deviceIdName) {
+            await deviceRepository.updateContractStatus(contract.deviceIdName, activeContractId, hasActiveContract);
+        } else if (contract && contract.deviceId) {
+            // Fallback if field is named deviceId
+            await deviceRepository.updateContractStatus(contract.deviceId, activeContractId, hasActiveContract);
+        }
+
+
         res.json({
             success: true,
             data: contract,
@@ -268,7 +286,8 @@ const updateContract = async (req, res) => {
             customerPhone,
             customerDocument,
             dailyRate,
-            notes
+            notes,
+            devicePin
         } = req.body;
 
         const contract = await contractRepository.getContractById(contractId);
@@ -280,13 +299,23 @@ const updateContract = async (req, res) => {
             });
         }
 
+        // Only hash PIN if provided (logic handled in repository/model depending on implementation)
+        // Repository updateContract just passes values to set. 
+        // We need to verify if repository handles it or if we need to manually handle it.
+        // Looking at repository: it uses $set with whatever is passed.
+        // Looking at model: it has a pre-save hook for hashing 'devicePin'.
+        // BUT findOneAndUpdate bypasses pre-save hooks! 
+        // We need to use findById logic in repository OR manually hash here.
+        // Let's check repository updateContract implementation again.
+
         const updatedContract = await contractRepository.updateContract(contractId, {
             customerName,
             customerEmail,
             customerPhone,
             customerDocument,
             dailyRate,
-            notes
+            notes,
+            devicePin
         });
 
         res.json({

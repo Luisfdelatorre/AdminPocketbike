@@ -4,10 +4,11 @@ import {
     DollarSign, FileText, CreditCard, Users,
     TrendingUp, TrendingDown
 } from 'lucide-react';
-import {
-    AreaChart, Area, PieChart, Pie, Cell,
-    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
+// Recharts import removed due to crash issues
+// import {
+//     AreaChart, Area, PieChart, Pie, Cell,
+//     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+// } from 'recharts';
 import { getDashboardStats } from '../services/api';
 import './AdminDashboard.css';
 
@@ -130,46 +131,50 @@ const AdminDashboard = () => {
                             <option>Last Year</option>
                         </select>
                     </div>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={revenueData}>
-                            <defs>
-                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#03C9D7" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#03C9D7" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                            <XAxis dataKey="month" stroke="#666" />
-                            <YAxis stroke="#666" />
-                            <Tooltip />
-                            <Area type="monotone" dataKey="revenue" stroke="#03C9D7"
-                                fillOpacity={1} fill="url(#colorRevenue)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    {/* 
+            <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={revenueData}>
+                    <defs>
+                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#03C9D7" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#03C9D7" stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                    <XAxis dataKey="month" stroke="#666" />
+                    <YAxis stroke="#666" />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="revenue" stroke="#03C9D7"
+                        fillOpacity={1} fill="url(#colorRevenue)" />
+                </AreaChart>
+            </ResponsiveContainer>
+            */}
                 </div>
 
                 {/* Device Status */}
                 <div className="chart-card">
                     <h3>Device Status</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie
-                                data={deviceData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={100}
-                                dataKey="value"
-                                label
-                            >
-                                {deviceData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
+                    {/* 
+            <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                    <Pie
+                        data={deviceData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        dataKey="value"
+                        label
+                    >
+                        {deviceData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                </PieChart>
+            </ResponsiveContainer>
+            */}
                 </div>
             </div>
 
@@ -195,8 +200,8 @@ const AdminDashboard = () => {
                                     <td><strong>{payment.device}</strong></td>
                                     <td>${(payment.amount / 100).toLocaleString()} COP</td>
                                     <td>
-                                        <span className={`status-badge ${payment.status.toLowerCase()}`}>
-                                            {payment.status}
+                                        <span className={`status-badge ${(payment.status || 'unknown').toLowerCase()}`}>
+                                            {payment.status || 'Unknown'}
                                         </span>
                                     </td>
                                     <td>{payment.date}</td>

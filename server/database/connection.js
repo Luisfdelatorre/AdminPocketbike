@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { config } from '../config/config.js';
+import { MongoDB } from '../config/config.js';
 
 let isConnected = false;
 
@@ -10,7 +10,7 @@ export async function connectDatabase() {
     }
 
     try {
-        await mongoose.connect(config.database.uri, {
+        await mongoose.connect(MongoDB.URI, {
             serverSelectionTimeoutMS: 5000,
             maxPoolSize: 10,
         });

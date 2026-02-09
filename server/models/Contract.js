@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const contractSchema = new mongoose.Schema({
     contractId: {
@@ -7,8 +8,13 @@ const contractSchema = new mongoose.Schema({
         unique: true,
         index: true,
     },
+    deviceIdName: {
+        type: String,
+        required: true,
+        index: true,
+    },
     deviceId: {
-        type: Number,
+        type: String,
         required: true,
         index: true,
     },
@@ -34,7 +40,7 @@ const contractSchema = new mongoose.Schema({
     },
     // Status
     status: {
-        type: String,
+        type: String, // 'ACTIVE', 'COMPLETED', 'CANCELLED', 'SUSPENDED'
         enum: ['ACTIVE', 'COMPLETED', 'CANCELLED', 'SUSPENDED'],
         default: 'ACTIVE',
         index: true,
@@ -73,9 +79,44 @@ const contractSchema = new mongoose.Schema({
     notes: {
         type: String,
     },
+    // Secure Access
+    devicePin: {
+        type: String, // Hashed PIN for payment app authentication
+        required: true,
+    },
+    // Rules
+    freeDaysLimit: {
+        type: Number,
+        default: 4, // Limit for monthly free days
+    },
+    reactivationRule: {
+        type: String,
+        enum: ['ALWAYS', 'SAME_OR_AFTER', 'DAY_BEFORE'],
+        default: 'SAME_OR_AFTER',
+    },
 }, {
     timestamps: true,
 });
+
+// Hash PIN before saving
+contractSchema.pre('save', async function (next) {
+    if (!this.isModified('devicePin') || !this.devicePin) {
+        return next();
+    }
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.devicePin = await bcrypt.hash(this.devicePin, salt);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Compare PIN method
+contractSchema.methods.comparePin = async function (candidatePin) {
+    return await bcrypt.compare(candidatePin, this.devicePin);
+};
 
 // Virtual for completion percentage
 contractSchema.virtual('completionPercentage').get(function () {
@@ -83,7 +124,7 @@ contractSchema.virtual('completionPercentage').get(function () {
 });
 
 // Compound index for device + date range
-contractSchema.index({ deviceId: 1, startDate: 1 });
+contractSchema.index({ deviceIdName: 1, startDate: 1 });
 contractSchema.index({ status: 1, endDate: 1 });
 
 export const Contract = mongoose.model('Contract', contractSchema);

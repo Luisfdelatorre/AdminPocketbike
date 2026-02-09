@@ -1,7 +1,9 @@
-import { Device } from '../models/Device.js';
+import deviceRepository from '../repositories/deviceRepository.js';
 import { DeviceAccess } from '../models/DeviceAccess.js';
 import { Contract } from '../models/Contract.js';
-import gpsService from '../services/gpsService.js';
+import { Device } from '../models/Device.js';
+
+import deviceServices from '../services/deviceServices.js';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -192,12 +194,8 @@ const deleteDevice = async (req, res) => {
  */
 const syncDevices = async (req, res) => {
     try {
-        console.log('🔄 Syncing devices from GPS platform...');
-
-        // This relies on gpsService being configured with credentials in .env
-        const gpsDevices = await gpsService.fetchDevices();
-        console.log(`📡 Fetched ${gpsDevices.length} devices from GPS.`);
-
+        // const { deviceIdName } = req.paymentAuth;
+        const gpsDevices = await deviceServices.getDeviceList();
         if (gpsDevices.length === 0) {
             return res.json({
                 success: true,
@@ -206,71 +204,7 @@ const syncDevices = async (req, res) => {
             });
         }
 
-        // Prepare bulk operations for Devices
-        const deviceOps = gpsDevices.map(d => {
-            const mapped = {
-                _id: d.id, // Map "id" to internal "gpsId"
-                deviceName: d.name,
-                nequiNumber: d.phone,
-                simCardNumber: d.contact,
-                model: d.model,
-                groupId: d.groupId,
-                isActive: !d.disabled,
-                status: d.disabled ? 'inactive' : 'active'
-            };
-
-            return {
-                updateOne: {
-                    filter: { _id: d.id },
-                    update: { $set: mapped },
-                    upsert: true
-                }
-            };
-        });
-
-        // Prepare bulk operations for DeviceAccess (PINs)
-        const accessOpsPromises = gpsDevices.map(async d => {
-            if (!d.phone) return null;
-
-            const cleanPhone = d.phone.replace(/\D/g, '');
-            const pin = cleanPhone.length >= 4 ? cleanPhone.slice(-4) : null;
-
-            if (!pin) return null;
-
-            // Manually hash because bulkWrite bypasses mongoose hooks
-            const salt = await bcrypt.genSalt(10);
-            const pinHash = await bcrypt.hash(pin, salt);
-
-            return {
-                updateOne: {
-                    filter: { deviceId: d.id, isActive: true },
-                    update: {
-                        $set: { pinHash: pinHash },
-                        $setOnInsert: {
-                            deviceId: d.id,
-                            accessType: 'permanent',
-                            isActive: true
-                        }
-                    },
-                    upsert: true
-                }
-            };
-        });
-
-        const accessOps = (await Promise.all(accessOpsPromises)).filter(op => op !== null);
-
-        // Execute bulk writes in parallel
-        const [deviceResult, accessResult] = await Promise.all([
-            Device.bulkWrite(deviceOps),
-            accessOps.length > 0 ? DeviceAccess.bulkWrite(accessOps) : Promise.resolve({ upsertedCount: 0, modifiedCount: 0 })
-        ]);
-
-        const stats = {
-            created: deviceResult.upsertedCount,
-            updated: deviceResult.modifiedCount,
-            pinUpdates: accessResult.modifiedCount + accessResult.upsertedCount,
-            errors: 0
-        };
+        const stats = await deviceServices.bulkWriteDevices(gpsDevices);
 
         res.json({
             success: true,
