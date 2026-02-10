@@ -4,181 +4,155 @@ import { CookieJar } from "tough-cookie";
 import * as cheerio from "cheerio";
 import qs from "qs";
 
-// ----------------------------
-// Config (env)
-// ----------------------------
 const BASE_URL = process.env.YECI_BASE_URL || "https://yeci.online";
 const USER = 'yairpacheco';
 const PASS = 'cartagena.25';
 
-if (!USER || !PASS) {
-    console.error("❌ Missing env vars: YECI_USER and YECI_PASS");
-    process.exit(1);
-}
+if (!USER || !PASS) throw new Error("Missing env vars: YECI_USER / YECI_PASS");
 
-// ----------------------------
-// Maps (adjust as you learn codes)
-// ----------------------------
-const PLATFORM_STATE_MAP = {
-    R: "CONFIRMED",
-    P: "PENDING",
-    F: "FAILED",
-    E: "FAILED",
+const jar = new CookieJar();
+const http = wrapper(
+    axios.create({
+        baseURL: BASE_URL,
+        jar,
+        withCredentials: true,
+        timeout: 15000,
+        headers: {
+            "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        },
+        validateStatus: (s) => s >= 200 && s < 400,
+    })
+);
+
+const getCookie = async (name) => {
+    const cookies = await jar.getCookies(BASE_URL);
+    return cookies.find((c) => c.key === name)?.value || null;
 };
 
-const COMMAND_TYPE_ID_MAP = {
-    1: "ENGINE_RESUME",
-    2: "ENGINE_STOP",
-};
+let loggedIn = false;
+let csrfComandos = null;
 
-function inferFuelCutLogical(commandTypeId) {
-    const t = COMMAND_TYPE_ID_MAP[commandTypeId] || "UNKNOWN";
-    if (t === "ENGINE_STOP") return "CUT";
-    if (t === "ENGINE_RESUME") return "RESTORED";
-    return "UNKNOWN";
-}
+async function ensureLogin() {
+    if (loggedIn && (await getCookie("megarastreo_satelital_session"))) return;
 
-function parsePlatformResponse(data) {
-    const item = Array.isArray(data) ? data[0] : null;
-    if (!item) return { status: "UNKNOWN", ok: false, reason: "empty_response" };
-
-    const mapped = PLATFORM_STATE_MAP[item.estado] || "UNKNOWN";
-    const confirmed = mapped === "CONFIRMED" && !!item.comando_fecha_confirmacion;
-
-    return {
-        ok: confirmed,
-        status: confirmed ? "CONFIRMED" : mapped,
-        id: item.id,
-        plate: item.placa,
-        confirmedAt: item.comando_fecha_confirmacion || null,
-        retries: item.reintento ?? null,
-        commandTypeId: item.comandos_equipos_id ?? null,
-        stateCode: item.estado ?? null,
-        text: item.texto_respuesta ?? null,
-        raw: item,
-    };
-}
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// ----------------------------
-// Helpers
-// ----------------------------
-async function main() {
-    const jar = new CookieJar();
-
-    const http = wrapper(
-        axios.create({
-            baseURL: BASE_URL,
-            jar,
-            withCredentials: true,
-            timeout: 15000,
-            headers: {
-                "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-            },
-            validateStatus: (s) => s >= 200 && s < 400,
-        })
-    );
-
-    const getCookie = async (name) => {
-        const cookies = await jar.getCookies(BASE_URL);
-        return cookies.find((c) => c.key === name)?.value || null;
-    };
-
+    // GET /login -> hidden _token
     const loginPage = await http.get("/login", { headers: { Accept: "text/html" } });
     const $login = cheerio.load(loginPage.data);
     const csrfLogin = $login('input[name="_token"]').attr("value");
+    if (!csrfLogin) throw new Error("No _token found in /login");
 
-    if (!csrfLogin) {
-        console.error("❌ Could not find hidden _token in /login HTML");
-        process.exit(2);
-    }
-
-    const loginBody = qs.stringify(
-        {
-            _token: csrfLogin,
-            usuario: USER,
-            clave: PASS,
-            remember: "on",
-        },
+    // POST /login
+    const body = qs.stringify(
+        { _token: csrfLogin, usuario: USER, clave: PASS, remember: "on" },
         { encode: true }
     );
-    const xsrfCookie = await getCookie("XSRF-TOKEN");
-    await http.post("/login", loginBody, {
+    const xsrf = await getCookie("XSRF-TOKEN");
+
+    await http.post("/login", body, {
         headers: {
             Accept: "application/json, text/javascript, */*; q=0.01",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "X-Requested-With": "XMLHttpRequest",
-            ...(xsrfCookie ? { "X-XSRF-TOKEN": xsrfCookie } : {}),
+            ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
             Referer: `${BASE_URL}/login`,
             Origin: BASE_URL,
         },
     });
-    const session = await getCookie("megarastreo_satelital_session");
-    if (!session) {
-        console.error("❌ Login did not set megarastreo_satelital_session cookie (login failed?)");
-        process.exit(3);
+
+    if (!(await getCookie("megarastreo_satelital_session"))) {
+        throw new Error("Login failed (no session cookie)");
     }
 
-    const comandosPage = await http.get('/comandos', { headers: { Accept: 'text/html' } });
-    const html = comandosPage.data;
-    const $cmd = cheerio.load(html);
-    let csrfComandos = $cmd('meta[name="csrf-token"]').attr('content') || null;
-    const COMMAND_PAYLOAD = {
-        _token: csrfComandos,
-        comando_id: "2",
-        vehiculos_ids: ["12778"], // will become vehiculos_ids[]=12778 with arrayFormat: 'brackets'
-    };
+    // GET /comandos -> csrf meta
+    const comandosPage = await http.get("/comandos", { headers: { Accept: "text/html" } });
+    const $cmd = cheerio.load(comandosPage.data);
+    csrfComandos = $cmd('meta[name="csrf-token"]').attr("content");
+    if (!csrfComandos) throw new Error("No csrf-token found in /comandos");
 
-    const cmdBody = qs.stringify(COMMAND_PAYLOAD, { arrayFormat: "brackets" });
-    const xsrf2 = await getCookie("XSRF-TOKEN");
-    const cmdRes = await http.post("/comandos/enviar", cmdBody, {
-        headers: {
-            Accept: "application/json, text/javascript, */*; q=0.01",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest",
-            ...(xsrf2 ? { "X-XSRF-TOKEN": xsrf2 } : {}),
-            Referer: `${BASE_URL}/comandos`,
-            Origin: BASE_URL,
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-        },
-    });
-    console.log("✅ Command HTTP:", cmdRes.data);
+    loggedIn = true;
+}
 
-    const intervalMs = 4000;
-    await sleep(intervalMs);
-    const id = parseInt(cmdRes.data[0].id);
-    console.log("✅ Command ID:", id);
-    //const parsed = parsePlatformResponse(cmdRes.data);
+class MegaRatreoService {
 
-    let attempt = 0;
-    let lastState = null;
-    const maxAttempts = 3;
+    async fetchDevices() {
+        await ensureLogin();
 
+        const res = await http.get("/rastreo/getmoviles", {
+            headers: { Accept: "application/json, text/javascript, */*; q=0.01" },
+        });
 
-    while (attempt < maxAttempts) {
-        attempt++;
-        console.log(`🔄 Polling attempt ${attempt}`);
-        const params = new URLSearchParams();
-        params.set("_token", csrfComandos);
-        params.append("ids[]", id);
-        const res = await http.post("/comandos/update", params.toString(), {
+        const list = Array.isArray(res.data) ? res.data : [];
+
+        // Normalize (keep it small but useful)
+        return list.map((d) => ({
+            deviceId: d.id,               // <-- use this in resumeDevice/checkDeviceStatus
+            imei: d.imei,
+            plate: d.placa,
+            connected: d.conectado === "S",
+            motor: d.motor === "1",       // engine on/off (per payload)
+            igniciable: !!d.igniciable,
+            gpsTime: d.fecha_gps,
+            // coordinates: your payload shows x=10.37, y=-75.49 => x=lat, y=lng (not GeoJSON)
+            lat: d.x != null ? Number(d.x) : null,
+            lng: d.y != null ? Number(d.y) : null,
+            speed: d.velocidad != null ? Number(d.velocidad) : null,
+            vehicleId: d.vehiculo_id ?? d.vehiculos_id ?? null,
+            raw: d, // optional but handy for debugging
+        }));
+    }
+    // Sends ENGINE_RESUME (comando_id=1). Returns commandId (number).
+    async resumeDevice(deviceId) {
+        await ensureLogin();
+
+        const payload = qs.stringify(
+            { _token: csrfComandos, comando_id: "1", vehiculos_ids: [String(deviceId)] },
+            { arrayFormat: "brackets" }
+        );
+
+        const xsrf = await getCookie("XSRF-TOKEN");
+        const res = await http.post("/comandos/enviar", payload, {
             headers: {
+                Accept: "application/json, text/javascript, */*; q=0.01",
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
                 "X-Requested-With": "XMLHttpRequest",
+                ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
                 Referer: `${BASE_URL}/comandos`,
                 Origin: BASE_URL,
-                Accept: "application/json, text/javascript, */*; q=0.01",
             },
         });
 
-        const data = res.data;
-        console.log("--Response:", JSON.stringify(data));
-        //lastState = currentState;
-        await sleep(intervalMs);
+        // Usually array like: [{ id: "12345", estado: "P", ... }]
+        const id = Number(res?.data?.[0]?.id);
+        if (!id) throw new Error(`No command id returned: ${JSON.stringify(res.data)}`);
+        return id;
     }
 
+    // Minimal "status": returns true only if the latest command row for this vehicle shows estado "R" (confirmed).
+    // NOTE: This checks command confirmation, not GPS "online".
+    async checkDeviceStatus(deviceId) {
+        await ensureLogin();
+
+        const page = await http.get("/comandos", { headers: { Accept: "text/html" } });
+        const $ = cheerio.load(page.data);
+
+        let estado = null;
+
+        $("table tbody tr").each((_, tr) => {
+            const rowText = $(tr).text();
+            if (!rowText.includes(String(deviceId))) return;
+
+            // crude but usually works: find first single-letter state among known codes
+            const m = rowText.match(/\b([RPEF])\b/);
+            if (m) estado = m[1];
+            return false; // break
+        });
+
+        return estado === "R"; // R = confirmed
+    }
 }
 
-main()
+const mega = new MegaRatreoService();
+
+//mega.resumeDevice(12761).then(console.log).catch(console.error);
+mega.fetchDevices().then(console.log).catch(console.error);

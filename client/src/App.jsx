@@ -12,6 +12,8 @@ const DeviceSelector = lazy(() => import('./pages/DeviceSelector'));
 const Contracts = lazy(() => import('./pages/Contracts'));
 const Payments = lazy(() => import('./pages/Payments'));
 const Invoices = lazy(() => import('./pages/Invoices'));
+const Users = lazy(() => import('./pages/Users'));
+const Companies = lazy(() => import('./pages/Companies'));
 const Settings = lazy(() => import('./pages/Settings'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
 
@@ -42,6 +44,8 @@ function App() {
                             <Route path="contracts" element={<Contracts />} />
                             <Route path="payments" element={<Payments />} />
                             <Route path="invoices" element={<Invoices />} />
+                            <Route path="users" element={<Users />} />
+                            <Route path="companies" element={<Companies />} />
                             <Route path="settings" element={<Settings />} />
                         </Route>
 

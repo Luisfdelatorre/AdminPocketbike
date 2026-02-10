@@ -2,12 +2,17 @@ import authService from '../services/authService.js';
 
 export const verifyToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
+    let token;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    } else if (req.query.token) {
+        // SSE (EventSource) often passes token in query param
+        token = req.query.token;
+    } else {
         return res.status(401).json({ error: 'No token provided' });
     }
 
-    const token = authHeader.split(' ')[1];
 
     try {
         const decoded = authService.verifyToken(token);
@@ -17,11 +22,11 @@ export const verifyToken = (req, res, next) => {
 
         // Also attach to req.paymentAuth if it's a device token, for compatibility with user snippet logic
         if (decoded.deviceIdName) {
-            console.log('Device ID Name:', decoded);
             req.paymentAuth = {
                 deviceIdName: decoded.deviceIdName,
                 contractId: decoded.contractId,
-                deviceId: decoded.deviceId // Numeric
+                deviceId: decoded.deviceId,
+                companyId: decoded.companyId,
             };
         }
 

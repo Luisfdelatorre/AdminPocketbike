@@ -15,6 +15,7 @@ export const authenticate = async (req, res, next) => {
         }
 
         const decoded = authService.verifyToken(token);
+        console.log("Decoded token:", decoded);
         req.auth = decoded;
 
         next();

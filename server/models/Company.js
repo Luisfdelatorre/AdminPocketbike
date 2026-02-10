@@ -1,0 +1,36 @@
+import mongoose from 'mongoose';
+
+const companySchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    nit: {
+        type: String,
+        unique: true,
+        trim: true,
+        sparse: true // Allow null/undefined, but unique if present
+    },
+    address: {
+        type: String,
+        trim: true
+    },
+    phone: {
+        type: String,
+        trim: true
+    },
+    email: {
+        type: String,
+        trim: true,
+        lowercase: true
+    },
+    isActive: {
+        type: Boolean,
+        default: true
+    }
+}, {
+    timestamps: true
+});
+
+export const Company = mongoose.model('Company', companySchema);

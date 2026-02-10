@@ -42,6 +42,19 @@ const userSchema = new mongoose.Schema({
     lastLogin: {
         type: Date,
     },
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Company',
+        // required: true // Can't force yet until we migrate existing users or handle it
+    },
+    companyName: {
+        type: String, // Denormalized name
+    },
+    isSuperAdmin: {
+        type: Boolean,
+        default: false,
+        index: true
+    }
 }, {
     timestamps: true,
 });

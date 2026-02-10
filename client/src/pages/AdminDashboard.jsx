@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import {
     DollarSign, FileText, CreditCard, Users,
     TrendingUp, TrendingDown
@@ -14,6 +15,7 @@ import './AdminDashboard.css';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const [stats, setStats] = useState({
         totalRevenue: 0,
         activeContracts: 0,
@@ -72,7 +74,7 @@ const AdminDashboard = () => {
             <div className="dashboard-content">
                 <div className="loading-container">
                     <div className="spinner"></div>
-                    <p>Loading dashboard...</p>
+                    <p>{t('dashboard.loading')}</p>
                 </div>
             </div>
         );
@@ -82,37 +84,37 @@ const AdminDashboard = () => {
         <div className="dashboard-content">
             <div className="dashboard-header">
                 <div>
-                    <h1>Dashboard</h1>
-                    <p>Welcome back, {user?.name || 'Admin'}!</p>
+                    <h1>{t('dashboard.title')}</h1>
+                    <p>{t('dashboard.welcome', { name: user?.name || 'Admin' })}</p>
                 </div>
-                <button className="btn-download">📊 Download Report</button>
+                <button className="btn-download">📊 {t('dashboard.downloadReport')}</button>
             </div>
 
             {/* Stats Cards */}
             <div className="stats-grid">
                 <StatCard
-                    title="Total Revenue"
+                    title={t('dashboard.stats.totalRevenue')}
                     value={`$${(stats.totalRevenue / 100).toLocaleString()}`}
                     change={12.5}
                     icon={DollarSign}
                     color="#03C9D7"
                 />
                 <StatCard
-                    title="Active Contracts"
+                    title={t('dashboard.stats.activeContracts')}
                     value={stats.activeContracts}
                     change={5.2}
                     icon={FileText}
                     color="#FB9678"
                 />
                 <StatCard
-                    title="Pending Payments"
+                    title={t('dashboard.stats.pendingPayments')}
                     value={stats.pendingPayments}
                     change={-2.1}
                     icon={CreditCard}
                     color="#00C292"
                 />
                 <StatCard
-                    title="Total Devices"
+                    title={t('dashboard.stats.totalDevices')}
                     value={stats.totalDevices}
                     change={0}
                     icon={Users}
@@ -125,10 +127,10 @@ const AdminDashboard = () => {
                 {/* Revenue Chart */}
                 <div className="chart-card revenue-chart">
                     <div className="chart-header">
-                        <h3>Revenue Overview</h3>
+                        <h3>{t('dashboard.charts.revenue')}</h3>
                         <select className="chart-filter">
-                            <option>Last 6 Months</option>
-                            <option>Last Year</option>
+                            <option>{t('dashboard.charts.last6Months')}</option>
+                            <option>{t('dashboard.charts.lastYear')}</option>
                         </select>
                     </div>
                     {/* 
@@ -153,7 +155,7 @@ const AdminDashboard = () => {
 
                 {/* Device Status */}
                 <div className="chart-card">
-                    <h3>Device Status</h3>
+                    <h3>{t('dashboard.charts.deviceStatus')}</h3>
                     {/* 
             <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
@@ -181,16 +183,16 @@ const AdminDashboard = () => {
             {/* Recent Payments Table */}
             <div className="table-card">
                 <div className="table-header">
-                    <h3>Recent Payments</h3>
-                    <a href="#/payments" className="view-all">View All →</a>
+                    <h3>{t('dashboard.recentPayments.title')}</h3>
+                    <a href="#/payments" className="view-all">{t('dashboard.recentPayments.viewAll')} →</a>
                 </div>
                 <table className="payments-table">
                     <thead>
                         <tr>
-                            <th>Device</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Date</th>
+                            <th>{t('dashboard.recentPayments.table.device')}</th>
+                            <th>{t('dashboard.recentPayments.table.amount')}</th>
+                            <th>{t('dashboard.recentPayments.table.status')}</th>
+                            <th>{t('dashboard.recentPayments.table.date')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -210,7 +212,7 @@ const AdminDashboard = () => {
                         ) : (
                             <tr>
                                 <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#9CA3AF' }}>
-                                    No recent payments
+                                    {t('dashboard.recentPayments.noPayments')}
                                 </td>
                             </tr>
                         )}

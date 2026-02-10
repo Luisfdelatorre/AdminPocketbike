@@ -1,7 +1,12 @@
 import express from 'express';
 import contractController from '../controllers/contractController.js';
 
+import { verifyToken } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
+
+// Apply middleware to all routes
+router.use(verifyToken);
 
 /**
  * GET /api/contracts/devices

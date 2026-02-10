@@ -58,7 +58,39 @@ const resources = {
                 invoices: 'Invoices',
                 system: 'System',
                 settings: 'Settings',
-                logout: 'Logout'
+                settings: 'Settings',
+                logout: 'Logout',
+                users: 'Users',
+                companies: 'Companies'
+            },
+            dashboard: {
+                title: 'Dashboard',
+                welcome: 'Welcome back, {{name}}!',
+                downloadReport: 'Download Report',
+                stats: {
+                    totalRevenue: 'Total Revenue',
+                    activeContracts: 'Active Contracts',
+                    pendingPayments: 'Pending Payments',
+                    totalDevices: 'Total Devices'
+                },
+                charts: {
+                    revenue: 'Revenue Overview',
+                    deviceStatus: 'Device Status',
+                    last6Months: 'Last 6 Months',
+                    lastYear: 'Last Year'
+                },
+                recentPayments: {
+                    title: 'Recent Payments',
+                    viewAll: 'View All',
+                    noPayments: 'No recent payments',
+                    table: {
+                        device: 'Device',
+                        amount: 'Amount',
+                        status: 'Status',
+                        date: 'Date'
+                    }
+                },
+                loading: 'Loading dashboard...'
             },
             devices: {
                 title: 'Device Management',
@@ -127,6 +159,46 @@ const resources = {
                 filterPaid: 'Paid',
                 filterUnpaid: 'Unpaid',
                 filterPending: 'Pending'
+            },
+            payments: {
+                title: 'Payments History',
+                subtitle: 'View and manage all payment transactions',
+                refresh: 'Refresh',
+                stats: {
+                    revenue: 'Total Revenue (Page)',
+                    completed: 'Completed (Page)',
+                    pending: 'Pending (Page)',
+                    total: 'Total Transactions'
+                },
+                filters: {
+                    all: 'All',
+                    completed: 'Completed',
+                    pending: 'Pending',
+                    failed: 'Failed'
+                },
+                sort: {
+                    date: 'Sort by Date',
+                    amount: 'Sort by Amount',
+                    device: 'Sort by Device'
+                },
+                table: {
+                    id: 'Payment ID',
+                    device: 'Device',
+                    amount: 'Amount',
+                    status: 'Status',
+                    reference: 'Reference',
+                    date: 'Date'
+                },
+                empty: {
+                    title: 'No payments found',
+                    subtitle: 'No transactions match your current filter'
+                },
+                loading: 'Loading payments...',
+                pagination: {
+                    previous: 'Previous',
+                    next: 'Next',
+                    pageInfo: 'Page {{page}} of {{totalPages}} ({{total}} total)'
+                }
             }
         }
     },
@@ -186,7 +258,38 @@ const resources = {
                 invoices: 'Facturas',
                 system: 'Sistema',
                 settings: 'Configuración',
-                logout: 'Salir'
+                logout: 'Salir',
+                users: 'Usuarios',
+                companies: 'Compañías'
+            },
+            dashboard: {
+                title: 'Panel Principal',
+                welcome: '¡Bienvenido de nuevo, {{name}}!',
+                downloadReport: 'Descargar Reporte',
+                stats: {
+                    totalRevenue: 'Ingresos Totales',
+                    activeContracts: 'Contratos Activos',
+                    pendingPayments: 'Pagos Pendientes',
+                    totalDevices: 'Total Dispositivos'
+                },
+                charts: {
+                    revenue: 'Resumen de Ingresos',
+                    deviceStatus: 'Estado de Dispositivos',
+                    last6Months: 'Últimos 6 Meses',
+                    lastYear: 'Último Año'
+                },
+                recentPayments: {
+                    title: 'Pagos Recientes',
+                    viewAll: 'Ver Todos',
+                    noPayments: 'No hay pagos recientes',
+                    table: {
+                        device: 'Dispositivo',
+                        amount: 'Monto',
+                        status: 'Estado',
+                        date: 'Fecha'
+                    }
+                },
+                loading: 'Cargando panel...'
             },
             devices: {
                 title: 'Gestión de Dispositivos',
@@ -237,7 +340,7 @@ const resources = {
                 form: {
                     editTitle: 'Editar Dispositivo',
                     addTitle: 'Agregar Dispositivo',
-                    deviceId: 'ID Dispositivo *',
+                    deviceId: 'Dispositivo *',
                     name: 'Nombre *',
                     nequi: 'Nequi',
                     sim: 'SIM',
@@ -255,6 +358,46 @@ const resources = {
                 filterPaid: 'Pagadas',
                 filterUnpaid: 'Pendientes',
                 filterPending: 'En Proceso'
+            },
+            payments: {
+                title: 'Historial de Pagos',
+                subtitle: 'Ver y gestionar todas las transacciones de pago',
+                refresh: 'Actualizar',
+                stats: {
+                    revenue: 'Ingresos (Página)',
+                    completed: 'Completados (Página)',
+                    pending: 'Pendientes (Página)',
+                    total: 'Total Transacciones'
+                },
+                filters: {
+                    all: 'Todos',
+                    completed: 'Completados',
+                    pending: 'Pendientes',
+                    failed: 'Fallidos'
+                },
+                sort: {
+                    date: 'Ordenar por Fecha',
+                    amount: 'Ordenar por Monto',
+                    device: 'Ordenar por Dispositivo'
+                },
+                table: {
+                    id: 'ID Pago',
+                    device: 'Dispositivo',
+                    amount: 'Monto',
+                    status: 'Estado',
+                    reference: 'Referencia',
+                    date: 'Fecha'
+                },
+                empty: {
+                    title: 'No se encontraron pagos',
+                    subtitle: 'No hay transacciones con el filtro actual'
+                },
+                loading: 'Cargando pagos...',
+                pagination: {
+                    previous: 'Anterior',
+                    next: 'Siguiente',
+                    pageInfo: 'Página {{page}} de {{totalPages}} ({{total}} total)'
+                }
             }
         }
     }

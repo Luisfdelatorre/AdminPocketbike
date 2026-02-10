@@ -1,0 +1,50 @@
+<div class="container">
+    <div class="success-card">
+        <div class="receipt-header">
+            <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="receipt-logo">
+            <h3 class="receipt-title">POCKETBIKE</h3>
+            <p class="text-muted receipt-subtitle">Comprobante de Pago</p>
+        </div>
+
+        <div class="status-badge-wrapper">
+            <div class="status-badge">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="status-badge-text">PAGO EXITOSO</span>
+            </div>
+        </div>
+
+        <div class="transaction-details">
+            <div class="detail-row detail-row-spaced">
+                <span class="detail-label">Vehículo</span>
+                <span class="detail-value-device" id="successDeviceId">--</span>
+            </div>
+            <div class="detail-row detail-row-spaced">
+                <span class="detail-label">Fecha y hora</span>
+                <span class="detail-value-date" id="paymentDate">--</span>
+            </div>
+            <div class="detail-row detail-row-spaced">
+                <span class="detail-label">Referencia</span>
+                <span class="detail-value-ref" id="successReference">--</span>
+            </div>
+            <div class="detail-row detail-row-spaced">
+                <span class="detail-label">Factura</span>
+                <span class="detail-value-ref" id="successInvoice">--</span>
+            </div>
+
+            <div class="total-box">
+                <div class="detail-row">
+                    <span class="total-label">TOTAL PAGADO</span>
+                    <span class="total-value" id="successAmount">$30,000 COP</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="receipt-footer">
+            <p class="thank-you-message">¡Gracias por su pago!</p>
+            <p class="text-muted security-note">Procesado de forma segura por <strong>Wompi</strong></p>
+            <button class="finish-btn" id="doneBtn">Finalizar</button>
+        </div>
+    </div>
+</div>

@@ -59,6 +59,32 @@ class DeviceRepository {
     }
 
     /**
+     * Find devices by company
+     * @param {String} companyId 
+     */
+    async findDevicesByCompany(companyId) {
+        try {
+            return await Device.find({ companyId });
+        } catch (error) {
+            logger.error(`Error finding devices for company ${companyId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get device by ID
+     * @param {String} id 
+     */
+    async getDeviceById(id) {
+        try {
+            return await Device.findById(id);
+        } catch (error) {
+            logger.error(`Error getting device by id ${id}:`, error);
+            throw error;
+        }
+    }
+
+    /**
      * Get device payment info by name
      */
     async getDevicePaymentInfo(name) {
@@ -103,6 +129,34 @@ class DeviceRepository {
             }, { new: true });
         } catch (error) {
             logger.error(`Error updating contract status for device ${deviceId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Assign contract details to device (Sync on creation)
+     * @param {String} deviceId
+     * @param {Object} data { contractId, driverName, nequiNumber }
+     */
+    async assignContractToDevice(deviceId, { contractId, driverName, nequiNumber }) {
+        try {
+            const updateData = {
+                activeContractId: contractId,
+                hasActiveContract: true,
+                contractId: contractId, // Sync requested by user
+                driverName: driverName,
+                nequiNumber: nequiNumber
+            };
+
+            // Remove undefined/null values to avoid overwriting with null if not provided
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] === undefined || updateData[key] === null) {
+                    delete updateData[key];
+                }
+            });
+            return await Device.findByIdAndUpdate(deviceId, updateData, { new: true });
+        } catch (error) {
+            logger.error(`Error assigning contract to device ${deviceId}:`, error);
             throw error;
         }
     }

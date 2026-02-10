@@ -1,9 +1,9 @@
 import paymentService from '../services/paymentService.js';
 import contractRepository from '../repositories/contractRepository.js';
 import logger from '../config/logger.js';
-
-const M_REQUEST_SENT = "Solicitud de pago enviada";
-
+import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
+const { PAYMENT_STATUS, TEMPORARY_RESERVATION_TIMEOUT, DEFAULT_PAYMENT_EMAIL_DOMAIN } = Transaction;
+const { M_REQUEST_SENT } = PAYMENTMESSAGES;
 const paymentController = {
 
     /*Get payment status for authenticated device*/
@@ -25,29 +25,70 @@ const paymentController = {
             res.status(500).json({ error: 'Failed to get payment status' });
         }
     },
+    /*Create payment*/
+    async createPayment(req, res) {
+        try {
+            const { phone } = req.body;
+            // SECURITY: Force use of authenticated deviceId from token
+            const { deviceIdName, companyId } = req.paymentAuth;
 
-    /*Get payment history for authenticated device*/
+            if (!phone || !deviceIdName) {
+                return res.status(400).json({ success: false, message: "Missing required fields" });
+            }
+            const result = await paymentService.initiateWompiPaymentTransaction(deviceIdName, phone, companyId);
+            return res.status(200).json({
+                success: true,
+                message: M_REQUEST_SENT,
+                paymentData: result.paymentData,
+            });
+
+        } catch (error) {
+            if (error.message.includes("Missing required fields")) {
+                return res.status(400).json({ success: false, message: error.message });
+            }
+            if (error.message.includes("not found")) {
+                return res.status(404).json({ success: false, message: error.message });
+            }
+            if (error.message.includes("already")) {
+                return res.status(409).json({ success: false, message: error.message });
+            }
+
+            return res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+
+    /*Get payment history*/
     async getPaymentHistory(req, res) {
-        // try {
-        // const { deviceIdName } = req.paymentAuth;
-        const { page, limit, status } = req.query;
-        const history = await paymentService.getPaymentHistory({ page, limit, status });
-        // The service now returns { payments, pagination }, so we should probably just return that directly or wrap it?
-        // The frontend expects { success: true, payments: [], pagination: {} } based on Payments.jsx
-        // Let's return the whole result from service which should match structure or be adapted.
-        // Actually, let's look at Payments.jsx: const result = await response.json(); if (result.success) ...
-        // So we need to return { success: true, ...history }
-        res.json({ success: true, ...history });
-        //} catch (error) {
-        //    logger.error('Get payment history error:', error.message);
-        //    res.status(500).json({ error: 'Failed to get payment history' });
-        // }
+        try {
+            const { page, limit, status } = req.query;
+            const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
+            console.log("Auth:", req.auth);
+
+            // Check if it's a device request (req.paymentAuth) or admin request (req.auth)
+            // The route seems to be used by Admin panel (req.auth) based on context
+
+            let filter = {};
+            if (status) filter.status = status;
+
+            if (req.auth) {
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                if (!isSystemAdmin) {
+                    filter.companyId = companyId;
+                }
+            }
+            const history = await paymentService.getPaymentHistory({ page, limit, filter });
+            res.json({ success: true, ...history });
+
+        } catch (error) {
+            logger.error('Get payment history error:', error.message);
+            res.status(500).json({ error: 'Failed to get payment history' });
+        }
     },
 
     /*Get device online status*/
     async getDeviceStatus(req, res) {
         // try {
-        console.log('Device ID Name:', req.paymentAuth);
         const { deviceIdName, deviceId } = req.paymentAuth;
         const status = await paymentService.getDataStatus(deviceId);
         res.json(status);
@@ -60,7 +101,7 @@ const paymentController = {
     /*Use free day*/
     async useFreeDay(req, res) {
         try {
-            const { deviceIdName } = req.paymentAuth;
+            const { deviceIdName, companyId } = req.paymentAuth;
             // Try to get contractId from token, if not, fetch active contract
             let contractId = req.paymentAuth.contractId;
 
@@ -72,7 +113,7 @@ const paymentController = {
                 contractId = contract.contractId;
             }
 
-            const result = await paymentService.applyFreeDay(deviceIdName, contractId);
+            const result = await paymentService.applyFreeDay(deviceIdName, contractId, companyId);
 
             res.json(result);
 
@@ -85,7 +126,7 @@ const paymentController = {
     /*Request loan - allow working today and paying later*/
     async requestLoan(req, res) {
         try {
-            const { deviceIdName } = req.paymentAuth;
+            const { deviceIdName, companyId } = req.paymentAuth;
             let contractId = req.paymentAuth.contractId;
 
             if (!contractId) {
@@ -95,7 +136,7 @@ const paymentController = {
                 }
                 contractId = contract.contractId;
             }
-            const result = await paymentService.applyLoan(deviceIdName, contractId);
+            const result = await paymentService.applyLoan(deviceIdName, contractId, companyId);
 
             res.json(result);
 
@@ -130,49 +171,17 @@ const paymentController = {
         }
     },
 
-    /*Create payment*/
-    async createPayment(req, res) {
-        try {
-            const { phone } = req.body;
-            // SECURITY: Force use of authenticated deviceId from token
-            const { deviceIdName } = req.paymentAuth;
-
-            if (!phone || !deviceIdName) {
-                return res.status(400).json({ success: false, message: "Missing required fields" });
-            }
-            const result = await paymentService.initiateWompiPaymentTransaction(deviceIdName, phone);
-            return res.status(200).json({
-                success: true,
-                message: M_REQUEST_SENT,
-                paymentData: result.paymentData,
-            });
-
-        } catch (error) {
-            if (error.message.includes("Missing required fields")) {
-                return res.status(400).json({ success: false, message: error.message });
-            }
-            if (error.message.includes("not found")) {
-                return res.status(404).json({ success: false, message: error.message });
-            }
-            if (error.message.includes("already")) {
-                return res.status(409).json({ success: false, message: error.message });
-            }
-
-            return res.status(500).json({ success: false, error: error.message });
-        }
-    },
 
 
     /*Get payment stream (SSE)*/
     async getPaymentStream(req, res) {
         const { reference } = req.params;
+        console.log("reference", req.params);
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
-
         res.write(`data: ${JSON.stringify({ status: 'CONNECTED', reference })}\n\n`);
-
         let stopMonitoring = null;
         const sendUpdate = (update) => {
             try {
@@ -185,21 +194,15 @@ const paymentController = {
                 res.end();
             }
         };
-
-        // Note: paymentService needs to support waiting/pooling or we rely on the client to re-poll.
-        // The user's code implies a server-side poll. 
-        // For this step I'll assume paymentService.monitorTransactionStatus exists or I stubbed it.
-        // It's stubbed in my previous step. Real SSE logic might need more robust background job integration.
-        // But I will hook it up.
         paymentService.monitorTransactionStatus(reference, {
             onUpdate: sendUpdate,
-            // timeout logic handled in service
+            timeout: TEMPORARY_RESERVATION_TIMEOUT
         }).catch(err => {
             logger.error(`Error in monitorTransactionStatus for ${reference}:`, err.message);
         });
 
         req.on('close', () => {
-            // Cleanup logic if needed
+            if (stopMonitoring) stopMonitoring();
         });
     }
 };

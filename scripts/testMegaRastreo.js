@@ -1,5 +1,5 @@
 
-import { getMobileList } from '../server/api/megarastreoApi.js';
+import mega from '../server/api/megaRastreoApi1.js';
 import { io } from 'socket.io-client';
 const BASE_URL = process.env.MEGARASTREO_BASE_URL || 'https://api.v2.megarastreo.co';
 const JWT = "6810dc94-6117-443d-a47c-23e79ceabf54"; // <-- requerido
@@ -49,11 +49,9 @@ async function testWebSocket() {
     // (Opcional) Traer mobiles primero para mostrar IDs disponibles
     try {
         console.log('📡 Calling getMobileList (opcional)...');
-        const res = await getMobileList({ $size: 5, $page: 1 });
-        console.log('✅ HTTP Status:', res.status);
-
-        const arr = Array.isArray(res.data) ? res.data : [];
-        console.log('🚗 Mobiles:', arr.map(m => ({ _id: m._id, name: m.name })));
+        const res = await mega.getDeviceList({ $size: 20, $page: 1 });
+        const arr = Array.isArray(res.data.objects) ? res.data.objects : [];
+        console.log('🚗 Mobiles:', arr.map(m => ({ deviceId: m.deviceId, name: m.name })));
     } catch (e) {
         console.warn('⚠️ getMobileList falló (no impide probar WS).', e?.message);
     }
@@ -67,6 +65,7 @@ async function testWebSocket() {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 15000,
+        // path: '/api/socket' // Important for Traccar
     });
 
     let count = 0;
@@ -101,6 +100,7 @@ async function testWebSocket() {
     });
 
     socket.on('element', (pos) => {
+        console.log(pos?.deviceId, pos.sensors.commandResult);
         count += 1;
         console.log('✅ Recibido evento:', pos.deviceId, pos.attributes.status, pos.attributes.blocked);
         /*if (pos.mobileId === '6982afdc97ecc874077eb57d') {

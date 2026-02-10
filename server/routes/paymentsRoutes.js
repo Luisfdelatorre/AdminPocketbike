@@ -17,6 +17,17 @@ const router = express.Router();
 router.get('/status', verifyToken, paymentController.getPaymentStatus);
 // Get device status
 router.get('/device-status', verifyToken, paymentController.getDeviceStatus);
+router.post("/request", verifyToken, paymentController.createPayment);
+router.get("/stream/:reference", verifyToken, paymentController.getPaymentStream);
+
+/*
+router.get('/status', authenticatePaymentApp, paymentController.getPaymentStatus);
+router.get('/history', authenticatePaymentApp, paymentController.getPaymentHistory);
+router.post('/use-free-day', authenticatePaymentApp, paymentController.useFreeDay);
+router.post('/request-loan', authenticatePaymentApp, paymentController.requestLoan);
+
+router.get('/device-status', authenticatePaymentApp, paymentController.getDeviceStatus);
+*/
 
 
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus } from '../services/api';
-import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search } from 'lucide-react';
+import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical } from 'lucide-react';
+import { showToast } from '../utils/toast';
 import './Contracts.css';
 
 const Contracts = () => {
@@ -11,23 +12,37 @@ const Contracts = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingContract, setEditingContract] = useState(null);
+    const [activeMenu, setActiveMenu] = useState(null);
     const [formData, setFormData] = useState({
         deviceId: '',
         customerName: '',
         customerEmail: '',
         customerPhone: '',
         customerDocument: '',
-        dailyRate: 3000000, // 30,000 COP in cents
+        customerDocument: '',
+        dailyRate: 30000, // 30,000 COP
         contractDays: 500,
         startDate: new Date().toISOString().split('T')[0],
         notes: '',
-        devicePin: ''
+        devicePin: '',
+        freeDaysLimit: 4
     });
 
     useEffect(() => {
         loadContracts();
         loadAvailableDevices();
-    }, [filter]);
+
+        const handleClickOutside = (event) => {
+            if (activeMenu && !event.target.closest('.action-menu-container')) {
+                setActiveMenu(null);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [filter, activeMenu]);
 
     const loadContracts = async () => {
         setLoading(true);
@@ -66,11 +81,13 @@ const Contracts = () => {
             customerEmail: '',
             customerPhone: '',
             customerDocument: '',
-            dailyRate: 3000000,
+            customerDocument: '',
+            dailyRate: 30000,
             contractDays: 500,
             startDate: new Date().toISOString().split('T')[0],
             notes: '',
-            devicePin: Math.floor(1000 + Math.random() * 9000).toString()
+            devicePin: Math.floor(1000 + Math.random() * 9000).toString(),
+            freeDaysLimit: 4
         });
         setShowModal(true);
     };
@@ -87,7 +104,8 @@ const Contracts = () => {
             contractDays: contract.contractDays,
             startDate: contract.startDate,
             notes: contract.notes || '',
-            devicePin: '' // Keep empty to not change unless user enters new one
+            devicePin: '', // Keep empty to not change unless user enters new one
+            freeDaysLimit: contract.freeDaysLimit || 4
         });
         setShowModal(true);
     };
@@ -104,13 +122,13 @@ const Contracts = () => {
             if (result.success) {
                 setShowModal(false);
                 loadContracts();
-                alert(editingContract ? '¡Contrato actualizado exitosamente!' : '¡Contrato creado exitosamente!');
+                showToast(editingContract ? '¡Contrato actualizado exitosamente!' : '¡Contrato creado exitosamente!', 'success');
             } else {
-                alert(`Error: ${result.error}`);
+                showToast(`Error: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('Error saving contract:', error);
-            alert('Error al guardar contrato');
+            showToast('Error al guardar contrato', 'error');
         } finally {
             setLoading(false);
         }
@@ -126,18 +144,18 @@ const Contracts = () => {
 
             if (result.success) {
                 loadContracts();
-                alert('¡Estado actualizado exitosamente!');
+                showToast('¡Estado actualizado exitosamente!', 'success');
             } else {
-                alert(`Error: ${result.error}`);
+                showToast(`Error: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('Error updating status:', error);
-            alert('Error al actualizar estado');
+            showToast('Error al actualizar estado', 'error');
         }
     };
 
     const formatCurrency = (amount) => {
-        return `$${(amount / 100).toLocaleString()} COP`;
+        return `$${amount.toLocaleString()} COP`;
     };
 
     const getStatusColor = (status) => {
@@ -288,36 +306,32 @@ const Contracts = () => {
                 ) : (
                     filteredContracts.map(contract => (
                         <div key={contract.contractId} className="contract-card">
-                            <div className="contract-header">
-                                <div className="contract-title">
-                                    <h3>
-                                        <a
-                                            href={`/pagos/${contract.deviceIdName || contract.deviceId}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-gray-900 hover:text-indigo-600 transition-colors"
-                                            title="Open Payment Page"
-                                        >
-                                            {contract.deviceIdName || contract.deviceId}
-                                        </a>
-                                    </h3>
-                                    <span
-                                        className="status-badge"
-                                        style={{
-                                            background: `${getStatusColor(contract.status)}20`,
-                                            color: getStatusColor(contract.status)
-                                        }}
-                                    >
-                                        {contract.status}
-                                    </span>
-                                </div>
-                                <div className="contract-id">
-                                    <small>{contract.contractId}</small>
-                                </div>
-                            </div>
+
 
                             <div className="contract-body">
                                 <div className="contract-info-grid">
+                                    <div className="contract-title">
+                                        <h3>
+                                            <a
+                                                href={`/pagos/${contract.deviceIdName || contract.deviceId}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-gray-900 hover:text-indigo-600 transition-colors"
+                                                title="Open Payment Page"
+                                            >
+                                                {contract.deviceIdName || contract.deviceId}
+                                            </a>
+                                        </h3>
+                                        <span
+                                            className="status-badge"
+                                            style={{
+                                                background: `${getStatusColor(contract.status)}20`,
+                                                color: getStatusColor(contract.status)
+                                            }}
+                                        >
+                                            {contract.status}
+                                        </span>
+                                    </div>
                                     <div className="info-item">
                                         <span className="info-label">Cliente</span>
                                         <span className="info-value">{contract.customerName || 'N/A'}</span>
@@ -334,6 +348,48 @@ const Contracts = () => {
                                         <span className="info-label">Monto Total</span>
                                         <span className="info-value">{formatCurrency(contract.totalAmount)}</span>
                                     </div>
+
+                                    <div className="info-item action-menu-wrapper">
+                                        <div className="action-menu-container">
+                                            <button
+                                                className={`action-menu-btn ${activeMenu === contract.contractId ? 'active' : ''}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveMenu(activeMenu === contract.contractId ? null : contract.contractId);
+                                                }}
+                                            >
+                                                <MoreVertical size={20} />
+                                            </button>
+                                            {activeMenu === contract.contractId && (
+                                                <div className="action-menu-dropdown">
+                                                    <button onClick={() => {
+                                                        handleEdit(contract);
+                                                        setActiveMenu(null);
+                                                    }}>
+                                                        <Edit size={16} /> Editar
+                                                    </button>
+                                                    {contract.status === 'ACTIVE' && (
+                                                        <>
+                                                            <button onClick={() => {
+                                                                handleStatusChange(contract.contractId, 'COMPLETED');
+                                                                setActiveMenu(null);
+                                                            }}>
+                                                                <Check size={16} /> Completar
+                                                            </button>
+                                                            <button className="text-danger" onClick={() => {
+                                                                handleStatusChange(contract.contractId, 'CANCELLED');
+                                                                setActiveMenu(null);
+                                                            }}>
+                                                                <X size={16} /> Cancelar
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+
 
                                 </div>
 
@@ -366,27 +422,7 @@ const Contracts = () => {
                                 </div>
                             </div>
 
-                            <div className="contract-actions">
-                                <button className="btn-text btn-complete" onClick={() => handleEdit(contract)}>
-                                    <Edit /> Editar
-                                </button>
-                                {contract.status === 'ACTIVE' && (
-                                    <>
-                                        <button
-                                            className="btn-text btn-complete"
-                                            onClick={() => handleStatusChange(contract.contractId, 'COMPLETED')}
-                                        >
-                                            <Check /> Completar
-                                        </button>
-                                        <button
-                                            className="btn-text btn-cancel"
-                                            onClick={() => handleStatusChange(contract.contractId, 'CANCELLED')}
-                                        >
-                                            <X /> Cancelar
-                                        </button>
-                                    </>
-                                )}
-                            </div>
+
                         </div>
                     ))
                 )}
@@ -466,7 +502,7 @@ const Contracts = () => {
                                                     if (digits.length >= 4) {
                                                         setFormData(prev => ({ ...prev, devicePin: digits.slice(-4) }));
                                                     } else {
-                                                        alert('Ingrese un número de celular válido primero');
+                                                        showToast('Ingrese un número de celular válido primero', 'error');
                                                         e.target.checked = false;
                                                     }
                                                 }
@@ -501,7 +537,7 @@ const Contracts = () => {
                                         type="tel"
                                         value={formData.customerPhone}
                                         onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                                        placeholder="+57 300 123 4567"
+                                        placeholder="300 000 0000"
                                     />
                                 </div>
                                 <div className="form-group">
@@ -517,8 +553,8 @@ const Contracts = () => {
                                     <label>Tarifa Diaria (COP)</label>
                                     <input
                                         type="number"
-                                        value={formData.dailyRate / 100}
-                                        onChange={(e) => setFormData({ ...formData, dailyRate: parseInt(e.target.value) * 100 })}
+                                        value={formData.dailyRate}
+                                        onChange={(e) => setFormData({ ...formData, dailyRate: parseInt(e.target.value) })}
                                         min="0"
                                         step="1000"
                                         placeholder="30000"
@@ -532,7 +568,17 @@ const Contracts = () => {
                                         onChange={(e) => setFormData({ ...formData, contractDays: parseInt(e.target.value) })}
                                         min="1"
                                         max="1000"
-                                        disabled={editingContract}
+
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Días Libres al Mes</label>
+                                    <input
+                                        type="number"
+                                        value={formData.freeDaysLimit}
+                                        onChange={(e) => setFormData({ ...formData, freeDaysLimit: parseInt(e.target.value) })}
+                                        min="0"
+                                        max="31"
                                     />
                                 </div>
                             </div>

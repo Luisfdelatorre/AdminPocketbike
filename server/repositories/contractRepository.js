@@ -6,7 +6,10 @@ export class ContractRepository {
      * Create a new contract
      */
     async createContract({
+        deviceId,
         deviceIdName,
+        companyId,
+        companyName,
         dailyRate,
         contractDays = 500,
         startDate,
@@ -15,11 +18,13 @@ export class ContractRepository {
         customerPhone,
         customerDocument,
         notes,
-        devicePin
+        devicePin,
+        freeDaysLimit = 4 // Default to 4 if not provided
     }) {
-        // Create contract ID with device and start date for easy searching
-        // Format: CONTRACT-BIKE001-2026-01-06-abc123
-        const contractId = `C${deviceIdName}${nanoid(2).toUpperCase()}`;
+        // Use deviceIdName (name) for readability in contract ID if possible, or part of it
+        const sanitizedName = deviceIdName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+        // User requested format: CI + DeviceName + 2 nanoid (e.g. CIBIKE001AB)
+        const contractId = `CI${sanitizedName}${nanoid(2).toUpperCase()}`;
 
         // Calculate end date
         const start = new Date(startDate);
@@ -32,7 +37,10 @@ export class ContractRepository {
 
         const contract = await Contract.create({
             contractId,
-            deviceIdName,
+            deviceId,     // webdeviceid
+            deviceIdName, // Human readable name
+            companyId,
+            companyName,
             dailyRate,
             contractDays,
             startDate,
@@ -46,6 +54,7 @@ export class ContractRepository {
             notes,
             devicePin,
             status: 'ACTIVE',
+            freeDaysLimit,
         });
 
         return contract.toObject();
@@ -79,9 +88,10 @@ export class ContractRepository {
 
     /**
      * Get all contracts (for dashboard stats)
+     * @param {Object} query - Optional query filter
      */
-    async getAllContracts() {
-        return await Contract.find({})
+    async getAllContracts(query = {}) {
+        return await Contract.find(query)
             .sort({ createdAt: -1 })
             .lean();
     }
@@ -180,8 +190,43 @@ export class ContractRepository {
         if (updates.customerEmail !== undefined) contract.customerEmail = updates.customerEmail;
         if (updates.customerPhone !== undefined) contract.customerPhone = updates.customerPhone;
         if (updates.customerDocument !== undefined) contract.customerDocument = updates.customerDocument;
-        if (updates.dailyRate !== undefined) contract.dailyRate = updates.dailyRate;
         if (updates.notes !== undefined) contract.notes = updates.notes;
+        if (updates.freeDaysLimit !== undefined) contract.freeDaysLimit = updates.freeDaysLimit;
+
+        // Handle updates that affect calculations (dailyRate, contractDays)
+        let recalculate = false;
+        if (updates.dailyRate !== undefined && updates.dailyRate !== contract.dailyRate) {
+            contract.dailyRate = updates.dailyRate;
+            recalculate = true;
+        }
+
+        if (updates.contractDays !== undefined && updates.contractDays !== contract.contractDays) {
+            contract.contractDays = updates.contractDays;
+            recalculate = true;
+        }
+
+        if (recalculate) {
+            // Recalculate total amount
+            contract.totalAmount = contract.dailyRate * contract.contractDays;
+
+            // Recalculate end date
+            const start = new Date(contract.startDate);
+            const end = new Date(start);
+            end.setDate(end.getDate() + contract.contractDays);
+            contract.endDate = end.toISOString().split('T')[0];
+
+            // Recalculate remaining days
+            contract.remainingDays = contract.contractDays - contract.paidDays;
+
+            // Re-check completion status
+            if (contract.paidDays >= contract.contractDays) {
+                contract.status = 'COMPLETED';
+                contract.remainingDays = 0;
+            } else if (contract.status === 'COMPLETED') {
+                // If it was completed but we added more days, it might be active again
+                contract.status = 'ACTIVE';
+            }
+        }
 
         // Handle PIN update - pre-save hook will hash it
         if (updates.devicePin !== undefined && updates.devicePin) {

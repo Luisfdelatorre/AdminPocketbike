@@ -3,7 +3,7 @@ import { Transaction } from '../config/config.js';
 const { DEFAULTAMOUNT } = Transaction;
 
 const deviceSchema = new mongoose.Schema({
-    _id: { type: String, required: true }, // External system ID
+    _id: { type: mongoose.Schema.Types.Mixed, required: true }, // External system ID (String or Number)
     name: { type: String, unique: true }, //plate
     model: { type: String },
     status: { type: String, enum: ['active', 'inactive', 'maintenance'], default: 'active', },
@@ -15,6 +15,7 @@ const deviceSchema = new mongoose.Schema({
     contractId: { type: String, required: true },
     driverName: { type: String, required: true },
     deviceId: { type: String, required: true },
+    webDeviceId: { type: Number, default: null },
     deviceType: { type: String },//groupId traccar
     category: { type: String, default: null },//car moto//icon 
     isActive: { type: Boolean, default: true },

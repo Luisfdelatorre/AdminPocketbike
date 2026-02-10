@@ -45,6 +45,7 @@ export const createDevice = (data) => api.post('/devices', data);
 export const updateDevice = (id, data) => api.put(`/devices/${id}`, data);
 export const deleteDevice = (id) => api.delete(`/devices/${id}`);
 export const syncDevices = () => api.post('/devices/sync');
+export const assignDevicesToCompany = (companyId, deviceIds) => api.post('/devices/assign-to-company', { companyId, deviceIds });
 
 // --- Contracts ---
 export const getAllContracts = () => api.get('/contracts/all');
@@ -57,9 +58,18 @@ export const getActiveContract = (deviceId) => api.get(`/contracts/${deviceId}`)
 
 // --- Invoices ---
 export const getAllInvoices = (params) => api.get('/invoices/all', { params });
-export const getInvoicesByDevice = (deviceId) => api.get(`/invoices/${deviceId}`);
-export const getUnpaidInvoices = (deviceId) => api.get(`/invoices/${deviceId}/unpaid`);
-export const createInvoice = (data) => api.post('/invoices/create', data);
+export const getInvoiceStats = () => api.get('/invoices/stats');
+export const getInvoiceById = (id) => api.get(`/invoices/${id}`);
+
+// --- Users & Companies ---
+export const getAllUsers = () => api.get('/users');
+export const createUser = (data) => api.post('/users', data);
+export const updateUser = (id, data) => api.put(`/users/${id}`, data);
+export const deleteUser = (id) => api.delete(`/users/${id}`);
+
+export const getAllCompanies = () => api.get('/companies');
+export const createCompany = (data) => api.post('/companies', data);
+export const updateCompany = (id, data) => api.put(`/companies/${id}`, data);
 
 // --- Payments ---
 export const createPaymentIntent = (data) => api.post('/payments/create-intent', data);

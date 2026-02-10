@@ -110,9 +110,11 @@ export const Transaction = {
     maxPagesToShow: 10,
     maxItemsPerPage: 10,
     currencyCode: 'COP',
+    DEFAULTAMOUNT: 35000,
     googlesheetActive: true,
     DEFAULT_PAYMENT_EMAIL_DOMAIN: '@pocketbike.app',
     JWT_SECRET: process.env.JWT_SECRET || 'payment-app-secret-key-change-in-production',
     JWT_EXPIRY: '24h',
     DEVICE_ONLINE_TIMEOUT: 3 * 60 * 1000,
+    DEFAULTAMOUNT: 30000,
 };

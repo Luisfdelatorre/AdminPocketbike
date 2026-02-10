@@ -18,9 +18,19 @@ const contractSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
+    // Company association
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Company',
+        required: true,
+        index: true,
+    },
+    companyName: {
+        type: String,
+    },
     // Contract details
     dailyRate: {
-        type: Number, // Amount in cents (e.g., 3000000 = 30,000 COP)
+        type: Number, // Amount in COP (e.g., 30000 = 30,000 COP)
         required: true,
     },
     contractDays: {
@@ -47,11 +57,11 @@ const contractSchema = new mongoose.Schema({
     },
     // Tracking
     totalAmount: {
-        type: Number, // Total contract value (dailyRate * contractDays) in cents
+        type: Number, // Total contract value (dailyRate * contractDays) in COP
         required: true,
     },
     paidAmount: {
-        type: Number, // Total paid so far in cents
+        type: Number, // Total paid so far in COP
         default: 0,
     },
     paidDays: {

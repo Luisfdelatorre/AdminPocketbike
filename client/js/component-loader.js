@@ -12,7 +12,7 @@ class ComponentLoader {
      */
     static async loadComponent(componentName, targetId) {
         try {
-            const response = await fetch(`/components/${componentName}.html`);
+            const response = await fetch(`/pay/components/${componentName}.html`);
 
             if (!response.ok) {
                 throw new Error(`Failed to load component: ${componentName} (${response.status})`);

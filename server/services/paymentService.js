@@ -2,17 +2,32 @@ import invoiceRepository from '../repositories/invoiceRepository.js';
 import paymentRepository from '../repositories/paymentRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
 import wompiService from './wompiService.js';
-import traccarApi from './traccarService.js'; // traccarApi
-import { Transaction, TIMEZONE } from '../config/config.js';
+import { Transaction, TIMEZONE, PAYMENTMESSAGES } from '../config/config.js';
 import dayjs from '../config/dayjs.js';
 import logger from '../config/logger.js';
 import { Invoice } from '../models/Invoice.js';
+import { Device } from '../models/Device.js';
+import { Payment } from '../models/index.js';
+import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
+import megaRastreoServices from './megaRastreoServices1.js';
+
 
 const { INVOICE_DAYTYPE_TRANSLATION } = Transaction;
 
-import { Device } from '../models/index.js'; // Needed for device lookup in calculatePaymentStatus
+const { INVOICE_DAYTYPE, PAYMENT_TYPE, TEMPORARY_RESERVATION_TIMEOUT, MAX_NEQUI_PAYMENT_TIMEOUT, MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL, PAYMENT_STATUS } = Transaction;
 
-const { INVOICE_DAYTYPE, PAYMENT_TYPE, TEMPORARY_RESERVATION_TIMEOUT, MAX_NEQUI_PAYMENT_TIMEOUT, MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
+// Aliases for user code compatibility
+const PS = PAYMENT_STATUS;
+const PM = PAYMENTMESSAGES;
+
+// Helper function for state change notifications
+const notifyStateChange = (fn, status, msj, refOrObj) => {
+    console.log("--notifyStateChange", fn, status, msj, refOrObj);
+    let obj = { status, message: msj };
+    if (typeof refOrObj === 'string') obj.reference = refOrObj;
+    else if (typeof refOrObj === 'object' && refOrObj !== null) Object.assign(obj, refOrObj);
+    if (fn && typeof fn === 'function') fn(obj);
+};
 
 // Active polling map/Set for device status checks or payment monitoring
 const activePolls = new Map();
@@ -39,6 +54,7 @@ export class PaymentService {
         }
 
         const oldestUnpaidInvoice = await invoiceRepository.findLastUnPaid(deviceIdName);
+        console.log("oldestUnpaidInvoice", oldestUnpaidInvoice);
         // Check for incomplete/pending payment within the timeout window
         const pendingPayment = await paymentRepository.findPendingPayment(
             deviceIdName,
@@ -55,7 +71,7 @@ export class PaymentService {
             // Include pending payment information if exists
             pendingPayment: pendingPayment ? {
                 transactionId: pendingPayment._id,
-                reference: paymentRepository.reference || pendingPayment.paymentReference,
+                reference: pendingPayment.reference,
                 amount: (pendingPayment.amount || 0) / 100, // Assuming cents logic from user? check paymentRepo
                 status: pendingPayment.status,
                 createdAt: pendingPayment.createdAt
@@ -66,7 +82,7 @@ export class PaymentService {
     /**
      * Apply a free day usage
      */
-    async applyFreeDay(deviceIdName, contractId) {
+    async applyFreeDay(deviceIdName, contractId, companyId) {
         const dummyOnUpdate = (update) => {
             logger.info(`[FREE DAY] Activation status: ${update.status} - ${update.message}`);
         };
@@ -82,7 +98,7 @@ export class PaymentService {
             throw new Error('No free days available. Please make a payment first.');
         }
 
-        const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract);
+        const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
 
         // CREATE FREE PAYMENT
         // We need 'createFreePayment' in paymentRepository, checking if it exists.
@@ -92,7 +108,9 @@ export class PaymentService {
             invoiceId: unpaidInvoice.invoiceId || unpaidInvoice._id,
             amount: 0,
             status: PAYMENT_STATUS.APPROVED,
-            method: PAYMENT_TYPE.FREE
+            method: PAYMENT_TYPE.FREE,
+            companyId: unpaidInvoice.companyId || companyId,
+            companyName: unpaidInvoice.companyName
         });
 
         // Apply payment to invoice
@@ -129,7 +147,7 @@ export class PaymentService {
     /**
      * Apply a loan
      */
-    async applyLoan(deviceIdName, contractId) {
+    async applyLoan(deviceIdName, contractId, companyId) {
         const dummyOnUpdate = (update) => {
             logger.info(`[LOAN] Activation status: ${update.status} - ${update.message}`);
         };
@@ -148,7 +166,9 @@ export class PaymentService {
                     invoiceId: existingUnpaid.invoiceId || existingUnpaid._id,
                     amount: contract.dailyRate,
                     status: PAYMENT_STATUS.APPROVED,
-                    method: PAYMENT_TYPE.LOAN
+                    method: PAYMENT_TYPE.LOAN,
+                    companyId: existingUnpaid.companyId || companyId,
+                    companyName: existingUnpaid.companyName
                 });
 
                 await invoiceRepository.updateInvoiceStatus(existingUnpaid._id, 'PAID', payment.paymentReference);
@@ -184,7 +204,7 @@ export class PaymentService {
     async getDataStatus(deviceId) {
         try {
             console.log('Device ID:', deviceId);
-            const details = await traccarApi.getDetailedStatus(deviceId);
+            const details = await megaRastreoServices.getDetailedStatus(deviceId);
             console.log('Device Status:', details);
             return {
                 ...details,
@@ -199,78 +219,237 @@ export class PaymentService {
     /**
      * Initiate Wompi Payment (Wrapper around createPaymentIntent logic)
      */
-    async initiateWompiPaymentTransaction(deviceIdName, phone) {
-        // Validation
-        if (!deviceIdName || !phone) throw new Error("Missing required fields");
+    /*Initiate a new payment*/
+    /*Initiate a new payment*/
+    async initiateWompiPaymentTransaction(deviceIdName, phone, companyId) {
+        this.validatePaymentInput(deviceIdName, phone);
+        await this.checkDuplicatePayment(deviceIdName);
+        const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+        const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
+        console.log('unpaidInvoice', unpaidInvoice);
+        const wompiAdapter = new WompiAdapter();
+        const acceptanceToken = await wompiAdapter.getMerchantData();
+        const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId);
+        console.log('paymentData', paymentData);
+        const payment = await paymentRepository.upsertPayment(paymentData);
+        if (unpaidInvoice) {
+            await unpaidInvoice.reserve(payment);
+            logger.info(`[PAYMENT] Invoice ${unpaidInvoice.getId()} reserved for plate: ${deviceIdName}`);
+        }
+        return { paymentData };
+    }
+    /*Monitor transaction status*/
+    async monitorTransactionStatus(reference, { onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT }) {
+        try {
 
-        // Check duplicate
-        const pending = await paymentRepository.findPendingPayment(deviceIdName, TEMPORARY_RESERVATION_TIMEOUT);
-        if (pending) throw new Error("A payment is already being processed");
-
-        // Logic similar to createPaymentIntent but specific to this flow
-        const result = await this.createPaymentIntent(deviceIdName, null); // passing phone? createPaymentIntent uses email...
-        // My createPaymentIntent logic handles everything.
-        // User snippet creates Wompi transaction manually.
-        // I will reuse createPaymentIntent and return what user expects.
-
-        return {
-            paymentData: {
-                reference: result.payment.paymentReference,
-                checkoutUrl: result.checkoutUrl
+            // Validaciones
+            notifyStateChange(onUpdate, PS.S_PENDING, PM.M_PENDING_ALT_1, reference);
+            // Polling hasta estado final
+            const paymentData = await this.pollPaymentStatus(reference, onUpdate, timeout);
+            // Procesa resultado
+            if (paymentData.status === PS.S_APPROVED) {
+                notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_APPROVED, reference);
+                const result = await this.processApprovedPayment(paymentData, onUpdate);
+                notifyStateChange(onUpdate, PS.S_COMPLETED, PM.M_COMPLETED, result.simplePayment);
+            } else if (paymentData.status === PS.S_TIMEOUT) {
+                logger.info(`[PAYMENT] Validation timed out for ${reference}`);
+                return;
+            } else {
+                // Persist payment status even if declined/error
+                await paymentRepository.upsertPayment(paymentData);
+                // Release invoice reservation if applicable
+                if (paymentData.invoiceId) {
+                    await invoiceRepository.unreserveInvoice(paymentData.invoiceId);
+                }
+                notifyStateChange(onUpdate, PS.S_DECLINED, PM.M_DECLINED, {
+                    reference,
+                    status: paymentData.status
+                });
             }
-        };
+
+        } catch (error) {
+            logger.error('[PAYMENT] Error:', error);
+            notifyStateChange(onUpdate, PS.S_ERROR, PM.M_ERROR, {
+                reference,
+                error: error.message
+            });
+            throw error;
+        }
+    };
+
+    async pollPaymentStatus(reference, onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT) {
+        // If a polling process exists for this reference, join it
+        console.log("activePolls", reference, activePolls);
+        if (activePolls.has(reference)) {
+            logger.info(`[PAYMENT] Joining existing poll for reference: ${reference}`);
+            const active = activePolls.get(reference);
+            // Add the new listener to receive updates
+            active.listeners.push(onUpdate);
+            return active.promise;
+        }
+
+        let intervalId;
+        const listeners = [onUpdate]; // Array to store all active listeners for this reference
+
+        const promise = new Promise((resolve, reject) => {
+            const startTime = Date.now();
+            const wompiAdapter = new WompiAdapter();
+
+            intervalId = setInterval(async () => {
+                try {
+                    // Verifica timeout
+                    if (Date.now() - startTime > timeout) {
+                        clearInterval(intervalId);
+                        activePolls.delete(reference);
+                        listeners.forEach(listener => notifyStateChange(listener, PS.S_TIMEOUT, PM.M_TIMEOUT, reference));
+                        resolve({ status: PS.S_TIMEOUT, reference });
+                        return;
+                    }
+
+                    // Consulta Wompi
+                    const paymentData = await wompiAdapter.getTransactionStatus(reference);
+                    console.log('Payment data:', paymentData);
+
+                    // Si está en estado final
+                    if ([PS.S_APPROVED, PS.S_DECLINED, PS.S_VOIDED, PS.S_ERROR].includes(paymentData.status)) {
+                        clearInterval(intervalId);
+                        activePolls.delete(reference);
+                        resolve(paymentData);
+                        return;
+                    }
+
+                    // Aún en espera - Notificar a todos los listeners
+                    const message = (Date.now() / 5000 | 0) % 2 === 0 ? PM.M_PENDING_ALT_1 : PM.M_PENDING_ALT_2;
+                    listeners.forEach(listener => notifyStateChange(listener, PS.S_PENDING, message, reference));
+
+                } catch (error) {
+                    clearInterval(intervalId);
+                    activePolls.delete(reference);
+                    logger.error('[PAYMENT] Polling error:', error);
+                    reject(error);
+                }
+            }, 5000);
+        });
+
+        // Store the active polling process
+        activePolls.set(reference, { promise, listeners, intervalId });
+        return promise;
+    };
+    async processApprovedPayment(paymentData, onUpdate) {
+        const { reference } = paymentData;
+        try {
+            // Guarda pago
+            const payment = await paymentRepository.upsertPayment(paymentData);
+            logger.info(`----[PAYMENT] Payment saved for device: ${payment.deviceIdName}`, { reference });
+
+            if (payment.used) {
+                logger.warn(`[PAYMENT] Payment ${reference} already used. Skipping reprocessing.`);
+                notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_ALREADY_PROCESSED, {
+                    reference,
+                    invoiceId: payment.invoiceId
+                });
+                return { success: true, payment, alreadyProcessed: true };
+            }
+
+            // Procesa factura
+            notifyStateChange(onUpdate, PS.S_PROCESSING, PM.M_PROCESSING, { reference });
+            const invoice = await invoiceRepository.processInvoicePaymentAtomically(payment);
+            if (!invoice) {
+                throw new Error('Invoice not found or could not be processed');
+            }
+            await payment.markAsUsed(invoice);
+            notifyStateChange(onUpdate, PS.S_INVOICE_UPDATED, PM.M_INVOICE_UPDATED, {
+                reference,
+                invoiceId: invoice.id
+            });
+
+            // Activa dispositivo invoice, reference, onUpdate
+            await this.activateDevice(invoice, reference, onUpdate);
+
+            // Get updated device status
+            const deviceStatus = await megaRastreoServices.getDetailedStatus(invoice.deviceId);
+
+            const simplePayment = payment.getSimple();
+            return { success: true, simplePayment, deviceStatus };
+
+        } catch (error) {
+            logger.error('[PAYMENT] Error processing approved payment:', error);
+            throw error;
+        }
+    };
+
+    /*Validate payment input*/
+    validatePaymentInput = (deviceIdName, phone) => {
+        if (!phone || !deviceIdName) {
+            throw new Error("Missing required fields: phone and deviceIdName");
+        }
+    }
+    /*Check for duplicate payment*/
+    checkDuplicatePayment = async (deviceIdName) => {
+        const pendingPayment = await paymentRepository.findPendingPayment(deviceIdName, TEMPORARY_RESERVATION_TIMEOUT);
+        if (pendingPayment) {
+            throw new Error("A payment is already being processed for this device");
+        }
     }
 
     /**
      * Activate Device via Traccar
      */
     async activateDevice(invoice, reference, onUpdate) {
-        const traccarId = invoice.deviceId; // Numeric ID
+        const deviceId = invoice.deviceId; // Numeric ID
 
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
 
-        try {
-            // Send Resume Command
-            await gpsService.changeEngineStatus({
-                deviceId: traccarId,
-                type: 'engineResume' // Check command format in gpsService?
-            });
-            logger.info(`[DEVICE] Resume command sent: ${traccarId}`);
+        //  try {
+        // Send Resume Command
+        const responseId = await megaRastreoServices.resumeDevice(deviceId);
+        logger.info(`[DEVICE] Resume command sent: ${deviceId}`);
 
-            // Verify with retries
-            const isActive = await this.checkDeviceWithRetries(traccarId, reference, onUpdate);
-
-            if (isActive) {
-                logger.info(`[DEVICE] Activated: ${traccarId}`);
-            } else {
-                logger.warn(`[DEVICE] Still offline: ${traccarId}`);
-                if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola' });
-                // Queue logic here if implemented
-            }
-        } catch (error) {
-            logger.error('[DEVICE] Activation failed:', error);
-            if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Error activando', error: error.message });
+        // Verify with retries
+        const isActive = await this.checkDeviceWithRetries(responseId, reference, onUpdate);
+        console.log('Device is active:', isActive);
+        if (isActive) {
+            logger.info(`[DEVICE] Activated: ${deviceId}`);
+        } else {
+            logger.warn(`[DEVICE] Still offline: ${deviceId}`);
+            if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola' });
+            // Queue logic here if implemented
         }
+        //} catch (error) {
+        //    logger.error('[DEVICE] Activation failed:', error);
+        //    if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Error activando', error: error.message });
+        //  }
     }
 
-    async checkDeviceWithRetries(traccarId, reference, onUpdate) {
-        const maxAttempts = 5; // User said MAX_RETRY_ATTEMPTS from config
-        const checkInterval = 2000;
+    async checkDeviceWithRetries(responseId, reference, onUpdate) {
+        const maxAttempts = MAX_RETRY_ATTEMPTS;
+        const checkInterval = RETRY_CHECK_INTERVAL;
+        let isActive = false;
 
-        for (let i = 0; i < maxAttempts; i++) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             await new Promise(r => setTimeout(r, checkInterval));
-            // Check status
-            const devices = await gpsService.fetchDevices();
-            const device = devices.find(d => d.id === traccarId);
 
-            // Check ignition/status attributes?
-            // Assuming online if status is 'online' or similar?
-            if (device && device.status === 'online') { // Simplified check
-                return true;
+            notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
+                reference,
+                attempt,
+                maxAttempts,
+                responseId,
+                elapsedSeconds: attempt * (checkInterval / 1000)
+            });
+
+            try {
+                isActive = await megaRastreoServices.checkDeviceStatus(responseId);
+                if (isActive) {
+                    logger.info(`[DEVICE] Device active after ${attempt * 5}s: ${responseId}`);
+                    return true;
+                }
+            } catch (error) {
+                logger.warn(`[DEVICE] Check attempt ${attempt} failed:`, error.message);
             }
         }
+
         return false;
-    }
+    };
 
     // --- Kept existing methods (refactored) ---
 
@@ -317,7 +496,8 @@ export class PaymentService {
         const params = {
             page: options.page || 1,
             limit: options.limit || 50,
-            status: options.status || null
+            status: options.status || null,
+            filter: options.filter || null
         };
         const result = await paymentRepository.getAllPaymentsPaginated(params);
         return result;
@@ -354,11 +534,7 @@ export class PaymentService {
 
 
 
-    // Stub for monitorTransactionStatus (SSE logic handled in controller mostly, but service can poll)
-    async monitorTransactionStatus(reference, { onUpdate, timeout }) {
-        // Detailed polling implementation logic would go here
-        // For now, relying on simple polling structure if needed.
-    }
+
 }
 
 export default new PaymentService();

@@ -1,4 +1,6 @@
 import express from 'express';
+import usersRoutes from './routes/usersRoutes.js';
+import companiesRoutes from './routes/companiesRoutes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as config from './config/config.js';
@@ -15,6 +17,7 @@ import contractsRouter from './routes/contracts.js';
 import dashboardRouter from './routes/dashboard.js';
 import deviceAccessRouter from './routes/deviceAccess.js';
 import devicesRouter from './routes/devicesRoutes.js';
+import MegaRastreoService from './services/megaRastreoServices1.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +49,8 @@ app.use((req, res, next) => {
 });
 
 // API Routes
+app.use('/apinode/users', usersRoutes);
+app.use('/apinode/companies', companiesRoutes);
 app.use('/apinode/auth', authRouter);
 app.use('/apinode/payments', paymentsRouter);
 app.use('/apinode/webhooks', webhooksRouter);
@@ -65,7 +70,6 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/js', express.static(path.join(__dirname, '../client/js')));
 app.use('/css', express.static(path.join(__dirname, '../client/css')));
 app.use('/assets', express.static(path.join(__dirname, '../client/assets'))); // Serve assets if needed
-// app.use(express.static(path.join(__dirname, '../client'))); // REMOVED to prevent index.html conflict
 
 // Custom Payment Route
 app.get('/pagos/:id', (req, res) => {
@@ -108,14 +112,9 @@ async function startServer() {
         // Connect to MongoDB
         await connectDatabase();
 
-        // Clean up deprecated index
-        try {
-            const { Device } = await import('./models/Device.js');
-            await Device.collection.dropIndex('deviceId_1');
-            console.log('🧹 Deprecated index deviceId_1 dropped.');
-        } catch (e) {
-            // Ignore if index not found
-        }
+        // Seed Super Admin
+        const { default: seedSuperAdmin } = await import('./utils/seedSuperAdmin.js');
+        await seedSuperAdmin();
 
         // Start Express server
         app.listen(config.server.port, () => {
@@ -127,6 +126,11 @@ async function startServer() {
             console.log(`💳 Wompi API: ${config.Url.WompiBaseUrl}`);
             console.log('================================');
             console.log('');
+            console.log('================================');
+            console.log('');
+
+            // Start MegaRastreo Auto Update
+            MegaRastreoService.startAutoUpdate();
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

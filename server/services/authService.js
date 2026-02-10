@@ -54,41 +54,41 @@ export class AuthService {
         let traccarUser = null;
         let traccarCookies = null;
 
-        try {
-            // 1. Try Traccar Login
-            const gpsService = (await import('./traccarService.js')).default;
-            const traccarResponse = await gpsService.login(email, password);
-            traccarUser = traccarResponse.data;
-            traccarCookies = traccarResponse.headers['set-cookie'];
-            console.log('✅ Traccar login successful for:', email);
-        } catch (error) {
-            console.log('⚠️ Traccar login failed/skipped:', error.message);
-            // Continue to local auth attempt
-        }
+        /* try {
+             // 1. Try Traccar Login
+             const gpsService = (await import('./traccarService.js')).default;
+             const traccarResponse = await gpsService.login(email, password);
+             traccarUser = traccarResponse.data;
+             traccarCookies = traccarResponse.headers['set-cookie'];
+             console.log('✅ Traccar login successful for:', email);
+         } catch (error) {
+             console.log('⚠️ Traccar login failed/skipped:', error.message);
+             // Continue to local auth attempt
+         }*/
 
         // 2. Find or Create/Update Local User
         let user = await User.findOne({ email });
 
-        if (traccarUser) {
-            if (!user) {
-                // Create local user from Traccar data
-                console.log('👤 Creating new local user from Traccar profile');
-                user = new User({
-                    userId: nanoid(),
-                    email: traccarUser.email,
-                    name: traccarUser.name || traccarUser.email.split('@')[0],
-                    passwordHash: password, // Schema will hash this
-                    role: traccarUser.administrator ? 'admin' : 'viewer',
-                    isActive: true
-                });
-            } else {
-                // Update existing user with latest info/password
-                user.passwordHash = password; // Update local password to match Traccar
-                if (traccarUser.name) user.name = traccarUser.name;
-                if (traccarUser.administrator && user.role !== 'admin') user.role = 'admin'; // Sync admin status? Optional.
-            }
-            await user.save();
-        }
+        /* if (traccarUser) {
+             if (!user) {
+                 // Create local user from Traccar data
+                 console.log('👤 Creating new local user from Traccar profile');
+                 user = new User({
+                     userId: nanoid(),
+                     email: traccarUser.email,
+                     name: traccarUser.name || traccarUser.email.split('@')[0],
+                     passwordHash: password, // Schema will hash this
+                     role: traccarUser.administrator ? 'admin' : 'viewer',
+                     isActive: true
+                 });
+             } else {
+                 // Update existing user with latest info/password
+                 user.passwordHash = password; // Update local password to match Traccar
+                 if (traccarUser.name) user.name = traccarUser.name;
+                 if (traccarUser.administrator && user.role !== 'admin') user.role = 'admin'; // Sync admin status? Optional.
+             }
+             await user.save();
+         }*/
 
         if (!user) {
             throw new Error('Invalid credentials');
@@ -112,6 +112,9 @@ export class AuthService {
             userId: user.userId,
             email: user.email,
             role: user.role,
+            companyId: user.companyId,
+            companyName: user.companyName,
+            isSuperAdmin: user.isSuperAdmin,
             type: 'user'
         });
 
@@ -119,9 +122,9 @@ export class AuthService {
             user: {
                 userId: user.userId,
                 email: user.email,
-                name: user.name,
                 role: user.role,
                 permissions: user.permissions,
+                isSuperAdmin: user.isSuperAdmin
             },
             token,
             traccarCookies: traccarCookies // Return the array of cookies
@@ -150,6 +153,7 @@ export class AuthService {
                 deviceId: contract.deviceId, // Numeric ID
                 deviceIdName: contract.deviceIdName,
                 contractId: contract.contractId,
+                companyId: contract.companyId,
                 type: 'device',
             }, '24h');
 

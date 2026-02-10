@@ -1,16 +1,28 @@
 // logger.js
-const config = require('../config/default');
-const path = require('path');
-const { createRollingFileLogger } = require('simple-node-logger');
+import { LOGFILENAMEFORMAT, DATEFORMAT, TIMEFORMAT, server } from '../config/config.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import SimpleNodeLogger from 'simple-node-logger';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const opts = {
   logDirectory: path.join(__dirname, '../logs'),
-  fileNamePattern: config.LOGFILENAMEFORMAT,
-  dateFormat: config.DATEFORMAT,
-  timestampFormat: config.TIMEFORMAT,
+  fileNamePattern: LOGFILENAMEFORMAT,
+  dateFormat: DATEFORMAT,
+  timestampFormat: TIMEFORMAT,
   separator: ' ',
 };
 
+// Create the log directory if it doesn't exist
+import fs from 'fs';
+if (!fs.existsSync(opts.logDirectory)) {
+  fs.mkdirSync(opts.logDirectory, { recursive: true });
+}
+
+// Handle different import styles for simple-node-logger
+const createRollingFileLogger = SimpleNodeLogger.createRollingFileLogger || SimpleNodeLogger;
 const log = createRollingFileLogger(opts);
 
 class Logger {
@@ -32,20 +44,21 @@ class Logger {
       WE: 'Webhook Traccar Event ',
       WW: 'Webhook Wompi ',
     };
+    this.debugMode = server.env === 'development';
   }
 
   // Info log
   info(message, data = null, code = null) {
     const logMessage = `[INFO] ${message} ${data ? code : ''} ${data ? ' | Data: ' + JSON.stringify(data) : ''}`;
     log.info(logMessage);
-    if (config.debugMode) console.log(logMessage);
+    if (this.debugMode) console.log(logMessage);
   }
 
   // Warning log
   warn(message, data = null, code = null) {
     const logMessage = `[WARN] ${message} ${data ? code : ''} ${data ? ' | Data: ' + JSON.stringify(data) : ''}`;
     log.warn(logMessage);
-    if (config.debugMode) console.warn(logMessage);
+    if (this.debugMode) console.warn(logMessage);
   }
 
   // Error log
@@ -53,8 +66,8 @@ class Logger {
     const logMessage = `[ERROR] ${message} ${error}`;
 
     log.error(logMessage);
-    if (config.debugMode) console.error(logMessage);
+    if (this.debugMode) console.error(logMessage);
   }
 }
 
-module.exports = new Logger();
+export default new Logger();

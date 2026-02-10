@@ -39,7 +39,7 @@ export const Templates = {
                     <span class="btn-text">Usar día libre</span>
                 </button>
             </div>
-            <button id="loanBtn" class="btn btn-secondary">Préstamo</button>
+            <button id="loanBtn" class="btn btn-secondary" disabled>Activar</button>
         </div>
         <div class="payment-history payment-history-scroll">
             <table>

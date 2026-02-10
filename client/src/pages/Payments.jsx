@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Payments.css';
 import { getAllPayments } from '../services/api';
 
 const Payments = () => {
+    const { t } = useTranslation();
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, completed, pending, failed
@@ -64,6 +66,11 @@ const Payments = () => {
         return `$${(amount / 100).toLocaleString()} COP`;
     };
 
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text);
+        // Optional: meaningful toast or feedback
+    };
+
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -73,6 +80,28 @@ const Payments = () => {
             hour: '2-digit',
             minute: '2-digit'
         });
+    };
+
+    const formatInvoiceId = (invoiceId) => {
+        if (!invoiceId) return 'N/A';
+        // Format: DEVICE-YYYY-MM-DD (e.g., ZHJ46G-2026-02-02)
+        const parts = invoiceId.split('-');
+        if (parts.length >= 4) {
+            const deviceName = parts[0];
+            const year = parts[1];
+            const month = parts[2];
+            const day = parts[3];
+
+            // Create date object to get month name
+            // Note: month is 1-indexed in ID, but 0-indexed in Date constructor if using numbers
+            // Using string "YYYY-MM-DD" works reliably
+            const dateObj = new Date(`${year}-${month}-${day}T12:00:00`);
+            const monthName = dateObj.toLocaleDateString('en-US', { month: 'short' });
+
+            // Return "ZHJ46G Feb 2"
+            return `${deviceName} ${monthName} ${parseInt(day)}`;
+        }
+        return invoiceId;
     };
 
     const getStatusIcon = (status) => {
@@ -154,11 +183,11 @@ const Payments = () => {
         <div className="payments-page">
             <div className="page-header">
                 <div>
-                    <h1>💳 Payments History</h1>
-                    <p>View and manage all payment transactions</p>
+                    <h1>💳 {t('payments.title')}</h1>
+                    <p>{t('payments.subtitle')}</p>
                 </div>
                 <button className="btn-primary" onClick={loadPayments}>
-                    🔄 Refresh
+                    🔄 {t('payments.refresh')}
                 </button>
             </div>
 
@@ -169,7 +198,7 @@ const Payments = () => {
                         <DollarSign size={20} />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Total Revenue (Current Page)</div>
+                        <div className="stat-label">{t('payments.stats.revenue')}</div>
                         <div className="stat-number">{formatCurrency(totalAmount)}</div>
                     </div>
                 </div>
@@ -178,7 +207,7 @@ const Payments = () => {
                         <Check size={20} />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Completed (Page)</div>
+                        <div className="stat-label">{t('payments.stats.completed')}</div>
                         <div className="stat-number">{completedCount}</div>
                     </div>
                 </div>
@@ -187,7 +216,7 @@ const Payments = () => {
                         <Clock size={20} />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Pending (Page)</div>
+                        <div className="stat-label">{t('payments.stats.pending')}</div>
                         <div className="stat-number">{pendingCount}</div>
                     </div>
                 </div>
@@ -196,7 +225,7 @@ const Payments = () => {
                         <CreditCard size={20} />
                     </div>
                     <div className="stat-info">
-                        <div className="stat-label">Total Transactions</div>
+                        <div className="stat-label">{t('payments.stats.total')}</div>
                         <div className="stat-number">{pagination.total}</div>
                     </div>
                 </div>
@@ -209,25 +238,25 @@ const Payments = () => {
                         className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                         onClick={() => handleFilterChange('all')}
                     >
-                        All
+                        {t('payments.filters.all')}
                     </button>
                     <button
                         className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
                         onClick={() => handleFilterChange('completed')}
                     >
-                        Completed
+                        {t('payments.filters.completed')}
                     </button>
                     <button
                         className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
                         onClick={() => handleFilterChange('pending')}
                     >
-                        Pending
+                        {t('payments.filters.pending')}
                     </button>
                     <button
                         className={`filter-btn ${filter === 'failed' ? 'active' : ''}`}
                         onClick={() => handleFilterChange('failed')}
                     >
-                        Failed
+                        {t('payments.filters.failed')}
                     </button>
                 </div>
                 <select
@@ -235,9 +264,9 @@ const Payments = () => {
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                 >
-                    <option value="date">Sort by Date</option>
-                    <option value="amount">Sort by Amount</option>
-                    <option value="device">Sort by Device</option>
+                    <option value="date">{t('payments.sort.date')}</option>
+                    <option value="amount">{t('payments.sort.amount')}</option>
+                    <option value="device">{t('payments.sort.device')}</option>
                 </select>
             </div>
 
@@ -246,32 +275,32 @@ const Payments = () => {
                 {loading ? (
                     <div className="loading-state">
                         <div className="spinner"></div>
-                        <p>Loading payments...</p>
+                        <p>{t('payments.loading')}</p>
                     </div>
                 ) : sortedPayments.length === 0 ? (
                     <div className="empty-state">
                         <CreditCard size={48} />
-                        <h3>No payments found</h3>
-                        <p>No transactions match your current filter</p>
+                        <h3>{t('payments.empty.title')}</h3>
+                        <p>{t('payments.empty.subtitle')}</p>
                     </div>
                 ) : (
                     <>
                         <table className="payments-table">
                             <thead>
                                 <tr>
-                                    <th>Payment ID</th>
-                                    <th>Device</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Method</th>
-                                    <th>Date</th>
+                                    <th>{t('payments.table.id')}</th>
+                                    <th>{t('payments.table.device')}</th>
+                                    <th>{t('payments.table.amount')}</th>
+                                    <th>{t('payments.table.status')}</th>
+                                    <th>{t('payments.table.reference')}</th>
+                                    <th>{t('payments.table.date')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {sortedPayments.map(payment => (
                                     <tr key={payment.paymentId}>
-                                        <td className="payment-id">
-                                            <code>{payment.paymentId}</code>
+                                        <td className="payment-id" title="Click to copy full ID" onClick={() => copyToClipboard(payment.paymentId)} style={{ cursor: 'pointer' }}>
+                                            <code>...{payment.paymentId.split('-').pop()}</code>
                                         </td>
                                         <td><strong>{payment.deviceId}</strong></td>
                                         <td className="amount">{formatCurrency(payment.amount)}</td>
@@ -288,7 +317,7 @@ const Payments = () => {
                                             </span>
                                         </td>
                                         <td className="payment-method">
-                                            {payment.paymentMethod || 'N/A'}
+                                            {formatInvoiceId(payment.invoiceId || payment.unpaidInvoiceId || payment.paymentReference)}
                                         </td>
                                         <td className="date">{formatDate(payment.createdAt)}</td>
                                     </tr>
@@ -304,18 +333,21 @@ const Payments = () => {
                                     onClick={() => handlePageChange(pagination.page - 1)}
                                     disabled={!pagination.hasPrev}
                                 >
-                                    <ChevronLeft /> Previous
+                                    <ChevronLeft /> {t('payments.pagination.previous')}
                                 </button>
                                 <span className="pagination-info">
-                                    Page {pagination.page} of {pagination.totalPages}
-                                    ({pagination.total} total)
+                                    {t('payments.pagination.pageInfo', {
+                                        page: pagination.page,
+                                        totalPages: pagination.totalPages,
+                                        total: pagination.total
+                                    })}
                                 </span>
                                 <button
                                     className="pagination-btn"
                                     onClick={() => handlePageChange(pagination.page + 1)}
                                     disabled={!pagination.hasNext}
                                 >
-                                    Next <ChevronRight />
+                                    {t('payments.pagination.next')} <ChevronRight />
                                 </button>
                             </div>
                         )}

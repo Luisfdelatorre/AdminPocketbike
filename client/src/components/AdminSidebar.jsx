@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
     Home, Users, CreditCard, DollarSign, FileText,
-    Settings, LogOut, Menu, X
+    Settings, LogOut, Menu, X, Building
 } from 'lucide-react';
 import './AdminSidebar.css';
 
@@ -136,6 +136,24 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                             <Settings size={20} />
                             <span>{t('sidebar.settings')}</span>
                         </button>
+                        <button
+                            className={`nav-item ${isActive('/users') ? 'active' : ''}`}
+                            onClick={() => handleNavigation('/users')}
+                            title={t('sidebar.users')}
+                        >
+                            <Users size={20} />
+                            <span>{t('sidebar.users')}</span>
+                        </button>
+                        {user?.isSuperAdmin && (
+                            <button
+                                className={`nav-item ${isActive('/companies') ? 'active' : ''}`}
+                                onClick={() => handleNavigation('/companies')}
+                                title={t('sidebar.companies')}
+                            >
+                                <Building size={20} />
+                                <span>{t('sidebar.companies')}</span>
+                            </button>
+                        )}
                         <button
                             className="nav-item logout"
                             onClick={handleLogout}

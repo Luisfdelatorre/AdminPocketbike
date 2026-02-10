@@ -7,6 +7,13 @@ const router = express.Router();
 
 
 
+
+/**
+ * GET /api/invoices/stats
+ * Get invoice statistics for the current month
+ */
+router.get('/stats', verifyToken, invoiceController.getInvoiceStats);
+
 router.get('/history', verifyToken, invoiceController.getInvoiceHistory);
 
 

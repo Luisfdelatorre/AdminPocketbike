@@ -1,5 +1,9 @@
 import { Invoice, Device } from '../models/index.js';
 import { Transaction } from '../config/config.js';
+import logger from '../utils/logger.js';
+import helpers from '../utils/helpers.js';
+const { generateInvoiceId, getToday } = helpers;
+import dayjs from '../config/dayjs.js';
 
 const { INVOICE_DAYTYPE } = Transaction;
 
@@ -11,10 +15,10 @@ export class InvoiceRepository {
     /**
      * Create a daily invoice for a device
      */
-    async createInvoice({ deviceIdName, date, amount }) {
+    async createInvoice({ deviceIdName, date, amount, companyId }) {
         try {
             // Need numeric deviceId for the new Invoice schema
-            const device = await Device.findOne({ deviceName: deviceIdName }).select('_id');
+            const device = await Device.findOne({ name: deviceIdName });
             if (!device) {
                 throw new Error(`Device not found for name: ${deviceIdName}`);
             }
@@ -25,7 +29,9 @@ export class InvoiceRepository {
                 amount,
                 date,
                 deviceIdName,
-                deviceId: device._id // Numeric ID
+                deviceId: device.webDeviceId, // Numeric ID
+                companyId: companyId || device.companyId,
+                companyName: device.companyName
             });
 
             return invoice.toObject();
@@ -36,6 +42,58 @@ export class InvoiceRepository {
             }
             throw error;
         }
+    }
+
+    /**
+     * Helper to create next day invoice
+     */
+    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId) {
+        // Find last paid invoice to determine next date
+        const lastPaid = await Invoice.findLastPaid(deviceIdName);
+        const nextDate = lastPaid
+            ? dayjs(lastPaid.date).add(1, 'day').add(8, 'hour').toDate()
+            : dayjs().startOf('day').toDate();
+        console.log("Next date:", nextDate, deviceIdName, deviceId);
+
+        // Check by Name+Date (ID)
+        let invoice = await Invoice.findByDate(deviceIdName, nextDate);
+        if (invoice) {
+            logger.info(`Invoice ${invoice.id} already exists (by ID), returning it.`);
+            return invoice;
+        }
+
+        invoice = await Invoice.createInvoice({
+            amount,
+            date: nextDate,
+            deviceIdName,
+            deviceId,
+            companyId
+        });
+        return invoice;
+    }
+    /**
+     * Find or create unpaid invoice
+     */
+    async findOrCreateUnpaidInvoice(deviceIdName, contract, companyId, maxAttempts = 3) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                // 1️⃣ Check for existing unpaid invoice
+                const existingInvoice = await Invoice.findLastUnPaid(deviceIdName);
+                if (existingInvoice) return existingInvoice;
+                console.log("Existing last unpaid invoice:", existingInvoice, deviceIdName);
+                // 2️⃣ Create next day invoice
+                return await this.createNextDayInvoice(deviceIdName, contract.dailyRate, contract.deviceId, companyId);
+            } catch (err) {
+                // Duplicate key → another process created it → retry
+                if (err?.code === 11000) {
+                    continue; // retry
+                }
+                // Other errors → propagate
+                logger.error(`Error finding/creating unpaid invoice for ${deviceIdName}:`, err);
+                throw err;
+            }
+        }
+        throw new Error('Create Next Day Invoice failed.');
     }
 
     /**
@@ -201,37 +259,51 @@ export class InvoiceRepository {
     /**
      * Find or create unpaid invoice for today
      */
-    async findOrCreateUnpaidInvoice(deviceIdName, contract) {
-        // Check for existing unpaid invoice
-        let invoice = await this.findLastUnPaid(deviceIdName);
 
-        if (invoice) {
-            return await Invoice.findById(invoice._id); // Return Mongoose document for methods
+    async processInvoicePaymentAtomically(payment, maxAttempts = 5) {
+        const { deviceIdName, amount_in_cents, deviceId, unpaidInvoiceId } = payment;
+        let attempts = maxAttempts;
+        const amount = amount_in_cents / 100;
+        console.log('unpaidInvoiceId', unpaidInvoiceId);
+        while (attempts > 0) {
+            try {
+                // 1️⃣ Intentar pagar la factura no pagada específica
+                if (unpaidInvoiceId) {
+                    const invoice = await Invoice.findOne({ _id: unpaidInvoiceId, paid: false });
+                    if (invoice) {
+                        logger.info(`Paying specific invoice: ${unpaidInvoiceId}`);
+                        console.log('invoice', invoice);
+                        const result = await invoice.applyPayment(payment);
+                        console.log('result', result);
+                        return result;
+                    } else {
+                        logger.warn(`Specific invoice ${unpaidInvoiceId} not found or already paid. Falling back.`);
+                    }
+                }
+
+                // 2️⃣ Más vieja sin pagar
+                const lastUnpaid = await Invoice.findLastUnPaid(deviceIdName);
+                if (lastUnpaid) {
+                    logger.info(`Paying oldest unpaid invoice: ${lastUnpaid._id}`);
+                    return await lastUnpaid.applyPayment(payment);
+                }
+                logger.info(`No unpaid invoices found, creating new one.`);
+                const invoice = await this.createNextDayInvoice(deviceIdName, amount, deviceId);
+                logger.info(`invoice 2: ${invoice}`);
+                return await invoice.applyPayment(payment);
+
+            } catch (err) {
+                if (err?.code === 11000) {
+                    logger.warn(`Duplicate key error, retrying... (${maxAttempts - attempts + 1}/${maxAttempts})`);
+                    attempts--;
+                    continue;
+                }
+                logger.error(`Error processing invoice payment--:`, err);
+                throw err;
+            }
         }
 
-        // Create new one for today/tomorrow based on logic?
-        // User logic implies just getting one to pay. 
-        // If none exists, we create one for today.
-        const today = new Date().toISOString().split('T')[0];
-
-        // Ensure not creating duplicate if one for today is already paid?
-        // If today is paid, maybe create for tomorrow? 
-        // For simplicity reusing createInvoice logic which handles conflicts.
-
-        try {
-            const newInvoice = await this.createInvoice({
-                deviceIdName,
-                date: today,
-                amount: contract.dailyRate
-            });
-            // Return document (createInvoice returns object, need to fetch doc if we need methods)
-            return await Invoice.findById(newInvoice._id);
-        } catch (error) {
-            // Race condition or valid duplicate, try fetching again
-            invoice = await this.findLastUnPaid(deviceIdName);
-            if (invoice) return await Invoice.findById(invoice._id);
-            throw error;
-        }
+        throw new Error('Max retry attempts reached while creating/paying invoice.');
     }
 }
 

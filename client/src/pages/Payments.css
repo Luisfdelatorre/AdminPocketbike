@@ -21,6 +21,33 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6B7280;
+    margin-bottom: 0.25rem;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1F2937;
+}
+
 /* Controls */
 .payment-controls {
     display: flex;

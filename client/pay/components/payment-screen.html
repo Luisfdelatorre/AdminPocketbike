@@ -1,0 +1,108 @@
+<div class="container">
+    <div id="paymentSection" class="payment-section">
+        <h2 class="app-title">Pago a PocketBike</h2>
+        <div class="device-header">
+            <div class="device-logo-container">
+                <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="img-sm">
+                <div class="status-ring" id="deviceStatusRing"></div>
+
+                <div class="status-icons-container">
+                    <div class="status-icon ">
+                        <svg id="batteryStatusSvg" class="" focusable="false" aria-hidden="true" viewBox="0 0 24 24"
+                            data-testid="BatteryFullIcon">
+                            <path
+                                d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4">
+                            </path>
+                        </svg>
+                        <svg id="motorStatusSvg" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 32 32" class="motor-icon-svg">
+                            <title>Engine</title>
+                            <path fill="currentColor"
+                                d="M13.778 6.667v2.222h3.333v2.222h2.222v-2.222h3.333v-2.222h-8.889zM13.778 13.333c-0.3 0-0.579 0.121-0.79 0.321l-1.888 1.901h-2.878c-0.611 0-1.111 0.5-1.111 1.111v6.667c0 0.611 0.5 1.111 1.111 1.111h1.888l3.056 2.033c0.178 0.122 0.39 0.189 0.612 0.189h5.556c0.244 0 0.477-0.077 0.666-0.221l4.444-3.333c0.278-0.211 0.445-0.545 0.445-0.89v-7.778c0-0.611-0.5-1.111-1.111-1.111h-10zM27.111 14.444v6.667h2.222v-6.667h-2.222zM17.111 15.556v3.333h2.222l-3.333 5.556v-3.333h-2.222l3.333-5.556zM2.667 16.667v5.556h2.222v-5.556h-2.222z">
+                            </path>
+                        </svg>
+
+                    </div>
+
+                </div>
+            </div>
+            <span class="device-id" id="deviceDisplay"></span>
+            <span id="paymentDueDate" class="text-muted payment-date-style"></span>
+        </div>
+        <div class="payment-amount">
+            <span class="currency">$</span><span id="paymentAmount"></span><span class="currency-code">COP</span>
+        </div>
+        <div class="phone-input-group">
+            <div class="country-code">Nequi<br>+57</div>
+            <input type="tel" id="phoneNumber" class="phone-input" placeholder="300 756 0069" inputmode="numeric">
+        </div>
+        <button id="nequiPayBtn" class="nequi-payment-card">
+            <div class="nequi-icon-box">
+                <img src="/nequi.png" alt="Nequi">
+            </div>
+            <div class="nequi-divider"></div>
+            <div class="nequi-text">Pagar con tu cuenta Nequi</div>
+        </button>
+    </div>
+    <div class="more-options">
+        <a href="#" id="morePaymentOptions">Más formas de pago ▼</a>
+    </div>
+    <div class="important-reminder hidden" id="pendingPaymentReminder">
+        <div class="reminder-icon">⏳</div>
+        <div class="reminder-content">
+            <div class="reminder-title">Pago pendiente detectado</div>
+            <div class="reminder-text">
+                <div><strong>Referencia:</strong> <span id="pendingPaymentRef">-</span></div>
+                <div><strong>Monto:</strong> $<span id="pendingPaymentAmount">-</span> COP</div>
+                <div><strong>Iniciado:</strong> <span id="pendingPaymentTime">-</span></div>
+                <div class="progress-container">
+                    <div class="progress-bar-animated"></div>
+                </div>
+                <div class="reminder-note" id="paymentStatusLabelReminder">Reanudando verificación automáticamente...
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="important-reminder" id="normalReminder">
+        <div class="reminder-icon">🔔</div>
+        <div class="reminder-content">
+            <div class="reminder-title">Cómo pagar</div>
+            <div class="reminder-text">Después de hacer clic en "Pagar", completa tu transacción en el centro de
+                notificaciones de Nequi.</div>
+        </div>
+    </div>
+    <div id="moreOptionsSection" class="more-options-section">
+        <div class="action-buttons">
+            <div class="btn-wrapper">
+                <span id="freeDaysCount" class="badge-circle">1</span>
+                <button id="useFreeDayBtn" class="btn btn-success ">
+                    <span class="btn-text">Usar día libre</span>
+                </button>
+            </div>
+            <button id="loanBtn" class="btn btn-secondary">Préstamo</button>
+        </div>
+        <div class="payment-history payment-history-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Día</th>
+                        <th>Cantidad</th>
+                        <th>Nequi</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <button id="logoutBtn" class="logout-icon" title="Cerrar Sesión">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+    </button>
+    <div class="WompiSafe">
+        PAGOS SEGUROS POR <img alt="Wompi" src="/wompi.svg">
+    </div>
+</div>

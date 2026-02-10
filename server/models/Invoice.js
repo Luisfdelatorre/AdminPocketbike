@@ -16,6 +16,7 @@ const { INVOICE_DAYTYPE, PAYMENT_TYPE, TEMPORARY_RESERVATION_TIMEOUT } = Transac
 const InvoiceSchema = new mongoose.Schema(
     {
         _id: { type: String, required: true }, // ID formato: plate-yyyy-mm-dd
+        invoiceId: { type: String, required: true }, // ID formato: plate-yyyy-mm-dd
         date: { type: Date, required: true },
         amount: { type: Number, required: true },
         paidAmount: { type: Number, default: 0 },
@@ -28,7 +29,9 @@ const InvoiceSchema = new mongoose.Schema(
         },
         paid: { type: Boolean, default: false },
         deviceIdName: { type: String, required: true },//this is device name
-        deviceId: { type: Number, required: true },//this is device id
+        deviceId: { type: String, required: true },//this is device id
+        companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
+        companyName: { type: String },
         dayType: {
             type: String,
             enum: Object.values(INVOICE_DAYTYPE),
@@ -80,13 +83,19 @@ InvoiceSchema.statics.createInvoice = async function ({
     date,
     deviceIdName,
     deviceId,
+    companyId,
+    companyName
 }) {
+    const id = this.buildId(deviceIdName, date);
     const invoice = await this.create({
-        _id: this.buildId(deviceIdName, date),
+        _id: id,
+        invoiceId: id,
         date,
         amount,
         deviceIdName,
         deviceId,
+        companyId,
+        companyName,
         paid: false,
         dayType: INVOICE_DAYTYPE.DEBT,
     });

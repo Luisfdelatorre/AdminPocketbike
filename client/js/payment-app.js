@@ -234,7 +234,10 @@ class UIUtils {
     }
 
     static formatDate(dateString) {
+        if (!dateString) return '---';
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '---';
+
         const parts = new Intl.DateTimeFormat('es-CO', {
             timeZone: 'UTC',
             day: 'numeric',
@@ -812,7 +815,7 @@ class PaymentManager {
 
             if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.WAITING_NEQUI');
             // Wait 10s simulation
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            // await new Promise(resolve => setTimeout(resolve, 5000));
 
             if (data.paymentData.id) {
                 this.monitorStatus(data.paymentData.id);
@@ -893,7 +896,7 @@ class PaymentManager {
             const pendingBar = this.dom.get('pendingPayment.progressBar');
 
             if (data.status === 'APPROVED') {
-                progress = 80;
+                progress = 60;
             } else {
                 progress += 5;
                 if (progress > 100) progress = 5;
@@ -947,19 +950,19 @@ class PaymentManager {
         STATE.eventSource.close();
         STATE.eventSource = null;
 
-        this.dom.get('success.deviceId').textContent = data.data?.deviceIdName || '';
-        this.dom.get('success.invoice').textContent = data.data?.invoiceId || '';
-        this.dom.get('success.reference').textContent = data.data?.reference || '';
-        this.dom.get('success.date').textContent = UIUtils.formatDate(data.data?.finalized_at || '');
-        this.dom.get('success.amount').textContent = `$${UIUtils.formatMoney(data.data?.amount)} COP`;
+        this.dom.get('success.deviceId').textContent = data?.deviceIdName || '';
+        this.dom.get('success.invoice').textContent = data?.invoiceId || '';
+        this.dom.get('success.reference').textContent = data?.reference || '';
+        this.dom.get('success.date').textContent = UIUtils.formatDate(data?.finalized_at || '');
+        this.dom.get('success.amount').textContent = `$${UIUtils.formatMoney(data?.amount)} COP`;
 
         const doneBtn = this.dom.get('buttons.done');
         if (doneBtn) {
             doneBtn.onclick = async () => {
                 this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
-                payment.loadData(true).catch(err => {
+                this.loadData(true).catch(err => {
                     console.warn('loadData failed', err);
-                    payment.logout();
+                    this.logout();
                 });
 
             };

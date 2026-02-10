@@ -1,0 +1,166 @@
+.users-page {
+    padding: 2rem;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.users-search {
+    margin-bottom: 1.5rem;
+}
+
+.inline-icon {
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+/* User Roles */
+.role-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.role-badge.admin {
+    background-color: #fee2e2;
+    color: #ef4444;
+}
+
+.role-badge.manager {
+    background-color: #dbeafe;
+    color: #3b82f6;
+}
+
+.role-badge.viewer {
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+/* Table overrides if needed, assuming generic table styles exist */
+.data-table th {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 2px solid #E5E7EB;
+    color: #6B7280;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.data-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1F2937;
+    /* Force dark text */
+    font-size: 0.875rem;
+}
+
+.btn-icon.danger {
+    color: #ef4444;
+}
+
+.btn-icon.danger:hover {
+    background-color: #fee2e2;
+}
+
+/* Modal Reuse */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    color: #1f2937;
+    /* Force dark text */
+    background-color: #ffffff;
+    /* Force white background */
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+/* Button Styles */
+.btn-primary {
+    background-color: #3b82f6;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb;
+}
+
+.btn-secondary {
+    background-color: #e5e7eb;
+    color: #374151;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #d1d5db;
+}

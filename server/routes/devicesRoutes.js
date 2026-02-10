@@ -1,7 +1,12 @@
 import express from 'express';
 import deviceController from '../controllers/deviceController.js';
 
+import { verifyToken } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
+
+// Apply middleware to all routes
+router.use(verifyToken);
 
 /**
  * GET /api/devices
@@ -20,6 +25,7 @@ router.post('/', deviceController.createDevice);
  * Sync devices from external GPS platform
  */
 router.post('/sync', deviceController.syncDevices);
+router.post('/assign-to-company', deviceController.assignDevicesToCompany);
 
 /**
  * PUT /api/devices/:deviceId

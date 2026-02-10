@@ -7,8 +7,21 @@ import { resolveDeviceId } from '../utils/deviceResolver.js';
  */
 const getDevicesWithContracts = async (req, res) => {
     try {
-        // Fetch all devices directly from the repository
-        const devices = await deviceRepository.getAllDevices();
+        const { isSuperAdmin, companyId, companyName, role } = req.auth || {};
+        const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+
+        let devices = [];
+
+        if (isSystemAdmin) {
+            // Fetch all devices directly from the repository
+            devices = await deviceRepository.getAllDevices();
+        } else {
+            if (!companyId) {
+                return res.status(403).json({ success: false, error: 'No company assigned' });
+            }
+            // Fetch only company devices
+            devices = await deviceRepository.findDevicesByCompany(companyId);
+        }
 
         // Map devices to the response format (relying on denormalized fields)
         const mappedDevices = devices.map(device => ({
@@ -40,7 +53,23 @@ const getDevicesWithContracts = async (req, res) => {
  */
 const getAllContracts = async (req, res) => {
     try {
-        const allContracts = await contractRepository.getAllContracts();
+        const { isSuperAdmin, companyId, companyName, role } = req.auth || {};
+
+
+        const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+
+        let query = {};
+
+        // If not system admin, restrict to own company contracts
+        if (!isSystemAdmin) {
+            if (!companyId) {
+                return res.status(403).json({ success: false, error: 'No company assigned' });
+            }
+            // Filter by companyId field in Contract model
+            query.companyId = companyId;
+        }
+
+        const allContracts = await contractRepository.getAllContracts(query);
 
         // Calculate completion percentage for each contract
         const contractsWithStats = allContracts.map(contract => ({
@@ -70,7 +99,7 @@ const createContract = async (req, res) => {
     try {
         const {
             deviceId,
-            dailyRate = 3000000, // Default: 30,000 COP (in cents)
+            dailyRate = 30000, // Default: 30,000 COP
             contractDays = 500,
             startDate,
             customerName,
@@ -78,7 +107,8 @@ const createContract = async (req, res) => {
             customerPhone,
             customerDocument,
             notes,
-            devicePin
+            devicePin,
+            freeDaysLimit
         } = req.body;
 
         if (!deviceId || !startDate) {
@@ -97,8 +127,20 @@ const createContract = async (req, res) => {
             });
         }
 
+        // Fetch device to get details
+        const device = await deviceRepository.getDeviceById(deviceId);
+        if (!device) {
+            return res.status(404).json({
+                success: false,
+                error: 'Device not found',
+            });
+        }
+
         const contract = await contractRepository.createContract({
-            deviceIdName: deviceId, // Pass as deviceIdName to match repository
+            deviceId: device.webDeviceId,
+            deviceIdName: device.name, // Use device name as requested
+            companyId: device.companyId,
+            companyName: device.companyName,
             dailyRate,
             contractDays,
             startDate,
@@ -107,11 +149,17 @@ const createContract = async (req, res) => {
             customerPhone,
             customerDocument,
             notes,
-            devicePin
+            devicePin,
+            freeDaysLimit
         });
 
         // Sync to Device (Denormalization)
-        await deviceRepository.updateContractStatus(deviceId, contract.contractId, true);
+        // User Request: update nequi, driver, and contractId
+        await deviceRepository.assignContractToDevice(deviceId, {
+            contractId: contract.contractId,
+            driverName: customerName,
+            nequiNumber: customerPhone
+        });
 
         res.json({
             success: true,
@@ -286,8 +334,10 @@ const updateContract = async (req, res) => {
             customerPhone,
             customerDocument,
             dailyRate,
+            contractDays, // Added contractDays
             notes,
-            devicePin
+            devicePin,
+            freeDaysLimit // Added freeDaysLimit
         } = req.body;
 
         const contract = await contractRepository.getContractById(contractId);
@@ -314,8 +364,10 @@ const updateContract = async (req, res) => {
             customerPhone,
             customerDocument,
             dailyRate,
+            contractDays, // Added contractDays
             notes,
-            devicePin
+            devicePin,
+            freeDaysLimit // Added freeDaysLimit
         });
 
         res.json({

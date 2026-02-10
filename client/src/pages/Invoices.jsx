@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, DollarSign, Check, X, Search, Filter } from 'lucide-react';
 import './Invoices.css';
-import { getAllInvoices } from '../services/api';
+import { getAllInvoices, getInvoiceStats } from '../services/api';
 
 const Invoices = () => {
     const { t } = useTranslation();
@@ -11,14 +11,33 @@ const Invoices = () => {
     const [filter, setFilter] = useState('all'); // all, paid, unpaid, pending
     const [searchQuery, setSearchQuery] = useState('');
 
+    const [stats, setStats] = useState({
+        total: 0,
+        paid: 0,
+        unpaid: 0,
+        totalAmount: 0
+    });
+
     useEffect(() => {
         loadInvoices();
+        loadStats();
     }, []);
+
+    const loadStats = async () => {
+        try {
+            const result = await getInvoiceStats();
+            if (result.success) {
+                setStats(result.stats);
+            }
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    };
 
     const loadInvoices = async () => {
         setLoading(true);
         try {
-            const result = await getAllInvoices({ page: 1, limit: 1000 });
+            const result = await getAllInvoices({ page: 1, limit: 50 });
 
             if (result.success) {
                 setInvoices(result.invoices || []);
@@ -33,7 +52,7 @@ const Invoices = () => {
     };
 
     const formatCurrency = (amount) => {
-        return `$${(amount / 100).toLocaleString()} COP`;
+        return `$${(amount).toLocaleString()} COP`;
     };
 
     const formatDate = (dateString) => {
@@ -58,7 +77,7 @@ const Invoices = () => {
     // Filter invoices
     const filteredInvoices = invoices.filter(invoice => {
         // Status filter
-        if (filter !== 'all' && invoice.status.toLowerCase() !== filter.toLowerCase()) {
+        if (filter !== 'all' && invoice.dayType.toLowerCase() !== filter.toLowerCase()) {
             return false;
         }
 
@@ -75,13 +94,6 @@ const Invoices = () => {
 
         return true;
     });
-
-    const stats = {
-        total: invoices.length,
-        paid: invoices.filter(i => i.status === 'PAID').length,
-        unpaid: invoices.filter(i => i.status === 'UNPAID').length,
-        totalAmount: invoices.reduce((sum, i) => sum + i.amount, 0)
-    };
 
     return (
         <div className="invoices-page">
@@ -202,8 +214,7 @@ const Invoices = () => {
                 <>
                     <div className="invoices-table">
                         <div className="table-header">
-                            <div>ID</div>
-                            <div>{t('devices.table.contract')}</div>
+                            <div>ID Factura</div>
                             <div>{t('login.deviceId')}</div>
                             <div>Date</div>
                             <div>Amount</div>
@@ -212,10 +223,7 @@ const Invoices = () => {
                         {filteredInvoices.map((invoice) => (
                             <div key={invoice.invoiceId} className="table-row">
                                 <div className="invoice-id">{invoice.invoiceId}</div>
-                                <div className="contract-id">
-                                    {invoice.contractId || '-'}
-                                </div>
-                                <div className="device-id">{invoice.deviceId}</div>
+                                <div className="device-id">{invoice.deviceIdName}</div>
                                 <div className="invoice-date">
                                     <Calendar size={14} />
                                     {formatDate(invoice.date)}
@@ -227,11 +235,11 @@ const Invoices = () => {
                                     <span
                                         className="status-badge"
                                         style={{
-                                            background: `${getStatusColor(invoice.status)}20`,
-                                            color: getStatusColor(invoice.status)
+                                            background: `${getStatusColor(invoice.dayType)}20`,
+                                            color: getStatusColor(invoice.dayType)
                                         }}
                                     >
-                                        {invoice.status}
+                                        {invoice.dayType}
                                     </span>
                                 </div>
                             </div>

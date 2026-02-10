@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical } from 'lucide-react';
+import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull } from 'lucide-react';
+import { showToast } from '../utils/toast';
 import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
@@ -22,6 +24,7 @@ const MobileHeaderAction = ({ children }) => {
 const DeviceManagement = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -81,7 +84,7 @@ const DeviceManagement = () => {
                 document.execCommand('copy');
             } catch (err) {
                 console.error('Unable to copy', err);
-                alert('Failed to copy link manually.');
+                showToast('Failed to copy link manually.', 'error');
             }
             document.body.removeChild(textArea);
         }
@@ -113,14 +116,14 @@ const DeviceManagement = () => {
             console.log('Sync result:', result);
 
             if (result.success) {
-                alert(result.message);
+                showToast(result.message, 'success');
                 loadDevices();
             } else {
-                alert(result.error || 'Sync failed');
+                showToast(result.error || 'Sync failed', 'error');
             }
         } catch (err) {
             console.error('Error syncing devices:', err);
-            alert('Failed to sync devices: ' + err.message);
+            showToast('Failed to sync devices: ' + err.message, 'error');
         } finally {
             setLoading(false);
         }
@@ -163,12 +166,13 @@ const DeviceManagement = () => {
             if (result.success) {
                 setShowModal(false);
                 loadDevices();
+                showToast(editingDevice ? 'Device updated successfully' : 'Device created successfully', 'success');
             } else {
-                alert(result.error || 'Failed to save device');
+                showToast(result.error || 'Failed to save device', 'error');
             }
         } catch (err) {
             console.error('Error saving device:', err);
-            alert('Failed to save device');
+            showToast('Failed to save device', 'error');
         }
     };
 
@@ -188,12 +192,13 @@ const DeviceManagement = () => {
                 loadDevices();
                 setShowDeleteModal(false);
                 setDeviceToDelete(null);
+                showToast('Device deactivated successfully', 'success');
             } else {
-                alert(result.error);
+                showToast(result.error, 'error');
             }
         } catch (err) {
             console.error('Error deleting device:', err);
-            alert(`Failed to delete device: ${err.message || 'Unknown error'}`);
+            showToast(`Failed to delete device: ${err.message || 'Unknown error'}`, 'error');
         }
     };
 
@@ -248,9 +253,15 @@ const DeviceManagement = () => {
                     <h1>{t('devices.title')}</h1>
                 </div>
 
-                <button className="btn-secondary desktop-only" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
-                    <RefreshCw className={loading ? 'spin' : ''} /> {t('devices.sync')}
-                </button>
+                {user?.isSuperAdmin ? (
+                    <button className="btn-secondary desktop-only" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
+                        <RefreshCw className={loading ? 'spin' : ''} /> {t('devices.sync')}
+                    </button>
+                ) : (
+                    <button className="btn-secondary desktop-only" onClick={loadDevices} disabled={loading} style={{ marginRight: '1rem' }}>
+                        <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
+                    </button>
+                )}
                 <button className="btn-primary desktop-only" onClick={handleAddDevice}>
                     <Plus /> {t('devices.addDevice')}
                 </button>
@@ -263,8 +274,8 @@ const DeviceManagement = () => {
                     >
                         <Plus size={24} />
                     </button>
-                    <button onClick={handleSync} className="btn-mobile-header-action">
-                        <RefreshCw size={20} />
+                    <button onClick={user?.isSuperAdmin ? handleSync : loadDevices} className="btn-mobile-header-action">
+                        <RefreshCw size={20} className={loading ? 'spin' : ''} />
                     </button>
                 </MobileHeaderAction>
 
@@ -352,9 +363,7 @@ const DeviceManagement = () => {
                     {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.driver')}</div>
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.contract')}</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.status')}</div>
-
-
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">Estado</div>
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
                 </div>
 
@@ -375,22 +384,42 @@ const DeviceManagement = () => {
                             <div className="text-gray-700 flex items-center">{device.nequiNumber || device.phone || '-'}</div>
                             {/* Hiding SIM and Status content on Mobile/Tablet */}
                             <div className="text-gray-500 hidden lg:flex items-center">{device.driverName || '-'}</div>
-                            <div className="hidden lg:flex items-center">
-                                <button
-                                    className={`status-toggle ${device.isActive ? 'active' : 'inactive'}`}
-                                    onClick={() => handleToggleActive(device)}
-                                >
-                                    {device.isActive ? <><Check size={14} /> {t('common.active')}</> : <><X size={14} /> {t('common.inactive')}</>}
-                                </button>
-                            </div>
-
                             <div className="text-gray-500 hidden lg:flex items-center">
-                                {device.hasActiveContract ? (
-                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">{t('common.active')}</span>
+                                {device.contractId ? (
+                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">
+                                        {device.contractId}
+                                    </span>
                                 ) : (
-                                    <span className="contract-none text-gray-300">-</span>
+                                    <span className="contract-none text-gray-300">--</span>
                                 )}
                             </div>
+                            <div className="flex items-center justify-center gap-3">
+                                {/* Motor Status */}
+                                <div className={`flex flex-col items-center justify-center ${device.cutOff ? 'text-red-500' : device.ignition ? 'text-emerald-500' : 'text-gray-300'}`}>
+                                    <svg id="motorStatusSvg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" className="motor-icon-svg" style={{ fill: 'currentColor' }}>
+                                        <title>Engine</title>
+                                        <path d="M13.778 6.667v2.222h3.333v2.222h2.222v-2.222h3.333v-2.222h-8.889zM13.778 13.333c-0.3 0-0.579 0.121-0.79 0.321l-1.888 1.901h-2.878c-0.611 0-1.111 0.5-1.111 1.111v6.667c0 0.611 0.5 1.111 1.111 1.111h1.888l3.056 2.033c0.178 0.122 0.39 0.189 0.612 0.189h5.556c0.244 0 0.477-0.077 0.666-0.221l4.444-3.333c0.278-0.211 0.445-0.545 0.445-0.89v-7.778c0-0.611-0.5-1.111-1.111-1.111h-10zM27.111 14.444v6.667h2.222v-6.667h-2.222zM17.111 15.556v3.333h2.222l-3.333 5.556v-3.333h-2.222l3.333-5.556zM2.667 16.667v5.556h2.222v-5.556h-2.222z">
+                                        </path>
+                                    </svg>
+                                </div>
+
+                                {/* Battery Status */}
+                                <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
+                                    device.batteryLevel > 30 ? 'text-yellow-500' :
+                                        'text-red-500'
+                                    }`}>
+                                    {device.batteryLevel > 70 ? (
+                                        <BatteryFull size={20} />
+                                    ) : device.batteryLevel > 30 ? (
+                                        <BatteryMedium size={20} />
+                                    ) : (
+                                        <BatteryLow size={20} className="animate-pulse" />
+                                    )}
+                                </div>
+                            </div>
+
+
+
                             <div className="flex items-center justify-center relative action-menu-container">
                                 <button
                                     className={`p-2 rounded-full transition-all duration-200 ${activeMenuId === device._id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}

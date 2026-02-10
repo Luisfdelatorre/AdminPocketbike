@@ -1,8 +1,7 @@
 import { Payment } from '../models/index.js';
 import { nanoid } from 'nanoid';
 import { Transaction } from '../config/config.js';
-import helpers from '../utils/helpers.js';
-const { getToday } = helpers;
+import dayjs from 'dayjs';
 import logger from '../config/logger.js';
 
 const { PAYMENT_STATUS } = Transaction;
@@ -11,7 +10,7 @@ export class PaymentRepository {
     /**
      * Create a payment for an invoice
      */
-    async createPayment({ invoiceId, amount, currency = 'COP' }) {
+    async createPayment({ invoiceId, amount, currency = 'COP', companyId = null, companyName = null }) {
         // Parse invoiceId to extract device ID
         // Format: INV-BIKE001-2026-01-05
         const invoiceParts = invoiceId.split('-');
@@ -29,13 +28,30 @@ export class PaymentRepository {
         const paymentReference = invoiceId; // e.g., "INV-BIKE001-2026-01-05"
 
         try {
+            // Fetch Invoice to get company details
+            // We need to import Invoice model dynamically or move it to top if no circular dep
+            // For now, let's assume we can query Invoice.
+            const Invoice = (await import('../models/index.js')).Invoice;
+            const invoice = await Invoice.findById(invoiceId).select('companyId companyName deviceIdName');
+
+            // Prefer provided companyId, fallback to Invoice
+            companyId = companyId || invoice?.companyId;
+            companyName = companyName || invoice?.companyName;
+
+            // If invoice doesn't have it (pre-migration), fallback to Device lookup?
+            // Or just save undefined, migration script will fix it.
+            // But for new payments we want it.
+            // If invoice has it, great.
+
             const payment = await Payment.create({
                 paymentId,
                 invoiceId,
                 paymentReference,
                 amount,
                 currency,
-                status: PAYMENT_STATUS.PENDING,
+                status: PAYMENT_STATUS.S_PENDING,
+                companyId,
+                companyName
             });
 
             return payment.toObject();
@@ -44,6 +60,28 @@ export class PaymentRepository {
             if (error.code === 11000 && error.message.includes('invoiceId')) {
                 return await this.getPaymentByInvoiceId(invoiceId);
             }
+            throw error;
+        }
+    }
+
+
+    /**
+    * Upsert payment
+    */
+    async upsertPayment(data) {
+        try {
+            const payment = await Payment.findOneAndUpdate(
+                { _id: data._id },
+                { $set: data },
+                {
+                    upsert: true,
+                    new: true,
+                    runValidators: false,
+                }
+            );
+            return payment;
+        } catch (error) {
+            logger.error('Error en upsertPayment:', error);
             throw error;
         }
     }
@@ -145,10 +183,10 @@ export class PaymentRepository {
 
     async findPendingPayment(deviceName, pendingMilliseconds) {
         try {
-            const cutoffTime = getToday().subtract(pendingMilliseconds, 'milliseconds').toDate();
+            const cutoffTime = dayjs().subtract(pendingMilliseconds, 'milliseconds').toDate();
             const pendingPayment = await Payment.findOne({
                 deviceIdName: deviceName,
-                status: PAYMENT_STATUS.PENDING,
+                status: PAYMENT_STATUS.S_PENDING,
                 createdAt: { $gte: cutoffTime }
             }).sort({ createdAt: -1 });
             return pendingPayment;
@@ -163,9 +201,15 @@ export class PaymentRepository {
     /**
      * Get all payments with pagination and optional status filter
      */
-    async getAllPaymentsPaginated({ page = 1, limit = 50, status = null }) {
+    async getAllPaymentsPaginated({ page = 1, limit = 50, status = null, filter = null }) {
         const skip = (page - 1) * limit;
-        const query = status ? { status } : {};
+        console.log("Filter:", filter);
+        let query = {};
+        if (filter) {
+            query = { ...filter };
+        } else if (status) {
+            query.status = status;
+        }
 
         const [payments, total] = await Promise.all([
             Payment.find(query)
@@ -175,9 +219,21 @@ export class PaymentRepository {
                 .lean(),
             Payment.countDocuments(query)
         ]);
+        console.log("Payments:", payments);
+
+        // Normalize legacy data
+        const normalizedPayments = payments.map(p => ({
+            ...p,
+            amount: p.amount !== undefined ? p.amount : p.amount_in_cents,
+            paymentReference: p.paymentReference || p.reference,
+            invoiceId: p.invoiceId || p.unpaidInvoiceId,
+            paymentId: p.paymentId || p._id,
+            status: p.status || (p.response === 'APPROVED' ? 'APPROVED' : 'PENDING'), // Fallback if status missing
+            deviceId: p.deviceIdName || p.deviceId // Prefer name, fallback to ID
+        }));
 
         return {
-            payments,
+            payments: normalizedPayments,
             pagination: {
                 page,
                 limit,
@@ -198,10 +254,19 @@ export class PaymentRepository {
         const invoices = await Invoice.find({ deviceIdName }).select('invoiceId').lean();
         const invoiceIds = invoices.map(inv => inv.invoiceId);
 
-        return await Payment.find({ invoiceId: { $in: invoiceIds } })
+        const payments = await Payment.find({ invoiceId: { $in: invoiceIds } })
             .sort({ createdAt: -1 })
             .limit(limit)
             .lean();
+
+        return payments.map(p => ({
+            ...p,
+            amount: p.amount !== undefined ? p.amount : p.amount_in_cents,
+            paymentReference: p.paymentReference || p.reference,
+            invoiceId: p.invoiceId || p.unpaidInvoiceId,
+            paymentId: p.paymentId || p._id,
+            deviceId: p.deviceIdName || p.deviceId
+        }));
     }
 }
 

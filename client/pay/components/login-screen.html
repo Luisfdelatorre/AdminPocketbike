@@ -1,0 +1,51 @@
+<div class="container">
+    <h2 class="app-title">Pago a PocketBike</h2>
+    <div class="login-form">
+        <div class="form-group" id="deviceIdGroup">
+            <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="img-md">
+            <input type="text" id="deviceId" placeholder="Placa" required>
+            <div id="deviceIdDisplay" class="device-id-text hidden"></div>
+        </div>
+
+        <div class="form-group pin-container">
+            <label class="pin-title">Escribe tu clave</label>
+            <div class="pin-display" id="pinDisplay">
+                <input type="password" class="pin-box" readonly>
+                <input type="password" class="pin-box" readonly>
+                <input type="password" class="pin-box" readonly>
+                <input type="password" class="pin-box" readonly>
+            </div>
+            <input type="password" id="devicePin" maxlength="4" class="hidden">
+        </div>
+
+        <div class="numeric-keypad" id="numericKeypad">
+            <div class="keypad-row">
+                <button class="keypad-btn" data-val="1">1</button>
+                <button class="keypad-btn" data-val="2">2</button>
+                <button class="keypad-btn" data-val="3">3</button>
+            </div>
+            <div class="keypad-row">
+                <button class="keypad-btn" data-val="4">4</button>
+                <button class="keypad-btn" data-val="5">5</button>
+                <button class="keypad-btn" data-val="6">6</button>
+            </div>
+            <div class="keypad-row">
+                <button class="keypad-btn" data-val="7">7</button>
+                <button class="keypad-btn" data-val="8">8</button>
+                <button class="keypad-btn" data-val="9">9</button>
+            </div>
+            <div class="keypad-row">
+                <button class="keypad-btn backspace-btn" id="keypadClear">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+                <button class="keypad-btn" data-val="0">0</button>
+                <button class="keypad-btn backspace-btn" id="keypadBackspace">⌫</button>
+            </div>
+        </div>
+        <div id="loginError" class="error-message"></div>
+    </div>
+</div>

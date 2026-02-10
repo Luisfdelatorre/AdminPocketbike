@@ -12,26 +12,9 @@ import bcrypt from 'bcryptjs';
 const getAllDevices = async (req, res) => {
     try {
         const devices = await Device.find({ isDeleted: { $ne: true } }).sort({ _id: 1 });
-
-        // Get PIN status and active contracts for each device
-        const devicesWithStatus = await Promise.all(devices.map(async (device) => {
-            const hasPin = await DeviceAccess.findOne({ deviceId: device._id, isActive: true });
-            const activeContract = await Contract.findOne({
-                deviceId: device._id,
-                status: 'ACTIVE'
-            });
-
-            return {
-                ...device.toObject(),
-                hasPin: !!hasPin,
-                hasActiveContract: !!activeContract,
-                activeContractId: activeContract?.contractId || null
-            };
-        }));
-
         res.json({
             success: true,
-            devices: devicesWithStatus
+            devices
         });
     } catch (error) {
         console.error('Get devices error:', error);
@@ -221,10 +204,90 @@ const syncDevices = async (req, res) => {
     }
 };
 
+/**
+ * Assign devices to a company (Bulk Update)
+ */
+const assignDevicesToCompany = async (req, res) => {
+    try {
+        const { companyId, deviceIds } = req.body;
+
+        if (!companyId || !Array.isArray(deviceIds)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Company ID and a list of Device IDs are required'
+            });
+        }
+
+        console.log(`🔗 Assigning ${deviceIds.length} devices to company ${companyId}`);
+
+        // Get Company Name
+        const { Company } = await import('../models/Company.js');
+        const company = await Company.findById(companyId);
+
+        if (!company) {
+            return res.status(404).json({
+                success: false,
+                error: 'Company not found'
+            });
+        }
+
+        // 1. Remove devices from this company (if they are NOT in the new list)
+        // This effectively "unassigns" devices if they were unchecked
+        // BUT, unassigning usually means setting to a default system company or null?
+        // For now, checks are "add/keep". If I uncheck a device that WAS assigned,
+        // it should probably be removed from this company.
+        // STRATEGY:
+        // - Set companyId/Name to target for all in deviceIds.
+        // - Set companyId/Name to System/Default for all currently in companyId but NOT in deviceIds?
+        // Let's implement robust Logic:
+        // "Set all these devices to this company".
+        // What do we do with devices that *used* to be in this company but are not in the list?
+        // If the UI sends "All devices properly assigned to this company", then we should:
+        // A. Remove all devices from this company.
+        // B. Add the requested devices to this company.
+        // However, devices MUST belong to a company. We can't leave them orphan.
+        // So, we will only UPDATE the devices in the list.
+        // If the user wants to "remove" a device, they should assign it to another company (or System).
+        // Let's stick to "Assign these devices to this company".
+
+        // Sanitize IDs (handle potential numbers)
+        const sanitizedDeviceIds = deviceIds.map(id => {
+            const trimmed = String(id).trim();
+            // If it looks like a number, cast to number to match DB types
+            return isNaN(Number(trimmed)) ? trimmed : Number(trimmed);
+        });
+
+        const result = await Device.updateMany(
+            { _id: { $in: sanitizedDeviceIds } },
+            {
+                $set: {
+                    companyId: company._id,
+                    companyName: company.name
+                }
+            }
+        );
+
+
+        res.json({
+            success: true,
+            message: `Updated ${result.modifiedCount} devices to company ${company.name}`,
+            data: result
+        });
+
+    } catch (error) {
+        console.error('Assign devices error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
 export default {
     getAllDevices,
     createDevice,
     updateDevice,
     deleteDevice,
-    syncDevices
+    syncDevices,
+    assignDevicesToCompany
 };
