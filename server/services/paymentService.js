@@ -87,53 +87,41 @@ export class PaymentService {
             logger.info(`[FREE DAY] Activation status: ${update.status} - ${update.message}`);
         };
 
+        // Get contract and validate
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
         if (!contract) throw new Error('Contract not found');
 
+        // Validate free days available (optimized - only check what we need)
         const freeDaysLimit = contract.freeDaysLimit || 4;
-        const monthlyFreeDaysUsed = await invoiceRepository.countFreeDaysUsedThisMonth(deviceIdName);
+        const monthlyFreeDaysUsed = await Invoice.countFreeDaysUsedThisMonth(deviceIdName);
         const freeDaysAvailable = Math.max(0, freeDaysLimit - monthlyFreeDaysUsed);
 
         if (freeDaysAvailable < 1) {
             throw new Error('No free days available. Please make a payment first.');
         }
 
+        // Find or create unpaid invoice
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
-
-        // CREATE FREE PAYMENT
-        // We need 'createFreePayment' in paymentRepository, checking if it exists.
-        // User snippet calls paymentRepository.createFreePayment.
-        // I'll simulate it here or ensure repo has it. For now assuming repo will be updated or use createPayment.
-        const payment = await paymentRepository.createPayment({
-            invoiceId: unpaidInvoice.invoiceId || unpaidInvoice._id,
-            amount: 0,
-            status: PAYMENT_STATUS.APPROVED,
-            method: PAYMENT_TYPE.FREE,
-            companyId: unpaidInvoice.companyId || companyId,
-            companyName: unpaidInvoice.companyName
-        });
-
-        // Apply payment to invoice
-        // updateInvoiceStatus handles dayType logic
-        await invoiceRepository.updateInvoiceStatus(
-            unpaidInvoice._id,
-            INVOICE_STATUS.PAID, // This sets paid=true, dayType=PAID. 
-            payment.paymentReference
-        );
-        // Ideally we want dayType=FREE. Let's fix inside updateInvoiceStatus or pass explicit type if possibly.
-        // For now, let's assume updateInvoiceStatus maps PAID -> PAID. 
-        // We might need to manually set dayType FREE if we want strict accounting.
-        // I will trust the repo update I made, which sets PAID. 
-        // TODO: Refine for FREE dayType later if needed strictly.
+        console.log("unpaidInvoice", unpaidInvoice);
+        // Create FREE payment record
+        const payment = await paymentRepository.createFreePayment(deviceIdName, contract, unpaidInvoice, companyId);
+        console.log("-----payment", payment);
+        // Apply payment to invoice (marks it as FREE and paid)
+        await unpaidInvoice.applyPayment(payment);
 
         // Activate device
         try {
-            await this.activateDevice(unpaidInvoice, payment.paymentReference, dummyOnUpdate);
+            const yesterday = dayjs().subtract(1, 'days').startOf('day');
+            if (unpaidInvoice.date.isSameOrAfter(yesterday)) {
+                await activateDevice(unpaidInvoice, payment.reference, dummyOnUpdate);
+            }
         } catch (e) {
             logger.error(`[FREE DAY] Activation warning: ${e.message}`);
+            // Don't fail the request, just log. User can retry activation or it flows to queue.
         }
 
-        const deviceStatus = await this.getDataStatus(deviceIdName);
+        // Get updated device status
+        const deviceStatus = await megaRastreoServices.getDetailedStatus(unpaidInvoice.deviceId);
 
         return {
             success: true,
@@ -142,7 +130,8 @@ export class PaymentService {
             invoiceId: unpaidInvoice._id,
             deviceStatus
         };
-    }
+    };
+
 
     /**
      * Apply a loan
@@ -151,6 +140,7 @@ export class PaymentService {
         const dummyOnUpdate = (update) => {
             logger.info(`[LOAN] Activation status: ${update.status} - ${update.message}`);
         };
+        console.log("applyLoan", deviceIdName, contractId, companyId);
 
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
         if (!contract) throw new Error('Contract not found');
@@ -162,25 +152,31 @@ export class PaymentService {
             const invoiceDate = dayjs(existingUnpaid.date).startOf('day');
             if (invoiceDate.isSameOrAfter(yesterday)) {
                 // Create Loan Payment
-                const payment = await paymentRepository.createPayment({
-                    invoiceId: existingUnpaid.invoiceId || existingUnpaid._id,
-                    amount: contract.dailyRate,
-                    status: PAYMENT_STATUS.APPROVED,
-                    method: PAYMENT_TYPE.LOAN,
-                    companyId: existingUnpaid.companyId || companyId,
-                    companyName: existingUnpaid.companyName
-                });
+                /*  const payment = await paymentRepository.createPayment({
+                      invoiceId: existingUnpaid.invoiceId || existingUnpaid._id,
+                      amount: contract.dailyRate,
+                      status: PAYMENT_STATUS.APPROVED,
+                      method: PAYMENT_TYPE.LOAN,
+                      companyId: existingUnpaid.companyId || companyId,
+                      companyName: existingUnpaid.companyName
+                  });*/
 
-                await invoiceRepository.updateInvoiceStatus(existingUnpaid._id, 'PAID', payment.paymentReference);
-                // Should rely on repo to set LOAN type? Or passed status?
-                // My invoiceRepo update maps status -> dayType. 'PAID' -> 'PAID'.
-                // User snippet uses 'createLoanPayment' on repo.
-
-                try {
-                    await this.activateDevice(existingUnpaid, `LOAN-${existingUnpaid._id}`, dummyOnUpdate);
-                } catch (e) {
-                    logger.error(`[LOAN] Activation error: ${e.message}`);
-                }
+                /*   await invoiceRepository.updateInvoiceStatus(existingUnpaid._id, 'PAID', payment.paymentReference);
+                   // Should rely on repo to set LOAN type? Or passed status?
+                   // My invoiceRepo update maps status -> dayType. 'PAID' -> 'PAID'.
+                   // User snippet uses 'createLoanPayment' on repo.
+   
+                   try {
+                       const yesterday = dayjs().add(-1, 'day').startOf('day');
+                       const invoiceDate = dayjs(existingUnpaid.date).startOf('day');
+                       if (invoiceDate.isBefore(yesterday)) {
+                           logger.info(`[DEVICE] Activation skipped - invoice date in the past: ${existingUnpaid.date}`);
+                           return;
+                       }
+                       await this.activateDevice(existingUnpaid, `LOAN-${existingUnpaid._id}`, dummyOnUpdate);
+                   } catch (e) {
+                       logger.error(`[LOAN] Activation error: ${e.message}`);
+                   }*/
             } else {
                 return { success: false, message: 'Cannot request loan for old debts' };
             }
@@ -362,6 +358,13 @@ export class PaymentService {
                 reference,
                 invoiceId: invoice.id
             });
+
+            const yesterday = dayjs().add(-1, 'day').startOf('day');
+            const invoiceDate = dayjs(invoice.date).startOf('day');
+            if (invoiceDate.isBefore(yesterday)) {
+                logger.info(`[DEVICE] Activation skipped - invoice date in the past: ${invoice.date}`);
+                return;
+            }
 
             // Activa dispositivo invoice, reference, onUpdate
             await this.activateDevice(invoice, reference, onUpdate);

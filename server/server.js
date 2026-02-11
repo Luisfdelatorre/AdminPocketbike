@@ -130,7 +130,7 @@ async function startServer() {
             console.log('');
 
             // Start MegaRastreo Auto Update
-            MegaRastreoService.startAutoUpdate();
+            //MegaRastreoService.startAutoUpdate();
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

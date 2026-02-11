@@ -101,6 +101,7 @@ const paymentController = {
     /*Use free day*/
     async useFreeDay(req, res) {
         try {
+
             const { deviceIdName, companyId } = req.paymentAuth;
             // Try to get contractId from token, if not, fetch active contract
             let contractId = req.paymentAuth.contractId;
@@ -112,6 +113,9 @@ const paymentController = {
                 }
                 contractId = contract.contractId;
             }
+            console.log("Device ID:", deviceIdName);
+            console.log("Contract ID:", contractId);
+            console.log("Company ID:", companyId);
 
             const result = await paymentService.applyFreeDay(deviceIdName, contractId, companyId);
 

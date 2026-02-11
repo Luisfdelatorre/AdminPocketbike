@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull } from 'lucide-react';
 import { showToast } from '../utils/toast';
-import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess } from '../services/api';
+import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getFinancialReport } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
@@ -36,6 +36,7 @@ const DeviceManagement = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deviceToDelete, setDeviceToDelete] = useState(null);
     const [filter, setFilter] = useState('all'); // all, active, available
+    const [viewMode, setViewMode] = useState('technical'); // technical, financial
     const [activeMenuId, setActiveMenuId] = useState(null);
 
     const [formData, setFormData] = useState({
@@ -49,7 +50,7 @@ const DeviceManagement = () => {
 
     useEffect(() => {
         loadDevices();
-    }, []);
+    }, [viewMode]); // Reload when view mode changes
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -62,7 +63,7 @@ const DeviceManagement = () => {
     }, [activeMenuId]);
 
     const handleShare = (device) => {
-        const url = `${window.location.origin}/pay/#/Id/${device.name}`;
+        const url = `${window.location.origin}/pago/${device.name}`;
         setShareUrl(url);
         setSelectedDeviceId(device.deviceId);
         setShowShareModal(true);
@@ -93,17 +94,28 @@ const DeviceManagement = () => {
     const loadDevices = async () => {
         setLoading(true);
         try {
-            const result = await getAllDevices();//getAllDevices
+            let result;
+            if (viewMode !== 'financial') {
+                const financialData = await getFinancialReport();
+                console.log(financialData);
+                result = { success: true, devices: financialData };
+            } else {
+                result = await getAllDevices();
+            }
 
             if (result.success) {
-                setDevices(result.devices);
+                setDevices(result.devices || []);
             }
         } catch (err) {
             console.error('Error fetching devices:', err);
+            showToast('Failed to load devices', 'error');
         } finally {
             setLoading(false);
         }
     };
+
+    // ... rest of handlers ... hiding for brevity ...
+    // ... kept existing handlers ...
 
     const handleSync = async () => {
         console.log('Sync button clicked');
@@ -221,8 +233,11 @@ const DeviceManagement = () => {
         // Search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            if (!String(device._id).includes(query) &&
-                !device.deviceName.toLowerCase().includes(query)) {
+            const deviceName = device.name || device.deviceName || ''; // Handle both structures
+            const deviceId = device._id || '';
+
+            if (!String(deviceId).includes(query) &&
+                !deviceName.toLowerCase().includes(query)) {
                 return false;
             }
         }
@@ -312,6 +327,24 @@ const DeviceManagement = () => {
                 </div>
             </div>
 
+            {/* View Toggle */}
+            <div className="flex justify-center mb-4">
+                <div className="bg-gray-100 p-1 rounded-lg inline-flex">
+                    <button
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'technical' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+                        onClick={() => setViewMode('technical')}
+                    >
+                        Técnico
+                    </button>
+                    <button
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'financial' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+                        onClick={() => setViewMode('financial')}
+                    >
+                        Financiero
+                    </button>
+                </div>
+            </div>
+
             {/* Search Bar */}
             <div className="devices-search">
                 <div className="search-box">
@@ -358,12 +391,27 @@ const DeviceManagement = () => {
             <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100">
                 {/* Header Row */}
                 <div className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 border-b border-gray-100">
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.name')}</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.nequi')}</div>
-                    {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.driver')}</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.contract')}</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">Estado</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.contract')}</div>
+
+                    {viewMode === 'technical' ? (
+                        <>
+                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">Pagado</div>
+                            {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
+                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Deuda</div>
+                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Estado</div>
+                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Dias Libres</div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.driver')}</div>
+                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">Tarifa</div>
+                            <div className="text-xs font-semibold tracking-wide text-blue-600 uppercase flex items-center">Pagado</div>
+                            <div className="text-xs font-semibold tracking-wide text-red-600 uppercase flex items-center">Deuda</div>
+                            <div className="text-xs font-semibold tracking-wide text-blue-600 uppercase flex items-center">Días Free</div>
+                        </>
+                    )}
+
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">Motor</div>
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
                 </div>
 
@@ -373,104 +421,119 @@ const DeviceManagement = () => {
                         <div key={device._id} className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 hover:bg-gray-50/50 transition-colors items-center text-sm">
                             <div className="font-semibold text-gray-900 flex items-center">
                                 <a
-                                    href={`/pay/#/Id/${device.name}`}
+                                    href={`/pagos/${device.name}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-gray-900 cursor-pointer hover:text-gray-600"
+                                    className="text-gray-900 cursor-pointer hover:text-gray-600 flex flex-col"
                                 >
-                                    {device.name}
+                                    <span className="text-gray-900 font-medium">{device.name}</span>
+                                    {device.contractId && (
+                                        <span className="text-[8px] text-gray-400">
+                                            {device.contractId}
+                                        </span>
+                                    )}
                                 </a>
                             </div>
-                            <div className="text-gray-700 flex items-center">{device.nequiNumber || device.phone || '-'}</div>
-                            {/* Hiding SIM and Status content on Mobile/Tablet */}
-                            <div className="text-gray-500 hidden lg:flex items-center">{device.driverName || '-'}</div>
-                            <div className="text-gray-500 hidden lg:flex items-center">
-                                {device.contractId ? (
-                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">
-                                        {device.contractId}
-                                    </span>
-                                ) : (
-                                    <span className="contract-none text-gray-300">--</span>
-                                )}
-                            </div>
-                            <div className="flex items-center justify-center gap-3">
-                                {/* Motor Status */}
-                                <div className={`flex flex-col items-center justify-center ${device.cutOff ? 'text-red-500' : device.ignition ? 'text-emerald-500' : 'text-gray-300'}`}>
-                                    <svg id="motorStatusSvg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" className="motor-icon-svg" style={{ fill: 'currentColor' }}>
-                                        <title>Engine</title>
-                                        <path d="M13.778 6.667v2.222h3.333v2.222h2.222v-2.222h3.333v-2.222h-8.889zM13.778 13.333c-0.3 0-0.579 0.121-0.79 0.321l-1.888 1.901h-2.878c-0.611 0-1.111 0.5-1.111 1.111v6.667c0 0.611 0.5 1.111 1.111 1.111h1.888l3.056 2.033c0.178 0.122 0.39 0.189 0.612 0.189h5.556c0.244 0 0.477-0.077 0.666-0.221l4.444-3.333c0.278-0.211 0.445-0.545 0.445-0.89v-7.778c0-0.611-0.5-1.111-1.111-1.111h-10zM27.111 14.444v6.667h2.222v-6.667h-2.222zM17.111 15.556v3.333h2.222l-3.333 5.556v-3.333h-2.222l3.333-5.556zM2.667 16.667v5.556h2.222v-5.556h-2.222z">
-                                        </path>
-                                    </svg>
-                                </div>
 
-                                {/* Battery Status */}
-                                <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
-                                    device.batteryLevel > 30 ? 'text-yellow-500' :
-                                        'text-red-500'
-                                    }`}>
-                                    {device.batteryLevel > 70 ? (
-                                        <BatteryFull size={20} />
-                                    ) : device.batteryLevel > 30 ? (
-                                        <BatteryMedium size={20} />
-                                    ) : (
-                                        <BatteryLow size={20} className="animate-pulse" />
-                                    )}
-                                </div>
-                            </div>
+                            {viewMode === 'technical' ? (
+                                <>
+                                    <div className="text-emerald-600 flex items-center font-bold">
+                                        ${(device.monthPaid || 0).toLocaleString()}
+                                    </div>
+                                    <div className={`flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                        ${(device.monthDebt || 0).toLocaleString()}
+                                    </div>
+                                    <div className="text-gray-500 hidden lg:flex items-center">
+                                        {device.status ? (
+                                            <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">
+                                                {device.status}
+                                            </span>
+                                        ) : (
+                                            <span className="contract-none text-gray-300">--</span>
+                                        )}
+                                    </div>
+                                    <div className="text-blue-600 flex items-center font-bold pl-4">
+                                        {device.freeDays || 0}
+                                    </div>
+
+                                    <div className="flex items-center justify-center gap-3">
+                                        {/* Motor Status */}
+                                        <div className={`flex flex-col items-center justify-center ${device.cutOff ? 'text-red-500' : device.ignition ? 'text-emerald-500' : 'text-gray-300'}`}>
+                                            <svg id="motorStatusSvg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" className="motor-icon-svg" style={{ fill: 'currentColor' }}>
+                                                <title>Engine</title>
+                                                <path d="M13.778 6.667v2.222h3.333v2.222h2.222v-2.222h3.333v-2.222h-8.889zM13.778 13.333c-0.3 0-0.579 0.121-0.79 0.321l-1.888 1.901h-2.878c-0.611 0-1.111 0.5-1.111 1.111v6.667c0 0.611 0.5 1.111 1.111 1.111h1.888l3.056 2.033c0.178 0.122 0.39 0.189 0.612 0.189h5.556c0.244 0 0.477-0.077 0.666-0.221l4.444-3.333c0.278-0.211 0.445-0.545 0.445-0.89v-7.778c0-0.611-0.5-1.111-1.111-1.111h-10zM27.111 14.444v6.667h2.222v-6.667h-2.222zM17.111 15.556v3.333h2.222l-3.333 5.556v-3.333h-2.222l3.333-5.556zM2.667 16.667v5.556h2.222v-5.556h-2.222z">
+                                                </path>
+                                            </svg>
+                                        </div>
+
+                                        {/* Battery Status */}
+                                        <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
+                                            device.batteryLevel > 30 ? 'text-yellow-500' :
+                                                'text-red-500'
+                                            }`}>
+                                            {device.batteryLevel > 70 ? (
+                                                <BatteryFull size={20} />
+                                            ) : device.batteryLevel > 30 ? (
+                                                <BatteryMedium size={20} />
+                                            ) : (
+                                                <BatteryLow size={20} className="animate-pulse" />
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="text-gray-500 hidden lg:flex items-center">{device.driverName || '-'}</div>
+                                    <div className="text-gray-700 flex items-center font-medium">
+                                        {device.dailyRate ? `$${device.dailyRate.toLocaleString()}` : '-'}
+                                    </div>
+                                    <div className="text-emerald-600 flex items-center font-bold">
+                                        ${(device.monthPaid || 0).toLocaleString()}
+                                    </div>
+                                    <div className={`flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                        ${(device.monthDebt || 0).toLocaleString()}
+                                    </div>
+                                    <div className="text-blue-600 flex items-center font-bold pl-4">
+                                        {device.freeDays || 0}
+                                    </div>
+                                    <div className="flex items-center justify-center">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium 
+                                            ${device.statusColor === 'red' ? 'bg-red-100 text-red-700' :
+                                                device.statusColor === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-emerald-100 text-emerald-700'}`}>
+                                            {device.status || 'Al día'}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
 
 
 
                             <div className="flex items-center justify-center relative action-menu-container">
                                 <button
-                                    className={`p-2 rounded-full transition-all duration-200 ${activeMenuId === device._id ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}
+                                    className=" text-left  text-sm text-gray-700  flex items-center  transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setActiveMenuId(activeMenuId === device._id ? null : device._id);
+                                        handleShare(device);
+                                        setActiveMenuId(null);
                                     }}
                                 >
-                                    <MoreVertical size={20} />
+                                    <Share2 size={16} className="text-gray-500" />
+
+                                </button>
+                                <button
+                                    className=" text-left px-4 py-2.5 text-sm text-gray-700  flex items-center  "
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditDevice(device);
+                                        setActiveMenuId(null);
+                                    }}
+                                >
+                                    <Edit size={16} className="text-gray-500" />
+
                                 </button>
 
-                                {activeMenuId === device._id && (
-                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden transform origin-top-right animate-in fade-in zoom-in-95 duration-200">
-                                        <div className="py-1">
-                                            <button
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleShare(device);
-                                                    setActiveMenuId(null);
-                                                }}
-                                            >
-                                                <Share2 size={16} className="text-gray-500" />
-                                                {t('devices.share.title')}
-                                            </button>
-                                            <button
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditDevice(device);
-                                                    setActiveMenuId(null);
-                                                }}
-                                            >
-                                                <Edit size={16} className="text-gray-500" />
-                                                {t('common.edit')}
-                                            </button>
-                                            <div className="border-t border-gray-100 my-1"></div>
-                                            <button
-                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteClick(device);
-                                                    setActiveMenuId(null);
-                                                }}
-                                            >
-                                                <Trash2 size={16} />
-                                                {t('common.delete')}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
+
                             </div>
                         </div>
                     ))}

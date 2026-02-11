@@ -229,7 +229,7 @@ const Invoices = () => {
                                     {formatDate(invoice.date)}
                                 </div>
                                 <div className="invoice-amount">
-                                    {formatCurrency(invoice.amount)}
+                                    {formatCurrency(invoice.paidAmount)}
                                 </div>
                                 <div className="invoice-status">
                                     <span

@@ -3,14 +3,15 @@ import { nanoid } from 'nanoid';
 import { Transaction } from '../config/config.js';
 import dayjs from 'dayjs';
 import logger from '../config/logger.js';
+import helper from '../utils/helpers.js';
 
-const { PAYMENT_STATUS } = Transaction;
+const { PAYMENT_STATUS, PAYMENT_TYPE } = Transaction;
 
 export class PaymentRepository {
     /**
      * Create a payment for an invoice
      */
-    async createPayment({ invoiceId, amount, currency = 'COP', companyId = null, companyName = null }) {
+    async createPayment({ invoiceId, amount, currency = 'COP', companyId, companyName = null }) {
         // Parse invoiceId to extract device ID
         // Format: INV-BIKE001-2026-01-05
         const invoiceParts = invoiceId.split('-');
@@ -32,7 +33,7 @@ export class PaymentRepository {
             // We need to import Invoice model dynamically or move it to top if no circular dep
             // For now, let's assume we can query Invoice.
             const Invoice = (await import('../models/index.js')).Invoice;
-            const invoice = await Invoice.findById(invoiceId).select('companyId companyName deviceIdName');
+            const invoice = await Invoice.findById(invoiceId);
 
             // Prefer provided companyId, fallback to Invoice
             companyId = companyId || invoice?.companyId;
@@ -63,6 +64,38 @@ export class PaymentRepository {
             throw error;
         }
     }
+    async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
+        try {
+            const reference = helper.generateReferenceFreeDay(unpaidInvoice._id);
+            const payment = {
+                _id: reference,
+                paymentId: reference,
+                type: PAYMENT_TYPE.FREE,
+                deviceIdName: deviceIdName,
+                deviceId: contract.deviceId,
+                amount_in_cents: 0,
+                amount: 0,
+                reference: reference,
+                status: PAYMENT_STATUS.S_APPROVED,
+                created_at: new Date(),
+                finalized_at: new Date(),
+                phoneNumber: contract.customerPhone || '',
+                used: false,
+                unpaidInvoiceId: unpaidInvoice._id,
+                invoiceId: unpaidInvoice.invoiceId,
+                payment_method_type: PAYMENT_TYPE.FREE,
+                companyId: companyId,
+            };
+            console.log("***payment", payment);
+
+            const newPayment = await Payment.create(payment);
+            return newPayment;
+        } catch (error) {
+            logger.error('Error creating free payment:', error);
+            throw error;
+        }
+    }
+
 
 
     /**

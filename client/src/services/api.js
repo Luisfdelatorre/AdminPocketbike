@@ -58,7 +58,15 @@ export const getActiveContract = (deviceId) => api.get(`/contracts/${deviceId}`)
 
 // --- Invoices ---
 export const getAllInvoices = (params) => api.get('/invoices/all', { params });
-export const getInvoiceStats = () => api.get('/invoices/stats');
+export const getInvoiceStats = async () => {
+    const response = await api.get('/invoices/stats');
+    return response.data;
+};
+
+export const getFinancialReport = async () => {
+    const response = await api.get('/invoices/financial-report');
+    return response.data;
+};
 export const getInvoiceById = (id) => api.get(`/invoices/${id}`);
 
 // --- Users & Companies ---

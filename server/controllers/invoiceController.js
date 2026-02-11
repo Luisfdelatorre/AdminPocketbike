@@ -5,6 +5,116 @@ import { resolveDeviceId } from '../utils/deviceResolver.js';
 import invoiceServices from '../services/invoiceServices.js';
 import logger from '../config/logger.js';
 import mongoose from 'mongoose';
+import { Device } from '../models/Device.js';
+import { Contract } from '../models/Contract.js';
+
+const getFinancialReport = async (req, res) => {
+    try {
+        const { isSuperAdmin, companyId, role, companyName } = req.auth;
+        const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+
+        // Current month date range
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // 1. Get all relevant devices first to ensure we list even those without invoices
+        let deviceQuery = { isDeleted: { $ne: true } };
+        if (!isSystemAdmin) {
+            deviceQuery.companyId = companyId;
+        }
+
+        const devices = await Device.find(deviceQuery).lean();
+        const deviceMap = {};
+        devices.forEach(d => {
+            deviceMap[d.name] = {
+                deviceId: d._id,
+                name: d.name,
+                driverName: d.driverName,
+                cutOff: d.cutOff,
+                ignition: d.ignition,
+                batteryLevel: d.batteryLevel,
+                companyId: d.companyId,
+                // Required for filtering and display
+                hasActiveContract: d.hasActiveContract,
+                isActive: d.isActive,
+                nequiNumber: d.nequiNumber,
+                phone: d.phone,
+                contractId: d.activeContractId || d.contractId,
+                // Defaults
+                monthPaid: 0,
+                monthDebt: 0,
+                freeDays: 0,
+                dailyRate: 0,
+                contractStatus: 'NONE'
+            };
+        });
+
+        // 2. Aggregate Invoices for Current Month
+        const matchStage = {
+            date: { $gte: startOfMonth, $lte: endOfMonth }
+        };
+
+        if (!isSystemAdmin) {
+            matchStage.companyId = new mongoose.Types.ObjectId(companyId);
+        }
+
+        const invoiceStats = await Invoice.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: '$deviceIdName', // Group by Device Name (plate)
+                    monthPaid: {
+                        $sum: { $cond: [{ $eq: ['$paid', true] }, '$paidAmount', 0] }
+                    },
+                    monthDebt: {
+                        $sum: { $cond: [{ $eq: ['$paid', false] }, '$paidAmount', 0] }
+                    },
+                    freeDays: {
+                        $sum: { $cond: [{ $eq: ['$dayType', 'FREE'] }, 1, 0] }
+                    }
+                }
+            }
+        ]);
+
+        // Merge invoice stats into device map
+        invoiceStats.forEach(stat => {
+            if (deviceMap[stat._id]) {
+                deviceMap[stat._id].monthPaid = stat.monthPaid;
+                deviceMap[stat._id].monthDebt = stat.monthDebt;
+                deviceMap[stat._id].freeDays = stat.freeDays;
+            }
+            console.log(deviceMap[stat._id]);
+        });
+
+
+
+
+        // 4. Determine Status (Al día, Mora, Suspendido)
+        const report = Object.values(deviceMap).map(d => {
+            if (d.monthDebt > 0) {
+                d.status = 'MORA';
+                d.color = 'red';
+            } else {
+                d.status = 'AL DÍA';
+                d.color = 'green';
+            }
+            return d;
+        });
+
+        res.json({
+            success: true,
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Get financial report error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
 
 
 /**
@@ -229,6 +339,7 @@ const getInvoiceStats = async (req, res) => {
 export default {
     createInvoice,
     getInvoiceStats,
+    getFinancialReport,
     getInvoiceHistory,
     getAllInvoices,
     getInvoicesByDevice,
