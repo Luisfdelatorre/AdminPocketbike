@@ -69,10 +69,11 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // Serve static assets for the custom page
 app.use('/js', express.static(path.join(__dirname, '../client/js')));
 app.use('/css', express.static(path.join(__dirname, '../client/css')));
-app.use('/assets', express.static(path.join(__dirname, '../client/assets'))); // Serve assets if needed
+// Serve static assets from dist root for the payment page (images are now in dist root)
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // Custom Payment Route
-app.get('/pagos/:id', (req, res) => {
+app.get('/p/:id', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/pay/index.html'));
 });
 

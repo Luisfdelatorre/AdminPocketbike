@@ -311,7 +311,7 @@ const Contracts = () => {
                                     <div className="contract-title">
                                         <h3>
                                             <a
-                                                href={`/pagos/${contract.deviceIdName || contract.deviceId}`}
+                                                href={`/p/${contract.deviceIdName || contract.deviceId}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-gray-900 hover:text-indigo-600 transition-colors"

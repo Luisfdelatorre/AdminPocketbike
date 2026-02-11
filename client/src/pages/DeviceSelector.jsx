@@ -63,7 +63,7 @@ const DeviceManagement = () => {
     }, [activeMenuId]);
 
     const handleShare = (device) => {
-        const url = `${window.location.origin}/pago/${device.name}`;
+        const url = `${window.location.origin}/p/${device.name}`;
         setShareUrl(url);
         setSelectedDeviceId(device.deviceId);
         setShowShareModal(true);
@@ -421,7 +421,7 @@ const DeviceManagement = () => {
                         <div key={device._id} className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 hover:bg-gray-50/50 transition-colors items-center text-sm">
                             <div className="font-semibold text-gray-900 flex items-center">
                                 <a
-                                    href={`/pagos/${device.name}`}
+                                    href={`/p/${device.name}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-gray-900 cursor-pointer hover:text-gray-600 flex flex-col"

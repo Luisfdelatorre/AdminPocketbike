@@ -10,6 +10,7 @@ const __dirname = dirname(__filename);
 export default defineConfig({
     plugins: [react()],
     root: './client',
+    publicDir: 'public',
     server: {
         host: true, // Enable network access
         port: 5173,
@@ -18,7 +19,7 @@ export default defineConfig({
                 target: 'http://127.0.0.1:3000',
                 changeOrigin: true,
             },
-            '/pagos': {
+            '/p': {
                 target: 'http://127.0.0.1:3000',
                 changeOrigin: true,
             },
@@ -31,7 +32,7 @@ export default defineConfig({
                 target: 'http://127.0.0.1:3000',
                 changeOrigin: true,
             },
-            '/pagos': {
+            '/p': {
                 target: 'http://127.0.0.1:3000',
                 changeOrigin: true,
             },
