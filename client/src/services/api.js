@@ -63,6 +63,11 @@ export const getInvoiceStats = async () => {
     return response.data;
 };
 
+export const getUnpaidInvoices = async (deviceId) => {
+    const response = await api.get(`/invoices/${deviceId}/unpaid`);
+    return response.data;
+};
+
 export const getFinancialReport = async () => {
     const response = await api.get('/invoices/financial-report');
     return response.data;

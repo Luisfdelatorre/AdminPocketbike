@@ -19,7 +19,6 @@ const Contracts = () => {
         customerEmail: '',
         customerPhone: '',
         customerDocument: '',
-        customerDocument: '',
         dailyRate: 30000, // 30,000 COP
         contractDays: 500,
         startDate: new Date().toISOString().split('T')[0],
@@ -80,7 +79,6 @@ const Contracts = () => {
             customerName: '',
             customerEmail: '',
             customerPhone: '',
-            customerDocument: '',
             customerDocument: '',
             dailyRate: 30000,
             contractDays: 500,
