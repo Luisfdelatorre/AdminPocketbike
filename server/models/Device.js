@@ -23,7 +23,7 @@ const deviceSchema = new mongoose.Schema({
     isDeleted: { type: Boolean, default: false, index: true },
     notes: { type: String, default: '', },
     // online: { type: Boolean, default: false },//diff < Transaction.DEVICE_ONLINE_TIMEOUT;
-    cutOff: { type: Boolean, default: false, },// true cuando attributes.status === 133
+    cutOff: { type: Number, default: 0, },// 1 cuando attributes.status === 133
     ignition: { type: Boolean, default: false, },// sensors.ignition
     batteryLevel: { type: Number, default: null, },// attributes.batteryLevel (0–100)
     //BACKWARD COMPATIBILITY //TRACCAR

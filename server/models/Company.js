@@ -42,6 +42,15 @@ const companySchema = new mongoose.Schema({
     logo: {
         type: String, // Base64 or URL
         default: '/pocketbike_60x60.jpg'
+    },
+    automaticCutOff: {
+        type: Boolean,
+        default: false
+    },
+    cutOffStrategy: {
+        type: Number,
+        enum: [1, 2, 3], // 1: Today, 2: Yesterday, 3: Disabled
+        default: 1
     }
 }, {
     timestamps: true

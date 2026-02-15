@@ -171,13 +171,13 @@ const companyController = {
             let company;
             if (companyId) {
                 // If authenticated, try to find user's company
-                company = await Company.findById(companyId).select('displayName logo').lean();
+                company = await Company.findById(companyId).select('displayName logo automaticCutOff cutOffStrategy').lean();
             }
 
             // Fallback: Get the first active company
             if (!company) {
                 company = await Company.findOne({ isActive: true })
-                    .select('displayName logo')
+                    .select('displayName logo automaticCutOff cutOffStrategy')
                     .lean();
             }
 
@@ -195,7 +195,9 @@ const companyController = {
                 success: true,
                 data: {
                     displayName: company.displayName || 'PocketBike',
-                    logo: company.logo || '/pocketbike_60x60.jpg'
+                    logo: company.logo || '/pocketbike_60x60.jpg',
+                    automaticCutOff: company.automaticCutOff || false,
+                    cutOffStrategy: company.cutOffStrategy || 1
                 }
             });
         } catch (error) {
@@ -210,7 +212,7 @@ const companyController = {
     // Update company branding
     updateBranding: async (req, res) => {
         try {
-            const { displayName, logo } = req.body;
+            const { displayName, logo, automaticCutOff, cutOffStrategy } = req.body;
             const { companyId } = req.auth;
 
             const company = await Company.findById(companyId);
@@ -223,6 +225,8 @@ const companyController = {
 
             if (displayName !== undefined) company.displayName = displayName;
             if (logo !== undefined) company.logo = logo;
+            if (automaticCutOff !== undefined) company.automaticCutOff = automaticCutOff;
+            if (cutOffStrategy !== undefined) company.cutOffStrategy = Boolean(automaticCutOff) ? cutOffStrategy : 3;
 
             await company.save();
 
@@ -230,7 +234,9 @@ const companyController = {
                 success: true,
                 data: {
                     displayName: company.displayName,
-                    logo: company.logo
+                    logo: company.logo,
+                    automaticCutOff: company.automaticCutOff,
+                    cutOffStrategy: company.cutOffStrategy
                 }
             });
         } catch (error) {

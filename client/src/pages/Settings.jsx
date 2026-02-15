@@ -9,7 +9,9 @@ const Settings = () => {
         currency: 'COP',
         timezone: 'America/Bogota',
         displayName: 'PocketBike',
-        companyLogo: '/pocketbike_60x60.jpg'
+        companyLogo: '/pocketbike_60x60.jpg',
+        automaticCutOff: false,
+        cutOffStrategy: 1
     });
 
     const [saved, setSaved] = useState(false);
@@ -46,7 +48,9 @@ const Settings = () => {
                     setSettings(prev => ({
                         ...prev,
                         displayName: data.data.displayName,
-                        companyLogo: data.data.logo
+                        companyLogo: data.data.logo,
+                        automaticCutOff: data.data.automaticCutOff,
+                        cutOffStrategy: data.data.cutOffStrategy
                     }));
                 }
             } catch (error) {
@@ -164,7 +168,9 @@ const Settings = () => {
                 },
                 body: JSON.stringify({
                     displayName: settings.displayName,
-                    logo: settings.companyLogo
+                    logo: settings.companyLogo,
+                    automaticCutOff: settings.automaticCutOff,
+                    cutOffStrategy: settings.cutOffStrategy
                 })
             });
 
@@ -464,6 +470,49 @@ const Settings = () => {
                             RECOMMENDED: 60X60PX, PNG OR JPG, MAX 2MB
                         </p>
                     </div>
+                </div>
+
+                {/* Automatic Cut-Off Settings */}
+                <div className="settings-section">
+                    <div className="section-header">
+                        <Clock size={20} />
+                        <h2>Automatic Cut-Off Control</h2>
+                    </div>
+
+                    <div className="setting-item toggle-item">
+                        <div className="setting-info">
+                            <label htmlFor="automaticCutOff">Enable Automatic Engine Stop</label>
+                            <p className="setting-description">
+                                Automatically turn off engines at 11:59 PM for devices with unpaid invoices.
+                            </p>
+                        </div>
+                        <input
+                            id="automaticCutOff"
+                            type="checkbox"
+                            checked={settings.automaticCutOff}
+                            onChange={(e) => handleChange('automaticCutOff', e.target.checked)}
+                            className="toggle-checkbox"
+                        />
+                    </div>
+
+                    {settings.automaticCutOff && (
+                        <div className="setting-item">
+                            <label htmlFor="cutOffStrategy">Cut-Off Strategy</label>
+                            <select
+                                id="cutOffStrategy"
+                                value={settings.cutOffStrategy}
+                                onChange={(e) => handleChange('cutOffStrategy', parseInt(e.target.value))}
+                                className="strategy-select"
+                            >
+                                <option value={1}>1. Invoice de hoy no está pago</option>
+                                <option value={2}>2. Invoice de ayer no está pago</option>
+                                <option value={3}>3. No apagar / Dejar libre</option>
+                            </select>
+                            <p className="setting-description">
+                                Choose which payment condition triggers the automatic cutoff.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* System Info */}

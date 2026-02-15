@@ -33,4 +33,11 @@ export const CRON_JOBS = [
         flag: false,
         job: 'DeviceStatusUpdate',
     },
+    {
+        name: 'dailyCutOff',
+        time: '59 23 * * *', // cada día a las 23:59
+        log: 'Automatic engine stop for unpaid invoices',
+        flag: true,
+        job: 'performDailyCutOff',
+    },
 ];
