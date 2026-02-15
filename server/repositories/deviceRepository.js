@@ -160,6 +160,24 @@ class DeviceRepository {
             throw error;
         }
     }
+
+    /**
+     * Update device cutOff status
+     * @param {String} deviceId - Device ID (Traccar ID)
+     * @param {Boolean} cutOff - CutOff status
+     */
+    async updateCutOffStatus(deviceId, cutOff) {
+        try {
+            return await Device.findOneAndUpdate(
+                { deviceId: deviceId },
+                { cutOff: cutOff },
+                { new: true }
+            );
+        } catch (error) {
+            logger.error(`Error updating cutOff status for device ${deviceId}:`, error);
+            throw error;
+        }
+    }
 }
 
 export default new DeviceRepository();

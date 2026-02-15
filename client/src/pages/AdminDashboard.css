@@ -257,7 +257,7 @@
 .stat-card {
     background: white;
     border-radius: 0.75rem;
-    padding: 1.5rem;
+    padding: 0.5rem;
     display: flex;
     gap: 1rem;
     align-items: flex-start;
@@ -295,7 +295,7 @@
     font-size: 1.875rem;
     font-weight: 700;
     color: #1F2937;
-    margin-bottom: 0.5rem;
+
 }
 
 .stat-change {
@@ -312,6 +312,56 @@
 
 .stat-change.negative {
     color: #EF4444;
+}
+
+/* Change indicator in top right corner */
+.stat-change-corner {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.stat-change-corner.positive {
+    color: #10B981;
+}
+
+.stat-change-corner.negative {
+    color: #EF4444;
+}
+
+/* Mini bar chart in top right corner */
+.stat-card {
+    position: relative;
+}
+
+.mini-bars-corner {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 24px;
+}
+
+.mini-bars-corner.positive {
+    color: #10B981;
+}
+
+.mini-bars-corner.negative {
+    color: #EF4444;
+}
+
+.mini-bars-corner .bar {
+    width: 4px;
+    background: currentColor;
+    border-radius: 2px;
+    opacity: 0.5;
 }
 
 /* Charts Grid */
@@ -428,14 +478,27 @@
     color: #065F46;
 }
 
+.status-badge.approved,
+.status-badge.s_approved {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
 .status-badge.pending {
     background: #FEF3C7;
     color: #92400E;
 }
 
-.status-badge.failed {
+.status-badge.failed,
+.status-badge.declined,
+.status-badge.error {
     background: #FEE2E2;
     color: #991B1B;
+}
+
+.status-badge.unknown {
+    background: #F3F4F6;
+    color: #6B7280;
 }
 
 /* Responsive */

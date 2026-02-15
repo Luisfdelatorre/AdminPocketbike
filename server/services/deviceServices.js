@@ -60,8 +60,16 @@ const bulkWriteDevices = async (gpsDevices) => {
     return stats;
 }
 
+const initializeGpsUpdates = async () => {
+    const devices = await Device.find({}, 'imei').lean();
+    const imeis = devices.map(d => d.imei).filter(Boolean);
+    console.log(`📡 Initializing GPS updates for ${imeis.length} devices...`);
+    await MegaRastreo.startAutoUpdate(imeis);
+};
+
 export default {
     getDeviceList,
-    bulkWriteDevices
+    bulkWriteDevices,
+    initializeGpsUpdates
 };
 

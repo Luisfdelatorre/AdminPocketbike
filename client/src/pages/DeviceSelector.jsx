@@ -10,6 +10,7 @@ import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import './DeviceSelector.css';
+import MotorIcon from '../components/MotorIcon';
 
 const MobileHeaderAction = ({ children }) => {
     const [container, setContainer] = useState(null);
@@ -327,44 +328,8 @@ const DeviceManagement = () => {
                 </div>
             </div>
 
-            {/* View Toggle */}
-            <div className="flex justify-center mb-4">
-                <div className="bg-gray-100 p-1 rounded-lg inline-flex">
-                    <button
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'technical' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
-                        onClick={() => setViewMode('technical')}
-                    >
-                        Técnico
-                    </button>
-                    <button
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'financial' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
-                        onClick={() => setViewMode('financial')}
-                    >
-                        Financiero
-                    </button>
-                </div>
-            </div>
 
-            {/* Search Bar */}
-            <div className="devices-search">
-                <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder={t('devices.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            className="clear-search"
-                            onClick={() => setSearchQuery('')}
-                        >
-                            <X />
-                        </button>
-                    )}
-                </div>
-            </div>
+
 
             {/* Filters */}
             <div className="devices-filters">
@@ -386,6 +351,26 @@ const DeviceManagement = () => {
                 >
                     {t('devices.filterAvailable')}
                 </button>
+                {/* Search Bar */}
+
+                <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                        type="text"
+                        placeholder={t('devices.searchPlaceholder')}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button
+                            className="clear-search"
+                            onClick={() => setSearchQuery('')}
+                        >
+                            <X />
+                        </button>
+                    )}
+                </div>
+
             </div>
 
             <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100">
@@ -393,23 +378,13 @@ const DeviceManagement = () => {
                 <div className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 border-b border-gray-100">
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.contract')}</div>
 
-                    {viewMode === 'technical' ? (
-                        <>
-                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">Pagado</div>
-                            {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
-                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Deuda</div>
-                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Estado</div>
-                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Dias Libres</div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">{t('devices.table.driver')}</div>
-                            <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">Tarifa</div>
-                            <div className="text-xs font-semibold tracking-wide text-blue-600 uppercase flex items-center">Pagado</div>
-                            <div className="text-xs font-semibold tracking-wide text-red-600 uppercase flex items-center">Deuda</div>
-                            <div className="text-xs font-semibold tracking-wide text-blue-600 uppercase flex items-center">Días Free</div>
-                        </>
-                    )}
+
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">Pagado</div>
+                    {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Deuda</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Estado</div>
+                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Dias Libres</div>
+
 
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">Motor</div>
                     <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
@@ -434,78 +409,47 @@ const DeviceManagement = () => {
                                     )}
                                 </a>
                             </div>
+                            <div className="text-emerald-600 flex items-center font-bold">
+                                ${(device.monthPaid || 0).toLocaleString()}
+                            </div>
+                            <div className={`flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                ${(device.monthDebt || 0).toLocaleString()}
+                            </div>
+                            <div className="text-gray-500 hidden lg:flex items-center">
+                                {device.status ? (
+                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">
+                                        {device.status}
+                                    </span>
+                                ) : (
+                                    <span className="contract-none text-gray-300">--</span>
+                                )}
+                            </div>
+                            <div className="text-blue-600 flex items-center font-bold pl-4">
+                                {device.freeDays || 0}
+                            </div>
 
-                            {viewMode === 'technical' ? (
-                                <>
-                                    <div className="text-emerald-600 flex items-center font-bold">
-                                        ${(device.monthPaid || 0).toLocaleString()}
-                                    </div>
-                                    <div className={`flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                                        ${(device.monthDebt || 0).toLocaleString()}
-                                    </div>
-                                    <div className="text-gray-500 hidden lg:flex items-center">
-                                        {device.status ? (
-                                            <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">
-                                                {device.status}
-                                            </span>
-                                        ) : (
-                                            <span className="contract-none text-gray-300">--</span>
-                                        )}
-                                    </div>
-                                    <div className="text-blue-600 flex items-center font-bold pl-4">
-                                        {device.freeDays || 0}
-                                    </div>
+                            <div className="flex items-center justify-center gap-3">
+                                {/* Motor Status */}
+                                <div className={`flex flex-col items-center justify-center ${device.cutOff ? 'text-red-500' : device.ignition ? 'text-emerald-500' : 'text-gray-300'}`}>
+                                    <MotorIcon />
+                                </div>
 
-                                    <div className="flex items-center justify-center gap-3">
-                                        {/* Motor Status */}
-                                        <div className={`flex flex-col items-center justify-center ${device.cutOff ? 'text-red-500' : device.ignition ? 'text-emerald-500' : 'text-gray-300'}`}>
-                                            <svg id="motorStatusSvg" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" className="motor-icon-svg" style={{ fill: 'currentColor' }}>
-                                                <title>Engine</title>
-                                                <path d="M13.778 6.667v2.222h3.333v2.222h2.222v-2.222h3.333v-2.222h-8.889zM13.778 13.333c-0.3 0-0.579 0.121-0.79 0.321l-1.888 1.901h-2.878c-0.611 0-1.111 0.5-1.111 1.111v6.667c0 0.611 0.5 1.111 1.111 1.111h1.888l3.056 2.033c0.178 0.122 0.39 0.189 0.612 0.189h5.556c0.244 0 0.477-0.077 0.666-0.221l4.444-3.333c0.278-0.211 0.445-0.545 0.445-0.89v-7.778c0-0.611-0.5-1.111-1.111-1.111h-10zM27.111 14.444v6.667h2.222v-6.667h-2.222zM17.111 15.556v3.333h2.222l-3.333 5.556v-3.333h-2.222l3.333-5.556zM2.667 16.667v5.556h2.222v-5.556h-2.222z">
-                                                </path>
-                                            </svg>
-                                        </div>
+                                {/* Battery Status */}
+                                <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
+                                    device.batteryLevel > 30 ? 'text-yellow-500' :
+                                        'text-red-500'
+                                    }`}>
+                                    {device.batteryLevel > 70 ? (
+                                        <BatteryFull size={20} />
+                                    ) : device.batteryLevel > 30 ? (
+                                        <BatteryMedium size={20} />
+                                    ) : (
+                                        <BatteryLow size={20} className="animate-pulse" />
+                                    )}
+                                </div>
+                            </div>
 
-                                        {/* Battery Status */}
-                                        <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
-                                            device.batteryLevel > 30 ? 'text-yellow-500' :
-                                                'text-red-500'
-                                            }`}>
-                                            {device.batteryLevel > 70 ? (
-                                                <BatteryFull size={20} />
-                                            ) : device.batteryLevel > 30 ? (
-                                                <BatteryMedium size={20} />
-                                            ) : (
-                                                <BatteryLow size={20} className="animate-pulse" />
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="text-gray-500 hidden lg:flex items-center">{device.driverName || '-'}</div>
-                                    <div className="text-gray-700 flex items-center font-medium">
-                                        {device.dailyRate ? `$${device.dailyRate.toLocaleString()}` : '-'}
-                                    </div>
-                                    <div className="text-emerald-600 flex items-center font-bold">
-                                        ${(device.monthPaid || 0).toLocaleString()}
-                                    </div>
-                                    <div className={`flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                                        ${(device.monthDebt || 0).toLocaleString()}
-                                    </div>
-                                    <div className="text-blue-600 flex items-center font-bold pl-4">
-                                        {device.freeDays || 0}
-                                    </div>
-                                    <div className="flex items-center justify-center">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium 
-                                            ${device.statusColor === 'red' ? 'bg-red-100 text-red-700' :
-                                                device.statusColor === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-emerald-100 text-emerald-700'}`}>
-                                            {device.status || 'Al día'}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
+
 
 
 

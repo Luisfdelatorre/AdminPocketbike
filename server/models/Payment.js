@@ -35,6 +35,65 @@ const paymentSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+paymentSchema.statics.totalPerDayByDevice = async function (startDate, endDate, companyId) {
+    return await this.aggregate([
+        {
+            $match: {
+                invoiceDate: { $gte: startDate, $lte: endDate },
+                status: { $in: ['APPROVED', 'S_APPROVED'] }, // Only count approved payments
+                ...(companyId ? { companyId: new mongoose.Types.ObjectId(companyId) } : {})
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    deviceIdName: "$deviceIdName",
+                    date: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$finalized_at", // Group by payment date for receipt auditing
+                            timezone: "America/Bogota" // Convert UTC to Colombia timezone
+                        }
+                    }
+                },
+                totalPaid: { $sum: "$amount" },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $group: {
+                _id: "$_id.deviceIdName",
+                dates: {
+                    $push: {
+                        k: "$_id.date",
+                        v: {
+                            totalPaid: "$totalPaid",
+                            count: "$count"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                k: "$_id",
+                v: { $arrayToObject: "$dates" }
+            }
+        },
+        {
+            $group: {
+                _id: null,
+                devices: { $push: "$$ROOT" }
+            }
+        },
+        {
+            $replaceRoot: {
+                newRoot: { $arrayToObject: "$devices" }
+            }
+        }]);
+
+};
 paymentSchema.methods.getSimple = function () {
     return {
         reference: this.reference,
@@ -42,6 +101,16 @@ paymentSchema.methods.getSimple = function () {
         amount: this.amount_in_cents / 100,
         finalized_at: this.finalized_at,
         invoiceId: this.invoiceId
+    };
+};
+
+paymentSchema.methods.getPendingFormat = function () {
+    return {
+        transactionId: this._id,
+        reference: this.reference,
+        amount: (this.amount || 0) / 100, // Assuming cents logic from user? check paymentRepo
+        status: this.status,
+        createdAt: this.created_at || this.createdAt
     };
 };
 

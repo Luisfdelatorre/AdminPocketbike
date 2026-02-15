@@ -7,8 +7,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 2rem;
-    padding-bottom: 2rem;
+    margin-top: 0rem;
+    padding-bottom: .5rem;
 }
 
 .page-header h1 {
@@ -54,7 +54,7 @@
 .stat-card {
     background: white;
     border-radius: 0.75rem;
-    padding: 1.25rem;
+    padding: .5rem;
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -84,7 +84,7 @@
 }
 
 .stat-number {
-    font-size: 1.5rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #1F2937;
 }

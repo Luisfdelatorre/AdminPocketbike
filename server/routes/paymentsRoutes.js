@@ -36,6 +36,9 @@ router.get('/device-status', authenticatePaymentApp, paymentController.getDevice
 // Get ALL payments (Admin/Dashboard) - Mapped to getPaymentHistory which now fetches all
 router.get('/all', authenticate, paymentController.getPaymentHistory);
 
+// Get payment summary matrix
+router.get('/summary', authenticate, paymentController.getPaymentSummary);
+
 // Get payment history (Legacy/Device specific)
 router.get('/history', authenticate, paymentController.getPaymentHistory);
 

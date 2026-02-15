@@ -6,10 +6,10 @@ import {
     TrendingUp, TrendingDown
 } from 'lucide-react';
 // Recharts import removed due to crash issues
-// import {
-//     AreaChart, Area, PieChart, Pie, Cell,
-//     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-// } from 'recharts';
+import {
+    AreaChart, Area, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import { getDashboardStats } from '../services/api';
 import './AdminDashboard.css';
 
@@ -53,18 +53,18 @@ const AdminDashboard = () => {
 
     const StatCard = ({ title, value, change, icon: Icon, color }) => (
         <div className="stat-card">
+            {change !== undefined && change !== 0 && (
+                <div className={`stat-change-corner ${change > 0 ? 'positive' : 'negative'}`}>
+                    {change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    {Math.abs(change)}%
+                </div>
+            )}
             <div className="stat-icon" style={{ background: color }}>
                 <Icon size={24} />
             </div>
             <div className="stat-content">
                 <h3>{title}</h3>
                 <div className="stat-value">{value}</div>
-                {change !== undefined && change !== 0 && (
-                    <div className={`stat-change ${change > 0 ? 'positive' : 'negative'}`}>
-                        {change > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                        {Math.abs(change)}%
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -85,7 +85,6 @@ const AdminDashboard = () => {
             <div className="dashboard-header">
                 <div>
                     <h1>{t('dashboard.title')}</h1>
-                    <p>{t('dashboard.welcome', { name: user?.name || 'Admin' })}</p>
                 </div>
                 <button className="btn-download">📊 {t('dashboard.downloadReport')}</button>
             </div>
@@ -94,7 +93,7 @@ const AdminDashboard = () => {
             <div className="stats-grid">
                 <StatCard
                     title={t('dashboard.stats.totalRevenue')}
-                    value={`$${(stats.totalRevenue / 100).toLocaleString()}`}
+                    value={`$${stats.totalRevenue.toLocaleString()}`}
                     change={12.5}
                     icon={DollarSign}
                     color="#03C9D7"
@@ -113,18 +112,18 @@ const AdminDashboard = () => {
                     icon={CreditCard}
                     color="#00C292"
                 />
-                <StatCard
+                {/*  <StatCard
                     title={t('dashboard.stats.totalDevices')}
                     value={stats.totalDevices}
                     change={0}
                     icon={Users}
                     color="#7460EE"
-                />
+                />*/}
             </div>
-
-            {/* Charts Section */}
+            {/*
+          
             <div className="charts-grid">
-                {/* Revenue Chart */}
+                
                 <div className="chart-card revenue-chart">
                     <div className="chart-header">
                         <h3>{t('dashboard.charts.revenue')}</h3>
@@ -133,54 +132,54 @@ const AdminDashboard = () => {
                             <option>{t('dashboard.charts.lastYear')}</option>
                         </select>
                     </div>
-                    {/* 
-            <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={revenueData}>
-                    <defs>
-                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#03C9D7" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#03C9D7" stopOpacity={0} />
-                        </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="month" stroke="#666" />
-                    <YAxis stroke="#666" />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="revenue" stroke="#03C9D7"
-                        fillOpacity={1} fill="url(#colorRevenue)" />
-                </AreaChart>
-            </ResponsiveContainer>
-            */}
+                    {
+                        <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart data={revenueData}>
+                                <defs>
+                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#03C9D7" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#03C9D7" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                                <XAxis dataKey="month" stroke="#666" />
+                                <YAxis stroke="#666" />
+                                <Tooltip />
+                                <Area type="monotone" dataKey="revenue" stroke="#03C9D7"
+                                    fillOpacity={1} fill="url(#colorRevenue)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    }
                 </div>
 
-                {/* Device Status */}
+               
                 <div className="chart-card">
                     <h3>{t('dashboard.charts.deviceStatus')}</h3>
-                    {/* 
-            <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                    <Pie
-                        data={deviceData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        dataKey="value"
-                        label
-                    >
-                        {deviceData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                </PieChart>
-            </ResponsiveContainer>
-            */}
+                    {
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie
+                                    data={deviceData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={100}
+                                    dataKey="value"
+                                    label
+                                >
+                                    {deviceData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    }
                 </div>
             </div>
 
-            {/* Recent Payments Table */}
+    */}
             <div className="table-card">
                 <div className="table-header">
                     <h3>{t('dashboard.recentPayments.title')}</h3>

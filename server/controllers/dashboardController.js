@@ -7,10 +7,11 @@ import paymentRepository from '../repositories/paymentRepository.js';
  */
 const getDashboardStats = async (req, res) => {
     try {
-        console.log('📊 Fetching dashboard stats...');
+        const { companyId } = req.auth;
+        console.log(`📊 Fetching dashboard stats for company: ${companyId}`);
 
-        // Get all contracts
-        const allContracts = await contractRepository.getAllContracts();
+        // Get all contracts for this company
+        const allContracts = await contractRepository.getAllContracts({ companyId });
         console.log(`Found ${allContracts.length} contracts`);
 
         // Get active contracts
@@ -21,59 +22,34 @@ const getDashboardStats = async (req, res) => {
             return sum + (contract.paidAmount || 0);
         }, 0);
 
-        // Get unique devices
-        const uniqueDevices = [...new Set(allContracts.map(c => c.deviceId))];
-        console.log(`Found ${uniqueDevices.length} unique devices`);
 
-        // Get all invoices for pending payments count
-        let pendingPayments = 0;
-        const allInvoices = [];
-
-        for (const deviceId of uniqueDevices) {
-            try {
-                const deviceInvoices = await invoiceRepository.getInvoicesByDevice(deviceId);
-                if (deviceInvoices && Array.isArray(deviceInvoices)) {
-                    allInvoices.push(...deviceInvoices);
-                }
-            } catch (err) {
-                console.error(`Error fetching invoices for ${deviceId}:`, err.message);
-            }
-        }
-
-        pendingPayments = allInvoices.filter(inv => inv.status === 'PENDING').length;
+        // Get pending payments count directly by company
+        const pendingPayments = await invoiceRepository.countPendingInvoicesByCompany(companyId);
         console.log(`Found ${pendingPayments} pending payments`);
 
-        // Get recent payments
-        const recentPayments = [];
-        for (const deviceId of uniqueDevices) {
-            try {
-                const payments = await paymentRepository.getPaymentHistory(deviceId);
-                if (payments && Array.isArray(payments)) {
-                    recentPayments.push(...payments);
-                }
-            } catch (err) {
-                console.error(`Error fetching payments for ${deviceId}:`, err.message);
-            }
-        }
+        // Get recent payments filtered by companyId
+        // paymentRepository.getAllPaymentsPaginated supports filter
+        const recentPaymentsResult = await paymentRepository.getAllPaymentsPaginated({
+            page: 1,
+            limit: 10,
+            filter: { companyId }
+        });
 
-        // Sort by date and take last 10
-        const sortedPayments = recentPayments
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 10)
-            .map(payment => ({
-                id: payment.paymentId,
-                device: payment.deviceId,
-                amount: payment.amount,
-                status: payment.status,
-                date: payment.createdAt
-                    ? (payment.createdAt instanceof Date
-                        ? payment.createdAt.toISOString().split('T')[0]
-                        : payment.createdAt.split('T')[0])
-                    : 'N/A'
-            }));
+        const sortedPayments = recentPaymentsResult.payments.map(payment => ({
+            id: payment.paymentId,
+            device: payment.deviceId,
+            amount: payment.amount,
+            status: payment.status,
+            date: payment.createdAt
+                ? (payment.createdAt instanceof Date
+                    ? payment.createdAt.toISOString().split('T')[0]
+                    : payment.createdAt.split('T')[0])
+                : 'N/A'
+        }));
 
         // Revenue data for the last 6 months
-        const revenueData = calculateMonthlyRevenue(allInvoices);
+        const rawRevenueData = await invoiceRepository.getMonthlyRevenueByCompany(companyId);
+        const revenueData = formatMonthlyRevenue(rawRevenueData);
 
         // Device status data
         const deviceData = calculateDeviceStatus(allContracts);
@@ -86,8 +62,7 @@ const getDashboardStats = async (req, res) => {
                 stats: {
                     totalRevenue,
                     activeContracts: activeContracts.length,
-                    pendingPayments,
-                    totalDevices: uniqueDevices.length
+                    pendingPayments
                 },
                 recentPayments: sortedPayments,
                 revenueData,
@@ -108,41 +83,42 @@ const getDashboardStats = async (req, res) => {
 /**
  * Calculate monthly revenue for the last 6 months
  */
-function calculateMonthlyRevenue(invoices) {
+/**
+ * Format monthly revenue for the chart
+ */
+function formatMonthlyRevenue(revenueData) {
     const now = new Date();
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const revenueByMonth = {};
+    const formattedData = [];
 
-    // Initialize last 6 months
+    // Initialize last 6 months map
+    const revenueMap = {};
     for (let i = 5; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthKey = `${monthNames[date.getMonth()]}`;
-        revenueByMonth[monthKey] = { revenue: 0, expenses: 0 };
+        revenueMap[monthKey] = 0;
     }
 
-    // Aggregate paid invoices by month
-    if (invoices && Array.isArray(invoices)) {
-        invoices.forEach(invoice => {
-            if (invoice.status === 'PAID' && invoice.paidAt) {
-                try {
-                    const date = new Date(invoice.paidAt);
-                    const monthKey = monthNames[date.getMonth()];
+    // Fill with actual data
+    if (revenueData && Array.isArray(revenueData)) {
+        revenueData.forEach(item => {
+            // MongoDB aggregation returns month/year numbers
+            // month is 1-based in aggregation result
+            const monthIndex = item._id.month - 1;
+            const monthName = monthNames[monthIndex];
 
-                    if (revenueByMonth[monthKey]) {
-                        revenueByMonth[monthKey].revenue += invoice.amount || 0;
-                    }
-                } catch (err) {
-                    console.error('Error processing invoice date:', err);
-                }
+            // Only add if it's within our 6-month window (map has the keys)
+            if (revenueMap.hasOwnProperty(monthName)) {
+                revenueMap[monthName] = item.totalRevenue;
             }
         });
     }
 
     // Convert to array format for charts
-    return Object.entries(revenueByMonth).map(([month, data]) => ({
+    return Object.entries(revenueMap).map(([month, revenue]) => ({
         month,
-        revenue: data.revenue / 100, // Convert to currency units
-        expenses: data.revenue * 0.6 / 100 // Estimated expenses (60% of revenue)
+        revenue: revenue / 100, // Convert to currency units
+        expenses: revenue * 0.6 / 100 // Estimated expenses (60% of revenue)
     }));
 }
 

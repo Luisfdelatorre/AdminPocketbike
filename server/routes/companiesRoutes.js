@@ -4,11 +4,15 @@ import companyController from '../controllers/companyController.js';
 
 const router = express.Router();
 
-// Apply middleware to all routes
+// Public endpoint for branding (no auth required)
+router.get('/branding', companyController.getBranding);
+
+// Authenticated routes
 router.use(verifyToken);
 
 router.post('/', companyController.createCompany);
-router.put('/:id', companyController.updateCompany);
+router.put('/branding/update', companyController.updateBranding); // Specific route first
+router.put('/:id', companyController.updateCompany); // Param route last
 router.get('/', companyController.getAllCompanies);
 
 export default router;

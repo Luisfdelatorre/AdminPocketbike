@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
     Home, Users, CreditCard, DollarSign, FileText,
-    Settings, LogOut, Menu, X, Building
+    Settings, LogOut, Menu, X, Building, Calendar
 } from 'lucide-react';
 import './AdminSidebar.css';
 
@@ -95,6 +95,14 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                                 <Users size={20} />
                                 <span>{t('sidebar.devices')}</span>
                             </button>
+                            <button
+                                className={`nav-item ${isActive('/summary') ? 'active' : ''}`}
+                                onClick={() => handleNavigation('/summary')}
+                                title="Resumen de Pagos"
+                            >
+                                <Calendar size={20} />
+                                <span>Resumen</span>
+                            </button>
                         </div>
                     )}
 
@@ -116,6 +124,7 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                             <CreditCard size={20} />
                             <span>{t('sidebar.payments')}</span>
                         </button>
+
                         <button
                             className={`nav-item ${isActive('/invoices') ? 'active' : ''}`}
                             onClick={() => handleNavigation('/invoices')}

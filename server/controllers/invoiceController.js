@@ -7,6 +7,7 @@ import logger from '../config/logger.js';
 import mongoose from 'mongoose';
 import { Device } from '../models/Device.js';
 import { Contract } from '../models/Contract.js';
+import dayjs from 'dayjs';
 
 const getFinancialReport = async (req, res) => {
     try {
@@ -23,6 +24,8 @@ const getFinancialReport = async (req, res) => {
         if (!isSystemAdmin) {
             deviceQuery.companyId = companyId;
         }
+        //infer batery level // conetion
+        const maxBatteryLevel = 600;
 
         const devices = await Device.find(deviceQuery).lean();
         const deviceMap = {};
@@ -32,8 +35,9 @@ const getFinancialReport = async (req, res) => {
                 name: d.name,
                 driverName: d.driverName,
                 cutOff: d.cutOff,
+                lastUpdate: d.lastUpdate,
                 ignition: d.ignition,
-                batteryLevel: d.batteryLevel,
+                batteryLevel: (maxBatteryLevel - (dayjs().diff(dayjs(d.lastUpdate), 'second'))) / maxBatteryLevel * 100,
                 companyId: d.companyId,
                 // Required for filtering and display
                 hasActiveContract: d.hasActiveContract,

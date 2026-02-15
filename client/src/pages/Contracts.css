@@ -53,7 +53,7 @@
 .contract-stat-card {
     background: white;
     border-radius: 0.75rem;
-    padding: 1.25rem;
+    padding: 0.5rem;
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -82,7 +82,7 @@
 }
 
 .stat-number {
-    font-size: 1.5rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #1F2937;
 }

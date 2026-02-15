@@ -1,4 +1,4 @@
-import "./polyfills-file.cjs";
+import "./polyfills-file.js";
 import axios from "axios";
 import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
@@ -82,9 +82,11 @@ class megaRastreoApiWeb {
             headers: { Accept: "application/json, text/javascript, */*; q=0.01" },
         });
         const list = Array.isArray(res.data) ? res.data : [];
+        //console.log("list", list);
         let webDevicesId = [];
+        console.log(list[0]);
         list.forEach(d => {
-            webDevicesId[d.placa.replace(/\s+/g, '')] = d.id;
+            webDevicesId[d.placa.replace(/\s+/g, '')] = { id: d.id, imei: d.imei };
         });
         return webDevicesId;
     }

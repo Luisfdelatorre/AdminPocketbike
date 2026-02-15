@@ -66,8 +66,10 @@ const Invoices = () => {
 
     const getStatusColor = (status) => {
         const colors = {
-            'PAID': '#00C292',
-            'UNPAID': '#EF4444',
+            'PAID': '#3b64c6',
+            'DEBT': '#EF4444',
+            'LOAN': '#00c292',
+            'FREE': '#00c292',
             'PENDING': '#FB9678',
             'CANCELLED': '#6B7280'
         };
@@ -101,7 +103,6 @@ const Invoices = () => {
             <div className="page-header">
                 <div>
                     <h1>{t('invoices.title')}</h1>
-                    <p>{t('invoices.subtitle')}</p>
                 </div>
             </div>
 
@@ -145,26 +146,7 @@ const Invoices = () => {
                 </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="invoices-search">
-                <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder={t('invoices.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            className="clear-search"
-                            onClick={() => setSearchQuery('')}
-                        >
-                            <X />
-                        </button>
-                    )}
-                </div>
-            </div>
+
 
             {/* Filters */}
             <div className="invoices-filters">
@@ -192,6 +174,23 @@ const Invoices = () => {
                 >
                     {t('invoices.filterPending')}
                 </button>
+                <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                        type="text"
+                        placeholder={t('invoices.searchPlaceholder')}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button
+                            className="clear-search"
+                            onClick={() => setSearchQuery('')}
+                        >
+                            <X />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Invoices List */}

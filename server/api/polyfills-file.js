@@ -1,15 +1,18 @@
-// polyfills-file.cjs
+// polyfills-file.js
 // Preloaded before app code. Ensures global File exists for undici/webidl.
-try {
-    // Many undici builds export File
-    const { File } = require("undici");
-    if (!globalThis.File && File) globalThis.File = File;
-} catch (_) { }
 
+// Try undici first
 if (!globalThis.File) {
-    // Fallback polyfill
     try {
-        const { File } = require("fetch-blob/file.js");
+        const { File } = await import("undici");
+        if (File) globalThis.File = File;
+    } catch (_) { }
+}
+
+// Fallback to fetch-blob
+if (!globalThis.File) {
+    try {
+        const { File } = await import("fetch-blob/file.js");
         globalThis.File = File;
     } catch (e) {
         console.error(

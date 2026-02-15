@@ -1,13 +1,86 @@
-import { Payment } from '../models/index.js';
+import { Payment, Device, Invoice } from '../models/index.js';
+import mongoose from 'mongoose';
 import { nanoid } from 'nanoid';
 import { Transaction } from '../config/config.js';
-import dayjs from 'dayjs';
+import dayjs from '../config/dayjs.js';
 import logger from '../config/logger.js';
 import helper from '../utils/helpers.js';
 
+
 const { PAYMENT_STATUS, PAYMENT_TYPE } = Transaction;
 
+
 export class PaymentRepository {
+    /**
+     * Get monthly payment summary for matrix view
+     */
+    async getMonthlyPaymentSummary({ month, year, companyId }) {
+        try {
+            const devices = await Device.find({ hasActiveContract: true }).lean();
+            const deviceMap = devices.reduce((acc, dev) => {
+                acc[dev.name] = {
+                    device: {
+                        name: dev.name,
+                        deviceId: dev.deviceId || dev._id,
+                        driverName: dev.driverName || 'Sin Conductor',
+                        unpaidTotal: 0
+                    },
+                    days: {}
+                };
+                return acc;
+            }, {});
+
+            const startDate = dayjs().year(year).month(month - 1).startOf('month').toDate();
+            const endDate = dayjs().year(year).month(month - 1).endOf('month').toDate();
+            const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
+            if (companyId) deviceQuery.companyId = companyId;
+
+            const invoices = await Invoice.find(deviceQuery).lean();
+            const payments = await Payment.totalPerDayByDevice(startDate, endDate, companyId);
+            const paymentsObj = payments.length > 0 ? payments[0] : {};
+            console.log(paymentsObj);
+
+            // 4. Group by device and calculate unpaid amounts
+            invoices.forEach((invoice) => {
+                const devName = invoice.deviceIdName;
+
+                // Skip if device not in active devices map
+                if (!deviceMap[devName]) {
+                    return;
+                }
+
+                const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
+                const day = new Date(invoice.date).getUTCDate();
+
+                // Safely get totalPaid from nested object
+                const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
+
+
+                // Initialize unpaidTotal if not exists
+                if (!deviceMap[devName].device.unpaidTotal) {
+                    deviceMap[devName].device.unpaidTotal = 0;
+                }
+
+                // Add to device's total unpaid amount
+                if (invoice.dayType !== 'FREE') {
+                    deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
+                }
+
+                deviceMap[devName].days[day] = {
+                    ...invoice,
+                    totalPaid,
+                };
+            });
+
+            return Object.values(deviceMap);
+
+        } catch (error) {
+            logger.error('Error getting monthly payment summary:', error);
+            throw error;
+        }
+    }
+
+
     /**
      * Create a payment for an invoice
      */
@@ -64,9 +137,47 @@ export class PaymentRepository {
             throw error;
         }
     }
+    async createLoanPayment(deviceIdName, contract, unpaidInvoice) {
+        try {
+            const reference = helper.generateReferenceLoan(unpaidInvoice._id);
+
+            // Use local timezone (default: America/Bogota)
+            const now = dayjs().toDate();
+
+            const payment = {
+                _id: reference,
+                type: PAYMENT_TYPE.LOAN,
+                deviceIdName: deviceIdName,
+                deviceId: contract.deviceId,
+                amount_in_cents: 0,
+                amount: 0,
+                reference: reference,
+                status: PAYMENT_STATUS.S_APPROVED,
+                created_at: now,
+                finalized_at: now,
+                phoneNumber: contract.customerPhone || '',
+                used: true,
+                unpaidInvoiceId: unpaidInvoice._id,
+                invoiceId: unpaidInvoice._id,
+                payment_method_type: PAYMENT_TYPE.LOAN,
+                companyId: unpaidInvoice.companyId
+            };
+
+            const newPayment = await Payment.create(payment);
+            return newPayment;
+        } catch (error) {
+            logger.error('Error creating loan payment:', error);
+            throw error;
+        }
+    }
+
     async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
         try {
             const reference = helper.generateReferenceFreeDay(unpaidInvoice._id);
+
+            // Use local timezone (default: America/Bogota)
+            const now = dayjs().toDate();
+
             const payment = {
                 _id: reference,
                 paymentId: reference,
@@ -77,8 +188,8 @@ export class PaymentRepository {
                 amount: 0,
                 reference: reference,
                 status: PAYMENT_STATUS.S_APPROVED,
-                created_at: new Date(),
-                finalized_at: new Date(),
+                created_at: now,
+                finalized_at: now,
                 phoneNumber: contract.customerPhone || '',
                 used: false,
                 unpaidInvoiceId: unpaidInvoice._id,
@@ -96,7 +207,27 @@ export class PaymentRepository {
         }
     }
 
+    /**
+    * Claim payment for processing (Atomic Lock)
+    * Returns the payment if successfully locked, or null if already used/not found.
+    */
+    async claimPaymentForProcessing(data) {
+        try {
 
+            // 2. Try to lock it
+            const payment = await Payment.findOneAndUpdate(
+                { _id: data._id, used: false },
+                { $set: { used: true } },
+                {
+                    new: true,
+                }
+            );
+            return payment;
+        } catch (error) {
+            logger.error('Error en claimPaymentForProcessing:', error);
+            throw error;
+        }
+    }
 
     /**
     * Upsert payment
@@ -236,7 +367,6 @@ export class PaymentRepository {
      */
     async getAllPaymentsPaginated({ page = 1, limit = 50, status = null, filter = null }) {
         const skip = (page - 1) * limit;
-        console.log("Filter:", filter);
         let query = {};
         if (filter) {
             query = { ...filter };
@@ -257,11 +387,11 @@ export class PaymentRepository {
         // Normalize legacy data
         const normalizedPayments = payments.map(p => ({
             ...p,
-            amount: p.amount !== undefined ? p.amount : p.amount_in_cents,
+            amount: p.amount,
             paymentReference: p.paymentReference || p.reference,
             invoiceId: p.invoiceId || p.unpaidInvoiceId,
             paymentId: p.paymentId || p._id,
-            status: p.status || (p.response === 'APPROVED' ? 'APPROVED' : 'PENDING'), // Fallback if status missing
+            status: p.type === PAYMENT_TYPE.FREE ? 'Free' : (p.status || (p.response === 'APPROVED' ? 'APPROVED' : 'PENDING')), // Fallback if status missing
             deviceId: p.deviceIdName || p.deviceId // Prefer name, fallback to ID
         }));
 
@@ -301,6 +431,8 @@ export class PaymentRepository {
             deviceId: p.deviceIdName || p.deviceId
         }));
     }
+
+
 }
 
 export default new PaymentRepository();

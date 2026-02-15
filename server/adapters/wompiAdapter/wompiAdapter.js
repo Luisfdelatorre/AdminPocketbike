@@ -3,6 +3,7 @@ import logger from '../../config/logger.js';
 import wompiApi from './wompiApi.js';
 import helper from '../../utils/helpers.js';
 import { Transaction, Login, Url } from '../../config/config.js';
+import dayjs from '../../config/dayjs.js';
 
 const { PAYMENT_TYPE, currencyCode, defaultCustomer } = Transaction;
 const { Wompi } = Login;
@@ -26,13 +27,6 @@ class WompiAdapter {
   async createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId) {
     const reference = helper.generateReference(unpaidInvoice._id);
     const body = this.buildTransactionBody(phone, unpaidInvoice, reference, acceptanceToken);
-
-    //console.log('[WOMPI] Create Transaction Request:', {
-    //  url: Url.Transactions,
-    //  headers: Wompi.AUTH,
-    //  body
-    //});
-
     let transactionData;
     try {
       const response = await wompiApi.createTransaction(body);
@@ -50,6 +44,7 @@ class WompiAdapter {
       invoiceDate: unpaidInvoice.date,
       companyId: companyId,
       type: PAYMENT_TYPE.WOMPI,
+      amount: transactionData.amount_in_cents / 100,
     });
     this.init(paymentData);
     return paymentData;
@@ -72,10 +67,14 @@ class WompiAdapter {
   async getTransactionStatus(transactionId) {
     const response = await wompiApi.getTransactionData(transactionId);
     const data = response.data.data;
+
+    // Convert Wompi's UTC timestamp to local timezone (default: America/Bogota)
+    const finalizedAt = data?.finalized_at ? dayjs(data.finalized_at).toDate() : null;
+
     const paymentDataUpdate = {
       _id: data?.id,
       status: data?.status,
-      finalized_at: data?.finalized_at,
+      finalized_at: finalizedAt,
       reference: data?.reference
     };
     return paymentDataUpdate;
@@ -174,6 +173,7 @@ class WompiAdapter {
       const checksumBuffer = Buffer.from(checksum, 'utf8');
       const calculatedBuffer = Buffer.from(calculatedChecksum, 'utf8');
 
+
       if (checksumBuffer.length !== calculatedBuffer.length || !crypto.timingSafeEqual(checksumBuffer, calculatedBuffer)) {
         logger.error('[WOMPI] Firma inválida - Las firmas no coinciden');
         return { ok: false, reason: 'Invalid signature' };
@@ -200,23 +200,43 @@ class WompiAdapter {
     }
     const data = this.reponseData;
 
+    // Convert Wompi's UTC timestamp to local timezone (default: America/Bogota)
+    const finalizedAt = data.data.transaction.finalized_at
+      ? dayjs(data.data.transaction.finalized_at).toDate()
+      : null;
+
     return {
-      //fix this 
-      // ...data,
-      // valid: true,
-      // type: PAYMENT_TYPE.WOMPI,
-      // date: data.created_at ? new Date(data.created_at) : new Date(),
-      // reference: data.id,
-      // transaction: {
-      //   id: data.id,
-      //   status: data.status,
-      //   amount_in_cents: data.amount_in_cents,
-      //   reference: data.reference,
-      //   finalized_at: data.finalized_at ? new Date(data.finalized_at) : null,
-      // },
+      _id: data.data.transaction.id,
+      paymentId: data.data.transaction.id,
+      status: data.data.transaction.status,
+      reference: data.data.transaction.reference,
+      amount_in_cents: data.data.transaction.amount_in_cents,
+      currency: data.data.transaction.currency,
+      finalized_at: finalizedAt,
+      payment_method_type: data.data.transaction.payment_method_type,
+      // Add other necessary fields used by paymentService
+      wompiTransactionId: data.data.transaction.id
     };
   }
-
+  getEventData() {
+    const { event, data, sent_at, signature } = this.reponseData;
+    const transaction = data?.transaction;
+    const eventId = event + '-' + transaction.id;
+    const eventType = event;
+    const transactionId = transaction.id;
+    const paymentReference = transaction.reference;
+    const status = transaction.status;
+    const payload = this.reponseData;
+    return {
+      eventId,
+      eventType,
+      transactionId,
+      paymentReference,
+      status,
+      signature,
+      payload
+    }
+  }
   isApproved() {
     const { event, data, status: directStatus } = this.reponseData || {};
     const status = data?.transaction?.status || directStatus;

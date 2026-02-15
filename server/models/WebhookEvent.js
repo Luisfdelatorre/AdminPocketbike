@@ -23,7 +23,7 @@ const webhookEventSchema = new mongoose.Schema({
         type: String,
     },
     signature: {
-        type: String,
+        type: mongoose.Schema.Types.Mixed,
     },
     payload: {
         type: mongoose.Schema.Types.Mixed, // Full webhook payload

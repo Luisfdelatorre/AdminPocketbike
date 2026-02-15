@@ -1,4 +1,5 @@
 import { Company } from '../models/Company.js';
+import authService from '../services/authService.js';
 
 const companyController = {
     // Create new company
@@ -29,7 +30,10 @@ const companyController = {
                 nit,
                 address,
                 phone,
-                email
+                address,
+                phone,
+                email,
+                automaticInvoicing: req.body.automaticInvoicing || false
             });
 
             res.status(201).json({
@@ -50,7 +54,7 @@ const companyController = {
     updateCompany: async (req, res) => {
         try {
             const { id } = req.params;
-            const { name, nit, address, phone, email } = req.body;
+            const { name, nit, address, phone, email, automaticInvoicing } = req.body;
 
             if (!name) {
                 return res.status(400).json({
@@ -97,6 +101,7 @@ const companyController = {
             company.address = address;
             company.phone = phone;
             company.email = email;
+            if (typeof automaticInvoicing !== 'undefined') company.automaticInvoicing = automaticInvoicing;
 
             await company.save();
 
@@ -127,7 +132,7 @@ const companyController = {
             }
 
             const companies = await Company.find(query)
-                .select('name nit address phone email _id')
+                .select('name nit address phone email automaticInvoicing _id')
                 .sort({ name: 1 });
 
             res.json({
@@ -141,7 +146,101 @@ const companyController = {
                 error: 'Failed to fetch companies'
             });
         }
+    },
+
+    // Get company branding (public endpoint with optional auth)
+    getBranding: async (req, res) => {
+        try {
+            let companyId = null;
+
+            // Check for auth token to get specific company
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                try {
+                    const token = authHeader.split(' ')[1];
+                    const decoded = authService.verifyToken(token);
+                    if (decoded && decoded.companyId) {
+                        companyId = decoded.companyId;
+                    }
+                } catch (e) {
+                    // Ignore invalid token, fallback to default
+                    console.log('Optional auth failed in getBranding:', e.message);
+                }
+            }
+
+            let company;
+            if (companyId) {
+                // If authenticated, try to find user's company
+                company = await Company.findById(companyId).select('displayName logo').lean();
+            }
+
+            // Fallback: Get the first active company
+            if (!company) {
+                company = await Company.findOne({ isActive: true })
+                    .select('displayName logo')
+                    .lean();
+            }
+
+            if (!company) {
+                return res.json({
+                    success: true,
+                    data: {
+                        displayName: 'PocketBike',
+                        logo: '/pocketbike_60x60.jpg'
+                    }
+                });
+            }
+
+            res.json({
+                success: true,
+                data: {
+                    displayName: company.displayName || 'PocketBike',
+                    logo: company.logo || '/pocketbike_60x60.jpg'
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching branding:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch branding'
+            });
+        }
+    },
+
+    // Update company branding
+    updateBranding: async (req, res) => {
+        try {
+            const { displayName, logo } = req.body;
+            const { companyId } = req.auth;
+
+            const company = await Company.findById(companyId);
+            if (!company) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Company not found'
+                });
+            }
+
+            if (displayName !== undefined) company.displayName = displayName;
+            if (logo !== undefined) company.logo = logo;
+
+            await company.save();
+
+            res.json({
+                success: true,
+                data: {
+                    displayName: company.displayName,
+                    logo: company.logo
+                }
+            });
+        } catch (error) {
+            console.error('Error updating branding:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update branding'
+            });
+        }
     }
-};
+}
 
 export default companyController;

@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { Url, Header, ENGINERESUME, ENGINESTOP } from '../config/config.js';
 const megaRastreoApi = axios.create({
-  baseURL: Url.MegarastreoBase,
+  baseURL: Url.MegarastreoUrl,
   headers: Header.MEGARASTREO,
   timeout: 15000,
 });

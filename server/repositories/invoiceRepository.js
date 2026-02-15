@@ -1,4 +1,5 @@
 import { Invoice, Device } from '../models/index.js';
+import mongoose from 'mongoose';
 import { Transaction } from '../config/config.js';
 import logger from '../utils/logger.js';
 import helpers from '../utils/helpers.js';
@@ -50,8 +51,9 @@ export class InvoiceRepository {
     async createNextDayInvoice(deviceIdName, amount, deviceId, companyId) {
         // Find last paid invoice to determine next date
         const lastPaid = await Invoice.findLastPaid(deviceIdName);
+        console.log("Last paid:", lastPaid, deviceIdName);
         const nextDate = lastPaid
-            ? dayjs(lastPaid.date).add(1, 'day').add(8, 'hour').toDate()
+            ? dayjs(lastPaid.date).add(1, 'day').toDate()
             : dayjs().startOf('day').toDate();
         console.log("Next date:", nextDate, deviceIdName, deviceId);
 
@@ -79,6 +81,7 @@ export class InvoiceRepository {
             try {
                 // 1️⃣ Check for existing unpaid invoice
                 const existingInvoice = await Invoice.findLastUnPaid(deviceIdName);
+                console.log("******Existing last unpaid invoice:", existingInvoice, deviceIdName);
                 if (existingInvoice) return existingInvoice;
                 console.log("Existing last unpaid invoice:", existingInvoice, deviceIdName);
                 // 2️⃣ Create next day invoice
@@ -94,6 +97,26 @@ export class InvoiceRepository {
             }
         }
         throw new Error('Create Next Day Invoice failed.');
+    }
+
+    async findOrCreateInvoiceByName(deviceIdName, deviceId, amount, date, companyId) {
+        try {
+
+            let invoice = await Invoice.findOne({ deviceIdName, date: date });
+            if (!invoice) {
+                invoice = await Invoice.createInvoice({
+                    deviceIdName,
+                    amount,
+                    date,
+                    deviceId,
+                    companyId
+                });
+            }
+            return invoice;
+        } catch (error) {
+            logger.error(`Error finding/creating invoice for ${deviceIdName}:`, error);
+            throw error;
+        }
     }
 
     /**
@@ -213,7 +236,14 @@ export class InvoiceRepository {
         return await Invoice.findByIdAndDelete(invoiceId).lean();
     }
 
-    // --- New Methods for Payment Logic ---
+
+    async setCutOff(invoiceId, isCutOff = true) {
+        return await Invoice.findByIdAndUpdate(
+            invoiceId,
+            { $set: { cutOff: isCutOff } },
+            { new: true }
+        ).lean();
+    }
 
     /**
      * Find last paid invoice
@@ -257,6 +287,75 @@ export class InvoiceRepository {
     }
 
     /**
+     * Count pending invoices for a company
+     */
+    async countPendingInvoicesByCompany(companyId) {
+        return await Invoice.countDocuments({
+            companyId,
+            dayType: INVOICE_DAYTYPE.PENDING
+        });
+    }
+
+    /**
+     * Get monthly revenue for a company (last N months)
+     */
+    async getMonthlyRevenueByCompany(companyId, limitMonths = 6) {
+        const now = new Date();
+        const startStateDate = new Date(now.getFullYear(), now.getMonth() - limitMonths + 1, 1);
+
+        return await Invoice.aggregate([
+            {
+                $match: {
+                    companyId: new mongoose.Types.ObjectId(companyId),
+                    paid: true,
+                    date: { $gte: startStateDate }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$date" },
+                        year: { $year: "$date" }
+                    },
+                    totalRevenue: { $sum: "$amount" }
+                }
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
+        ]);
+    }
+
+    /**
+     * Get free days status for a device
+     * @param {string} deviceIdName 
+     * @param {number} limit 
+     * @returns {Promise<{used: number, available: number, limit: number}>}
+     */
+    async getFreeDaysStatus(deviceIdName, limit = 4) {
+        const used = await this.countFreeDaysUsedThisMonth(deviceIdName);
+        const monthlyFreeDaysAvailable = Math.max(0, limit - used);
+        return { monthlyFreeDaysAvailable };
+    }
+
+    /**
+     * Get overdue status for a device
+     * @param {string} deviceIdName 
+     * @returns {Promise<{isOverdue: boolean, lastPaidDate: Date|null}>}
+     */
+    async getOverdueStatus(deviceIdName) {
+        const lastPaidInvoice = await this.findLastPaid(deviceIdName);
+        let isOverdue = false;
+        let lastPaidDate = null;
+
+        if (lastPaidInvoice) {
+            lastPaidDate = dayjs(lastPaidInvoice.date).startOf('day');
+            const todayMoment = dayjs().startOf('day');
+            isOverdue = todayMoment.isAfter(lastPaidDate);
+        }
+
+        return { isOverdue, lastPaidDate: lastPaidDate ? lastPaidDate.toDate() : null };
+    }
+
+    /**
      * Find or create unpaid invoice for today
      */
 
@@ -264,7 +363,6 @@ export class InvoiceRepository {
         const { deviceIdName, amount_in_cents, deviceId, unpaidInvoiceId } = payment;
         let attempts = maxAttempts;
         const amount = amount_in_cents / 100;
-        console.log('unpaidInvoiceId', unpaidInvoiceId);
         while (attempts > 0) {
             try {
                 // 1️⃣ Intentar pagar la factura no pagada específica
@@ -272,9 +370,7 @@ export class InvoiceRepository {
                     const invoice = await Invoice.findOne({ _id: unpaidInvoiceId, paid: false });
                     if (invoice) {
                         logger.info(`Paying specific invoice: ${unpaidInvoiceId}`);
-                        console.log('invoice', invoice);
                         const result = await invoice.applyPayment(payment);
-                        console.log('result', result);
                         return result;
                     } else {
                         logger.warn(`Specific invoice ${unpaidInvoiceId} not found or already paid. Falling back.`);

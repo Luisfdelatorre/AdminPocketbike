@@ -238,27 +238,7 @@ const Contracts = () => {
                 />
             </div>
 
-            {/* Search Bar */}
-            <div className="contracts-search">
-                <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por ID, nombre o email..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            className="clear-search"
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Clear search"
-                        >
-                            <X />
-                        </button>
-                    )}
-                </div>
-            </div>
+
 
             {/* Filters */}
             <div className="contracts-filters">
@@ -286,6 +266,27 @@ const Contracts = () => {
                 >
                     Cancelados
                 </button>
+                {/* Search Bar */}
+
+                <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por ID, nombre o email..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button
+                            className="clear-search"
+                            onClick={() => setSearchQuery('')}
+                            aria-label="Clear search"
+                        >
+                            <X />
+                        </button>
+                    )}
+
+                </div>
             </div>
 
             {/* Contracts List */}

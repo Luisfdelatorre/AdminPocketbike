@@ -16,6 +16,7 @@ const Users = lazy(() => import('./pages/Users'));
 const Companies = lazy(() => import('./pages/Companies'));
 const Settings = lazy(() => import('./pages/Settings'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
+const PaymentSummary = lazy(() => import('./pages/PaymentSummary'));
 
 // Simple Loading Component
 const LoadingSpinner = () => (
@@ -43,6 +44,7 @@ function App() {
                             <Route path="devices" element={<DeviceSelector />} />
                             <Route path="contracts" element={<Contracts />} />
                             <Route path="payments" element={<Payments />} />
+                            <Route path="summary" element={<PaymentSummary />} />
                             <Route path="invoices" element={<Invoices />} />
                             <Route path="users" element={<Users />} />
                             <Route path="companies" element={<Companies />} />

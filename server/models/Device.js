@@ -16,6 +16,7 @@ const deviceSchema = new mongoose.Schema({
     driverName: { type: String, required: true },
     deviceId: { type: String, required: true },
     webDeviceId: { type: Number, default: null },
+    imei: { type: String, default: null },
     deviceType: { type: String },//groupId traccar
     category: { type: String, default: null },//car moto//icon 
     isActive: { type: Boolean, default: true },

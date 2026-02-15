@@ -32,7 +32,7 @@ export const Templates = {
 
     moreOptionsSection: `
     <div id="moreOptionsSection" class="more-options-section">
-        <div class="action-buttons">
+        <!--<div class="action-buttons">
             <div class="btn-wrapper">
                 <span id="freeDaysCount" class="badge-circle">1</span>
                 <button id="useFreeDayBtn" class="btn btn-success">
@@ -40,7 +40,7 @@ export const Templates = {
                 </button>
             </div>
             <button id="loanBtn" class="btn btn-secondary" disabled>Activar</button>
-        </div>
+        </div>-->
         <div class="payment-history payment-history-scroll">
             <table>
                 <thead>

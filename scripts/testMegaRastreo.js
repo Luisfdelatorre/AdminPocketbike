@@ -1,6 +1,7 @@
 
 import mega from '../server/api/megaRastreoApi1.js';
 import { io } from 'socket.io-client';
+import https from "https";
 const BASE_URL = process.env.MEGARASTREO_BASE_URL || 'https://api.v2.megarastreo.co';
 const JWT = "6810dc94-6117-443d-a47c-23e79ceabf54"; // <-- requerido
 
@@ -70,16 +71,8 @@ async function testWebSocket() {
 
     let count = 0;
 
-    const hardTimer = setTimeout(() => {
-        console.error(`❌ Timeout: no se recibieron ${MAX_EVENTS} eventos en ${HARD_TIMEOUT_MS}ms`);
-        cleanupAndExit(2);
-    }, HARD_TIMEOUT_MS);
 
-    function cleanupAndExit(code = 0) {
-        clearTimeout(hardTimer);
-        try { socket.disconnect(); } catch { }
-        process.exit(code);
-    }
+
 
     socket.on('connect', () => {
         console.log('✅ WS conectado. socket.id =', socket.id);
@@ -91,6 +84,11 @@ async function testWebSocket() {
         console.warn('⚠️ WS desconectado:', reason);
     });
 
+    socket.io.on("reconnect", (attempt) => {
+        console.log("✅ reconnected after attempts:", attempt);
+        socket.emit('setFilter', {});
+        console.log("➡️ setFilter sent");
+    });
     socket.on('connect_error', (err) => {
         console.error('❌ connect_error:', err?.message);
     });
@@ -98,11 +96,17 @@ async function testWebSocket() {
     socket.on('error', (err) => {
         console.error('❌ socket error:', err);
     });
-
-    socket.on('element', (pos) => {
+    /*socket.on('trama', (pos) => {
         console.log(pos?.deviceId, pos.sensors.commandResult);
-        count += 1;
-        console.log('✅ Recibido evento:', pos.deviceId, pos.attributes.status, pos.attributes.blocked);
+
+        console.log(pos);
+
+
+
+    });*/
+    socket.on('element', (pos) => {
+        console.log(pos);
+        console.log(pos?.deviceId, pos.sensors.commandResult);
         /*if (pos.mobileId === '6982afdc97ecc874077eb57d') {
             console.log(pos);
             // 1) Command ACK
@@ -126,16 +130,75 @@ async function testWebSocket() {
              `coords(lat,lng)=(${lat},${lng})`
          );*/
 
-        if (count >= MAX_EVENTS) {
-            console.log('✅ Recibidos los eventos requeridos. Cerrando...');
-            cleanupAndExit(0);
-        }
+
     });
 }
 
+async function testCommand() {
+
+    const IMEIS = [
+        "865468052313783",
+        "865468052315432",
+        "865468052316042",
+        "865468052312744",
+        "865468052315382",
+        "865468052312942",
+        "865468052321406",
+        "865468052312223",
+        "865468052309773",
+        "865468052322925",
+        "865468052307678",
+        "865468052306902",
+    ];
+    // scripts/testMegaRastreo.js
+
+    const HOST = "s1.megarastreo.co";
+    const PORT = 8443;
+    const NAMESPACE = "/position";
+    const URL = `https://${HOST}:${PORT}${NAMESPACE}`;
 
 
-//testGetMobileList();
-testWebSocket();
+    const agent = new https.Agent({
+        //rejectUnauthorized: false, // dev/test only
+        servername: HOST,          // helps SNI
+    });
 
+    const socket = io(URL, {
+        agent,
+        secure: true,
+        rejectUnauthorized: false, // ✅ THIS is the one your debug showed as true before
+        path: "/socket.io",        // try "/socket.io" (without trailing slash)
+        upgrade: true,
+        reconnection: true,
+        reconnectionDelayMax: 10000,
+    });
+
+    socket.on("connect", () => {
+        console.log("✅ connected:", socket.id);
+        socket.emit("login_client", IMEIS);
+        console.log("➡️ login_client sent");
+    });
+
+    socket.on("trama", (track) => {
+        console.log("📩 trama:", track);
+    });
+
+    socket.on("connect_error", (err) => {
+        console.log("⚠️ connect_error:", err?.message || err);
+    });
+    socket.io.on("reconnect", (attempt) => {
+        console.log("✅ reconnected after attempts:", attempt);
+        socket.emit("login_client", IMEIS);
+        console.log("➡️ login_client sent");
+    });
+
+    socket.on("disconnect", (reason) => {
+        console.log("❌ disconnected:", reason);
+    });
+
+}
+
+//testCommand();
 //
+//testCommand()
+testWebSocket()

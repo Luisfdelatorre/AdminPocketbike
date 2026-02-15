@@ -84,6 +84,8 @@
     gap: 1rem;
 }
 
+.setting-item input[type="text"],
+.setting-item input[type="email"],
 .setting-item input[type="number"],
 .setting-item select {
     flex: 1;
@@ -94,8 +96,11 @@
     color: #1F2937 !important;
     background: white !important;
     transition: all 0.2s;
+    width: 100%;
 }
 
+.setting-item input[type="text"]:focus,
+.setting-item input[type="email"]:focus,
 .setting-item input[type="number"]:focus,
 .setting-item select:focus {
     outline: none;
@@ -221,4 +226,305 @@
         width: 100%;
         justify-content: center;
     }
+}
+
+/* Crop Modal Styles */
+.crop-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(97, 41, 41, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    padding: 1rem;
+}
+
+.crop-modal-content {
+    background: #262626;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 700px;
+    width: 100%;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.crop-modal-title {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.crop-canvas-container {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.crop-canvas {
+    max-width: 100%;
+    height: auto;
+    cursor: move;
+    border-radius: 8px;
+    touch-action: none;
+}
+
+.crop-controls {
+    margin-bottom: 1.5rem;
+}
+
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.btn-zoom {
+    background: #404040;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-zoom:hover {
+    background: #525252;
+}
+
+.zoom-slider {
+    flex: 1;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #404040;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #3b82f6;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.zoom-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #3b82f6;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.crop-hint {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.crop-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn-cancel,
+.btn-crop {
+    padding: 0.875rem 3rem;
+    border-radius: 2rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+}
+
+.btn-cancel {
+    background: #404040;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background: #525252;
+}
+
+.btn-crop {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-crop:hover {
+    background: #2563eb;
+}
+
+/* Responsive adjustments for crop modal */
+@media (max-width: 768px) {
+    .crop-modal-content {
+        padding: 1.5rem;
+        max-width: 95vw;
+    }
+
+    .crop-canvas {
+        max-width: 100%;
+    }
+
+    .btn-cancel,
+    .btn-crop {
+        padding: 0.75rem 2rem;
+    }
+}
+
+/* Branding Section Redesign */
+.branding-upload-area {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.current-logo-container {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    background-color: #111827;
+    /* Dark background */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+}
+
+.current-logo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-edit-logo {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #03C9D7;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+}
+
+.btn-edit-logo:hover {
+    background-color: #0394A3;
+    transform: scale(1.1);
+}
+
+.upload-dropzone {
+    flex: 1;
+    height: 80px;
+    border: 2px dashed #E5E7EB;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #F9FAFB;
+    user-select: none;
+}
+
+.upload-dropzone:hover {
+    border-color: #03C9D7;
+    background-color: #F0FDFA;
+    /* Light teal bg */
+}
+
+.upload-text {
+    font-weight: 600;
+    color: #4B5563;
+    /* Gray 600 */
+    font-size: 0.938rem;
+}
+
+.upload-hint-small {
+    display: none;
+}
+
+.upload-hint-text {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: #9CA3AF;
+    /* Gray 400 */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+/* Specific styling for display name input to match */
+.input-display-name {
+    padding: 0.875rem 1rem !important;
+    font-size: 1rem !important;
+    background-color: #F9FAFB !important;
+    /* Slightly distinct background */
+    border-radius: 0.5rem !important;
+    border: 1px solid #D1D5DB !important;
+    width: 100%;
+}
+
+.input-display-name:focus {
+    background-color: white !important;
+    border-color: #03C9D7 !important;
+    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1) !important;
+    outline: none;
+}
+
+/* Circular Cropper Mask */
+.cropper-circle .cropper-view-box,
+.cropper-circle .cropper-face {
+    border-radius: 50%;
+}
+
+/* Ensure the modal overlay centers correctly */
+.crop-modal-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.85);
+    /* Darker overlay */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3000;
 }

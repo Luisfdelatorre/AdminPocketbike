@@ -5,8 +5,14 @@ import megaRastreoWebApi from '../api/megaRastreoWebApi.js';
 import { Login, Url } from '../config/config.js';
 import logger from '../config/logger.js';
 import { Device } from '../models/Device.js';
-const BASE_URL = process.env.MEGARASTREO_BASE_URL || 'https://api.v2.megarastreo.co';
-const JWT = "6810dc94-6117-443d-a47c-23e79ceabf54"; // <-- requerido
+import https from "https";
+
+const HOST = "s1.megarastreo.co";
+const PORT = 8443;
+const NAMESPACE = "/position";
+const URL = `https://${HOST}:${PORT}${NAMESPACE}`;
+
+
 
 
 class MegaRastreoServiceLite {
@@ -14,6 +20,7 @@ class MegaRastreoServiceLite {
         this.socket = null;
         this.flushMap = {};
         this.flushTimer = null;
+        this.subscribedImeis = [];
     }
 
     async fetchDevices(processedSize = 50) {
@@ -42,11 +49,13 @@ class MegaRastreoServiceLite {
                 hasMore = false; // Stop on error
             }
         }
-
+        console.log(devices[0]);
         const webDevices = await megaRastreoWebApi.fetchDevices();
         console.log(`--Fetched ${Object.keys(webDevices).length} devices from Web`);
+
         const allDevices = devices.map(d => {
             console.log(webDevices[d.name.replace(/\s+/g, '')]);
+            const { id, imei } = webDevices[d.name.replace(/\s+/g, '')];
             return {
                 _id: d.deviceId,
                 name: d.name.replace(/\s+/g, ''),
@@ -57,7 +66,8 @@ class MegaRastreoServiceLite {
                 uniqueId: d.device.name,
                 nequiNumber: d.phone,
                 simCardNumber: d.simCard?.name,
-                webDeviceId: webDevices[d.name.replace(/\s+/g, '')] || null,
+                imei: imei,
+                webDeviceId: id,
             };
         });
         return allDevices;
@@ -79,67 +89,50 @@ class MegaRastreoServiceLite {
     }
 
     updateDevice(pos) {
-        console.log(pos?.deviceId, pos.sensors.commandResult);
-        if (pos?.deviceId === '69820480ccab39e9a27b6712') {
-            console.log(pos);
-        }
-
-        const deviceId = pos?.deviceId;
-        if (!deviceId) return;
-
-        // -------- cutOff inference ----------
-        let cutOff = null;
-
-        if (pos?.attributes?.blocked === true) cutOff = true;
-        else if (pos?.attributes?.blocked === false) cutOff = false;
-
-        if (pos?.sensors?.commandResult === true) {
-            const msg = pos?.attributes?.result?.toLowerCase?.() || "";
-            if (msg.includes("cut off")) cutOff = true;
-            else if (msg.includes("restore") || msg.includes("resume")) cutOff = false;
-        }
-
-        // -------- derived fields ----------
-        const ignition = !!pos?.sensors?.ignition;
-        const lastUpdate = new Date(pos?.deviceTime || pos?.serverTime || Date.now());
-
-        // keep "undefined" if not present (so you can avoid overwriting in DB)
-        const batteryLevel =
-            pos?.attributes?.batteryLevel !== undefined ? pos.attributes.batteryLevel : undefined;
-
-        // -------- flushMap merge ----------
-        const existing = this.flushMap[deviceId] || {
-            filter: { deviceId },
+        const imei = pos.imei;
+        if (!imei) return; // invalid data
+        const ignition = (pos.motor === '1');
+        const online = (pos.conectado === 'S');
+        const rawDate = pos.sys_date || pos.fecha_gps;
+        const lastUpdate = rawDate ? new Date(rawDate) : new Date();
+        //  const speed = parseFloat(pos.velocidad || '0');
+        // const lat = parseFloat(pos.y);
+        // const lng = parseFloat(pos.x);
+        // "batteryLevel" - if available in 'bateria' or 'battery' or 'pila'
+        //const batteryLevel = online;
+        const update = {
+            ignition,
+            lastUpdate
+        };
+        // 4. Merge into flushMap
+        const existing = this.flushMap[imei] || {
+            filter: { imei }, // assumes DB uses imei as deviceId
             update: {}
         };
 
-        if (cutOff != null) existing.update.cutOff = cutOff;
-        existing.update.ignition = ignition;
-        existing.update.lastUpdate = lastUpdate;
-        if (batteryLevel !== undefined) existing.update.batteryLevel = batteryLevel;
+        // Merge properties
+        Object.assign(existing.update, update);
 
-        this.flushMap[deviceId] = existing;
+        this.flushMap[imei] = existing;
     }
 
 
-    startAutoUpdate() {
+    /*startAutoUpdate() {
 
         if (this.socket) return;//singleton
         console.log(`🔌 Conectando WS: ${BASE_URL}/positions`);
         this.socket = io(`${BASE_URL}/positions`, {
-            transports: ['websocket'],
             query: { token: JWT },
+            transports: ["websocket"],
+            upgrade: false,
             reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
-            timeout: 15000,
+            timeout: 20000,
             // path: '/api/socket' // Important for Traccar
         });
 
         this.socket.on('connect', () => {
-            console.log('✅ WS conectado. socket.id =', this.socket.id);
-            console.log('➡️ Enviando setFilter {}');
+            console.log("transport:", this.socket.io.engine.transport.name);
             this.socket.emit('setFilter', {});
         });
 
@@ -157,41 +150,80 @@ class MegaRastreoServiceLite {
         });
         let count = 0;
         this.socket.on('element', (pos) => {
-            console.log(pos?.deviceId, pos.sensors.commandResult);
-            count += 1;
-            console.log('✅ Recibido evento:', pos.deviceId, pos.attributes.status, pos.attributes.blocked);
+            const now = new Date();
+            const deviceTime = new Date(pos.deviceTime || pos.serverTime || now);
+            const lagMinutes = (now - deviceTime) / 1000 / 60;
+
+
             this.updateDevice(pos);
 
-            /*if (pos.mobileId === '6982afdc97ecc874077eb57d') {
-                console.log(pos);
-                // 1) Command ACK
-                const resultText = String(pos?.attributes?.result || '');
-                const commandExecuted = (pos?.sensors?.commandResult === true) && (/success/i.test(resultText));
-                let fuelCut = 'UNKNOWN';
-                if (commandExecuted) {
-                    if (/cut off the fuel supply/i.test(resultText)) fuelCut = 'CUT';
-                    if (/restore fuel supply/i.test(resultText)) fuelCut = 'RESTORED';
-                }
-                console.log(fuelCut);
-            }*/
 
-            /* const coords = pos?.geometric?.coordinates;
-             const lng = Array.isArray(coords) ? coords[0] : null;
-             const lat = Array.isArray(coords) ? coords[1] : null;
-     
-             console.log(
-                 `📍 [${count}/${MAX_EVENTS}] mobileId=${pos?.mobileId} time=${pos?.deviceTime} ` +
-                 `ignition=${pos?.sensors?.ignition} speed(knots)=${pos?.speed} ` +
-                 `coords(lat,lng)=(${lat},${lng})`
-             );*/
+            console.log(`Lag=${lagMinutes.toFixed(2)} min DeviceId=${pos.deviceId}, Time=${pos.deviceTime}, ServerTime=${pos.serverTime}, `);
 
-            // /if (count >= MAX_EVENTS) {
-            //  console.log('✅ Recibidos los eventos requeridos. Cerrando...');
-            //  cleanupAndExit(0);
-            //  }
+
+
         });
 
         this.flushTimer = setInterval(() => this.flushUpdates(), 1000);
+    }*/
+    async startAutoUpdate(imeis = null) {
+
+        if (this.socket) return; // singleton
+
+        // Fetch IMEIs if not provided
+        if (imeis && Array.isArray(imeis)) {
+            this.subscribedImeis = imeis;
+        } else {
+            const devices = await Device.find({}, 'imei').lean();
+            this.subscribedImeis = devices.map(d => d.imei).filter(Boolean);
+        }
+
+        console.log(`🔌 Starting MegaRastreo WS for ${this.subscribedImeis.length} devices...`);
+
+        const agent = new https.Agent({
+            servername: Url.MegarastreoBase,
+        });
+
+        this.socket = io(`https://${Url.MegarastreoBase}:${Url.MegarastreoPort}${Url.MegarastreoNamespace}`,
+            {
+                agent,
+                secure: true,
+                rejectUnauthorized: false,
+                path: "/socket.io",
+                upgrade: true,
+                reconnection: true,
+                reconnectionDelayMax: 10000,
+            });
+
+        const subscribe = () => {
+            if (!Array.isArray(this.subscribedImeis) || this.subscribedImeis.length === 0) return;
+            this.socket.emit("login_client", this.subscribedImeis);
+            console.log("➡️ login_client sent:", this.subscribedImeis.length);
+        };
+
+        this.socket.on("connect", () => {
+            console.log("✅ connected:", this.socket.id);
+            subscribe();
+        });
+        this.socket.io.on("reconnect", (attempt) => {
+            console.log("✅ reconnected after attempts:", attempt);
+            subscribe();
+        });
+
+        this.socket.on("trama", (track) => {
+            this.updateDevice(track);
+
+        });
+
+        this.socket.on("connect_error", (err) => {
+            console.log("⚠️ connect_error:", err?.message || err);
+        });
+
+        this.socket.on("disconnect", (reason) => {
+            console.log("❌ disconnected:", reason);
+        });
+
+        this.flushTimer = setInterval(() => this.flushUpdates(), 5000);
     }
 
     stopAutoUpdate() {
@@ -199,16 +231,14 @@ class MegaRastreoServiceLite {
         if (this.socket) this.socket.close();
     }
 
-
+    // ==============================
+    // 🔁 DATA PERSISTENCE
+    // ==============================
     async flushUpdates() {
         const keys = Object.keys(this.flushMap);
         if (keys.length === 0) return;
-
-        console.log(`Flushing ${keys.length} updates...`);
-
         const batch = Object.values(this.flushMap);
         this.flushMap = {}; // Reset
-
         await Promise.allSettled(
             batch.map(({ filter, update }) =>
                 Device.updateOne(filter, { $set: update })

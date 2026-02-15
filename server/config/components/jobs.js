@@ -16,7 +16,7 @@ export const CRON_JOBS = [
         name: 'dailyInvoicesCreation',
         time: '30 22 * * *', // cada día a las 22:30
         log: 'Call one time a day payment creation',
-        flag: false,
+        flag: true,
         job: 'generateDailyInvoices',
     },
     {

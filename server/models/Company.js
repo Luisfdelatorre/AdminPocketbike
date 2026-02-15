@@ -28,6 +28,20 @@ const companySchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    automaticInvoicing: {
+        type: Boolean,
+        default: false
+    },
+    // Branding settings
+    displayName: {
+        type: String,
+        trim: true,
+        default: 'PocketBike'
+    },
+    logo: {
+        type: String, // Base64 or URL
+        default: '/pocketbike_60x60.jpg'
     }
 }, {
     timestamps: true

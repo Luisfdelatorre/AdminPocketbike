@@ -38,6 +38,7 @@ const InvoiceSchema = new mongoose.Schema(
             required: true,
         }, // Ej: "APPROVED"
         reservedUntil: { type: Date },
+        cutOff: { type: Boolean, default: false }, // Device turned off due to non-payment
     },
     { collection: 'invoices' }
 );

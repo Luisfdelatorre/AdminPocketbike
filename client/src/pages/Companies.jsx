@@ -19,7 +19,9 @@ const Companies = () => {
         nit: '',
         phone: '',
         email: '',
-        address: ''
+        email: '',
+        address: '',
+        automaticInvoicing: false
     });
     useEffect(() => {
         loadData();
@@ -48,7 +50,7 @@ const Companies = () => {
     };
 
     const resetForm = () => {
-        setCompanyForm({ name: '', nit: '', phone: '', email: '', address: '' });
+        setCompanyForm({ name: '', nit: '', phone: '', email: '', address: '', automaticInvoicing: false });
         setIsEditing(false);
         setEditCompanyId(null);
         setShowCompanyModal(false);
@@ -60,7 +62,9 @@ const Companies = () => {
             nit: company.nit || '',
             phone: company.phone || '',
             email: company.email || '',
-            address: company.address || ''
+            email: company.email || '',
+            address: company.address || '',
+            automaticInvoicing: company.automaticInvoicing || false
         });
         setIsEditing(true);
         setEditCompanyId(company._id);
@@ -162,7 +166,22 @@ const Companies = () => {
                             {filteredCompanies.map(company => (
                                 <tr key={company._id}>
                                     <td>
-                                        <div className="user-name">{company.name}</div>
+                                        <div className="user-name">
+                                            {company.name}
+                                            {company.automaticInvoicing && (
+                                                <span className="badge badge-success" style={{
+                                                    fontSize: '0.7rem',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    background: '#e6fffa',
+                                                    color: '#00C292',
+                                                    marginLeft: '8px',
+                                                    border: '1px solid #00C292'
+                                                }}>
+                                                    Auto-Invoice
+                                                </span>
+                                            )}
+                                        </div>
                                         <small>{company.address}</small>
                                     </td>
                                     <td>{company.nit || '-'}</td>
@@ -247,6 +266,17 @@ const Companies = () => {
                                     value={companyForm.address}
                                     onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })}
                                 />
+                            </div>
+                            <div className="form-group checkbox-group">
+                                <label className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={companyForm.automaticInvoicing}
+                                        onChange={e => setCompanyForm({ ...companyForm, automaticInvoicing: e.target.checked })}
+                                        style={{ width: 'auto', margin: 0 }}
+                                    />
+                                    <span>Enable Automatic Daily Invoicing</span>
+                                </label>
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>

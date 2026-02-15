@@ -86,6 +86,43 @@ const paymentController = {
         }
     },
 
+    /*Get monthly payment summary grid*/
+    async getPaymentSummary(req, res) {
+        try {
+            const { month, year } = req.query;
+            const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
+
+            if (!month || !year) {
+                return res.status(400).json({ success: false, error: 'Month and Year are required' });
+            }
+
+            let targetCompanyId = null;
+
+            // Admin logic
+            if (req.auth) {
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                if (!isSystemAdmin) {
+                    targetCompanyId = companyId;
+                }
+            }
+
+            console.log("Target Company ID:", targetCompanyId);
+            console.log("Month:", month);
+            console.log("Year:", year);
+            const summary = await paymentService.getPaymentSummary({
+                month,
+                year,
+                companyId: targetCompanyId
+            });
+
+            res.json({ success: true, data: summary });
+
+        } catch (error) {
+            logger.error('Get payment summary error:', error.message);
+            res.status(500).json({ success: false, error: 'Failed to get payment summary' });
+        }
+    },
+
     /*Get device online status*/
     async getDeviceStatus(req, res) {
         // try {

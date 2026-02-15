@@ -63,7 +63,7 @@ const Payments = () => {
     };
 
     const formatCurrency = (amount) => {
-        return `$${(amount / 100).toLocaleString()} COP`;
+        return `$${amount.toLocaleString()} COP`;
     };
 
     const copyToClipboard = (text) => {
@@ -108,6 +108,7 @@ const Payments = () => {
         switch (status.toUpperCase()) {
             case 'APPROVED':
             case 'COMPLETED':
+            case 'FREE':
                 return <Check />;
             case 'DECLINED':
             case 'FAILED':
@@ -124,7 +125,9 @@ const Payments = () => {
     const getStatusColor = (status) => {
         switch (status.toUpperCase()) {
             case 'APPROVED':
+                return '#3b64c6';
             case 'COMPLETED':
+            case 'FREE':
                 return '#00C292';
             case 'DECLINED':
             case 'FAILED':
@@ -199,7 +202,7 @@ const Payments = () => {
                     </div>
                     <div className="stat-info">
                         <div className="stat-label">{t('payments.stats.revenue')}</div>
-                        <div className="stat-number">{formatCurrency(totalAmount)}</div>
+                        <div className="stat-number">{totalAmount}</div>
                     </div>
                 </div>
                 <div className="payment-stat-card">
@@ -312,7 +315,6 @@ const Payments = () => {
                                                     color: getStatusColor(payment.status)
                                                 }}
                                             >
-                                                {getStatusIcon(payment.status)}
                                                 {payment.status}
                                             </span>
                                         </td>

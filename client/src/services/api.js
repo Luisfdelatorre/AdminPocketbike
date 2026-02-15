@@ -88,6 +88,7 @@ export const updateCompany = (id, data) => api.put(`/companies/${id}`, data);
 export const createPaymentIntent = (data) => api.post('/payments/create-intent', data);
 export const createBatchPaymentIntent = (data) => api.post('/payments/create-batch-intent', data);
 export const getAllPayments = (params) => api.get('/payments/all', { params });
+export const getPaymentSummary = (params) => api.get('/payments/summary', { params });
 export const getPaymentStatus = (reference) => api.get(`/payments/status/${reference}`);
 export const getPaymentHistory = (deviceId, params) => api.get(`/payments/history/${deviceId}`, { params });
 export const verifyTransaction = (reference) => api.post(`/payments/verify/${reference}`);
