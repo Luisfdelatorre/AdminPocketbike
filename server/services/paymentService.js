@@ -382,8 +382,6 @@ export class PaymentService {
 
         // 2. Execute and verify via centralized service
         const isConfirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINERESUME, {
-            maxAttempts: MAX_RETRY_ATTEMPTS,
-            interval: RETRY_CHECK_INTERVAL,
             onProgress: (p) => {
                 notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
                     reference,

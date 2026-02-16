@@ -2,7 +2,8 @@
 import { io } from 'socket.io-client';
 import megaRastreoApi from '../api/megaRastreoApi1.js';
 import megaRastreoWebApi from '../api/megaRastreoWebApi.js';
-import { Login, Url, ENGINESTOP, ENGINERESUME } from '../config/config.js';
+import { Login, Url, ENGINESTOP, ENGINERESUME, Transaction } from '../config/config.js';
+const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
 import { Device } from '../models/Device.js';
 import https from "https";
@@ -98,8 +99,8 @@ class MegaRastreoServiceLite {
      */
     async executeAndVerify(webDeviceId, commandType, options = {}) {
         const {
-            maxAttempts = 12,
-            interval = 5000,
+            maxAttempts = MAX_RETRY_ATTEMPTS,
+            interval = RETRY_CHECK_INTERVAL,
             onProgress = null
         } = options;
 

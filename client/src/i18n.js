@@ -232,7 +232,7 @@ const resources = {
                 deviceSubtitle: 'Ingresa tu ID de moto y PIN',
                 email: 'Correo',
                 password: 'Contraseña',
-                deviceId: 'ID Dispositivo',
+                deviceId: 'Placa',
                 pinCode: 'Código PIN',
                 loginBtn: 'Ingresar',
                 loggingIn: 'Ingresando...',

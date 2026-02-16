@@ -62,10 +62,7 @@ const generateDailyInvoices = async () => {
 const verifyAndMarkCutOff = async (deviceName, deviceId, webDeviceId) => {
   logger.info(`[CUT-OFF] Device ${deviceName} engine stop verification starting...`);
 
-  const confirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINESTOP, {
-    maxAttempts: MAX_RETRY_ATTEMPTS,
-    interval: RETRY_CHECK_INTERVAL
-  });
+  const confirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINESTOP);
 
   if (!confirmed) {
     logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command not confirmed after retries.`);

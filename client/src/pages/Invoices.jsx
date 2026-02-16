@@ -57,11 +57,11 @@ const Invoices = () => {
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
+        return dateString ? date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric'
-        });
+        }) : '--';
     };
 
     const getStatusColor = (status) => {
@@ -215,20 +215,21 @@ const Invoices = () => {
                         <div className="table-header">
                             <div>ID Factura</div>
                             <div>{t('login.deviceId')}</div>
-                            <div>Date</div>
                             <div>Amount</div>
+                            <div>Dia Pago</div>
+
                             <div>{t('common.status')}</div>
                         </div>
                         {filteredInvoices.map((invoice) => (
                             <div key={invoice.invoiceId} className="table-row">
                                 <div className="invoice-id">{invoice.invoiceId}</div>
                                 <div className="device-id">{invoice.deviceIdName}</div>
-                                <div className="invoice-date">
-                                    <Calendar size={14} />
-                                    {formatDate(invoice.date)}
-                                </div>
                                 <div className="invoice-amount">
                                     {formatCurrency(invoice.paidAmount)}
+                                </div>
+                                <div className="invoice-date">
+                                    <Calendar size={14} />
+                                    {formatDate(invoice.transaction?.finalized_at)}
                                 </div>
                                 <div className="invoice-status">
                                     <span
