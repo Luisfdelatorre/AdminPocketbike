@@ -3,7 +3,7 @@ import paymentRepository from '../repositories/paymentRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import wompiService from './wompiService.js';
-import { Transaction, TIMEZONE, PAYMENTMESSAGES } from '../config/config.js';
+import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINERESUME } from '../config/config.js';
 import dayjs from '../config/dayjs.js';
 import logger from '../config/logger.js';
 import { Invoice } from '../models/Invoice.js';
@@ -381,7 +381,7 @@ export class PaymentService {
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
 
         // 2. Execute and verify via centralized service
-        const isConfirmed = await gpsServices.executeAndVerify(webDeviceId, 'resume', {
+        const isConfirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINERESUME, {
             maxAttempts: MAX_RETRY_ATTEMPTS,
             interval: RETRY_CHECK_INTERVAL,
             onProgress: (p) => {

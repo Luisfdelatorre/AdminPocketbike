@@ -2,7 +2,7 @@
 import { io } from 'socket.io-client';
 import megaRastreoApi from '../api/megaRastreoApi1.js';
 import megaRastreoWebApi from '../api/megaRastreoWebApi.js';
-import { Login, Url } from '../config/config.js';
+import { Login, Url, ENGINESTOP, ENGINERESUME } from '../config/config.js';
 import logger from '../config/logger.js';
 import { Device } from '../models/Device.js';
 import https from "https";
@@ -107,9 +107,9 @@ class MegaRastreoServiceLite {
 
         let responseId;
         try {
-            if (commandType === 'stop') {
+            if (commandType === ENGINESTOP) {
                 responseId = await this.stopDevice(webDeviceId);
-            } else if (commandType === 'resume') {
+            } else if (commandType === ENGINERESUME) {
                 responseId = await this.resumeDevice(webDeviceId);
             } else {
                 throw new Error(`Invalid command type: ${commandType}`);

@@ -6,7 +6,7 @@ import dayjs from "../config/dayjs.js";
 import { Company } from "../models/Company.js";
 import gpsServices from "./megaRastreoServices1.js";
 import { Device } from "../models/Device.js";
-import { Transaction } from "../config/config.js";
+import { Transaction, ENGINESTOP } from "../config/config.js";
 
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 
@@ -62,7 +62,7 @@ const generateDailyInvoices = async () => {
 const verifyAndMarkCutOff = async (deviceName, deviceId, webDeviceId) => {
   logger.info(`[CUT-OFF] Device ${deviceName} engine stop verification starting...`);
 
-  const confirmed = await gpsServices.executeAndVerify(webDeviceId, 'stop', {
+  const confirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINESTOP, {
     maxAttempts: MAX_RETRY_ATTEMPTS,
     interval: RETRY_CHECK_INTERVAL
   });
