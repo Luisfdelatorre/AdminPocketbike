@@ -59,36 +59,23 @@ const generateDailyInvoices = async () => {
     logger.error('Error generando invoices diarios', err);
   }
 };
-const verifyAndMarkCutOff = async (deviceName, deviceId, responseId) => {
-  logger.info(`[CUT-OFF] Device ${deviceName} engine stop start attempts.`);
+const verifyAndMarkCutOff = async (deviceName, deviceId, webDeviceId) => {
+  logger.info(`[CUT-OFF] Device ${deviceName} engine stop verification starting...`);
 
-  // try {
-  let confirmed = false;
-  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
-    await new Promise(r => setTimeout(r, RETRY_CHECK_INTERVAL));
-    //try {
-    confirmed = await gpsServices.checkDeviceStatus(responseId);
-    if (confirmed) {
-      logger.info(`[CUT-OFF] Device ${deviceName} engine stop confirmed after ${attempt} attempts.`);
-      break;
-    } else {
-      logger.warn(`[CUT-OFF] Device ${deviceName} engine stop not confirmed after ${attempt} attempts.`);
-    }
-    //} catch (error) {
-    //  logger.warn(`[CUT-OFF] Check attempt ${attempt} for ${deviceName} failed:`, error.message);
-    //}
-  }
+  const confirmed = await gpsServices.executeAndVerify(webDeviceId, 'stop', {
+    maxAttempts: MAX_RETRY_ATTEMPTS,
+    interval: RETRY_CHECK_INTERVAL
+  });
+
   if (!confirmed) {
-    logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command sent but not confirmed after retries.`);
+    logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command not confirmed after retries.`);
     // Update database flag (2 = Sent but not confirmed)
     await deviceRepository.updateCutOffStatus(deviceId, 2);
   } else {
+    logger.info(`[CUT-OFF] Device ${deviceName} engine stop confirmed.`);
     // Update database flag (1 = Confirmed)
     await deviceRepository.updateCutOffStatus(deviceId, 1);
   }
-  //} catch (error) {
-  //  logger.error(`[CUT-OFF] Fatal error in background verification for ${deviceName}:`, error);
-  //}
 };
 
 const performDailyCutOff = async () => {
@@ -168,13 +155,8 @@ const performDailyCutOff = async () => {
             console.log(`[DEBUG] Device ${deviceName}: SHOULD CUT OFF.`);
             logger.info(`🚫 Cutting off device ${deviceName} (Company: ${company.name}, Strategy: ${strategy}): Unpaid invoice detected.`);
 
-            // 3. Command engine stop
-            const responseId = await gpsServices.stopDevice(device.webDeviceId);
-            console.log(`[DEBUG] Device ${deviceName}: Stop command sent. responseId: ${responseId}`);
-
-            // 4. Verify command confirmation in background (Async)
-            // We don't await this to avoid blocking the loop for minutes
-            await verifyAndMarkCutOff(deviceName, device.deviceId, responseId);
+            // 3. Command and Verify engine stop
+            await verifyAndMarkCutOff(deviceName, device.deviceId, device.webDeviceId);
           } else {
             logger.info(`✅ Device ${deviceName} is up to date.`);
           }

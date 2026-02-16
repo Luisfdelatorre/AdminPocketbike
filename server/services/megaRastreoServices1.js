@@ -88,6 +88,60 @@ class MegaRastreoServiceLite {
         // return megaRastreoWebApi.getDetailedStatus(commandId);
     }
 
+    /**
+     * Executes a hardware command and verifies its completion via retries.
+     * Hardware only: This method does NOT touch the database.
+     * @param {Number|String} webDeviceId - Platform numeric ID
+     * @param {String} commandType - 'stop' or 'resume'
+     * @param {Object} options - { maxAttempts, interval, onProgress }
+     * @returns {Promise<Boolean>} - True if confirmed, false otherwise
+     */
+    async executeAndVerify(webDeviceId, commandType, options = {}) {
+        const {
+            maxAttempts = 12,
+            interval = 5000,
+            onProgress = null
+        } = options;
+
+        logger.info(`[GPS] Executing ${commandType} for device ${webDeviceId}...`);
+
+        let responseId;
+        try {
+            if (commandType === 'stop') {
+                responseId = await this.stopDevice(webDeviceId);
+            } else if (commandType === 'resume') {
+                responseId = await this.resumeDevice(webDeviceId);
+            } else {
+                throw new Error(`Invalid command type: ${commandType}`);
+            }
+        } catch (error) {
+            logger.error(`[GPS] Failed to send ${commandType} command:`, error);
+            return false;
+        }
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            // Initial delay or interval wait
+            await new Promise(r => setTimeout(r, interval));
+
+            if (onProgress) {
+                onProgress({ attempt, maxAttempts, responseId, commandType });
+            }
+
+            try {
+                const confirmed = await this.checkDeviceStatus(responseId);
+                if (confirmed) {
+                    logger.info(`[GPS] ${commandType} confirmed for ${webDeviceId} after ${attempt} attempts.`);
+                    return true;
+                }
+            } catch (error) {
+                logger.warn(`[GPS] Check attempt ${attempt} for ${webDeviceId} failed: ${error.message}`);
+            }
+        }
+
+        logger.warn(`[GPS] ${commandType} command for ${webDeviceId} not confirmed after ${maxAttempts} attempts.`);
+        return false;
+    }
+
     updateDevice(pos) {
         const imei = pos.imei;
         if (!imei) return; // invalid data

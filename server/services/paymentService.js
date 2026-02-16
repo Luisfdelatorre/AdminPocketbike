@@ -369,59 +369,49 @@ export class PaymentService {
      * Activate Device via Traccar
      */
     async activateDevice(invoice, reference, onUpdate) {
-        const deviceId = invoice.deviceId; // Numeric ID
-        if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
-        const responseId = await gpsServices.resumeDevice(deviceId);
-        logger.info(`[DEVICE] Resume command sent: ${deviceId}`);
+        const deviceId = invoice.deviceId; // Mongo _id or Traccar ID
+        const webDeviceId = invoice.webDeviceId || (await Device.findById(deviceId))?.webDeviceId;
 
-        // Verify with retries
-        const isActive = await this.checkDeviceWithRetries(responseId, reference, onUpdate);
-        if (isActive) {
-            logger.info(`[DEVICE] Activated: ${deviceId}`);
-            // Update device cutOff flag to false in database
+        if (!webDeviceId) {
+            logger.error(`[DEVICE] Failed to activate: webDeviceId not found for device ${deviceId}`);
+            return;
+        }
+
+        // 1. Initial notification
+        if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
+
+        // 2. Execute and verify via centralized service
+        const isConfirmed = await gpsServices.executeAndVerify(webDeviceId, 'resume', {
+            maxAttempts: MAX_RETRY_ATTEMPTS,
+            interval: RETRY_CHECK_INTERVAL,
+            onProgress: (p) => {
+                notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
+                    reference,
+                    attempt: p.attempt,
+                    maxAttempts: p.maxAttempts,
+                    responseId: p.responseId,
+                    elapsedSeconds: p.attempt * (RETRY_CHECK_INTERVAL / 1000)
+                });
+            }
+        });
+
+        // 3. Handle result and database update
+        if (isConfirmed) {
+            logger.info(`[DEVICE] Activation confirmed for ${deviceId}`);
             try {
-                await deviceRepository.updateCutOffStatus(deviceId, false);
-                logger.info(`[DEVICE] CutOff flag updated to false for device: ${deviceId}`);
+                // Use deviceId (Traccar ID) for repository update
+                await deviceRepository.updateCutOffStatus(deviceId, 0); // 0 = Active/No CutOff
+                logger.info(`[DEVICE] CutOff flag updated to 0 for device: ${deviceId}`);
+
+                if (onUpdate) onUpdate({ status: PS.S_DEVICE_ACTIVE, message: PM.M_DEVICE_ACTIVE });
             } catch (dbError) {
-                logger.error(`[DEVICE] Failed to update cutOff flag for device ${deviceId}:`, dbError);
-                // Don't throw - device is already active, this is just a DB sync issue
+                logger.error(`[DEVICE] Failed to update cutOff flag in DB for ${deviceId}:`, dbError);
             }
         } else {
-            logger.warn(`[DEVICE] Still offline: ${deviceId}`);
-            if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola' });
-            // Queue logic here if implemented
+            logger.warn(`[DEVICE] Activation not confirmed after retries for ${deviceId}`);
+            if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola (Sin confirmación)' });
         }
     }
-
-    async checkDeviceWithRetries(responseId, reference, onUpdate) {
-        const maxAttempts = MAX_RETRY_ATTEMPTS;
-        const checkInterval = RETRY_CHECK_INTERVAL;
-        let isActive = false;
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            await new Promise(r => setTimeout(r, checkInterval));
-
-            notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
-                reference,
-                attempt,
-                maxAttempts,
-                responseId,
-                elapsedSeconds: attempt * (checkInterval / 1000)
-            });
-
-            try {
-                isActive = await gpsServices.checkDeviceStatus(responseId);
-                if (isActive) {
-                    logger.info(`[DEVICE] Device active after ${attempt * 5}s: ${responseId}`);
-                    return true;
-                }
-            } catch (error) {
-                logger.warn(`[DEVICE] Check attempt ${attempt} failed:`, error.message);
-            }
-        }
-
-        return false;
-    };
 
     // --- Kept existing methods (refactored) ---
 
