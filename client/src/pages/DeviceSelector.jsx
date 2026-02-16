@@ -430,7 +430,11 @@ const DeviceManagement = () => {
 
                             <div className="flex items-center justify-center gap-3">
                                 {/* Motor Status */}
-                                <div className={`flex flex-col items-center justify-center ${device.cutOff ? 'text-red-500' : device.ignition ? 'text-emerald-500' : 'text-gray-300'}`}>
+                                <div className={`flex flex-col items-center justify-center ${device.cutOff === 1 ? 'text-red-500' :
+                                    device.cutOff === 2 ? 'text-yellow-500' :
+                                        device.ignition ? 'text-emerald-500' :
+                                            'text-gray-300'
+                                    }`}>
                                     <MotorIcon />
                                 </div>
 

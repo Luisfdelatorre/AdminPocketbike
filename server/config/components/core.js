@@ -2,6 +2,8 @@ export const MongoDB = {
     URI: 'mongodb://127.0.0.1:27017/payments-wompi',
 };
 
+export const debugMode = process.env.DEBUG === 'true' || true; // Default to true for development if not specified
+
 export const server = {
     port: process.env.PORT || 3000,
     env: process.env.NODE_ENV || 'development',

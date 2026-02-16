@@ -136,16 +136,19 @@ class DeviceRepository {
     /**
      * Assign contract details to device (Sync on creation)
      * @param {String} deviceId
-     * @param {Object} data { contractId, driverName, nequiNumber }
+     * @param {Object} data { contractId, driverName, nequiNumber, companyId, companyName, dailyRate }
      */
-    async assignContractToDevice(deviceId, { contractId, driverName, nequiNumber }) {
+    async assignContractToDevice(deviceId, { contractId, driverName, nequiNumber, companyId, companyName, dailyRate }) {
         try {
             const updateData = {
                 activeContractId: contractId,
                 hasActiveContract: true,
                 contractId: contractId, // Sync requested by user
                 driverName: driverName,
-                nequiNumber: nequiNumber
+                nequiNumber: nequiNumber,
+                companyId: companyId,
+                companyName: companyName,
+                dailyRate: dailyRate
             };
 
             // Remove undefined/null values to avoid overwriting with null if not provided

@@ -134,8 +134,9 @@ export class InvoiceRepository {
     async getInvoiceByDeviceAndDate(deviceIdName, date) {
         // Use the new static method, or just findOne
         // The static findByDate builds the ID and finds by _id
-        return await Invoice.findByDate(deviceIdName, date);
+        return await Invoice.findOne({ deviceIdName, date });
     }
+
 
     /**
      * Get all unpaid invoices for a device

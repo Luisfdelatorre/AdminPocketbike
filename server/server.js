@@ -135,7 +135,7 @@ async function startServer() {
             console.log('');
 
             // Start MegaRastreo Auto Update via Device Service
-            //await deviceServices.initializeGpsUpdates();
+            await deviceServices.initializeGpsUpdates();
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

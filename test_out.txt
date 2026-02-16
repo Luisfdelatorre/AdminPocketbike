@@ -1,0 +1,19 @@
+--- STARTING AUTOMATION TEST FOR YAG19H ---
+✅ MongoDB connected successfully
+✅ Connected to MongoDB
+✅ Found Device: YAG19H (hasActiveContract: true)
+
+Step 1: Running generateDailyInvoices...
+✅ generateDailyInvoices execution finished.
+✅ Invoice created for YAG19H: ID=YAG19H-2026-02-15, Amount=35000, Paid=false
+
+Step 2: Running performDailyCutOff...
+[DEBUG] Checking device: YAG19H
+[DEBUG] Device YAG19H: Using Strategy 1 (Today: 2026-02-15)
+[DEBUG] Checking device: YAG34H
+[DEBUG] Device YAG34H: Using Strategy 1 (Today: 2026-02-15)
+✅ performDailyCutOff execution finished.
+
+Final Device Status: cutOff=0 (Expected 1 or 2 if GPS command sent)
+
+--- TEST COMPLETED ---

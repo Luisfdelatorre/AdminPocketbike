@@ -154,11 +154,14 @@ const createContract = async (req, res) => {
         });
 
         // Sync to Device (Denormalization)
-        // User Request: update nequi, driver, and contractId
+        // User Request: update nequi, driver, contractId, company, and dailyRate
         await deviceRepository.assignContractToDevice(deviceId, {
             contractId: contract.contractId,
             driverName: customerName,
-            nequiNumber: customerPhone
+            nequiNumber: customerPhone,
+            companyId: device.companyId,
+            companyName: device.companyName,
+            dailyRate: dailyRate
         });
 
         res.json({

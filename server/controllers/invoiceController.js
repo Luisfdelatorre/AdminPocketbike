@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { Device } from '../models/Device.js';
 import { Contract } from '../models/Contract.js';
 import dayjs from 'dayjs';
+import helpers from '../utils/helpers.js';
 
 const getFinancialReport = async (req, res) => {
     try {
@@ -37,7 +38,7 @@ const getFinancialReport = async (req, res) => {
                 cutOff: d.cutOff,
                 lastUpdate: d.lastUpdate,
                 ignition: d.ignition,
-                batteryLevel: (maxBatteryLevel - (dayjs().diff(dayjs(d.lastUpdate), 'second'))) / maxBatteryLevel * 100,
+                batteryLevel: helpers.calculateBatteryLevel(d.lastUpdate, maxBatteryLevel),
                 companyId: d.companyId,
                 // Required for filtering and display
                 hasActiveContract: d.hasActiveContract,

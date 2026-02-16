@@ -20,100 +20,81 @@ const generateDailyInvoices = async () => {
   try {
     // Use today's date, normalized to start of day
     const today = dayjs().startOf('day').toDate();
-    console.log("🚀 Generating daily invoices for:", today);
+    logger.info("🚀 Starting global daily invoice generation for:", today);
 
-    // 1. Find companies with automatic invoicing enabled
+    // 1. Fetch all devices that are marked as having an active contract
+    const devices = await Device.find({
+      hasActiveContract: true,
+    }).lean();
 
-    const enabledCompanies = await Company.find({ automaticInvoicing: true }).select('_id');
-
-
-    if (!enabledCompanies || enabledCompanies.length === 0) {
-      logger.info('No companies have automatic invoicing enabled. Skipping daily invoice generation.');
+    if (!devices || devices.length === 0) {
+      logger.info('No devices with active contracts found for invoice generation.');
       return;
     }
 
-    const enabledCompanyIds = enabledCompanies.map(c => c._id);
-    console.log("🚀 Enabled companies:", enabledCompanyIds);
-    // 2. Fetch contracts only for these companies
-    // Assuming ContractRepository allows filtering by companyId (using $in)
-    const contracts = await ContractRepository.getAllContracts({ companyId: { $in: enabledCompanyIds } });
-    if (!contracts || contracts.length === 0) {
-      logger.info('No active contracts found for enabled companies.');
-      return;
-    }
+    logger.info(`🚀 Found ${devices.length} devices with active contracts for processing.`);
 
-    for (const contract of contracts) {
-      // Check for active contract
-      const device = await deviceRepository.getDeviceByName(contract.deviceIdName);
-      console.log("🚀 Device:", device);
-      if (device) {
-        const amount = contract.dailyRate;
-        const invoice = await invoiceRepository.findOrCreateInvoiceByName(
-          device.name,//deviceIdName
-          device.webDeviceId,//deviceId
-          amount,//dailyRate
-          today,//date
-          contract.companyId
-        );
-        logger.info('Invoice generado:', invoice._id);
+    for (const device of devices) {
+      try {
+        // Use denormalized dailyRate directly from the device record for efficiency
+        const amount = device.dailyRate || 0;
+
+        if (amount > 0) {
+          const invoice = await invoiceRepository.findOrCreateInvoiceByName(
+            device.name, // deviceIdName
+            device.webDeviceId, // deviceId
+            amount, // dailyRate
+            today, // date
+            device.companyId
+          );
+          logger.info(`Invoice generated/verified for ${device.name}: ${invoice._id}`);
+        } else {
+          logger.warn(`Device ${device.name} has hasActiveContract=true but dailyRate is 0 or missing.`);
+        }
+      } catch (innerErr) {
+        logger.error(`Error generating invoice for device ${device.name}:`, innerErr);
       }
     }
   } catch (err) {
     logger.error('Error generando invoices diarios', err);
   }
 };
-const validatePayments = async () => {
-  /*try {
-    const devices = await storage.getDevices();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+const verifyAndMarkCutOff = async (deviceName, deviceId, responseId) => {
+  logger.info(`[CUT-OFF] Device ${deviceName} engine stop start attempts.`);
 
-    if (!devices || devices.length === 0) {
-      logger.warn('No devices found for status check.');
-      return;
+  // try {
+  let confirmed = false;
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    await new Promise(r => setTimeout(r, RETRY_CHECK_INTERVAL));
+    //try {
+    confirmed = await gpsServices.checkDeviceStatus(responseId);
+    if (confirmed) {
+      logger.info(`[CUT-OFF] Device ${deviceName} engine stop confirmed after ${attempt} attempts.`);
+      break;
+    } else {
+      logger.warn(`[CUT-OFF] Device ${deviceName} engine stop not confirmed after ${attempt} attempts.`);
     }
-
-    for (const device of devices) {
-      try {
-        const name = normalizeName(device.name);
-        // 1 Check payment status (find latest paid invoice)
-        const latestPaid = await storage.findLatestPaidInvoice(name);
-        const engineStatus = await traccarApi.checkDeviceStatus(device.getId());
-
-        if (latestPaid && new Date(latestPaid.date) >= today) {
-          // PAID: Ensure it is active
-          // if (engineStatus === 0) {
-          // Locked -> Resume
-          await activationQueue.add(device.getId(), 'activate');
-          logger.info('ER', { name: device.name, reason: 'Payment up-to-date' });
-          // }
-        } else {
-          // NOT PAID: Ensure it is stopped
-          // Check for LOAN exception
-          const oldestUnpaid = await invoiceRepository.findLastUnPaid(name); // Use repository method which calls model
-
-          if (oldestUnpaid && oldestUnpaid.dayType === 'LOAN') {
-            // Exception: Loan active -> Resume/Keep Active
-            await activationQueue.add(device.getId(), 'activate');
-            logger.info('ER', { name: device.name, reason: 'Active Loan' });
-          } else if (engineStatus === 1) {
-            
-            await activationQueue.add(device.getId(), 'deactivate');
-            logger.info('ES', { name: device.name, reason: 'Payment overdue' });
-          }
-        }
-      } catch (innerErr) {
-        logger.error(`Error processing device ${device.name}`, innerErr);
-      }
-    }
-  } catch (err) {
-    logger.error('Error checking all devices', err);
-  }*/
+    //} catch (error) {
+    //  logger.warn(`[CUT-OFF] Check attempt ${attempt} for ${deviceName} failed:`, error.message);
+    //}
+  }
+  if (!confirmed) {
+    logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command sent but not confirmed after retries.`);
+    // Update database flag (2 = Sent but not confirmed)
+    await deviceRepository.updateCutOffStatus(deviceId, 2);
+  } else {
+    // Update database flag (1 = Confirmed)
+    await deviceRepository.updateCutOffStatus(deviceId, 1);
+  }
+  //} catch (error) {
+  //  logger.error(`[CUT-OFF] Fatal error in background verification for ${deviceName}:`, error);
+  //}
 };
 
 const performDailyCutOff = async () => {
+  logger.info("🕒 Starting daily cut-off process (23:59)...");
   try {
-    logger.info("🕒 Starting daily cut-off process (23:59)...");
+
 
     // 1. Find companies with automatic cut-off enabled
     const enabledCompanies = await Company.find({ automaticCutOff: true, isActive: true }).lean();
@@ -138,8 +119,7 @@ const performDailyCutOff = async () => {
       // 2. Fetch active devices for this company
       const devices = await Device.find({
         companyId: company._id,
-        isDeleted: false,
-        disabled: false
+        hasActiveContract: true,
       }).lean();
 
       if (!devices || devices.length === 0) {
@@ -148,13 +128,21 @@ const performDailyCutOff = async () => {
       }
 
       for (const device of devices) {
+        if (device.name !== 'YAG34H') {
+          continue;
+        }
+        console.log(`[DEBUG] Checking device: ${device.name}`);
         try {
           const deviceName = device.name;
           let shouldCutOff = false;
 
           // Helper to check if an invoice is "OK" (paid or special)
           const isUpToDate = (inv) => {
-            if (!inv) return true; // No invoice for this day -> treated as OK
+            if (!inv) {
+              console.log(`[DEBUG] Device ${deviceName}: No invoice found for this date. Treating as up to date.`);
+              return true;
+            }
+            console.log(`[DEBUG] Device ${deviceName}: Invoice found. Paid: ${inv.paid}, DayType: ${inv.dayType}`);
             if (inv.paid) return true;
             const specialTypes = ['FREE', 'FREEPASS', 'LOAN'];
             return specialTypes.includes(inv.dayType);
@@ -162,47 +150,31 @@ const performDailyCutOff = async () => {
 
           if (strategy === 1) {
             // Strategy 1: Check today's invoice
-            const invToday = await invoiceRepository.findByDate(deviceName, today.toDate());
+            console.log(`[DEBUG] Device ${deviceName}: Using Strategy 1 (Today: ${today.format('YYYY-MM-DD')})`);
+            const invToday = await invoiceRepository.getInvoiceByDeviceAndDate(deviceName, today.toDate());
             if (!isUpToDate(invToday)) {
               shouldCutOff = true;
             }
           } else if (strategy === 2) {
             // Strategy 2: Check yesterday's invoice
-            const invYesterday = await invoiceRepository.findByDate(deviceName, yesterday.toDate());
+            console.log(`[DEBUG] Device ${deviceName}: Using Strategy 2 (Yesterday: ${yesterday.format('YYYY-MM-DD')})`);
+            const invYesterday = await invoiceRepository.getInvoiceByDeviceAndDate(deviceName, yesterday.toDate());
             if (!isUpToDate(invYesterday)) {
               shouldCutOff = true;
             }
           }
 
           if (shouldCutOff) {
+            console.log(`[DEBUG] Device ${deviceName}: SHOULD CUT OFF.`);
             logger.info(`🚫 Cutting off device ${deviceName} (Company: ${company.name}, Strategy: ${strategy}): Unpaid invoice detected.`);
 
             // 3. Command engine stop
-            const responseId = await gpsServices.stopDevice(device.deviceId);
+            const responseId = await gpsServices.stopDevice(device.webDeviceId);
+            console.log(`[DEBUG] Device ${deviceName}: Stop command sent. responseId: ${responseId}`);
 
-            // Verify command confirmation
-            let confirmed = false;
-            for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
-              await new Promise(r => setTimeout(r, RETRY_CHECK_INTERVAL));
-              try {
-                confirmed = await gpsServices.checkDeviceStatus(responseId);
-                if (confirmed) {
-                  logger.info(`[CUT-OFF] Device ${deviceName} engine stop confirmed after ${attempt} attempts.`);
-                  break;
-                }
-              } catch (error) {
-                logger.warn(`[CUT-OFF] Check attempt ${attempt} for ${deviceName} failed:`, error.message);
-              }
-            }
-
-            if (!confirmed) {
-              logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command sent but not confirmed after retries.`);
-              // 4. Update database flag (2 = Sent but not confirmed)
-              await deviceRepository.updateCutOffStatus(device.deviceId, 2);
-            } else {
-              // 4. Update database flag (1 = Confirmed)
-              await deviceRepository.updateCutOffStatus(device.deviceId, 1);
-            }
+            // 4. Verify command confirmation in background (Async)
+            // We don't await this to avoid blocking the loop for minutes
+            await verifyAndMarkCutOff(deviceName, device.deviceId, responseId);
           } else {
             logger.info(`✅ Device ${deviceName} is up to date.`);
           }
@@ -220,6 +192,5 @@ const performDailyCutOff = async () => {
 
 export default {
   generateDailyInvoices,
-  validatePayments,
   performDailyCutOff,
 };

@@ -14,14 +14,14 @@ export const CRON_JOBS = [
     },
     {
         name: 'dailyInvoicesCreation',
-        time: '30 22 * * *', // cada día a las 22:30
+        time: '1 0 * * *', // cada día a las 00:01
         log: 'Call one time a day payment creation',
         flag: true,
         job: 'generateDailyInvoices',
     },
     {
         name: 'dailyPaymentValidation',
-        time: '0 0 * * *', // todos los días a las 00:00
+        time: '55 11 * * *', // todos los días a las 11:55
         log: 'Call one time a day payment validation',
         flag: true, // activado
         job: 'validatePayments',

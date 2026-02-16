@@ -41,10 +41,15 @@ function formatDate(date) {
     const formatted = today.format('DD MMM');
     return formatted;
 }
+function calculateBatteryLevel(lastUpdate, maxBatteryLevel = 600) {
+    const diffSeconds = dayjs().diff(dayjs(lastUpdate), 'second');
+    if (diffSeconds > 600) return 0;
+    return Math.max(0, ((maxBatteryLevel - diffSeconds) / maxBatteryLevel) * 100);
+}
+
 function generateEmail(deviceIdName) {
     return `${deviceIdName}@${defaultCustomer.emailDomain}`;
 }
-
 
 export default {
     getToday,
@@ -56,4 +61,5 @@ export default {
     generateInvoiceId,
     formatDate,
     generateEmail,
+    calculateBatteryLevel,
 };

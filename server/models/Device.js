@@ -10,7 +10,7 @@ const deviceSchema = new mongoose.Schema({
     disabled: { type: Boolean, default: false },
     lastUpdate: { type: Date },
     positionId: { type: Number },
-    companyId: { type: String, required: true },
+    companyId: { type: String, required: true, index: true },
     companyName: { type: String, required: true },
     contractId: { type: String, required: true },
     driverName: { type: String, required: true },
@@ -38,7 +38,8 @@ const deviceSchema = new mongoose.Schema({
     phone: { type: String }, // nequi
     contact: { type: String }, // simCard
     activeContractId: { type: String, default: null }, // Denormalized: ID of the current active contract
-    hasActiveContract: { type: Boolean, default: false }, // Denormalized: Easy query flag
+    hasActiveContract: { type: Boolean, default: false, index: true }, // Denormalized: Easy query flag
+    dailyRate: { type: Number, default: 0 }, // Denormalized: Current active daily rate
     attributes: {
         Cuota: { type: Number, default: DEFAULTAMOUNT },
         DailyPayment: { type: Boolean, default: false },
