@@ -15,10 +15,10 @@ const router = express.Router();
 router.get('/stats', verifyToken, invoiceController.getInvoiceStats);
 
 /**
- * GET /api/invoices/financial-report
- * Get financial report
+ * GET /api/invoices/status-report
+ * Get status report
  */
-router.get('/financial-report', verifyToken, invoiceController.getFinancialReport);
+router.get('/status-report', verifyToken, invoiceController.getStatusReport);
 
 router.get('/history', verifyToken, invoiceController.getInvoiceHistory);
 

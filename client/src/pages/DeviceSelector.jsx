@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull } from 'lucide-react';
+import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power } from 'lucide-react';
 import { showToast } from '../utils/toast';
-import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getFinancialReport } from '../services/api';
+import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
@@ -39,6 +39,7 @@ const DeviceManagement = () => {
     const [filter, setFilter] = useState('all'); // all, active, available
     const [viewMode, setViewMode] = useState('technical'); // technical, financial
     const [activeMenuId, setActiveMenuId] = useState(null);
+    const [pendingCommands, setPendingCommands] = useState({});
 
     const [formData, setFormData] = useState({
         _id: '',
@@ -97,7 +98,7 @@ const DeviceManagement = () => {
         try {
             let result;
             if (viewMode !== 'financial') {
-                const financialData = await getFinancialReport();
+                const financialData = await getStatusReport();
                 console.log(financialData);
                 result = { success: true, devices: financialData };
             } else {
@@ -226,6 +227,27 @@ const DeviceManagement = () => {
             }
         } catch (err) {
             console.error('Error toggling device status:', err);
+        }
+    };
+
+    const handleEngineToggle = async (device) => {
+        const deviceId = device.deviceId;
+        setPendingCommands(prev => ({ ...prev, [deviceId]: true }));
+        console.log('Engine control request:', deviceId, device.cutOff);
+
+        try {
+            const result = await controlEngine(deviceId, device.cutOff);
+            if (result.success) {
+                showToast(result.message, 'success');
+                loadDevices();
+            } else {
+                showToast(result.error || 'Failed to control engine', 'error');
+            }
+        } catch (err) {
+            console.error('Engine control error:', err);
+            showToast(err.message || 'Error controlling engine', 'error');
+        } finally {
+            setPendingCommands(prev => ({ ...prev, [deviceId]: false }));
         }
     };
 
@@ -428,7 +450,7 @@ const DeviceManagement = () => {
                                 {device.freeDays || 0}
                             </div>
 
-                            <div className="flex items-center justify-center gap-3">
+                            <div className="flex items-center justify-center gap-4">
                                 {/* Motor Status */}
                                 <div className={`flex flex-col items-center justify-center ${device.cutOff === 1 ? 'text-red-500' :
                                     device.cutOff === 2 ? 'text-yellow-500' :
@@ -437,7 +459,6 @@ const DeviceManagement = () => {
                                     }`}>
                                     <MotorIcon />
                                 </div>
-
                                 {/* Battery Status */}
                                 <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
                                     device.batteryLevel > 30 ? 'text-yellow-500' :
@@ -451,6 +472,28 @@ const DeviceManagement = () => {
                                         <BatteryLow size={20} className="animate-pulse" />
                                     )}
                                 </div>
+                                {/* Engine Toggle Slider */}
+                                <div className="flex items-center">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEngineToggle(device);
+                                        }}
+                                        disabled={pendingCommands[device.deviceId]}
+                                        className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.deviceId] ? 'pending' : ''}`}
+                                        title={device.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
+                                    >
+                                        <div className="slider-knob">
+                                            {pendingCommands[device.deviceId] ? (
+                                                <RefreshCw size={12} className="spin" />
+                                            ) : (
+                                                <Power size={12} />
+                                            )}
+                                        </div>
+                                    </button>
+                                </div>
+
+
                             </div>
 
 

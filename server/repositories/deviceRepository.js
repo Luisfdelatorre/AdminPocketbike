@@ -122,15 +122,22 @@ class DeviceRepository {
      * @param {Boolean} hasContract 
      */
     async updateContractStatus(deviceId, contractId, hasContract) {
-        try {
-            return await Device.findByIdAndUpdate(deviceId, {
-                activeContractId: contractId,
-                hasActiveContract: hasContract
-            }, { new: true });
-        } catch (error) {
-            logger.error(`Error updating contract status for device ${deviceId}:`, error);
-            throw error;
-        }
+        // try {
+        // Cast deviceId to Number because the DB uses Numeric _id (Mixed type in schema)
+        const numericId = !isNaN(deviceId) ? Number(deviceId) : deviceId;
+
+        console.log('Update contract status for device:', numericId, contractId, hasContract);
+        const result = await Device.findByIdAndUpdate(numericId, {
+            activeContractId: contractId,
+            hasActiveContract: hasContract
+        }, { new: true });
+
+        console.log('Update contract status result:', result);
+        return result;
+        // } catch (error) {
+        //  logger.error(`Error updating contract status for device ${deviceId}:`, error);
+        //  throw error;
+        // }
     }
 
     /**

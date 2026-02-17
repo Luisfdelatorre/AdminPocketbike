@@ -2,8 +2,11 @@ import deviceRepository from '../repositories/deviceRepository.js';
 import { DeviceAccess } from '../models/DeviceAccess.js';
 import { Contract } from '../models/Contract.js';
 import { Device } from '../models/Device.js';
+import { Company } from '../models/Company.js';
 
 import deviceServices from '../services/deviceServices.js';
+import MegaRastreo from '../services/megaRastreoServices1.js';
+import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -177,8 +180,18 @@ const deleteDevice = async (req, res) => {
  */
 const syncDevices = async (req, res) => {
     try {
-        // const { deviceIdName } = req.paymentAuth;
-        const gpsDevices = await deviceServices.getDeviceList();
+        const { companyId } = req.auth;
+        let companyConfig = null;
+
+        if (companyId) {
+            const company = await Company.findById(companyId);
+            if (company) {
+                companyConfig = company.gpsConfig;
+                console.log(`[SYNC] Using custom config for company: ${company.name}`);
+            }
+        }
+
+        const gpsDevices = await deviceServices.getDeviceListByCompany(company);
         if (gpsDevices.length === 0) {
             return res.json({
                 success: true,
@@ -283,11 +296,80 @@ const assignDevicesToCompany = async (req, res) => {
     }
 };
 
+/**
+ * Control device engine (stop/resume)
+ */
+const controlEngine = async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const { command } = req.body; // 'stop' or 'resume'
+        console.log('Control engine request:', deviceId, command);
+
+        if (command !== 0 && command !== 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid command. Use "stop" or "resume".'
+            });
+        }
+
+        const device = await Device.findById(deviceId * 1);
+        console.log('Device found:', device);
+        if (!device) {
+            return res.status(404).json({
+                success: false,
+                error: 'Device not found'
+            });
+        }
+
+        const commandType = command === 0 ? ENGINESTOP : ENGINERESUME;
+
+        // Fetch company integration config if available
+        let companyConfig = null;
+        if (device.companyId) {
+            const company = await Company.findById(device.companyId);
+            if (company && company.gpsService === 'megarastreo') {
+                companyConfig = company.gpsConfig;
+                console.log(`[GPS] Using custom config for company: ${company.name}`);
+            }
+        }
+
+        // Execute and verify via MegaRastreo service
+        // We use webDeviceId (numeric platform ID) for commands
+        const success = await MegaRastreo.executeAndVerify(device.deviceId, commandType, {
+            companyConfig
+        });
+
+        if (success) {
+            // Update device status in DB
+            device.cutOff = !command;
+            await device.save();
+
+            return res.json({
+                success: true,
+                message: `Engine ${command === 0 ? 'stopped' : 'resumed'} successfully`,
+                cutOff: device.cutOff
+            });
+        } else {
+            return res.status(500).json({
+                success: false,
+                error: `Failed to ${command} engine. Command not confirmed by device.`
+            });
+        }
+    } catch (error) {
+        console.error('Control engine error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
 export default {
     getAllDevices,
     createDevice,
     updateDevice,
     deleteDevice,
     syncDevices,
-    assignDevicesToCompany
+    assignDevicesToCompany,
+    controlEngine
 };

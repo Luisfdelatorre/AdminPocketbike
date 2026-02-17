@@ -7,10 +7,13 @@ const router = express.Router();
 // Public endpoint for branding (no auth required)
 router.get('/branding', companyController.getBranding);
 
+
 // Authenticated routes
 router.use(verifyToken);
 
 router.post('/', companyController.createCompany);
+router.get('/settings', companyController.getSettings);
+router.put('/settings', companyController.updateSettings);
 router.put('/branding/update', companyController.updateBranding); // Specific route first
 router.put('/:id', companyController.updateCompany); // Param route last
 router.get('/', companyController.getAllCompanies);

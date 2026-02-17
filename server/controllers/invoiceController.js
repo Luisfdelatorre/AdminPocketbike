@@ -10,11 +10,11 @@ import { Contract } from '../models/Contract.js';
 import dayjs from 'dayjs';
 import helpers from '../utils/helpers.js';
 
-const getFinancialReport = async (req, res) => {
+const getStatusReport = async (req, res) => {
     try {
         const { isSuperAdmin, companyId, role, companyName } = req.auth;
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
-        const report = await invoiceServices.getFinancialReportData(isSystemAdmin, companyId);
+        const report = await invoiceServices.getStatusReportData(isSystemAdmin, companyId);
 
         res.json({
             success: true,
@@ -253,7 +253,7 @@ const getInvoiceStats = async (req, res) => {
 export default {
     createInvoice,
     getInvoiceStats,
-    getFinancialReport,
+    getStatusReport,
     getInvoiceHistory,
     getAllInvoices,
     getInvoicesByDevice,

@@ -117,6 +117,7 @@ export const Transaction = {
     DEFAULT_PAYMENT_EMAIL_DOMAIN: '@pocketbike.app',
     JWT_SECRET: process.env.JWT_SECRET || 'payment-app-secret-key-change-in-production',
     JWT_EXPIRY: '24h',
+    ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || 'pocketbike-encryption-key-32-chars!!',
     DEVICE_ONLINE_TIMEOUT: 3 * 60 * 1000,
     DEFAULTAMOUNT: 30000,
 };

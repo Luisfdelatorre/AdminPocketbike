@@ -10,11 +10,12 @@ const deviceSchema = new mongoose.Schema({
     disabled: { type: Boolean, default: false },
     lastUpdate: { type: Date },
     positionId: { type: Number },
-    companyId: { type: String, required: true, index: true },
-    companyName: { type: String, required: true },
-    contractId: { type: String, required: true },
-    driverName: { type: String, required: true },
+    companyId: { type: String, index: true },
+    companyName: { type: String, },
+    contractId: { type: String, },
+    driverName: { type: String },
     deviceId: { type: String, required: true },
+    apiDeviceId: { type: Number, default: null },
     webDeviceId: { type: Number, default: null },
     imei: { type: String, default: null },
     deviceType: { type: String },//groupId traccar
@@ -23,13 +24,13 @@ const deviceSchema = new mongoose.Schema({
     isDeleted: { type: Boolean, default: false, index: true },
     notes: { type: String, default: '', },
     // online: { type: Boolean, default: false },//diff < Transaction.DEVICE_ONLINE_TIMEOUT;
-    cutOff: { type: Number, default: 0, },// 1 cuando attributes.status === 133
+    cutOff: { type: Number, default: 0 },// 1 cuando attributes.status === 133
     ignition: { type: Boolean, default: false, },// sensors.ignition
     batteryLevel: { type: Number, default: null, },// attributes.batteryLevel (0–100)
     //BACKWARD COMPATIBILITY //TRACCAR
     nequiNumber: { type: String, default: null },//phone // nequi
     simCardNumber: { type: String, default: null },//contact//simCard: { name}
-    uniqueId: { type: String, default: null },//uniqueId traccar
+    // uniqueId: { type: String, default: null },//uniqueId traccar
     groupId: { type: Number },//companyGroup in traccar
     calendarId: { type: Number },
     category: { type: String, default: null },

@@ -9,6 +9,7 @@ import logger from '../config/logger.js';
 import { Invoice } from '../models/Invoice.js';
 import { Device } from '../models/Device.js';
 import { Payment } from '../models/index.js';
+import { Company } from '../models/Company.js';
 import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
 import gpsServices from './megaRastreoServices1.js';
 
@@ -189,8 +190,19 @@ export class PaymentService {
         await this.checkDuplicatePayment(deviceIdName);
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
-        console.log('unpaidInvoice', unpaidInvoice);
-        const wompiAdapter = new WompiAdapter();
+
+        // Fetch company Wompi config
+        let wompiConfig = null;
+        if (companyId) {
+            const company = await Company.findById(companyId);
+            if (company && company.wompiConfig) {
+                wompiConfig = company.wompiConfig;
+                console.log(`[PAYMENT] Using custom Wompi config for company: ${company.name}`);
+            }
+        }
+
+        const wompiAdapter = new WompiAdapter(wompiConfig, null);
+        console.log('wompiAdapter', wompiAdapter);
         const acceptanceToken = await wompiAdapter.getMerchantData();
         const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId);
         console.log('paymentData', paymentData);
@@ -207,11 +219,10 @@ export class PaymentService {
 
             notifyStateChange(onUpdate, PS.S_PENDING, PM.M_PENDING_ALT_1, reference);
             const paymentData = await this.pollPaymentStatus(reference, onUpdate, timeout);
-
-            await paymentRepository.upsertPayment(paymentData);
+            const paymentIntance = await paymentRepository.upsertPayment(paymentData);
             if (paymentData.status === PS.S_APPROVED) {
                 notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_APPROVED, reference);
-                const result = await this.processApprovedPayment(paymentData, onUpdate);
+                const result = await this.processApprovedPayment(paymentIntance, onUpdate);
                 notifyStateChange(onUpdate, PS.S_COMPLETED, PM.M_COMPLETED, result.simplePayment);
             } else if (paymentData.status === PS.S_TIMEOUT) {
                 logger.info(`[PAYMENT] Validation timed out for ${reference}`);
@@ -251,9 +262,21 @@ export class PaymentService {
         let intervalId;
         const listeners = [onUpdate]; // Array to store all active listeners for this reference
 
-        const promise = new Promise((resolve, reject) => {
+        const promise = new Promise(async (resolve, reject) => {
             const startTime = Date.now();
-            const wompiAdapter = new WompiAdapter();
+
+            // We need the companyId to get the correct Wompi config for polling
+            // We can get it from the payment record
+            const payment = await paymentRepository.getPaymentByReference(reference);
+            let wompiConfig = null;
+            if (payment && payment.companyId) {
+                const company = await Company.findById(payment.companyId);
+                if (company && company.wompiConfig) {
+                    wompiConfig = company.wompiConfig;
+                }
+            }
+
+            const wompiAdapter = new WompiAdapter(null, wompiConfig);
 
             intervalId = setInterval(async () => {
                 try {
@@ -336,7 +359,7 @@ export class PaymentService {
             const invoiceDate = dayjs(invoice.date).startOf('day');
 
             if (invoiceDate.isSameOrAfter(yesterday)) {
-                await this.activateDevice(invoice, reference, onUpdate);
+                await this.activateDevice(payment.deviceId, reference, onUpdate);
 
             } else {
                 logger.info(`[DEVICE] Activation skipped - invoice date out of range (not yesterday/today): ${invoice.date}`);
@@ -368,11 +391,9 @@ export class PaymentService {
     /**
      * Activate Device via Traccar
      */
-    async activateDevice(invoice, reference, onUpdate) {
-        const deviceId = invoice.deviceId; // Mongo _id or Traccar ID
-        const webDeviceId = invoice.webDeviceId || (await Device.findById(deviceId))?.webDeviceId;
+    async activateDevice(deviceId, reference, onUpdate) {
 
-        if (!webDeviceId) {
+        if (!deviceId) {
             logger.error(`[DEVICE] Failed to activate: webDeviceId not found for device ${deviceId}`);
             return;
         }
@@ -381,7 +402,7 @@ export class PaymentService {
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
 
         // 2. Execute and verify via centralized service
-        const isConfirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINERESUME, {
+        const isConfirmed = await gpsServices.executeAndVerify(deviceId, ENGINERESUME, {
             onProgress: (p) => {
                 notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
                     reference,

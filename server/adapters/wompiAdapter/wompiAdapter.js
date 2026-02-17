@@ -1,16 +1,19 @@
 import crypto from 'crypto';
 import logger from '../../config/logger.js';
-import wompiApi from './wompiApi.js';
+import wompiApi, { getWompiApi } from './wompiApi.js';
 import helper from '../../utils/helpers.js';
 import { Transaction, Login, Url } from '../../config/config.js';
 import dayjs from '../../config/dayjs.js';
 
 const { PAYMENT_TYPE, currencyCode, defaultCustomer } = Transaction;
 const { Wompi } = Login;
+
 class WompiAdapter {
-  constructor(reponseData) {
+  constructor(config, reponseData) {
     this.reponseData = reponseData;
-    this.integritySecret = Wompi.privateKeyEvents;
+    this.config = config;
+    this.api = config ? getWompiApi(config) : wompiApi;
+    this.integritySecret = config?.integritySecret || Wompi.privateKeyEvents;
   }
   init(reponseData) {
     if (!reponseData || typeof reponseData !== 'object') {
@@ -65,7 +68,7 @@ class WompiAdapter {
     }
   }
   async getTransactionStatus(transactionId) {
-    const response = await wompiApi.getTransactionData(transactionId);
+    const response = await this.api.getTransactionData(transactionId);
     const data = response.data.data;
 
     // Convert Wompi's UTC timestamp to local timezone (default: America/Bogota)

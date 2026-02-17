@@ -47,7 +47,7 @@ const getInvoiceHistory = async (deviceIdName) => {
     return invoices;
 };
 
-const getFinancialReportData = async (isSystemAdmin, companyId) => {
+const getStatusReportData = async (isSystemAdmin, companyId) => {
     // Current month date range using dayjs for consistency
     const startOfMonth = dayjs().startOf('month').toDate();
     const endOfMonth = dayjs().endOf('month').toDate();
@@ -138,6 +138,6 @@ const getFinancialReportData = async (isSystemAdmin, companyId) => {
 
 export default {
     getInvoiceHistory,
-    getFinancialReportData
+    getStatusReportData
 };
 

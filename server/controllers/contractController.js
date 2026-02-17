@@ -352,15 +352,6 @@ const updateContract = async (req, res) => {
             });
         }
 
-        // Only hash PIN if provided (logic handled in repository/model depending on implementation)
-        // Repository updateContract just passes values to set. 
-        // We need to verify if repository handles it or if we need to manually handle it.
-        // Looking at repository: it uses $set with whatever is passed.
-        // Looking at model: it has a pre-save hook for hashing 'devicePin'.
-        // BUT findOneAndUpdate bypasses pre-save hooks! 
-        // We need to use findById logic in repository OR manually hash here.
-        // Let's check repository updateContract implementation again.
-
         const updatedContract = await contractRepository.updateContract(contractId, {
             customerName,
             customerEmail,
@@ -372,6 +363,9 @@ const updateContract = async (req, res) => {
             devicePin,
             freeDaysLimit // Added freeDaysLimit
         });
+        console.log('Update contract:', updatedContract);
+        const result = await deviceRepository.updateContractStatus(contract.deviceId, contractId, true);
+        console.log('Update contract status result:', result);
 
         res.json({
             success: true,

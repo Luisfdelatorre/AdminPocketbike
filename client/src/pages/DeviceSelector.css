@@ -774,3 +774,74 @@
 .btn-mobile-header-action:hover {
     color: #02aab6;
 }
+
+/* Engine Toggle Slider */
+.engine-toggle-slider {
+    position: relative;
+    width: 40px;
+    height: 18px;
+    background-color: #E5E7EB;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+}
+
+.engine-toggle-slider.active {
+    background-color: #10B981;
+    /* Green-500 */
+}
+
+.engine-toggle-slider.deactivated {
+    background-color: #EF4444;
+    /* Red-500 */
+}
+
+.engine-toggle-slider.pending {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.slider-knob {
+    width: 14px;
+    height: 14px;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6B7280;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.engine-toggle-slider.active .slider-knob {
+    transform: translateX(22px);
+    color: #10B981;
+}
+
+.engine-toggle-slider.deactivated .slider-knob {
+    transform: translateX(0);
+    color: #EF4444;
+}
+
+.engine-toggle-slider:hover .slider-knob {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.engine-toggle-slider.pending .spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

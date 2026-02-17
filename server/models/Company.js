@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { encrypt, decrypt } from '../utils/encryption.js';
 
 const companySchema = new mongoose.Schema({
     name: {
@@ -51,9 +52,75 @@ const companySchema = new mongoose.Schema({
         type: Number,
         enum: [1, 2, 3], // 1: Today, 2: Yesterday, 3: Disabled
         default: 1
+    },
+    // GPS Service Integration
+    gpsService: {
+        type: String,
+        enum: ['megarastreo', 'traccar'],
+        default: 'megarastreo'
+    },
+    gpsConfig: {
+        host: { type: String, trim: true },
+        port: { type: Number },
+        user: { type: String, trim: true },
+        password: { type: String, trim: true },
+        token: { type: String, trim: true }
+    },
+    // Wompi Service Integration
+    wompiConfig: {
+        publicKey: { type: String, trim: true },
+        privateKey: { type: String, trim: true },
+        integritySecret: { type: String, trim: true },
+        eventsSecret: { type: String, trim: true }
     }
 }, {
     timestamps: true
+});
+
+// Encryption logic for sensitive fields
+const sensitiveFields = [
+    'gpsConfig.password',
+    'gpsConfig.token',
+    'wompiConfig.privateKey',
+    'wompiConfig.integritySecret',
+    'wompiConfig.eventsSecret'
+];
+
+function getDeepValue(obj, path) {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+}
+
+function setDeepValue(obj, path, value) {
+    const parts = path.split('.');
+    const last = parts.pop();
+    const target = parts.reduce((acc, part) => {
+        if (!acc[part]) acc[part] = {};
+        return acc[part];
+    }, obj);
+    target[last] = value;
+}
+
+companySchema.pre('save', function (next) {
+    const company = this;
+    sensitiveFields.forEach(path => {
+        if (company.isModified(path)) {
+            const val = getDeepValue(company, path);
+            if (val && !val.includes(':')) { // Only encrypt if not already encrypted
+                setDeepValue(company, path, encrypt(val));
+            }
+        }
+    });
+    next();
+});
+
+// Decrypt sensitive fields after loading from DB
+companySchema.post('init', function (doc) {
+    sensitiveFields.forEach(path => {
+        const val = getDeepValue(doc, path);
+        if (val && val.includes(':')) {
+            setDeepValue(doc, path, decrypt(val));
+        }
+    });
 });
 
 export const Company = mongoose.model('Company', companySchema);

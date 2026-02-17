@@ -20,10 +20,9 @@ const {
 } = Transaction;
 
 
-const getDeviceList = async (deviceIdName) => {
-    const gpsDevices = await MegaRastreo.fetchDevices();
+const getDeviceListByCompany = async (company) => {
+    const gpsDevices = await MegaRastreo.fetchDevices(company);
     console.log(`📡 Fetched ${gpsDevices.length} devices from GPS.`);
-    // Prepare bulk operations for Devices
     return gpsDevices;
 };
 
@@ -64,11 +63,22 @@ const initializeGpsUpdates = async () => {
     const devices = await Device.find({}, 'imei').lean();
     const imeis = devices.map(d => d.imei).filter(Boolean);
     console.log(`📡 Initializing GPS updates for ${imeis.length} devices...`);
-    await MegaRastreo.startAutoUpdate(imeis);
+
+    const onFlush = async (batch) => {
+        if (!batch || batch.length === 0) return;
+
+        await Promise.allSettled(
+            batch.map(({ filter, update }) =>
+                Device.updateOne(filter, { $set: update })
+            )
+        );
+    };
+
+    await MegaRastreo.startAutoUpdate(imeis, onFlush);
 };
 
 export default {
-    getDeviceList,
+    getDeviceListByCompany,
     bulkWriteDevices,
     initializeGpsUpdates
 };

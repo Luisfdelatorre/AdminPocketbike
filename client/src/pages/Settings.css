@@ -87,6 +87,7 @@
 .setting-item input[type="text"],
 .setting-item input[type="email"],
 .setting-item input[type="number"],
+.setting-item input[type="password"],
 .setting-item select {
     flex: 1;
     padding: 0.75rem 1rem;
@@ -102,6 +103,7 @@
 .setting-item input[type="text"]:focus,
 .setting-item input[type="email"]:focus,
 .setting-item input[type="number"]:focus,
+.setting-item input[type="password"]:focus,
 .setting-item select:focus {
     outline: none;
     border-color: #03C9D7;
@@ -156,6 +158,42 @@
 
 .status-error {
     color: #EF4444;
+}
+
+/* Section Save Button */
+.btn-save-section {
+    margin-left: auto;
+    background: transparent;
+    color: #03C9D7;
+    border: 1px solid #03C9D7;
+    padding: 0.4rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.813rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+}
+
+.btn-save-section:hover {
+    background: #03C9D7;
+    color: white;
+}
+
+.btn-save-section:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #F3F4F6;
+    color: #9CA3AF;
+    border-color: #E5E7EB;
+}
+
+.btn-save-section.btn-saved {
+    background: #00C292;
+    color: white;
+    border-color: #00C292;
 }
 
 /* Actions */
@@ -397,6 +435,21 @@
 }
 
 /* Branding Section Redesign */
+.integration-fields {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #F9FAFB;
+    border-radius: 0.75rem;
+    border: 1px solid #E5E7EB;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.integration-fields .setting-item {
+    margin-bottom: 0;
+}
+
 .branding-upload-area {
     display: flex;
     align-items: center;

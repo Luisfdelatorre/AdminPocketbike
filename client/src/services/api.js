@@ -46,6 +46,7 @@ export const updateDevice = (id, data) => api.put(`/devices/${id}`, data);
 export const deleteDevice = (id) => api.delete(`/devices/${id}`);
 export const syncDevices = () => api.post('/devices/sync');
 export const assignDevicesToCompany = (companyId, deviceIds) => api.post('/devices/assign-to-company', { companyId, deviceIds });
+export const controlEngine = (deviceId, command) => api.post(`/devices/${deviceId}/engine`, { command });
 
 // --- Contracts ---
 export const getAllContracts = () => api.get('/contracts/all');
@@ -68,8 +69,8 @@ export const getUnpaidInvoices = async (deviceId) => {
     return response.data;
 };
 
-export const getFinancialReport = async () => {
-    const response = await api.get('/invoices/financial-report');
+export const getStatusReport = async () => {
+    const response = await api.get('/invoices/status-report');
     return response.data;
 };
 export const getInvoiceById = (id) => api.get(`/invoices/${id}`);
@@ -92,6 +93,10 @@ export const getPaymentSummary = (params) => api.get('/payments/summary', { para
 export const getPaymentStatus = (reference) => api.get(`/payments/status/${reference}`);
 export const getPaymentHistory = (deviceId, params) => api.get(`/payments/history/${deviceId}`, { params });
 export const verifyTransaction = (reference) => api.post(`/payments/verify/${reference}`);
+
+// --- settings ---
+export const getSettings = () => api.get('/companies/settings');
+export const updateSettings = (data) => api.put('/companies/settings', data);
 
 // --- SSE ---
 export const createSSEConnection = (clientId) => {

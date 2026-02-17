@@ -34,6 +34,12 @@ router.post('/assign-to-company', deviceController.assignDevicesToCompany);
 router.put('/:deviceId', deviceController.updateDevice);
 
 /**
+ * POST /api/devices/:deviceId/engine
+ * Control device engine (stop/resume)
+ */
+router.post('/:deviceId/engine', deviceController.controlEngine);
+
+/**
  * DELETE /api/devices/:deviceId
  * Delete a device (soft delete - set inactive)
  */

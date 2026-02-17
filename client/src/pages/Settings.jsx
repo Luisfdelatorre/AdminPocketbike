@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut } from 'lucide-react';
+import { getSettings, updateSettings } from '../services/api';
 import './Settings.css';
 
 const Settings = () => {
@@ -11,10 +12,26 @@ const Settings = () => {
         displayName: 'PocketBike',
         companyLogo: '/pocketbike_60x60.jpg',
         automaticCutOff: false,
-        cutOffStrategy: 1
+        cutOffStrategy: 1,
+        gpsService: 'megarastreo',
+        gpsConfig: {
+            host: '',
+            port: '',
+            user: '',
+            password: '',
+            token: ''
+        },
+        wompiConfig: {
+            publicKey: '',
+            privateKey: '',
+            integritySecret: '',
+            eventsSecret: ''
+        }
     });
 
     const [saved, setSaved] = useState(false);
+    const [savingSections, setSavingSections] = useState({});
+    const [savedSections, setSavedSections] = useState({});
     const [showCropModal, setShowCropModal] = useState(false);
     const [imageToCrop, setImageToCrop] = useState(null);
     const [zoom, setZoom] = useState(1);
@@ -37,24 +54,16 @@ const Settings = () => {
     useEffect(() => {
         const fetchBranding = async () => {
             try {
-                const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-                const response = await fetch('/apinode/companies/branding', {
-                    headers
-                });
-                const data = await response.json();
+                const data = await getSettings();
                 if (data.success) {
                     setSettings(prev => ({
                         ...prev,
-                        displayName: data.data.displayName,
-                        companyLogo: data.data.logo,
-                        automaticCutOff: data.data.automaticCutOff,
-                        cutOffStrategy: data.data.cutOffStrategy
+                        ...data.data,
+                        companyLogo: data.data.logo || prev.companyLogo // Map logo to companyLogo for state
                     }));
                 }
             } catch (error) {
-                console.error('Error fetching branding:', error);
+                console.error('Error fetching settings:', error);
             }
         };
         fetchBranding();
@@ -157,38 +166,74 @@ const Settings = () => {
     };
 
     const handleSave = async () => {
+        await handleSaveSection('all');
+    };
+
+    const handleSaveSection = async (section) => {
+        setSavingSections(prev => ({ ...prev, [section]: true }));
         try {
-            // Save branding to server
             const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-            const response = await fetch('/apinode/companies/branding/update', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+
+            // Prepare payload based on section
+            let payload = {};
+            if (section === 'all') {
+                payload = { ...settings, logo: settings.companyLogo };
+            } else if (section === 'branding') {
+                payload = {
                     displayName: settings.displayName,
-                    logo: settings.companyLogo,
+                    logo: settings.companyLogo
+                };
+            } else if (section === 'gps') {
+                payload = {
+                    gpsService: settings.gpsService,
+                    gpsConfig: settings.gpsConfig
+                };
+            } else if (section === 'wompi') {
+                payload = {
+                    wompiConfig: settings.wompiConfig
+                };
+            } else if (section === 'cutoff') {
+                payload = {
                     automaticCutOff: settings.automaticCutOff,
                     cutOffStrategy: settings.cutOffStrategy
-                })
-            });
+                };
+            } else if (section === 'general') {
+                payload = {
+                    currency: settings.currency,
+                    timezone: settings.timezone,
+                    dailyRate: settings.dailyRate,
+                    contractDays: settings.contractDays
+                };
+            }
 
-            const data = await response.json();
+            const data = await updateSettings(payload);
+
             if (data.success) {
-                console.log('Branding saved successfully');
-                // Also save to localStorage for offline access
-                localStorage.setItem('appSettings', JSON.stringify(settings));
-                localStorage.setItem('companyLogo', settings.companyLogo);
-                localStorage.setItem('displayName', settings.displayName);
-                setSaved(true);
-                setTimeout(() => setSaved(false), 3000);
+                console.log(`${section} settings saved successfully`);
+
+                // Mark section as saved
+                setSavedSections(prev => ({ ...prev, [section]: true }));
+                setTimeout(() => {
+                    setSavedSections(prev => ({ ...prev, [section]: false }));
+                }, 3000);
+
+                if (section === 'all' || section === 'branding') {
+                    localStorage.setItem('companyLogo', settings.companyLogo);
+                    localStorage.setItem('displayName', settings.displayName);
+                }
+
+                if (section === 'all') {
+                    setSaved(true);
+                    setTimeout(() => setSaved(false), 3000);
+                }
             } else {
-                alert('Error saving branding: ' + data.error);
+                alert(`Error saving ${section} settings: ` + data.error);
             }
         } catch (error) {
-            console.error('Error saving branding:', error);
-            alert('Error saving branding');
+            console.error(`Error saving ${section} settings:`, error);
+            alert(`Error saving ${section} settings`);
+        } finally {
+            setSavingSections(prev => ({ ...prev, [section]: false }));
         }
     };
 
@@ -299,6 +344,17 @@ const Settings = () => {
         return `$${amount.toLocaleString()} COP`;
     };
 
+    const handleNestedChange = (category, field, value) => {
+        setSettings(prev => ({
+            ...prev,
+            [category]: {
+                ...prev[category],
+                [field]: value
+            }
+        }));
+        setSaved(false);
+    };
+
     return (
         <div className="settings-page">
             {/* Header */}
@@ -366,6 +422,13 @@ const Settings = () => {
                     <div className="section-header">
                         <Database size={20} />
                         <h2>General Settings</h2>
+                        <button
+                            className={`btn-save-section ${savedSections.general ? 'btn-saved' : ''}`}
+                            onClick={() => handleSaveSection('general')}
+                            disabled={savingSections.general}
+                        >
+                            {savingSections.general ? 'Saving...' : savedSections.general ? 'Saved' : <Save size={16} />}
+                        </button>
                     </div>
 
                     <div className="setting-item">
@@ -400,6 +463,37 @@ const Settings = () => {
                             Timezone for dates and times
                         </p>
                     </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="dailyRate">Daily Rate (COP)</label>
+                        <div className="input-group">
+                            <input
+                                id="dailyRate"
+                                type="number"
+                                value={settings.dailyRate}
+                                onChange={(e) => handleChange('dailyRate', parseInt(e.target.value))}
+                                placeholder="35000"
+                            />
+                            <span className="input-hint">{formatCurrency(settings.dailyRate)}</span>
+                        </div>
+                        <p className="setting-description">
+                            Base rate per day in cents
+                        </p>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="contractDays">Default Contract Days</label>
+                        <input
+                            id="contractDays"
+                            type="number"
+                            value={settings.contractDays}
+                            onChange={(e) => handleChange('contractDays', parseInt(e.target.value))}
+                            placeholder="500"
+                        />
+                        <p className="setting-description">
+                            Default duration for new contracts
+                        </p>
+                    </div>
                 </div>
 
                 {/* Company Branding */}
@@ -407,6 +501,13 @@ const Settings = () => {
                     <div className="section-header">
                         <ImageIcon size={20} />
                         <h2>Company Branding</h2>
+                        <button
+                            className={`btn-save-section ${savedSections.branding ? 'btn-saved' : ''}`}
+                            onClick={() => handleSaveSection('branding')}
+                            disabled={savingSections.branding}
+                        >
+                            {savingSections.branding ? 'Saving...' : savedSections.branding ? 'Saved' : <Save size={16} />}
+                        </button>
                     </div>
 
                     <div className="setting-item">
@@ -472,11 +573,162 @@ const Settings = () => {
                     </div>
                 </div>
 
+                {/* GPS Integration */}
+                <div className="settings-section">
+                    <div className="section-header">
+                        <Database size={20} />
+                        <h2>GPS Service Integration</h2>
+                        <button
+                            className={`btn-save-section ${savedSections.gps ? 'btn-saved' : ''}`}
+                            onClick={() => handleSaveSection('gps')}
+                            disabled={savingSections.gps}
+                        >
+                            {savingSections.gps ? 'Saving...' : savedSections.gps ? 'Saved' : <Save size={16} />}
+                        </button>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="gpsService">Select Provider</label>
+                        <select
+                            id="gpsService"
+                            value={settings.gpsService}
+                            onChange={(e) => handleChange('gpsService', e.target.value)}
+                        >
+                            <option value="megarastreo">MegaRastreo</option>
+                            <option value="traccar">Traccar (Not implemented yet)</option>
+                        </select>
+                    </div>
+
+                    {settings.gpsService === 'megarastreo' && (
+                        <div className="integration-fields">
+                            <div className="setting-item">
+                                <label htmlFor="mrUser">MegaRastreo Username</label>
+                                <input
+                                    id="mrUser"
+                                    type="text"
+                                    value={settings.gpsConfig.user}
+                                    onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                    placeholder="Enter username"
+                                />
+                            </div>
+                            <div className="setting-item">
+                                <label htmlFor="mrPass">MegaRastreo Password</label>
+                                <input
+                                    id="mrPass"
+                                    type="password"
+                                    value={settings.gpsConfig.password}
+                                    onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                    placeholder="Enter password"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {settings.gpsService === 'traccar' && (
+                        <div className="integration-fields">
+                            <div className="setting-item">
+                                <label htmlFor="trHost">Traccar Host</label>
+                                <input
+                                    id="trHost"
+                                    type="text"
+                                    value={settings.gpsConfig.host}
+                                    onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
+                                    placeholder="e.g. 198.74.54.252"
+                                />
+                            </div>
+                            <div className="setting-item">
+                                <label htmlFor="trUser">Username</label>
+                                <input
+                                    id="trUser"
+                                    type="text"
+                                    value={settings.gpsConfig.user}
+                                    onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                />
+                            </div>
+                            <div className="setting-item">
+                                <label htmlFor="trPass">Password</label>
+                                <input
+                                    id="trPass"
+                                    type="password"
+                                    value={settings.gpsConfig.password}
+                                    onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Wompi Integration */}
+                <div className="settings-section">
+                    <div className="section-header">
+                        <DollarSign size={20} />
+                        <h2>Wompi Payments Configuration</h2>
+                        <button
+                            className={`btn-save-section ${savedSections.wompi ? 'btn-saved' : ''}`}
+                            onClick={() => handleSaveSection('wompi')}
+                            disabled={savingSections.wompi}
+                        >
+                            {savingSections.wompi ? 'Saving...' : savedSections.wompi ? 'Saved' : <Save size={16} />}
+                        </button>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="wPubKey">Public Key</label>
+                        <input
+                            id="wPubKey"
+                            type="text"
+                            value={settings.wompiConfig.publicKey}
+                            onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
+                            placeholder="pub_test_..."
+                        />
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="wPrivKey">Private Key</label>
+                        <input
+                            id="wPrivKey"
+                            type="password"
+                            value={settings.wompiConfig.privateKey}
+                            onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
+                            placeholder="prv_test_..."
+                        />
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="wInteg">Integrity Secret</label>
+                        <input
+                            id="wInteg"
+                            type="password"
+                            value={settings.wompiConfig.integritySecret}
+                            onChange={(e) => handleNestedChange('wompiConfig', 'integritySecret', e.target.value)}
+                            placeholder="test_integrity_..."
+                        />
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="wEvents">Events Secret</label>
+                        <input
+                            id="wEvents"
+                            type="password"
+                            value={settings.wompiConfig.eventsSecret}
+                            onChange={(e) => handleNestedChange('wompiConfig', 'eventsSecret', e.target.value)}
+                            placeholder="test_events_..."
+                        />
+                    </div>
+                </div>
+
                 {/* Automatic Cut-Off Settings */}
                 <div className="settings-section">
                     <div className="section-header">
                         <Clock size={20} />
                         <h2>Automatic Cut-Off Control</h2>
+                        <button
+                            className={`btn-save-section ${savedSections.cutoff ? 'btn-saved' : ''}`}
+                            onClick={() => handleSaveSection('cutoff')}
+                            disabled={savingSections.cutoff}
+                        >
+                            {savingSections.cutoff ? 'Saving...' : savedSections.cutoff ? 'Saved' : <Save size={16} />}
+                        </button>
                     </div>
 
                     <div className="setting-item toggle-item">
@@ -543,14 +795,14 @@ const Settings = () => {
                 </div>
             </div>
 
-            {/* Save Button */}
+            {/* Save All Button */}
             <div className="settings-actions">
                 <button
                     className={`btn-save ${saved ? 'btn-saved' : ''}`}
                     onClick={handleSave}
                 >
                     <Save />
-                    {saved ? 'Settings Saved!' : 'Save Settings'}
+                    {saved ? 'All Settings Saved!' : 'Save All Settings'}
                 </button>
             </div>
 

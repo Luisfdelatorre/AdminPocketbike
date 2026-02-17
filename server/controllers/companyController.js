@@ -246,6 +246,85 @@ const companyController = {
                 error: 'Failed to update branding'
             });
         }
+    },
+    // Get full company settings (admin only)
+    getSettings: async (req, res) => {
+        try {
+            const { companyId } = req.auth;
+            const company = await Company.findById(companyId);
+
+            if (!company) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Company not found'
+                });
+            }
+
+            // Mask sensitive data for transport
+            const maskedData = company.toObject();
+            if (maskedData.gpsConfig) {
+                if (maskedData.gpsConfig.password) maskedData.gpsConfig.password = '********';
+                if (maskedData.gpsConfig.token) maskedData.gpsConfig.token = '********';
+            }
+            if (maskedData.wompiConfig) {
+                if (maskedData.wompiConfig.privateKey) maskedData.wompiConfig.privateKey = '********';
+                if (maskedData.wompiConfig.integritySecret) maskedData.wompiConfig.integritySecret = '********';
+                if (maskedData.wompiConfig.eventsSecret) maskedData.wompiConfig.eventsSecret = '********';
+            }
+
+            res.json({
+                success: true,
+                data: maskedData
+            });
+        } catch (error) {
+            console.error('Error fetching company settings:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch company settings'
+            });
+        }
+    },
+
+    // Update full company settings (admin only)
+    updateSettings: async (req, res) => {
+        try {
+            const { companyId } = req.auth;
+            const updates = req.body;
+
+            const company = await Company.findById(companyId);
+            if (!company) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Company not found'
+                });
+            }
+
+            // Allowed fields for update
+            const allowedFields = [
+                'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
+                'displayName', 'logo', 'automaticCutOff', 'cutOffStrategy',
+                'gpsService', 'gpsConfig', 'wompiConfig'
+            ];
+
+            allowedFields.forEach(field => {
+                if (updates[field] !== undefined) {
+                    company[field] = updates[field];
+                }
+            });
+
+            await company.save();
+
+            res.json({
+                success: true,
+                data: company
+            });
+        } catch (error) {
+            console.error('Error updating company settings:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update company settings'
+            });
+        }
     }
 }
 

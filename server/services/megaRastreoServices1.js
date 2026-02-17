@@ -1,12 +1,12 @@
 // megaRastreoService.lite.js
 import { io } from 'socket.io-client';
-import megaRastreoApi from '../api/megaRastreoApi1.js';
-import megaRastreoWebApi from '../api/megaRastreoWebApi.js';
+import megaRastreoApi from '../api/megaRastreoApi1.js'; //api
+import { megaRastreoWebApiByCompany } from '../api/megaRastreoWebApi.js';//web scraping
 import { Login, Url, ENGINESTOP, ENGINERESUME, Transaction } from '../config/config.js';
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
-import { Device } from '../models/Device.js';
 import https from "https";
+import { Company } from '../models/Company.js';
 
 const HOST = "s1.megarastreo.co";
 const PORT = 8443;
@@ -22,67 +22,44 @@ class MegaRastreoServiceLite {
         this.flushMap = {};
         this.flushTimer = null;
         this.subscribedImeis = [];
+        this.onFlush = null;
     }
 
-    async fetchDevices(processedSize = 50) {
+    async fetchDevices(company) {
         let devices = [];
-        let page = 1;
-        let hasMore = true;
+
 
         console.log(`--Starting full sync...`);
 
-        while (hasMore) {
-            try {
-                const params = { $size: processedSize, $page: page };
-                const res = await megaRastreoApi.getDeviceList(params);
-                const objects = res.data.objects || [];
+        /* ... existing commented out code ... */
+        console.log(`--Fetched ${devices.length} devices from API`);
+        const webDevices = await megaRastreoWebApiByCompany(company).fetchDevices()
+        console.log(`--Fetched ${Array.isArray(webDevices) ? webDevices.length : 0} devices from Web`);
 
-                if (objects.length > 0) {
-                    console.log(`--Fetched page ${page}: ${objects.length} devices`);
-                    devices = devices.concat(objects);
-                    page++;
-                } else {
-                    console.log('--No more devices found.');
-                    hasMore = false;
-                }
-            } catch (error) {
-                console.error(`Error fetching page ${page}:`, error.message);
-                hasMore = false; // Stop on error
-            }
-        }
-        console.log(devices[0]);
-        const webDevices = await megaRastreoWebApi.fetchDevices();
-        console.log(`--Fetched ${Object.keys(webDevices).length} devices from Web`);
-
-        const allDevices = devices.map(d => {
-            console.log(webDevices[d.name.replace(/\s+/g, '')]);
-            const { id, imei } = webDevices[d.name.replace(/\s+/g, '')];
+        const allDevices = webDevices.map(d => {
             return {
-                _id: d.deviceId,
-                name: d.name.replace(/\s+/g, ''),
+                _id: d.id,
+                name: d.placa.replace(/\s+/g, ''),
                 model: d.model,
-                category: d.icon,
-                lastUpdate: d.interaction?.lastUpdatedTime,
-                deviceId: d.deviceId,
-                uniqueId: d.device.name,
-                nequiNumber: d.phone,
-                simCardNumber: d.simCard?.name,
-                imei: imei,
-                webDeviceId: id,
+                category: d.icono,
+                lastUpdate: d.fecha_gps,
+                deviceId: d.id,//webDeviceId select now command more reliable
+                imei: d.imei,
+                webDeviceId: d.id,//  deviceId fom we api `
             };
         });
         return allDevices;
     }
 
-    async stopDevice(mobileId) {
-        return megaRastreoWebApi.stopDevice(mobileId);
+    async stopDevice(webDeviceId, company) {
+        return megaRastreoWebApiByCompany(company).stopDevice(webDeviceId);
     }
 
-    async resumeDevice(mobileId) {
-        return megaRastreoWebApi.resumeDevice(mobileId);
+    async resumeDevice(webDeviceId, company) {
+        return megaRastreoWebApiByCompany(company).resumeDevice(webDeviceId);
     }
-    async checkDeviceStatus(commandId) {
-        return megaRastreoWebApi.confirmCommand(commandId);
+    async checkDeviceStatus(commandId, company) {
+        return megaRastreoWebApiByCompany(company).confirmCommand(commandId);
     }
 
     async getDetailedStatus(commandId) {
@@ -97,21 +74,22 @@ class MegaRastreoServiceLite {
      * @param {Object} options - { maxAttempts, interval, onProgress }
      * @returns {Promise<Boolean>} - True if confirmed, false otherwise
      */
-    async executeAndVerify(webDeviceId, commandType, options = {}) {
+    async executeAndVerify(deviceId, commandType, options = {}) {
         const {
             maxAttempts = MAX_RETRY_ATTEMPTS,
             interval = RETRY_CHECK_INTERVAL,
-            onProgress = null
+            onProgress = null,
+            companyConfig = null
         } = options;
 
-        logger.info(`[GPS] Executing ${commandType} for device ${webDeviceId}...`);
+        logger.info(`[GPS] Executing ${commandType} for device ${deviceId}...`);
 
         let responseId;
         try {
             if (commandType === ENGINESTOP) {
-                responseId = await this.stopDevice(webDeviceId);
+                responseId = await this.stopDevice(deviceId, companyConfig);
             } else if (commandType === ENGINERESUME) {
-                responseId = await this.resumeDevice(webDeviceId);
+                responseId = await this.resumeDevice(deviceId, companyConfig);
             } else {
                 throw new Error(`Invalid command type: ${commandType}`);
             }
@@ -121,34 +99,37 @@ class MegaRastreoServiceLite {
         }
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            // Initial delay or interval wait
-            await new Promise(r => setTimeout(r, interval));
-
-            if (onProgress) {
-                onProgress({ attempt, maxAttempts, responseId, commandType });
-            }
-
+            // Check confirmation
             try {
-                const confirmed = await this.checkDeviceStatus(responseId);
+                const confirmed = await this.checkDeviceStatus(responseId, companyConfig);
                 if (confirmed) {
-                    logger.info(`[GPS] ${commandType} confirmed for ${webDeviceId} after ${attempt} attempts.`);
+                    logger.info(`[GPS] ${commandType} confirmed for ${deviceId} after ${attempt - 1} delayed attempts.`);
                     return true;
                 }
             } catch (error) {
-                logger.warn(`[GPS] Check attempt ${attempt} for ${webDeviceId} failed: ${error.message}`);
+                logger.warn(`[GPS] Check attempt ${attempt} for ${deviceId} failed: ${error.message}`);
+            }
+
+            // Wait for next attempt if not the last one
+            if (attempt < maxAttempts) {
+                if (onProgress) {
+                    onProgress({ attempt, maxAttempts, responseId, commandType });
+                }
+                await new Promise(r => setTimeout(r, interval));
             }
         }
 
-        logger.warn(`[GPS] ${commandType} command for ${webDeviceId} not confirmed after ${maxAttempts} attempts.`);
+        logger.warn(`[GPS] ${commandType} command for ${deviceId} not confirmed after ${maxAttempts} attempts.`);
         return false;
     }
 
     updateDevice(pos) {
         const imei = pos.imei;
         if (!imei) return; // invalid data
+        // logger.debug(`[GPS] Updating device ${imei}...`, pos.motor, pos.fecha_gps);
         const ignition = (pos.motor === '1');
         const online = (pos.conectado === 'S');
-        const rawDate = pos.sys_date || pos.fecha_gps;
+        const rawDate = pos.fecha_gps || pos.sys_date;
         const lastUpdate = rawDate ? new Date(rawDate) : new Date();
         //  const speed = parseFloat(pos.velocidad || '0');
         // const lat = parseFloat(pos.y);
@@ -221,17 +202,17 @@ class MegaRastreoServiceLite {
 
         this.flushTimer = setInterval(() => this.flushUpdates(), 1000);
     }*/
-    async startAutoUpdate(imeis = null) {
+    async startAutoUpdate(imeis, onFlushCallback = null) {
 
         if (this.socket) return; // singleton
 
-        // Fetch IMEIs if not provided
-        if (imeis && Array.isArray(imeis)) {
-            this.subscribedImeis = imeis;
-        } else {
-            const devices = await Device.find({}, 'imei').lean();
-            this.subscribedImeis = devices.map(d => d.imei).filter(Boolean);
+        if (!imeis || !Array.isArray(imeis)) {
+            logger.warn("⚠️ startAutoUpdate called without valid imeis array.");
+            return;
         }
+
+        this.subscribedImeis = imeis;
+        this.onFlush = onFlushCallback;
 
         console.log(`🔌 Starting MegaRastreo WS for ${this.subscribedImeis.length} devices...`);
 
@@ -294,11 +275,16 @@ class MegaRastreoServiceLite {
         if (keys.length === 0) return;
         const batch = Object.values(this.flushMap);
         this.flushMap = {}; // Reset
-        await Promise.allSettled(
-            batch.map(({ filter, update }) =>
-                Device.updateOne(filter, { $set: update })
-            )
-        );
+
+        if (this.onFlush) {
+            try {
+                await this.onFlush(batch);
+            } catch (error) {
+                logger.error("[GPS] Error in onFlush callback:", error);
+            }
+        } else {
+            logger.debug("[GPS] No onFlush callback provided, dropping batch.");
+        }
     }
 }
 
