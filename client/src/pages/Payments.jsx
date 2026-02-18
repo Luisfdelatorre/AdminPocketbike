@@ -63,6 +63,7 @@ const Payments = () => {
     };
 
     const formatCurrency = (amount) => {
+        if (amount === undefined || amount === null) return '$0 COP';
         return `$${amount.toLocaleString()} COP`;
     };
 
