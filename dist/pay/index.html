@@ -690,20 +690,56 @@
     </script>
     <!-- Scripts -->
 
-  <script type="module" crossorigin src="/assets/payment-jKtK_NWZ.js"></script>
+  <script type="module" crossorigin src="/assets/payment-CMXNM8jp.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="stylesheet" crossorigin href="/assets/payment-BJ-CKM7W.css">
+  <link rel="stylesheet" crossorigin href="/assets/payment--LvAbYU7.css">
 </head>
 
 <body>
     <!-- Screen Containers (populated dynamically by component loader) -->
     <div id="loginScreen" class="screen">
         <div class="container">
-            <h2 class="app-title">Pago a PocketBike</h2>
+            <h2 class="app-title" id="loginTitle">Pago a PocketBike</h2>
             <div class="login-form">
                 <div class="deviceIdGroup" id="deviceIdGroup">
-                    <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg"
-                        style="background: #f3f4f6; min-width: 60px; min-height: 60px; display: block;">
+                    <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" id="loginLogo"
+                        style="background: #f3f4f6; width: 60px; height: 60px; display: block;">
+                    <script>
+                        (function () {
+                            // Use server-injected branding or fallback to API/localStorage
+                            const branding = window.__COMPANY_BRANDING__;
+                            const loginTitle = document.getElementById('loginTitle');
+                            const loginLogo = document.getElementById('loginLogo');
+
+                            if (branding) {
+                                if (loginTitle) loginTitle.textContent = `Pago a ${branding.displayName}`;
+                                if (loginLogo) loginLogo.src = branding.logo;
+                                // Save to localStorage for offline access
+                                localStorage.setItem('companyLogo', branding.logo);
+                                localStorage.setItem('displayName', branding.displayName);
+                            } else {
+                                // Fallback to API
+                                (async function () {
+                                    try {
+                                        const response = await fetch('/apinode/companies/branding');
+                                        const data = await response.json();
+                                        if (data.success) {
+                                            if (loginTitle) loginTitle.textContent = `Pago a ${data.data.displayName}`;
+                                            if (loginLogo) loginLogo.src = data.data.logo;
+                                            localStorage.setItem('companyLogo', data.data.logo);
+                                            localStorage.setItem('displayName', data.data.displayName);
+                                        }
+                                    } catch (error) {
+                                        console.error('Error loading branding:', error);
+                                        const companyLogo = localStorage.getItem('companyLogo');
+                                        const displayName = localStorage.getItem('displayName');
+                                        if (displayName && loginTitle) loginTitle.textContent = `Pago a ${displayName}`;
+                                        if (companyLogo && loginLogo) loginLogo.src = companyLogo;
+                                    }
+                                })();
+                            }
+                        })();
+                    </script>
                     <input type="text" id="deviceId" placeholder="Placa" class="name-input hidden" required>
                     <div id="deviceIdDisplay" class="device-id "></div>
                     <script>
@@ -781,7 +817,7 @@
     <div id="paymentScreen" class="screen ">
         <div class="container">
             <div id="paymentSection" class="payment-section">
-                <h2 class="app-title">Pago a PocketBike</h2>
+                <h2 class="app-title" id="paymentTitle">Pago a PocketBike</h2>
                 <button id="logoutBtn" class="logout-icon" title="Cerrar Sesión">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 0 0 1 2-2h4"></path>
@@ -791,7 +827,38 @@
                 </button>
                 <div class="device-header">
                     <div class="device-logo-container">
-                        <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="img-sm">
+                        <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="img-sm" id="paymentLogo">
+                        <script>
+                            (function () {
+                                // Use server-injected branding or fallback to API/localStorage
+                                const branding = window.__COMPANY_BRANDING__;
+                                const paymentTitle = document.getElementById('paymentTitle');
+                                const paymentLogo = document.getElementById('paymentLogo');
+
+                                if (branding) {
+                                    if (paymentTitle) paymentTitle.textContent = `Pago a ${branding.displayName}`;
+                                    if (paymentLogo) paymentLogo.src = branding.logo;
+                                } else {
+                                    // Fallback to API
+                                    (async function () {
+                                        try {
+                                            const response = await fetch('/apinode/companies/branding');
+                                            const data = await response.json();
+                                            if (data.success) {
+                                                if (paymentTitle) paymentTitle.textContent = `Pago a ${data.data.displayName}`;
+                                                if (paymentLogo) paymentLogo.src = data.data.logo;
+                                            }
+                                        } catch (error) {
+                                            console.error('Error loading branding:', error);
+                                            const companyLogo = localStorage.getItem('companyLogo');
+                                            const displayName = localStorage.getItem('displayName');
+                                            if (displayName && paymentTitle) paymentTitle.textContent = `Pago a ${displayName}`;
+                                            if (companyLogo && paymentLogo) paymentLogo.src = companyLogo;
+                                        }
+                                    })();
+                                }
+                            })();
+                        </script>
                         <div class="status-ring" id="deviceStatusRing"></div>
                         <div class="status-icons-container">
                             <div class="status-icon ">
@@ -847,7 +914,7 @@
                 </button>
             </div>
             <div class="more-options">
-                <a href="#" id="morePaymentOptions">Más formas de pago ▼</a>
+                <a href="#" id="morePaymentOptions">Ver listado de pago ▼</a>
             </div>
 
             <div class="important-reminder" id="normalReminder">
