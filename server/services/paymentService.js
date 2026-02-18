@@ -12,6 +12,7 @@ import { Payment } from '../models/index.js';
 import { Company } from '../models/Company.js';
 import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
 import gpsServices from './megaRastreoServices1.js';
+import companyService from './companyService.js';
 
 
 const { INVOICE_DAYTYPE_TRANSLATION } = Transaction;
@@ -83,7 +84,7 @@ export class PaymentService {
         const yesterday = dayjs().add(-1, 'day').startOf('day');
         const invoiceDate = dayjs(paidInvoice.date).startOf('day');
         if (!invoiceDate.isBefore(yesterday)) {
-            await this.activateDevice(paidInvoice, payment.reference, dummyOnUpdate);
+            await this.activateDevice(paidInvoice, payment.reference, dummyOnUpdate, companyId);
         } else {
             logger.info(`[FREE DAY] Activation warning: ${e.message}`);
         }
@@ -122,7 +123,7 @@ export class PaymentService {
                 try {
                     const yesterday = dayjs().add(-1, 'day').startOf('day');
                     if (!invoiceDate.isBefore(yesterday)) {
-                        await this.activateDevice(existingUnpaid, `LOAN-${payment._id}`, dummyOnUpdate);
+                        await this.activateDevice(existingUnpaid, `LOAN-${payment._id}`, dummyOnUpdate, companyId);
                     }
 
 
@@ -191,17 +192,8 @@ export class PaymentService {
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
 
-        // Fetch company Wompi config
-        let wompiConfig = null;
-        if (companyId) {
-            const company = await Company.findById(companyId);
-            if (company && company.wompiConfig) {
-                wompiConfig = company.wompiConfig;
-                console.log(`[PAYMENT] Using custom Wompi config for company: ${company.name}`);
-            }
-        }
+        const wompiAdapter = await companyService.getWompiAdapter(companyId);
 
-        const wompiAdapter = new WompiAdapter(wompiConfig, null);
         console.log('wompiAdapter', wompiAdapter);
         const acceptanceToken = await wompiAdapter.getMerchantData();
         const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId);
@@ -268,15 +260,7 @@ export class PaymentService {
             // We need the companyId to get the correct Wompi config for polling
             // We can get it from the payment record
             const payment = await paymentRepository.getPaymentByReference(reference);
-            let wompiConfig = null;
-            if (payment && payment.companyId) {
-                const company = await Company.findById(payment.companyId);
-                if (company && company.wompiConfig) {
-                    wompiConfig = company.wompiConfig;
-                }
-            }
-
-            const wompiAdapter = new WompiAdapter(null, wompiConfig);
+            const wompiAdapter = await companyService.getWompiAdapter(payment?.companyId);
 
             intervalId = setInterval(async () => {
                 try {
@@ -359,7 +343,7 @@ export class PaymentService {
             const invoiceDate = dayjs(invoice.date).startOf('day');
 
             if (invoiceDate.isSameOrAfter(yesterday)) {
-                await this.activateDevice(payment.deviceId, reference, onUpdate);
+                await this.activateDevice(payment.deviceId, reference, onUpdate, payment.companyId);
 
             } else {
                 logger.info(`[DEVICE] Activation skipped - invoice date out of range (not yesterday/today): ${invoice.date}`);
@@ -391,10 +375,12 @@ export class PaymentService {
     /**
      * Activate Device via Traccar
      */
-    async activateDevice(deviceId, reference, onUpdate) {
+    async activateDevice(deviceIdOrInvoice, reference, onUpdate, companyId) {
+
+        const deviceId = deviceIdOrInvoice?.deviceId || deviceIdOrInvoice;
 
         if (!deviceId) {
-            logger.error(`[DEVICE] Failed to activate: webDeviceId not found for device ${deviceId}`);
+            logger.error(`[DEVICE] Failed to activate: webDeviceId not found for input ${deviceIdOrInvoice}`);
             return;
         }
 
@@ -403,6 +389,7 @@ export class PaymentService {
 
         // 2. Execute and verify via centralized service
         const isConfirmed = await gpsServices.executeAndVerify(deviceId, ENGINERESUME, {
+            companyConfig: companyId,
             onProgress: (p) => {
                 notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
                     reference,

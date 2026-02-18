@@ -1,15 +1,15 @@
 const ServerApi = 'https://pocketbike.app/api';
-const WompiBaseUrl = 'https://sandbox.wompi.co/v1' //'https://production.wompi.co/v1' //process.env.WOMPI_BASE_URL ||
-const WOMPI_SECRET = 'prv_test_E2443SePLpRXhM2sZ3ckIlBLG0zryq0Y' //'prv_prod_LbjaEDeBegEqUXHEvKkHImhxatgraWBz' //Llave privada process.env.WOMPI_SECRET ||
-const MEGARASTREO_AUTH_TOKEN = "6810dc94-6117-443d-a47c-23e79ceabf54"
+const WompiBaseUrl = 'https://sandbox.wompi.co/v1'; //'https://production.wompi.co/v1' //process.env.WOMPI_BASE_URL ||
+const WOMPI_SECRET = 'prv_test_1U9ImRNhUMsrHKsqQNe1GstIxGDbUPDy';//'prv_test_E2443SePLpRXhM2sZ3ckIlBLG0zryq0Y' //'prv_prod_LbjaEDeBegEqUXHEvKkHImhxatgraWBz' //Llave privada process.env.WOMPI_SECRET ||
+const MEGARASTREO_AUTH_TOKEN = "6810dc94-6117-443d-a47c-23e79ceabf54";
 export const Login = {
     Wompi: {
-        secretIntegrity: 'test_integrity_fw9MVl5LVMfN7ghi4YKX6TCoJPwp6TBZ',//Integridad
-        publicKey: 'pub_test_ynMRzdEmjsWyVcwgQ3YpG3v371joDs5x',//llave publica 'pub_test_ynMRzdEmjsWyVcwgQ3YpG3v371joDs5x',//
+        secretIntegrity: 'test_integrity_rXGbWc5E5guVUx68RASrPxWNRfrYaEq3',//'test_integrity_fw9MVl5LVMfN7ghi4YKX6TCoJPwp6TBZ',//Integridad
+        publicKey: 'pub_test_82Z9KlLHoXDCfQ8nDCKW3hALwt23Lh62',//llave publica 'pub_test_ynMRzdEmjsWyVcwgQ3YpG3v371joDs5x',//
         privateKey: WOMPI_SECRET,
-        privateKeyEvents: 'test_events_5iTO7kZHuLzAKn7p2YPZArEhoJ0S9Yj7', //'prod_events_TpPLiX3mc0PxEzquqhT5t2WaSZeaDzer',//Eventos
+        privateKeyEvents: 'test_events_l5HJ6w0153hiCJeeBZgs77hlNgBNr2WI',//'test_events_5iTO7kZHuLzAKn7p2YPZArEhoJ0S9Yj7', //'prod_events_TpPLiX3mc0PxEzquqhT5t2WaSZeaDzer',//Eventos
         AUTH: {
-            Authorization: `Bearer pub_test_ynMRzdEmjsWyVcwgQ3YpG3v371joDs5x`,
+            Authorization: `Bearer pub_test_82Z9KlLHoXDCfQ8nDCKW3hALwt23Lh62`,
             Accept: 'application/json',
             'Content-Type': 'application/json',
         },

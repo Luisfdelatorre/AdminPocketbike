@@ -6,9 +6,9 @@ class WompiApi {
     // Handle both flat config or Company model instance
     const finalConfig = config.wompiConfig || config;
 
-    const publicKey = finalConfig.publicKey || Login.Wompi.publicKey;
+    const publicKey = Login.Wompi.publicKey || finalConfig.publicKey;
     this.publicKey = publicKey;
-    this.privateKey = finalConfig.privateKey || Login.Wompi.privateKey;
+    this.privateKey = Login.Wompi.privateKey || finalConfig.privateKey;
     this.baseUrl = Url.WompiBaseUrl;
     console.log('publicKey', publicKey);
     console.log('privateKey', this.privateKey);
