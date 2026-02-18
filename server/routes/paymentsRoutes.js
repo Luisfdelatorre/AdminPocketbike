@@ -20,6 +20,7 @@ router.get('/device-status', verifyToken, paymentController.getDeviceStatus);
 router.post("/request", verifyToken, paymentController.createPayment);
 router.get("/stream/:reference", verifyToken, paymentController.getPaymentStream);
 router.post('/use-free-day', verifyToken, paymentController.useFreeDay);
+router.get('/summary', verifyToken, paymentController.getPaymentSummary);
 
 /*
 router.get('/status', authenticatePaymentApp, paymentController.getPaymentStatus);
