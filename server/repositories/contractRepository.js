@@ -1,61 +1,40 @@
 import { Contract } from '../models/Contract.js';
-import { nanoid } from 'nanoid';
+import helpers from '../utils/helpers.js';
+import daysjs from 'dayjs';
 
 export class ContractRepository {
     /**
      * Create a new contract
      */
-    async createContract({
-        deviceId,
-        deviceIdName,
-        companyId,
-        companyName,
-        dailyRate,
-        contractDays = 500,
-        startDate,
-        customerName,
-        customerEmail,
-        customerPhone,
-        customerDocument,
-        notes,
-        devicePin,
-        freeDaysLimit = 4 // Default to 4 if not provided
-    }) {
-        // Use deviceIdName (name) for readability in contract ID if possible, or part of it
-        const sanitizedName = deviceIdName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
-        // User requested format: CI + DeviceName + 2 nanoid (e.g. CIBIKE001AB)
-        const contractId = `CI${sanitizedName}${nanoid(2).toUpperCase()}`;
+    async createContract(data, device) {
+
+        ;        // User requested format: CI + DeviceName + 2 nanoid (e.g. CIBIKE001AB)
+        const contractId = helpers.generateContractId(device.name);
 
         // Calculate end date
-        const start = new Date(startDate);
-        const end = new Date(start);
-        end.setDate(end.getDate() + contractDays);
-        const endDate = end.toISOString().split('T')[0];
+        const start = daysjs(data.startDate);
+        const end = daysjs(start).add(data.contractDays, 'days');
+        const endDate = end.format('YYYY-MM-DD');
 
         // Calculate total amount
-        const totalAmount = dailyRate * contractDays;
+        const totalAmount = data.dailyRate * data.contractDays;
+        const remainingDays = data.contractDays;
 
-        const contract = await Contract.create({
+        const contractData = {
+            ...data,
             contractId,
-            deviceId,     // webdeviceid
-            deviceIdName, // Human readable name
-            companyId,
-            companyName,
-            dailyRate,
-            contractDays,
-            startDate,
+            deviceId: device.deviceId,     // webdeviceid
+            deviceIdName: device.name, // Human readable name
+            companyId: device.companyId,
+            companyName: device.companyName,
+            startDate: start.toDate(),
             endDate,
             totalAmount,
-            remainingDays: contractDays,
-            customerName,
-            customerEmail,
-            customerPhone,
-            customerDocument,
-            notes,
-            devicePin,
-            status: 'ACTIVE',
-            freeDaysLimit,
-        });
+            remainingDays,
+            status: 'ACTIVE'
+        }
+
+        const contract = await Contract.create(contractData);
 
         return contract.toObject();
     }

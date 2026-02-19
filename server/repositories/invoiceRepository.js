@@ -51,13 +51,13 @@ export class InvoiceRepository {
     async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null) {
         // Find last paid invoice to determine next date
         let nextDate;
-        if (date) {
-            nextDate = dayjs(date).toDate();
-        } else {
+        if (!date) {
             const lastPaid = await Invoice.findLastPaid(deviceIdName);
             nextDate = lastPaid
                 ? dayjs(lastPaid.date).add(1, 'day').toDate()
                 : dayjs().startOf('day').toDate();
+        } else {
+            nextDate = dayjs(date).toDate();
         }
 
         // Check by Name+Date (ID)

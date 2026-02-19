@@ -158,17 +158,17 @@ class DeviceRepository {
      * @param {String} deviceId
      * @param {Object} data { contractId, driverName, nequiNumber, companyId, companyName, dailyRate }
      */
-    async assignContractToDevice(deviceId, { contractId, driverName, nequiNumber, companyId, companyName, dailyRate }) {
+    async assignContractToDevice(contract, data, device) {
         try {
             const updateData = {
-                activeContractId: contractId,
+                activeContractId: contract.contractId,
                 hasActiveContract: true,
-                contractId: contractId, // Sync requested by user
-                driverName: driverName,
-                nequiNumber: nequiNumber,
-                companyId: companyId,
-                companyName: companyName,
-                dailyRate: dailyRate
+                contractId: contract.contractId, // Sync requested by user
+                driverName: contract.driverName,
+                nequiNumber: contract.nequiNumber,
+                companyId: contract.companyId,
+                companyName: contract.companyName,
+                dailyRate: contract.dailyRate
             };
 
             // Remove undefined/null values to avoid overwriting with null if not provided
@@ -177,9 +177,9 @@ class DeviceRepository {
                     delete updateData[key];
                 }
             });
-            return await Device.findByIdAndUpdate(deviceId, updateData, { new: true });
+            return await Device.findByIdAndUpdate(device.deviceId, updateData, { new: true });
         } catch (error) {
-            logger.error(`Error assigning contract to device ${deviceId}:`, error);
+            logger.error(`Error assigning contract to device ${device.deviceId}:`, error);
             throw error;
         }
     }

@@ -28,36 +28,16 @@ class ContractService {
             throw new Error(`Device ${device.name} already has an active contract (${existingContract.contractId}). Please cancel it before creating a new one.`);
         }
 
-        // 3. Prepare Contract Data
-        const contractData = {
-            ...data,
-            deviceId: device.deviceId, // Ensure correct ID mapping
-            deviceIdName: device.name,
-            companyId: device.companyId,
-            companyName: device.companyName,
-            dailyRate: data.dailyRate || 30000,
-            contractDays: data.contractDays || 500,
-            startDate: data.startDate || new Date(),
-            freeDaysLimit: data.freeDaysLimit || 4
-        };
-
         // 4. Create Contract
-        const contract = await contractRepository.createContract(contractData);
+        const contract = await contractRepository.createContract(data, device);
 
         // 5. Sync to Device (Denormalization)
         // Map contract/form data to device fields expectations
-        await deviceRepository.assignContractToDevice(data.deviceId, {
-            contractId: contract.contractId,
-            driverName: data.customerName,
-            nequiNumber: data.customerPhone,
-            companyId: device.companyId,
-            companyName: device.companyName,
-            dailyRate: contractData.dailyRate
-        });
+        await deviceRepository.assignContractToDevice(contract, data, device);
 
         // 6. Handle Initial Fee
         if (data.initialFee > 0) {
-            await paymentServices.processInitialFee(contract, device, data.initialFee, contractData.startDate);
+            await paymentServices.processInitialFee(contract, device, data.initialFee);
         }
 
         return contract;

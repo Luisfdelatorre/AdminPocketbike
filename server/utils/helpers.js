@@ -58,6 +58,12 @@ function generateEmail(deviceIdName) {
     return `${deviceIdName}@${defaultCustomer.emailDomain}`;
 }
 
+function generateContractId(deviceIdName) {
+    const sanitizedName = deviceIdName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+    // User requested format: CI + DeviceName + 2 nanoid (e.g. CIBIKE001AB)
+    return `CI${sanitizedName}${nanoid(2).toUpperCase()}`;
+}
+
 function generateDeviceId(plate) {
     const p = String(plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (!p) return null; // Return null if no valid chars, let caller handle fallback
@@ -86,4 +92,5 @@ export default {
     calculateBatteryLevel,
     generateInvoiceIdInitialFee,
     generateDeviceId,
+    generateContractId,
 };

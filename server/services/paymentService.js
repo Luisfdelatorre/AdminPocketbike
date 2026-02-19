@@ -99,12 +99,16 @@ export class PaymentService {
             deviceStatus
         };
     };
-    async processInitialFee(contract, device, initialFee, startDate) {
+    async processInitialFee(contract, device, initialFee) {
         try {
-            const date = dayjs(startDate).startOf('day'); // Use contract start date
+            // Remove timezone name in parentheses if present to ensure dayjs parsing robustness
+            const startDateStr = contract.startDate;
+            const cleanDate = typeof startDateStr === 'string' ? startDateStr.replace(/\s*\(.*\)$/, '') : startDateStr;
+            const date = dayjs(cleanDate).startOf('day');
+            console.log("date", date);
+
             const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId, date);
             // 2. Create Payment
-            console.log("invoice", invoice);
             const payment = await paymentRepository.createInitialFeePayment(device, contract, invoice, initialFee);
             // Link payment to invoice
             await invoice.applyPayment(payment);
@@ -490,6 +494,7 @@ export class PaymentService {
                 paymentRepository.getTotalPerDayByDevice(deviceQuery)
             ]);
             const paymentsObj = payments.length > 0 ? payments[0] : {};
+            console.log("paymentsObj", paymentsObj);
             invoices.forEach((invoice) => {
                 const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
                 const day = new Date(invoice.date).getUTCDate();
