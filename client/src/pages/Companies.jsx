@@ -19,7 +19,6 @@ const Companies = () => {
         nit: '',
         phone: '',
         email: '',
-        email: '',
         address: '',
         automaticInvoicing: false
     });
@@ -61,7 +60,6 @@ const Companies = () => {
             name: company.name,
             nit: company.nit || '',
             phone: company.phone || '',
-            email: company.email || '',
             email: company.email || '',
             address: company.address || '',
             automaticInvoicing: company.automaticInvoicing || false

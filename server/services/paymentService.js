@@ -102,7 +102,7 @@ export class PaymentService {
     async processInitialFee(contract, device, initialFee, startDate) {
         try {
             const date = new Date(startDate); // Use contract start date
-            const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId);
+            const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId, date);
             // 2. Create Payment
             console.log("invoice", invoice);
             const payment = await paymentRepository.createInitialFeePayment(device, contract, invoice, initialFee);

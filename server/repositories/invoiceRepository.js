@@ -48,12 +48,17 @@ export class InvoiceRepository {
     /**
      * Helper to create next day invoice
      */
-    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId) {
+    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null) {
         // Find last paid invoice to determine next date
-        const lastPaid = await Invoice.findLastPaid(deviceIdName);
-        const nextDate = lastPaid
-            ? dayjs(lastPaid.date).add(1, 'day').toDate()
-            : dayjs().startOf('day').toDate();
+        let nextDate;
+        if (date) {
+            nextDate = dayjs(date).toDate();
+        } else {
+            const lastPaid = await Invoice.findLastPaid(deviceIdName);
+            nextDate = lastPaid
+                ? dayjs(lastPaid.date).add(1, 'day').toDate()
+                : dayjs().startOf('day').toDate();
+        }
 
         // Check by Name+Date (ID)
         let invoice = await Invoice.findByDate(deviceIdName, nextDate);
