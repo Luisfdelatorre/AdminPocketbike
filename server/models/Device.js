@@ -1,9 +1,11 @@
 import mongoose from 'mongoose';
 import { Transaction } from '../config/config.js';
+import helpers from '../utils/helpers.js';
 const { DEFAULTAMOUNT } = Transaction;
 
+
 const deviceSchema = new mongoose.Schema({
-    _id: { type: mongoose.Schema.Types.Mixed, required: true }, // External system ID (String or Number)
+    _id: { type: mongoose.Schema.Types.Mixed, required: true, default: function () { return (this && this.name) ? helpers.generateDeviceId(this.name) : new mongoose.Types.ObjectId(); } }, // Custom ID based on name or ObjectId
     name: { type: String, unique: true }, //plate
     model: { type: String },
     status: { type: String, enum: ['active', 'inactive', 'maintenance'], default: 'active', },
@@ -13,10 +15,11 @@ const deviceSchema = new mongoose.Schema({
     companyId: { type: String, index: true },
     companyName: { type: String, },
     contractId: { type: String, },
+    deviceId: { type: Number, default: function () { return (this && this.name) ? helpers.generateDeviceId(this.name) : null; } },
     driverName: { type: String },
-    deviceId: { type: String, required: true },
+    megaDeviceId: { type: String, required: true },
     apiDeviceId: { type: Number, default: null },
-    webDeviceId: { type: Number, default: null },
+    traccarDeviceId: { type: Number, default: null },
     imei: { type: String, default: null },
     deviceType: { type: String },//groupId traccar
     category: { type: String, default: null },//car moto//icon 

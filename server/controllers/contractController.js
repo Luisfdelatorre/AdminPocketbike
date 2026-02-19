@@ -1,6 +1,7 @@
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import { resolveDeviceId } from '../utils/deviceResolver.js';
+import contractService from '../services/contractService.js';
 
 /**
  * Get all devices with contracts for device selector
@@ -99,16 +100,7 @@ const createContract = async (req, res) => {
     try {
         const {
             deviceId,
-            dailyRate = 30000, // Default: 30,000 COP
-            contractDays = 500,
-            startDate,
-            customerName,
-            customerEmail,
-            customerPhone,
-            customerDocument,
-            notes,
-            devicePin,
-            freeDaysLimit
+            startDate
         } = req.body;
 
         if (!deviceId || !startDate) {
@@ -117,53 +109,7 @@ const createContract = async (req, res) => {
                 error: 'deviceId and startDate are required',
             });
         }
-
-        // Check if device already has an active contract
-        const existingContract = await contractRepository.getActiveContractByDevice(deviceId);
-        if (existingContract) {
-            return res.status(400).json({
-                success: false,
-                error: `Device ${deviceId} already has an active contract (${existingContract.contractId}). Please cancel it before creating a new one.`,
-            });
-        }
-
-        // Fetch device to get details
-        const device = await deviceRepository.getDeviceById(deviceId);
-        if (!device) {
-            return res.status(404).json({
-                success: false,
-                error: 'Device not found',
-            });
-        }
-
-        const contract = await contractRepository.createContract({
-            deviceId: device.webDeviceId,
-            deviceIdName: device.name, // Use device name as requested
-            companyId: device.companyId,
-            companyName: device.companyName,
-            dailyRate,
-            contractDays,
-            startDate,
-            customerName,
-            customerEmail,
-            customerPhone,
-            customerDocument,
-            notes,
-            devicePin,
-            freeDaysLimit
-        });
-
-        // Sync to Device (Denormalization)
-        // User Request: update nequi, driver, contractId, company, and dailyRate
-        await deviceRepository.assignContractToDevice(deviceId, {
-            contractId: contract.contractId,
-            driverName: customerName,
-            nequiNumber: customerPhone,
-            companyId: device.companyId,
-            companyName: device.companyName,
-            dailyRate: dailyRate
-        });
-
+        const contract = await contractService.createContract(req.body);
         res.json({
             success: true,
             data: contract,

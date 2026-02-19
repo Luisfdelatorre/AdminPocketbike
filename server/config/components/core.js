@@ -53,6 +53,8 @@ export const Transaction = {
         FREE: 'FREE',
         NEQUI: 'NEQUI',
         LOAN: 'LOAN',
+        CASH_OTHER: 'CASH/OTHER',
+        INITIAL_FEE: 'INITIAL_FEE',
     },
     INVOICE_DAYTYPE: {
         PENDING: 'PENDING',        // No hay pago iniciado
@@ -63,6 +65,7 @@ export const Transaction = {
         FREEPASS: 'FREEPASS',      // Pase libre temporal (ej: 24h)
         FREE: 'FREE',              // Día completamente gratis
         LOAN: 'LOAN',              // Préstamo - trabajar hoy, pagar después
+        INITIAL_FEE: 'INITIAL_FEE', // Cuota inicial contrato
         ERROR: 'ERROR',
         VOIDED: 'VOIDED',
         DECLINED: 'DECLINED'
@@ -76,6 +79,7 @@ export const Transaction = {
         FREEPASS: 'Pase Libre',
         FREE: 'Gratis',
         LOAN: 'Préstamo',
+        INITIAL_FEE: 'Cuota Inicial',
         ERROR: 'Error',
         VOIDED: 'Anulado',
         DECLINED: 'Rechazado'

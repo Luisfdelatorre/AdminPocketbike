@@ -30,6 +30,7 @@ class DeviceRepository {
                             groupId: device.groupId,
                             calendarId: device.calendarId,
                             category: device.category,
+                            megaDeviceId: device.megaDeviceId,
                             attributes: device.attributes || {}
                         }
                     },
@@ -54,6 +55,18 @@ class DeviceRepository {
             return await Device.find({});
         } catch (error) {
             logger.error('Error getting all devices:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get active devices (with active contract)
+     */
+    async getActiveDevices() {
+        try {
+            return await Device.find({ hasActiveContract: true }).lean();
+        } catch (error) {
+            logger.error('Error getting active devices:', error);
             throw error;
         }
     }

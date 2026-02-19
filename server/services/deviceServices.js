@@ -2,6 +2,9 @@ import deviceRepository from '../repositories/deviceRepository.js';
 import { Device } from '../models/Device.js';
 import { Transaction, PAYMENTMESSAGES as PM } from '../config/config.js';
 import MegaRastreo from '../services/megaRastreoServices1.js';
+import helper from '../utils/helpers.js';
+
+
 
 
 // Centralized Day.js
@@ -20,36 +23,23 @@ const {
 } = Transaction;
 
 
-const getDeviceListByCompany = async (company) => {
-    const gpsDevices = await MegaRastreo.fetchDevices(company);
-    console.log(`📡 Fetched ${gpsDevices.length} devices from GPS.`);
-    return gpsDevices;
-};
+
 
 const bulkWriteDevices = async (gpsDevices) => {
     const deviceOps = gpsDevices.map(d => {
+        d.deviceId = helper.generateDeviceId(d.name);
         return {
             updateOne: {
-                filter: { _id: d.deviceId },
+                filter: { _id: d.deviceId }, // Match by megaDeviceId (unique from API)
                 update: [
-                    { $set: d },
-                    {
-                        $set: {
-                            companyId: {
-                                $ifNull: ["$companyId", d.propertyId]
-                            },
-                            companyName: {
-                                $ifNull: ["$companyName", d.property?.name]
-                            }
-                        }
-                    }
+                    { $set: d }, // Update all fields from API`
                 ],
                 upsert: true
             }
         };
     });
 
-    console.log(JSON.stringify(deviceOps));
+    // console.log(JSON.stringify(deviceOps));
     const deviceResult = await Device.bulkWrite(deviceOps);
     const stats = {
         created: deviceResult.upsertedCount,
@@ -78,7 +68,6 @@ const initializeGpsUpdates = async () => {
 };
 
 export default {
-    getDeviceListByCompany,
     bulkWriteDevices,
     initializeGpsUpdates
 };

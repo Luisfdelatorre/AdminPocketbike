@@ -35,14 +35,22 @@ const paymentSchema = new mongoose.Schema({
     timestamps: true,
 });
 
-paymentSchema.statics.totalPerDayByDevice = async function (startDate, endDate, companyId) {
+paymentSchema.statics.totalPerDayByDevice = async function (query) {
+    const match = {
+        status: 'APPROVED' // Only count approved payments
+    };
+
+    if (query.date) {
+        match.invoiceDate = query.date;
+    }
+
+    if (query.companyId) {
+        match.companyId = new mongoose.Types.ObjectId(query.companyId);
+    }
+
     return await this.aggregate([
         {
-            $match: {
-                invoiceDate: { $gte: startDate, $lte: endDate },
-                status: { $in: ['APPROVED', 'S_APPROVED'] }, // Only count approved payments
-                ...(companyId ? { companyId: new mongoose.Types.ObjectId(companyId) } : {})
-            }
+            $match: match
         },
         {
             $group: {

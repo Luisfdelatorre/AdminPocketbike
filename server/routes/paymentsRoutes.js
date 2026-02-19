@@ -20,7 +20,6 @@ router.get('/device-status', verifyToken, paymentController.getDeviceStatus);
 router.post("/request", verifyToken, paymentController.createPayment);
 router.get("/stream/:reference", verifyToken, paymentController.getPaymentStream);
 router.post('/use-free-day', verifyToken, paymentController.useFreeDay);
-router.get('/summary', verifyToken, paymentController.getPaymentSummary);
 
 /*
 router.get('/status', authenticatePaymentApp, paymentController.getPaymentStatus);
@@ -38,7 +37,7 @@ router.get('/device-status', authenticatePaymentApp, paymentController.getDevice
 router.get('/all', authenticate, paymentController.getPaymentHistory);
 
 // Get payment summary matrix
-router.get('/summary', authenticate, paymentController.getPaymentSummary);
+router.get('/allPayments', authenticate, paymentController.getPaymentSummary);
 
 // Get payment history (Legacy/Device specific)
 router.get('/history', authenticate, paymentController.getPaymentHistory);
@@ -48,8 +47,6 @@ router.get('/history', authenticate, paymentController.getPaymentHistory);
 
 
 
-// Use free day
-router.post('/use-free-day', paymentController.useFreeDay);
 
 // Request loan
 router.post('/request-loan', paymentController.requestLoan);

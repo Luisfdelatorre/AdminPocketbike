@@ -145,6 +145,15 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.transaction.finalized_at = payment.finalized_at;
             this.transaction.type = payment.type;
             break;
+        case PAYMENT_TYPE.INITIAL_FEE:
+            this.paid = true; // Debt remains
+            this.dayType = INVOICE_DAYTYPE.PAID;
+            this.paidAmount = payment.amount;
+            this.transaction.id = payment._id;
+            this.transaction.reference = payment.reference;
+            this.transaction.finalized_at = payment.finalized_at;
+            this.transaction.type = payment.type;
+            break;
 
         default:
             console.log(`Unknown event type: ${payment.type}`);

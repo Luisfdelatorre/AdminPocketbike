@@ -12,70 +12,13 @@ const { PAYMENT_STATUS, PAYMENT_TYPE } = Transaction;
 
 export class PaymentRepository {
     /**
-     * Get monthly payment summary for matrix view
+     * Get total payments per day by device (Aggregation)
      */
-    async getMonthlyPaymentSummary({ month, year, companyId }) {
+    async getTotalPerDayByDevice(query) {
         try {
-            const devices = await Device.find({ hasActiveContract: true }).lean();
-            const deviceMap = devices.reduce((acc, dev) => {
-                acc[dev.name] = {
-                    device: {
-                        name: dev.name,
-                        deviceId: dev.deviceId || dev._id,
-                        driverName: dev.driverName || 'Sin Conductor',
-                        unpaidTotal: 0
-                    },
-                    days: {}
-                };
-                return acc;
-            }, {});
-
-            const startDate = dayjs().year(year).month(month - 1).startOf('month').toDate();
-            const endDate = dayjs().year(year).month(month - 1).endOf('month').toDate();
-            const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
-            if (companyId) deviceQuery.companyId = companyId;
-
-            const invoices = await Invoice.find(deviceQuery).lean();
-            const payments = await Payment.totalPerDayByDevice(startDate, endDate, companyId);
-            const paymentsObj = payments.length > 0 ? payments[0] : {};
-            console.log(paymentsObj);
-
-            // 4. Group by device and calculate unpaid amounts
-            invoices.forEach((invoice) => {
-                const devName = invoice.deviceIdName;
-
-                // Skip if device not in active devices map
-                if (!deviceMap[devName]) {
-                    return;
-                }
-
-                const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
-                const day = new Date(invoice.date).getUTCDate();
-
-                // Safely get totalPaid from nested object
-                const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
-
-
-                // Initialize unpaidTotal if not exists
-                if (!deviceMap[devName].device.unpaidTotal) {
-                    deviceMap[devName].device.unpaidTotal = 0;
-                }
-
-                // Add to device's total unpaid amount
-                if (invoice.dayType !== 'FREE') {
-                    deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
-                }
-
-                deviceMap[devName].days[day] = {
-                    ...invoice,
-                    totalPaid,
-                };
-            });
-
-            return Object.values(deviceMap);
-
+            return await Payment.totalPerDayByDevice(query);
         } catch (error) {
-            logger.error('Error getting monthly payment summary:', error);
+            logger.error('Error getting total payments per day:', error);
             throw error;
         }
     }
@@ -85,8 +28,6 @@ export class PaymentRepository {
      * Create a payment for an invoice
      */
     async createPayment({ invoiceId, amount, currency = 'COP', companyId, companyName = null }) {
-        // Parse invoiceId to extract device ID
-        // Format: INV-BIKE001-2026-01-05
         const invoiceParts = invoiceId.split('-');
         const deviceIdName = invoiceParts[1]; // BIKE001
 
@@ -173,36 +114,68 @@ export class PaymentRepository {
 
     async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
         try {
-            const reference = helper.generateReferenceFreeDay(unpaidInvoice._id);
+            const paymentId = helper.generateReferenceFreeDay(unpaidInvoice.invoiceId);
 
             // Use local timezone (default: America/Bogota)
             const now = dayjs().toDate();
 
             const payment = {
-                _id: reference,
-                paymentId: reference,
+                _id: paymentId,
+                paymentId: paymentId,
+                invoiceId: unpaidInvoice.invoiceId,
+                companyId: companyId,
+                //companyName: device.companyName,
+                reference: paymentId,
+                amount: 0,
+                amount_in_cents: 0,
+                payment_method_type: PAYMENT_TYPE.FREE,
                 type: PAYMENT_TYPE.FREE,
                 deviceIdName: deviceIdName,
                 deviceId: contract.deviceId,
-                amount_in_cents: 0,
-                amount: 0,
-                reference: reference,
                 status: PAYMENT_STATUS.S_APPROVED,
                 created_at: now,
                 finalized_at: now,
                 phoneNumber: contract.customerPhone || '',
                 used: false,
                 unpaidInvoiceId: unpaidInvoice._id,
-                invoiceId: unpaidInvoice.invoiceId,
-                payment_method_type: PAYMENT_TYPE.FREE,
-                companyId: companyId,
+
+
+
             };
-            console.log("***payment", payment);
 
             const newPayment = await Payment.create(payment);
             return newPayment;
         } catch (error) {
             logger.error('Error creating free payment:', error);
+            throw error;
+        }
+    }
+
+    async createInitialFeePayment(device, contract, invoice, initialFee, date) {
+        try {
+            const paymentId = helper.generateInvoiceIdInitialFee(device.name, date);
+            console.log("----paymentId", paymentId);
+            const now = dayjs().toDate();
+            const payment = await Payment.create({
+                _id: paymentId,
+                paymentId: paymentId,
+                invoiceId: invoice.invoiceId,
+                companyId: device.companyId,
+                companyName: device.companyName,
+                reference: paymentId,
+                amount: initialFee,
+                amount_in_cents: initialFee * 100,
+                payment_method_type: PAYMENT_TYPE.INITIAL_FEE,
+                type: PAYMENT_TYPE.INITIAL_FEE,
+                status: PAYMENT_STATUS.S_APPROVED,
+                deviceIdName: device.name,
+                deviceId: device.deviceId, // Ensure using consistent deviceId field
+                finalized_at: now,
+                phoneNumber: contract.customerPhone || '',
+            });
+            return payment;
+        } catch (error) {
+            logger.error('Error creating initial fee payment:', error);
             throw error;
         }
     }

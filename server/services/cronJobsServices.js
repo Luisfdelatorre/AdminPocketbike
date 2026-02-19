@@ -42,7 +42,7 @@ const generateDailyInvoices = async () => {
         if (amount > 0) {
           const invoice = await invoiceRepository.findOrCreateInvoiceByName(
             device.name, // deviceIdName
-            device.webDeviceId, // deviceId
+            device.deviceId, // deviceId
             amount, // dailyRate
             today, // date
             device.companyId
@@ -59,10 +59,10 @@ const generateDailyInvoices = async () => {
     logger.error('Error generando invoices diarios', err);
   }
 };
-const verifyAndMarkCutOff = async (deviceName, deviceId, webDeviceId) => {
+const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId) => {
   logger.info(`[CUT-OFF] Device ${deviceName} engine stop verification starting...`);
 
-  const confirmed = await gpsServices.executeAndVerify(webDeviceId, ENGINESTOP);
+  const confirmed = await gpsServices.executeAndVerify(megaDeviceId, ENGINESTOP);
 
   if (!confirmed) {
     logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command not confirmed after retries.`);
@@ -153,7 +153,7 @@ const performDailyCutOff = async () => {
             logger.info(`🚫 Cutting off device ${deviceName} (Company: ${company.name}, Strategy: ${strategy}): Unpaid invoice detected.`);
 
             // 3. Command and Verify engine stop
-            await verifyAndMarkCutOff(deviceName, device.deviceId, device.webDeviceId);
+            await verifyAndMarkCutOff(deviceName, device.deviceId, device.megaDeviceId);
           } else {
             logger.info(`✅ Device ${deviceName} is up to date.`);
           }

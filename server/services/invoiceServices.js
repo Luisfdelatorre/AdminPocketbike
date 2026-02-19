@@ -64,19 +64,8 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
 
     devices.forEach(d => {
         deviceMap[d.name] = {
-            deviceId: d._id,
-            name: d.name,
-            driverName: d.driverName,
-            cutOff: d.cutOff,
-            lastUpdate: d.lastUpdate,
-            ignition: d.ignition,
+            ...d,
             batteryLevel: helpers.calculateBatteryLevel(d.lastUpdate, maxBatteryLevel),
-            companyId: d.companyId,
-            hasActiveContract: d.hasActiveContract,
-            isActive: d.isActive,
-            nequiNumber: d.nequiNumber,
-            phone: d.phone,
-            contractId: d.activeContractId || d.contractId,
             monthPaid: 0,
             monthDebt: 0,
             freeDays: 0,

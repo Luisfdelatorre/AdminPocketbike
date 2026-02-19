@@ -99,6 +99,20 @@ export class PaymentService {
             deviceStatus
         };
     };
+    async processInitialFee(contract, device, initialFee, startDate) {
+        try {
+            const date = new Date(startDate); // Use contract start date
+            const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId);
+            // 2. Create Payment
+            console.log("invoice", invoice);
+            const payment = await paymentRepository.createInitialFeePayment(device, contract, invoice, initialFee);
+            // Link payment to invoice
+            await invoice.applyPayment(payment);
+        } catch (err) {
+            console.error('Error processing initial fee:', err);
+            // Don't fail the contract creation, just log error
+        }
+    }
 
     async applyLoan(deviceIdName, contractId, companyId) {
         const dummyOnUpdate = (update) => {
@@ -459,10 +473,50 @@ export class PaymentService {
     }
 
     /**
-     * Get monthly payment summary
+     * Get monthly payment summary (Moved from Repository to Service)
      */
     async getPaymentSummary({ month, year, companyId }) {
-        return await paymentRepository.getMonthlyPaymentSummary({ month, year, companyId });
+        try {
+
+            const startDate = dayjs().year(year).month(month - 1).startOf('month').toDate();
+            const endDate = dayjs().year(year).month(month - 1).endOf('month').toDate();
+            const deviceMap = {};
+            const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
+            if (companyId) deviceQuery.companyId = companyId;
+
+            // 4. Fetch data in parallel
+            const [invoices, payments] = await Promise.all([
+                invoiceRepository.findInvoices(deviceQuery),
+                paymentRepository.getTotalPerDayByDevice(deviceQuery)
+            ]);
+            const paymentsObj = payments.length > 0 ? payments[0] : {};
+            invoices.forEach((invoice) => {
+                const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
+                const day = new Date(invoice.date).getUTCDate();
+                const devName = invoice.deviceIdName;
+                if (!deviceMap[devName]) {
+                    deviceMap[devName] = {
+                        device: {
+                            name: devName,
+                            unpaidTotal: 0
+                        },
+                        days: {}
+                    };
+                }
+                const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
+
+                if (invoice.dayType !== 'FREE') {
+                    deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
+                }
+                deviceMap[devName].days[day] = { ...invoice, totalPaid };
+            });
+
+            return Object.values(deviceMap);
+
+        } catch (error) {
+            logger.error('Error getting monthly payment summary in service:', error);
+            throw error;
+        }
     }
 
     async getPaymentHistory(options = {}) {

@@ -25,6 +25,10 @@ class MegaRastreoServiceLite {
         this.onFlush = null;
     }
 
+    async getDeviceListByCompany(company) {
+        return this.fetchDevices(company);
+    }
+
     async fetchDevices(company) {
         let devices = [];
 
@@ -38,25 +42,24 @@ class MegaRastreoServiceLite {
 
         const allDevices = webDevices.map(d => {
             return {
-                _id: d.id,
                 name: d.placa.replace(/\s+/g, ''),
                 model: d.model,
                 category: d.icono,
                 lastUpdate: d.fecha_gps,
-                deviceId: d.id,//webDeviceId select now command more reliable
                 imei: d.imei,
-                webDeviceId: d.id,//  deviceId fom we api `
+                megaDeviceId: d.id,//  deviceId fom we api 
+                cutOff: 0,
             };
         });
         return allDevices;
     }
 
-    async stopDevice(webDeviceId, company) {
-        return megaRastreoWebApiByCompany(company).stopDevice(webDeviceId);
+    async stopDevice(megaDeviceId, company) {
+        return megaRastreoWebApiByCompany(company).stopDevice(megaDeviceId);
     }
 
-    async resumeDevice(webDeviceId, company) {
-        return megaRastreoWebApiByCompany(company).resumeDevice(webDeviceId);
+    async resumeDevice(megaDeviceId, company) {
+        return megaRastreoWebApiByCompany(company).resumeDevice(megaDeviceId);
     }
     async checkDeviceStatus(commandId, company) {
         return megaRastreoWebApiByCompany(company).confirmCommand(commandId);
@@ -69,7 +72,7 @@ class MegaRastreoServiceLite {
     /**
      * Executes a hardware command and verifies its completion via retries.
      * Hardware only: This method does NOT touch the database.
-     * @param {Number|String} webDeviceId - Platform numeric ID
+     * @param {Number|String} deviceId - Platform numeric ID (megaDeviceId)
      * @param {String} commandType - 'stop' or 'resume'
      * @param {Object} options - { maxAttempts, interval, onProgress }
      * @returns {Promise<Boolean>} - True if confirmed, false otherwise

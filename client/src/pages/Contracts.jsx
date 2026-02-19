@@ -24,7 +24,8 @@ const Contracts = () => {
         startDate: new Date().toISOString().split('T')[0],
         notes: '',
         devicePin: '',
-        freeDaysLimit: 4
+        freeDaysLimit: 4,
+        initialFee: 0
     });
 
     useEffect(() => {
@@ -85,7 +86,8 @@ const Contracts = () => {
             startDate: new Date().toISOString().split('T')[0],
             notes: '',
             devicePin: Math.floor(1000 + Math.random() * 9000).toString(),
-            freeDaysLimit: 4
+            freeDaysLimit: 4,
+            initialFee: 0
         });
         setShowModal(true);
     };
@@ -307,29 +309,39 @@ const Contracts = () => {
                         <div key={contract.contractId} className="contract-card">
 
 
-                            <div className="contract-body">
+                            <div className="contract-body" onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(contract);
+                                setActiveMenu(null);
+                            }}>
                                 <div className="contract-info-grid">
                                     <div className="contract-title">
                                         <h3>
-                                            <a
-                                                href={`/p/${contract.deviceIdName || contract.deviceId}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-gray-900 hover:text-indigo-600 transition-colors"
-                                                title="Open Payment Page"
-                                            >
-                                                {contract.deviceIdName || contract.deviceId}
-                                            </a>
+
+                                            {contract.deviceIdName || contract.deviceId}
+
                                         </h3>
-                                        <span
-                                            className="status-badge"
-                                            style={{
-                                                background: `${getStatusColor(contract.status)}20`,
-                                                color: getStatusColor(contract.status)
+                                        <a
+                                            //stop propagation
+                                            onClick={(e) => {
+                                                e.stopPropagation();
                                             }}
+                                            href={`/p/${contract.deviceIdName || contract.deviceId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-gray-900 hover:text-indigo-600 transition-colors"
+                                            title="Open Payment Page"
                                         >
-                                            {contract.status}
-                                        </span>
+                                            <span
+                                                className="status-badge"
+                                                style={{
+                                                    background: `${getStatusColor(contract.status)}20`,
+                                                    color: getStatusColor(contract.status)
+                                                }}
+                                            >
+                                                {contract.status}
+                                            </span>
+                                        </a>
                                     </div>
                                     <div className="info-item">
                                         <span className="info-label">Cliente</span>
@@ -429,7 +441,7 @@ const Contracts = () => {
 
             {/* Contract Form Modal */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                <div className="modal-overlay">
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{editingContract ? 'Editar Contrato' : 'Nuevo Contrato'}</h2>
@@ -551,12 +563,13 @@ const Contracts = () => {
                                 <div className="form-group">
                                     <label>Tarifa Diaria (COP)</label>
                                     <input
-                                        type="number"
-                                        value={formData.dailyRate}
-                                        onChange={(e) => setFormData({ ...formData, dailyRate: parseInt(e.target.value) })}
-                                        min="0"
-                                        step="1000"
-                                        placeholder="30000"
+                                        type="text"
+                                        value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.dailyRate)}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                            setFormData({ ...formData, dailyRate: val });
+                                        }}
+                                        placeholder="$ 30.000"
                                     />
                                 </div>
                                 <div className="form-group">
@@ -568,6 +581,19 @@ const Contracts = () => {
                                         min="1"
                                         max="1000"
 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Cuota Inicial (COP)</label>
+                                    <input
+                                        type="text"
+                                        value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.initialFee)}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                            setFormData({ ...formData, initialFee: val });
+                                        }}
+                                        placeholder="$ 0"
+                                        disabled={editingContract}
                                     />
                                 </div>
                                 <div className="form-group">

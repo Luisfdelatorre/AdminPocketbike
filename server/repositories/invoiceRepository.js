@@ -30,7 +30,7 @@ export class InvoiceRepository {
                 amount,
                 date,
                 deviceIdName,
-                deviceId: device.webDeviceId, // Numeric ID
+                deviceId: device.deviceId, // Numeric ID
                 companyId: companyId || device.companyId,
                 companyName: device.companyName
             });
@@ -51,11 +51,9 @@ export class InvoiceRepository {
     async createNextDayInvoice(deviceIdName, amount, deviceId, companyId) {
         // Find last paid invoice to determine next date
         const lastPaid = await Invoice.findLastPaid(deviceIdName);
-        console.log("Last paid:", lastPaid, deviceIdName);
         const nextDate = lastPaid
             ? dayjs(lastPaid.date).add(1, 'day').toDate()
             : dayjs().startOf('day').toDate();
-        console.log("Next date:", nextDate, deviceIdName, deviceId);
 
         // Check by Name+Date (ID)
         let invoice = await Invoice.findByDate(deviceIdName, nextDate);
@@ -81,9 +79,7 @@ export class InvoiceRepository {
             try {
                 // 1️⃣ Check for existing unpaid invoice
                 const existingInvoice = await Invoice.findLastUnPaid(deviceIdName);
-                console.log("******Existing last unpaid invoice:", existingInvoice, deviceIdName);
                 if (existingInvoice) return existingInvoice;
-                console.log("Existing last unpaid invoice:", existingInvoice, deviceIdName);
                 // 2️⃣ Create next day invoice
                 return await this.createNextDayInvoice(deviceIdName, contract.dailyRate, contract.deviceId, companyId);
             } catch (err) {
@@ -235,6 +231,18 @@ export class InvoiceRepository {
      */
     async deleteInvoiceById(invoiceId) {
         return await Invoice.findByIdAndDelete(invoiceId).lean();
+    }
+
+    /**
+     * Generic find invoices by query
+     */
+    async findInvoices(query) {
+        try {
+            return await Invoice.find(query).lean();
+        } catch (error) {
+            logger.error('Error finding invoices:', error);
+            throw error;
+        }
     }
 
 

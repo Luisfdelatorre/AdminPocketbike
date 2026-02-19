@@ -182,16 +182,17 @@ const syncDevices = async (req, res) => {
     try {
         const { companyId } = req.auth;
         let companyConfig = null;
+        let company = null;
 
         if (companyId) {
-            const company = await Company.findById(companyId);
+            company = await Company.findById({ _id: companyId });
             if (company) {
                 companyConfig = company.gpsConfig;
                 console.log(`[SYNC] Using custom config for company: ${company.name}`);
             }
         }
 
-        const gpsDevices = await deviceServices.getDeviceListByCompany(company);
+        const gpsDevices = await MegaRastreo.getDeviceListByCompany(company);
         if (gpsDevices.length === 0) {
             return res.json({
                 success: true,
@@ -313,7 +314,7 @@ const controlEngine = async (req, res) => {
         }
 
         const device = await Device.findById(deviceId * 1);
-        console.log('Device found:', device);
+        console.log('Device found:', deviceId, device);
         if (!device) {
             return res.status(404).json({
                 success: false,
@@ -334,8 +335,8 @@ const controlEngine = async (req, res) => {
         }
 
         // Execute and verify via MegaRastreo service
-        // We use webDeviceId (numeric platform ID) for commands
-        const success = await MegaRastreo.executeAndVerify(device.deviceId, commandType, {
+        // We use megaDeviceId (numeric platform ID) for commands
+        const success = await MegaRastreo.executeAndVerify(device.megaDeviceId, commandType, {
             companyConfig
         });
 
