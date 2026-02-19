@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus } from '../services/api';
+import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings } from '../services/api';
 import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import './Contracts.css';
@@ -28,9 +28,12 @@ const Contracts = () => {
         initialFee: 0
     });
 
+    const [companySettings, setCompanySettings] = useState(null);
+
     useEffect(() => {
         loadContracts();
         loadAvailableDevices();
+        loadCompanySettings();
 
         const handleClickOutside = (event) => {
             if (activeMenu && !event.target.closest('.action-menu-container')) {
@@ -43,6 +46,18 @@ const Contracts = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [filter, activeMenu]);
+
+    const loadCompanySettings = async () => {
+        try {
+            // Fetch settings including contractDefaults from /companies/settings
+            const response = await getSettings();
+            if (response.success) {
+                setCompanySettings(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading company settings:', error);
+        }
+    };
 
     const loadContracts = async () => {
         setLoading(true);
@@ -75,19 +90,20 @@ const Contracts = () => {
 
     const handleNewContract = () => {
         setEditingContract(null);
+        const defaults = companySettings?.contractDefaults || {};
         setFormData({
             deviceId: '',
             customerName: '',
             customerEmail: '',
             customerPhone: '',
             customerDocument: '',
-            dailyRate: 30000,
-            contractDays: 500,
+            dailyRate: defaults.dailyRate || 30000,
+            contractDays: defaults.contractDays || 500,
             startDate: new Date().toISOString().split('T')[0],
             notes: '',
             devicePin: Math.floor(1000 + Math.random() * 9000).toString(),
-            freeDaysLimit: 4,
-            initialFee: 0
+            freeDaysLimit: defaults.freeDaysLimit || 4,
+            initialFee: defaults.initialFee || 0
         });
         setShowModal(true);
     };
@@ -461,7 +477,22 @@ const Contracts = () => {
                                         <>
                                             <select
                                                 value={formData.deviceId}
-                                                onChange={(e) => setFormData({ ...formData, deviceId: e.target.value })}
+                                                onChange={(e) => {
+                                                    const selectedDeviceId = e.target.value;
+                                                    console.log(selectedDeviceId);
+                                                    console.log(availableDevices);
+                                                    const selectedDevice = availableDevices.find(d => d.deviceId === selectedDeviceId * 1);
+                                                    console.log(selectedDevice);
+                                                    const domain = companySettings?.contractDefaults?.emailDomain || 'pocketbike.app';
+                                                    const email = selectedDevice && selectedDevice.name
+                                                        ? `${selectedDevice.name.trim()}@${domain}`.toLowerCase()
+                                                        : '';
+                                                    setFormData({
+                                                        ...formData,
+                                                        deviceId: selectedDeviceId,
+                                                        customerEmail: email
+                                                    });
+                                                }}
                                                 required
                                             >
                                                 <option value="">Seleccionar dispositivo...</option>
@@ -488,6 +519,25 @@ const Contracts = () => {
                                         onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                         required
                                         disabled={editingContract}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Teléfono del Cliente</label>
+                                    <input
+                                        type="tel"
+                                        value={formData.customerPhone}
+                                        onChange={(e) => {
+                                            const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            let formatted = value;
+                                            if (value.length > 6) {
+                                                formatted = `${value.slice(0, 3)} ${value.slice(3, 6)} ${value.slice(6)}`;
+                                            } else if (value.length > 3) {
+                                                formatted = `${value.slice(0, 3)} ${value.slice(3)}`;
+                                            }
+                                            setFormData({ ...formData, customerPhone: formatted });
+                                        }}
+                                        maxLength="12"
+                                        placeholder="300 000 0000"
                                     />
                                 </div>
                                 <div className="form-group">
@@ -542,15 +592,10 @@ const Contracts = () => {
                                         placeholder="cliente@email.com"
                                     />
                                 </div>
-                                <div className="form-group">
-                                    <label>Teléfono del Cliente</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.customerPhone}
-                                        onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                                        placeholder="300 000 0000"
-                                    />
-                                </div>
+
+
+
+
                                 <div className="form-group">
                                     <label>Documento del Cliente</label>
                                     <input

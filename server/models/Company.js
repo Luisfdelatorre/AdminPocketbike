@@ -72,6 +72,14 @@ const companySchema = new mongoose.Schema({
         privateKey: { type: String, trim: true },
         integritySecret: { type: String, trim: true },
         eventsSecret: { type: String, trim: true }
+    },
+    // Default Contract Values
+    contractDefaults: {
+        dailyRate: { type: Number, default: 35000 },
+        contractDays: { type: Number, default: 500 },
+        freeDaysLimit: { type: Number, default: 4 },
+        initialFee: { type: Number, default: 0 },
+        emailDomain: { type: String, default: 'tumotoya.online', trim: true }
     }
 }, {
     timestamps: true

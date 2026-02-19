@@ -303,7 +303,7 @@ const companyController = {
             const allowedFields = [
                 'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
                 'displayName', 'logo', 'automaticCutOff', 'cutOffStrategy',
-                'gpsService', 'gpsConfig', 'wompiConfig'
+                'gpsService', 'gpsConfig', 'wompiConfig', 'contractDefaults'
             ];
 
             allowedFields.forEach(field => {

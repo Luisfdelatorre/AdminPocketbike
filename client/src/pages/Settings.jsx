@@ -5,10 +5,15 @@ import './Settings.css';
 
 const Settings = () => {
     const [settings, setSettings] = useState({
-        dailyRate: 35000, // 30,000 COP in cents
-        contractDays: 500,
         currency: 'COP',
         timezone: 'America/Bogota',
+        contractDefaults: {
+            dailyRate: 30000,
+            contractDays: 500,
+            freeDaysLimit: 4,
+            initialFee: 0,
+            emailDomain: 'tumotoya.online'
+        },
         displayName: 'PocketBike',
         companyLogo: '/pocketbike_60x60.jpg',
         automaticCutOff: false,
@@ -59,6 +64,10 @@ const Settings = () => {
                     setSettings(prev => ({
                         ...prev,
                         ...data.data,
+                        contractDefaults: {
+                            ...prev.contractDefaults,
+                            ...(data.data.contractDefaults || {})
+                        },
                         companyLogo: data.data.logo || prev.companyLogo // Map logo to companyLogo for state
                     }));
                 }
@@ -201,8 +210,7 @@ const Settings = () => {
                 payload = {
                     currency: settings.currency,
                     timezone: settings.timezone,
-                    dailyRate: settings.dailyRate,
-                    contractDays: settings.contractDays
+                    contractDefaults: settings.contractDefaults
                 };
             }
 
@@ -367,135 +375,6 @@ const Settings = () => {
 
             {/* Settings Sections */}
             <div className="settings-container">
-                {/* Contract Settings */}
-                <div className="settings-section">
-                    <div className="section-header">
-                        <SettingsIcon size={20} />
-                        <h2>Contract Settings</h2>
-                    </div>
-
-                    <div className="setting-item">
-                        <label htmlFor="dailyRate">
-                            <DollarSign size={16} />
-                            Default Daily Rate
-                        </label>
-                        <div className="input-group">
-                            <input
-                                id="dailyRate"
-                                type="number"
-                                value={settings.dailyRate}
-                                onChange={(e) => handleChange('dailyRate', parseInt(e.target.value))}
-                                step="1000"
-                                min="0"
-                            />
-                            <span className="input-hint">{formatCurrency(settings.dailyRate)}</span>
-                        </div>
-                        <p className="setting-description">
-                            The default daily rental rate for new contracts (in cents)
-                        </p>
-                    </div>
-
-                    <div className="setting-item">
-                        <label htmlFor="contractDays">
-                            <Clock size={16} />
-                            Default Contract Duration
-                        </label>
-                        <div className="input-group">
-                            <input
-                                id="contractDays"
-                                type="number"
-                                value={settings.contractDays}
-                                onChange={(e) => handleChange('contractDays', parseInt(e.target.value))}
-                                step="1"
-                                min="1"
-                            />
-                            <span className="input-hint">{settings.contractDays} days</span>
-                        </div>
-                        <p className="setting-description">
-                            The default duration for new contracts
-                        </p>
-                    </div>
-                </div>
-
-                {/* General Settings */}
-                <div className="settings-section">
-                    <div className="section-header">
-                        <Database size={20} />
-                        <h2>General Settings</h2>
-                        <button
-                            className={`btn-save-section ${savedSections.general ? 'btn-saved' : ''}`}
-                            onClick={() => handleSaveSection('general')}
-                            disabled={savingSections.general}
-                        >
-                            {savingSections.general ? 'Saving...' : savedSections.general ? 'Saved' : <Save size={16} />}
-                        </button>
-                    </div>
-
-                    <div className="setting-item">
-                        <label htmlFor="currency">Currency</label>
-                        <select
-                            id="currency"
-                            value={settings.currency}
-                            onChange={(e) => handleChange('currency', e.target.value)}
-                        >
-                            <option value="COP">COP (Colombian Peso)</option>
-                            <option value="USD">USD (US Dollar)</option>
-                            <option value="EUR">EUR (Euro)</option>
-                        </select>
-                        <p className="setting-description">
-                            Display currency for amounts
-                        </p>
-                    </div>
-
-                    <div className="setting-item">
-                        <label htmlFor="timezone">Timezone</label>
-                        <select
-                            id="timezone"
-                            value={settings.timezone}
-                            onChange={(e) => handleChange('timezone', e.target.value)}
-                        >
-                            <option value="America/Bogota">America/Bogota (UTC-5)</option>
-                            <option value="America/New_York">America/New_York (UTC-5)</option>
-                            <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
-                            <option value="Europe/London">Europe/London (UTC+0)</option>
-                        </select>
-                        <p className="setting-description">
-                            Timezone for dates and times
-                        </p>
-                    </div>
-
-                    <div className="setting-item">
-                        <label htmlFor="dailyRate">Daily Rate (COP)</label>
-                        <div className="input-group">
-                            <input
-                                id="dailyRate"
-                                type="number"
-                                value={settings.dailyRate}
-                                onChange={(e) => handleChange('dailyRate', parseInt(e.target.value))}
-                                placeholder="35000"
-                            />
-                            <span className="input-hint">{formatCurrency(settings.dailyRate)}</span>
-                        </div>
-                        <p className="setting-description">
-                            Base rate per day in cents
-                        </p>
-                    </div>
-
-                    <div className="setting-item">
-                        <label htmlFor="contractDays">Default Contract Days</label>
-                        <input
-                            id="contractDays"
-                            type="number"
-                            value={settings.contractDays}
-                            onChange={(e) => handleChange('contractDays', parseInt(e.target.value))}
-                            placeholder="500"
-                        />
-                        <p className="setting-description">
-                            Default duration for new contracts
-                        </p>
-                    </div>
-                </div>
-
                 {/* Company Branding */}
                 <div className="settings-section">
                     <div className="section-header">
@@ -571,6 +450,136 @@ const Settings = () => {
                             RECOMMENDED: 60X60PX, PNG OR JPG, MAX 2MB
                         </p>
                     </div>
+                </div>
+                {/* General Settings */}
+                <div className="settings-section">
+                    <div className="section-header">
+                        <Database size={20} />
+                        <h2>General Settings</h2>
+                        <button
+                            className={`btn-save-section ${savedSections.general ? 'btn-saved' : ''}`}
+                            onClick={() => handleSaveSection('general')}
+                            disabled={savingSections.general}
+                        >
+                            {savingSections.general ? 'Saving...' : savedSections.general ? 'Saved' : <Save size={16} />}
+                        </button>
+                    </div>
+
+
+
+                    <div className="setting-item">
+                        <label htmlFor="emailDomain">Default Email Domain</label>
+                        <div className="input-group">
+                            <span className="input-prefix">@</span>
+                            <input
+                                id="emailDomain"
+                                type="text"
+                                value={settings.contractDefaults?.emailDomain || 'tumotoya.online'}
+                                onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
+                                placeholder="tumotoya.online"
+                            />
+                        </div>
+                        <p className="setting-description">
+                            Domain used for auto-generated customer emails
+                        </p>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="dailyRate">Default Daily Rate (COP)</label>
+                        <div className="input-group">
+                            <input
+                                id="dailyRate"
+                                type="number"
+                                value={settings.contractDefaults?.dailyRate || 30000}
+                                onChange={(e) => handleNestedChange('contractDefaults', 'dailyRate', parseInt(e.target.value))}
+                                placeholder="30000"
+                            />
+                            <span className="input-hint">{formatCurrency(settings.contractDefaults?.dailyRate || 30000)}</span>
+                        </div>
+                        <p className="setting-description">
+                            Base rate per day in cents
+                        </p>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="contractDays">Default Contract Days</label>
+                        <input
+                            id="contractDays"
+                            type="number"
+                            value={settings.contractDefaults?.contractDays || 500}
+                            onChange={(e) => handleNestedChange('contractDefaults', 'contractDays', parseInt(e.target.value))}
+                            placeholder="500"
+                        />
+                        <p className="setting-description">
+                            Default duration for new contracts
+                        </p>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="freeDaysLimit">Default Free Days Limit</label>
+                        <input
+                            id="freeDaysLimit"
+                            type="number"
+                            value={settings.contractDefaults?.freeDaysLimit || 4}
+                            onChange={(e) => handleNestedChange('contractDefaults', 'freeDaysLimit', parseInt(e.target.value))}
+                            placeholder="4"
+                        />
+                        <p className="setting-description">
+                            Default monthly free days for new contracts
+                        </p>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="initialFee">Default Initial Fee</label>
+                        <div className="input-group">
+                            <input
+                                id="initialFee"
+                                type="number"
+                                value={settings.contractDefaults?.initialFee || 0}
+                                onChange={(e) => handleNestedChange('contractDefaults', 'initialFee', parseInt(e.target.value))}
+                                placeholder="0"
+                            />
+                            <span className="input-hint">{formatCurrency(settings.contractDefaults?.initialFee || 0)}</span>
+                        </div>
+                        <p className="setting-description">
+                            Default initial fee for new contracts
+                        </p>
+                    </div>
+                    <div className="setting-item">
+                        <label htmlFor="currency">Currency</label>
+                        <select
+                            id="currency"
+                            value={settings.currency}
+                            onChange={(e) => handleChange('currency', e.target.value)}
+                        >
+                            <option value="COP">COP (Colombian Peso)</option>
+                            <option value="USD">USD (US Dollar)</option>
+                            <option value="EUR">EUR (Euro)</option>
+                        </select>
+                        <p className="setting-description">
+                            Display currency for amounts
+                        </p>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="timezone">Timezone</label>
+                        <select
+                            id="timezone"
+                            value={settings.timezone}
+                            onChange={(e) => handleChange('timezone', e.target.value)}
+                        >
+                            <option value="America/Bogota">America/Bogota (UTC-5)</option>
+                            <option value="America/New_York">America/New_York (UTC-5)</option>
+                            <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
+                            <option value="Europe/London">Europe/London (UTC+0)</option>
+                        </select>
+                        <p className="setting-description">
+                            Timezone for dates and times
+                        </p>
+                    </div>
+
+
+
                 </div>
 
                 {/* GPS Integration */}
@@ -766,6 +775,7 @@ const Settings = () => {
                         </div>
                     )}
                 </div>
+
 
                 {/* System Info */}
                 <div className="settings-section">
