@@ -525,19 +525,18 @@ const Contracts = () => {
                                     <label>Teléfono del Cliente</label>
                                     <input
                                         type="tel"
+                                        inputMode="numeric"
+                                        placeholder="300 756 0069"
                                         value={formData.customerPhone}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                            let formatted = value;
-                                            if (value.length > 6) {
-                                                formatted = `${value.slice(0, 3)} ${value.slice(3, 6)} ${value.slice(6)}`;
-                                            } else if (value.length > 3) {
-                                                formatted = `${value.slice(0, 3)} ${value.slice(3)}`;
-                                            }
-                                            setFormData({ ...formData, customerPhone: formatted });
-                                        }}
-                                        maxLength="12"
-                                        placeholder="300 000 0000"
+                                        onChange={(e) =>
+                                            setFormData((p) => {
+                                                const d = e.target.value.replace(/\D/g, "").slice(0, 10);
+                                                const v = d.length > 6 ? `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`
+                                                    : d.length > 3 ? `${d.slice(0, 3)} ${d.slice(3)}`
+                                                        : d;
+                                                return { ...p, customerPhone: v };
+                                            })
+                                        }
                                     />
                                 </div>
                                 <div className="form-group">
@@ -551,7 +550,7 @@ const Contracts = () => {
                                         className="font-mono"
                                         required={!editingContract}
                                     />
-                                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center' }}>
+                                    <div className="phone-pin-checkbox">
                                         <input
                                             type="checkbox"
                                             id="usePhonePin"
