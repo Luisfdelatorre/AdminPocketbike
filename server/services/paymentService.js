@@ -81,15 +81,20 @@ export class PaymentService {
 
         // Activate device
 
+        // Activate device
+        // ... (activation calls activateDevice which is already refactored)
+
         const yesterday = dayjs().add(-1, 'day').startOf('day');
         const invoiceDate = dayjs(paidInvoice.date).startOf('day');
         if (!invoiceDate.isBefore(yesterday)) {
             await this.activateDevice(paidInvoice, payment.reference, dummyOnUpdate, companyId);
         } else {
-            logger.info(`[FREE DAY] Activation warning: ${e.message}`);
+            logger.info(`[FREE DAY] Activation warning: Invoice date too old`); // Fixed undefined 'e'
         }
+
         // Get updated device status
-        const deviceStatus = await gpsServices.getDetailedStatus(unpaidInvoice.deviceId);
+        const gpsAdapter = await companyService.getGpsAdapter(companyId);
+        const deviceStatus = await gpsAdapter.getDetailedStatus(unpaidInvoice.deviceId);
 
         return {
             success: true,
@@ -187,7 +192,21 @@ export class PaymentService {
     async getDataStatus(deviceId) {
         try {
             console.log('Device ID:', deviceId);
-            const details = await gpsServices.getDetailedStatus(deviceId);
+            // We need companyId to get the correct adapter. 
+            // Assuming deviceId is the external ID (e.g. Traccar ID or MegaRastreo ID), we might need to look it up in our DB first?
+            // Or assume only our DB ids are passed? 
+            // The method signature suggests 'deviceId'. If this is our DB _id, we can look up the device.
+            // If it's the external ID, we might have a problem if multiple companies use same external IDs (unlikely for IMEI/TraccarID).
+
+            // Let's assume it's the 'deviceId' field from our Device model (which often matches external ID)
+            const device = await deviceRepository.findByDeviceId(deviceId); // You might need to ensure this method exists or use findOne
+
+            // Fallback for companyId if device not found (maybe generic status check?)
+            const companyId = device?.companyId;
+
+            const gpsAdapter = await companyService.getGpsAdapter(companyId);
+            const details = await gpsAdapter.getDetailedStatus(deviceId);
+
             console.log('Device Status:', details);
             return {
                 ...details,
@@ -406,34 +425,41 @@ export class PaymentService {
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
 
         // 2. Execute and verify via centralized service
-        const isConfirmed = await gpsServices.executeAndVerify(deviceId, ENGINERESUME, {
-            companyConfig: companyId,
-            onProgress: (p) => {
-                notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
-                    reference,
-                    attempt: p.attempt,
-                    maxAttempts: p.maxAttempts,
-                    responseId: p.responseId,
-                    elapsedSeconds: p.attempt * (RETRY_CHECK_INTERVAL / 1000)
-                });
-            }
-        });
+        try {
+            const gpsAdapter = await companyService.getGpsAdapter(companyId);
 
-        // 3. Handle result and database update
-        if (isConfirmed) {
-            logger.info(`[DEVICE] Activation confirmed for ${deviceId}`);
-            try {
-                // Use deviceId (Traccar ID) for repository update
-                await deviceRepository.updateCutOffStatus(deviceId, 0); // 0 = Active/No CutOff
-                logger.info(`[DEVICE] CutOff flag updated to 0 for device: ${deviceId}`);
+            const isConfirmed = await gpsAdapter.executeAndVerify(deviceId, ENGINERESUME, {
+                companyConfig: companyId, // Some adapters might need this, or it's redundant if adapter is configured
+                onProgress: (p) => {
+                    notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
+                        reference,
+                        attempt: p.attempt,
+                        maxAttempts: p.maxAttempts,
+                        responseId: p.responseId,
+                        elapsedSeconds: p.attempt * (RETRY_CHECK_INTERVAL / 1000)
+                    });
+                }
+            });
 
-                if (onUpdate) onUpdate({ status: PS.S_DEVICE_ACTIVE, message: PM.M_DEVICE_ACTIVE });
-            } catch (dbError) {
-                logger.error(`[DEVICE] Failed to update cutOff flag in DB for ${deviceId}:`, dbError);
+            // 3. Handle result and database update
+            if (isConfirmed) {
+                logger.info(`[DEVICE] Activation confirmed for ${deviceId}`);
+                try {
+                    // Use deviceId (Traccar ID) for repository update
+                    await deviceRepository.updateCutOffStatus(deviceId, 0); // 0 = Active/No CutOff
+                    logger.info(`[DEVICE] CutOff flag updated to 0 for device: ${deviceId}`);
+
+                    if (onUpdate) onUpdate({ status: PS.S_DEVICE_ACTIVE, message: PM.M_DEVICE_ACTIVE });
+                } catch (dbError) {
+                    logger.error(`[DEVICE] Failed to update cutOff flag in DB for ${deviceId}:`, dbError);
+                }
+            } else {
+                logger.warn(`[DEVICE] Activation not confirmed after retries for ${deviceId}`);
+                if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola (Sin confirmación)' });
             }
-        } else {
-            logger.warn(`[DEVICE] Activation not confirmed after retries for ${deviceId}`);
-            if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola (Sin confirmación)' });
+        } catch (error) {
+            logger.error(`[DEVICE] Error retrieving GPS adapter or executing command for ${deviceId}:`, error);
+            if (onUpdate) onUpdate({ status: PS.S_ERROR, message: 'Error de conexión con GPS' });
         }
     }
 

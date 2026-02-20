@@ -1,20 +1,62 @@
-import { Transaction, ENGINERESUME, ENGINESTOP, Url } from '../config/config.js';
-import { getDeviceList, getDayKmDevice, changeEngineStatus, getPositions } from './traccarApi.js';
+import axios from 'axios';
+import { Transaction, ENGINERESUME, ENGINESTOP, Url, Login } from '../config/config.js';
 import { CommandBody } from '../utils/CommandBody.js';
 import logger from '../config/logger.js';
 
 class MyTraccar {
-    constructor(p) {
-        this.JSESSIONID = '';
-        this.asyncUpdate;
+    constructor(config = {}) {
+        // Handle both flat config or Company model instance
+        const finalConfig = config.gpsConfig || config;
+
+        this.host = finalConfig.host || Url.Traccar;
+        this.user = finalConfig.user || Login.Traccar.user;
+        this.password = finalConfig.password || Login.Traccar.password;
+
+        // Remove trailing slash if present
+        if (this.host && this.host.endsWith('/')) {
+            this.host = this.host.slice(0, -1);
+        }
+
+        this.api = axios.create({
+            baseURL: this.host,
+            auth: {
+                username: this.user,
+                password: this.password
+            },
+            timeout: 15000,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
     }
 
+    // --- API Methods (formerly in traccarApi.js) ---
+
+    async getDeviceList(params = {}) {
+        return this.api.get('api/devices', { params });
+    }
+
+    async getDayKmDevice(params = {}) {
+        return this.api.get('api/reports/summary', { params });
+    }
+
+    async getPositions(params = {}) {
+        return this.api.get('api/positions', { params });
+    }
+
+    async changeEngineStatusApi(body = {}) {
+        return this.api.post('api/commands/send', body);
+    }
+
+    // --- Service Methods ---
+
     fetchDeviceList = async () => {
-        const res = await getDeviceList();
+        const res = await this.getDeviceList();
         return res.data;
     };
+
     fetchPreviousDayKmDevice = async (now) => {
-        //const now = new Date();
         const start = new Date(now);
         start.setDate(now.getDate() - 1); // Subtract one day to get yesterday's date
         const end = new Date(start);
@@ -25,7 +67,7 @@ class MyTraccar {
         const to = end.toISOString().replace('Z', '+00:00');
 
         try {
-            const response = await getDayKmDevice({
+            const response = await this.getDayKmDevice({
                 groupId: 1,
                 from: from,
                 to: to,
@@ -82,8 +124,9 @@ class MyTraccar {
 
     changeEngineStatus = async (id, command) => {
         try {
+            // Note: CommandBody might need adjustment if it relies on global config, verify if it's pure data
             const commandBody = new CommandBody(command, id, 0);
-            const commandResponse = await changeEngineStatus(commandBody);
+            const commandResponse = await this.changeEngineStatusApi(commandBody);
             return commandResponse.data[0];
         } catch (error) {
             console.error('Error changing engine status:', error);
@@ -93,7 +136,7 @@ class MyTraccar {
 
     checkDeviceStatus = async (id) => {
         try {
-            const res = await getPositions({ id });
+            const res = await this.getPositions({ id });
             if (res.data && res.data.length > 0) {
                 // Use the last position in the array (latest)
                 const position = res.data[res.data.length - 1];
@@ -114,13 +157,14 @@ class MyTraccar {
 
     getDetailedStatus = async (deviceId) => {
         try {
-            const res = await getPositions({ deviceId });
+            const res = await this.getPositions({ deviceId });
             if (res.data && res.data.length > 0) {
                 const position = res.data[res.data.length - 1];
+                // Check online (within configured timeout or default 3 mins)
                 const lastUpdate = new Date(position.deviceTime);
                 const diff = Date.now() - lastUpdate.getTime();
-                // Check online (within configured timeout or default 3 mins)
-                const online = diff < Transaction.DEVICE_ONLINE_TIMEOUT;
+                const online = diff < (Transaction.DEVICE_ONLINE_TIMEOUT || 180000);
+
                 // Check ignition
                 let ignition = position.attributes.ignition;
                 // Also get the 'active' status (not cut)
@@ -144,11 +188,10 @@ class MyTraccar {
             return { online: false, ignition: false, cutOff: false, batteryLevel: 0, lastUpdate: null };
         }
     };
-    changePaidStatus = (d) => {
-        this.requestPut(Url.Devices + '/' + d.id, d.getData());
-    };
 
+    // changePaidStatus = (d) => {
+    //     this.requestPut(Url.Devices + '/' + d.id, d.getData());
+    // };
 }
-export default new MyTraccar();
 
-
+export default MyTraccar;

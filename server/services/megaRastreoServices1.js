@@ -1,7 +1,7 @@
 // megaRastreoService.lite.js
 import { io } from 'socket.io-client';
 import megaRastreoApi from '../api/megaRastreoApi1.js'; //api
-import { megaRastreoWebApiByCompany } from '../api/megaRastreoWebApi.js';//web scraping
+import MegaRastreoApiWeb from '../api/megaRastreoWebApi.js';//web scraping
 import { Login, Url, ENGINESTOP, ENGINERESUME, Transaction } from '../config/config.js';
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
@@ -37,7 +37,7 @@ class MegaRastreoServiceLite {
 
         /* ... existing commented out code ... */
         console.log(`--Fetched ${devices.length} devices from API`);
-        const webDevices = await megaRastreoWebApiByCompany(company).fetchDevices()
+        const webDevices = await new MegaRastreoApiWeb(company).fetchDevices()
         console.log(`--Fetched ${Array.isArray(webDevices) ? webDevices.length : 0} devices from Web`);
 
         const allDevices = webDevices.map(d => {
@@ -55,14 +55,14 @@ class MegaRastreoServiceLite {
     }
 
     async stopDevice(megaDeviceId, company) {
-        return megaRastreoWebApiByCompany(company).stopDevice(megaDeviceId);
+        return new MegaRastreoApiWeb(company).stopDevice(megaDeviceId);
     }
 
     async resumeDevice(megaDeviceId, company) {
-        return megaRastreoWebApiByCompany(company).resumeDevice(megaDeviceId);
+        return new MegaRastreoApiWeb(company).resumeDevice(megaDeviceId);
     }
     async checkDeviceStatus(commandId, company) {
-        return megaRastreoWebApiByCompany(company).confirmCommand(commandId);
+        return new MegaRastreoApiWeb(company).confirmCommand(commandId);
     }
 
     async getDetailedStatus(commandId) {

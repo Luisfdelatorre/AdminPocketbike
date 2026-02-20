@@ -10,11 +10,11 @@ const DEFAULT_BASE_URL = process.env.YECI_BASE_URL || "https://yeci.online";
 class MegaRastreoApiWeb {
     constructor(config = {}) {
         // Handle both flat config or Company model instance
-        //const finalConfig = config.gpsConfig || config;
+        const finalConfig = config.gpsConfig || config;
 
-        this.baseUrl = DEFAULT_BASE_URL;//finalConfig.host ||
-        this.user = 'yairpacheco';//finalConfig.user;
-        this.pass = 'cartagena.25';///finalConfig.password;
+        this.baseUrl = finalConfig.host || DEFAULT_BASE_URL;
+        this.user = finalConfig.user || 'yairpacheco';
+        this.pass = finalConfig.password || 'cartagena.25';
         this.jar = new CookieJar();
         this.http = wrapper(
             axios.create({
@@ -184,20 +184,4 @@ class MegaRastreoApiWeb {
     }
 }
 
-// Factory to manage instances per company/config
-const instances = new Map();
-
-export const megaRastreoWebApiByCompany = (targetCompanyId) => {
-    const key = targetCompanyId;
-    if (!instances.has(key)) {
-        instances.set(key, new MegaRastreoApiWeb(targetCompanyId));
-    }
-    return instances.get(key);
-};
-
-// For backward compatibility or default use
-export const defaultInstance = new MegaRastreoApiWeb({
-    host: process.env.YECI_BASE_URL
-});
-
-export default defaultInstance;
+export default MegaRastreoApiWeb;

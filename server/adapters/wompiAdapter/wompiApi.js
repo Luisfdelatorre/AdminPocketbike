@@ -6,13 +6,13 @@ class WompiApi {
     // Handle both flat config or Company model instance
     const finalConfig = config.wompiConfig || config;
 
-    const publicKey = Login.Wompi.publicKey || finalConfig.publicKey;
+    const publicKey = finalConfig.publicKey || Login.Wompi.publicKey;
     this.publicKey = publicKey;
-    this.privateKey = Login.Wompi.privateKey || finalConfig.privateKey;
+    this.privateKey = finalConfig.privateKey || Login.Wompi.privateKey;
     this.baseUrl = Url.WompiBaseUrl;
-    console.log('publicKey', publicKey);
-    console.log('privateKey', this.privateKey);
-    console.log('baseUrl', this.baseUrl);
+    // console.log('publicKey', publicKey);
+    // console.log('privateKey', this.privateKey);
+    // console.log('baseUrl', this.baseUrl);
 
     this.client = axios.create({
       baseURL: this.baseUrl,
