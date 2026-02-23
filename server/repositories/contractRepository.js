@@ -171,6 +171,9 @@ export class ContractRepository {
         if (updates.customerDocument !== undefined) contract.customerDocument = updates.customerDocument;
         if (updates.notes !== undefined) contract.notes = updates.notes;
         if (updates.freeDaysLimit !== undefined) contract.freeDaysLimit = updates.freeDaysLimit;
+        if (updates.freeDayPolicy !== undefined) contract.freeDayPolicy = updates.freeDayPolicy;
+        if (updates.fixedFreeDayOfWeek !== undefined) contract.fixedFreeDayOfWeek = updates.fixedFreeDayOfWeek;
+        if (updates.exemptFromCutOff !== undefined) contract.exemptFromCutOff = updates.exemptFromCutOff;
 
         // Handle updates that affect calculations (dailyRate, contractDays)
         let recalculate = false;

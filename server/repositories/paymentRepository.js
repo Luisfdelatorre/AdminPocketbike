@@ -136,11 +136,10 @@ export class PaymentRepository {
                 created_at: now,
                 finalized_at: now,
                 phoneNumber: contract.customerPhone || '',
-                used: false,
+                used: true,
                 unpaidInvoiceId: unpaidInvoice._id,
-
-
-
+                megaDeviceId: unpaidInvoice.megaDeviceId,
+                invoiceDate: unpaidInvoice.invoiceDate,
             };
 
             const newPayment = await Payment.create(payment);
@@ -169,7 +168,9 @@ export class PaymentRepository {
                 type: PAYMENT_TYPE.INITIAL_FEE,
                 status: PAYMENT_STATUS.S_APPROVED,
                 deviceIdName: device.name,
-                deviceId: device.deviceId, // Ensure using consistent deviceId field
+                deviceId: device.deviceId,
+                megaDeviceId: device.megaDeviceId,
+                invoiceDate: invoice.date || now,
                 finalized_at: now,
                 phoneNumber: contract.customerPhone || '',
             });

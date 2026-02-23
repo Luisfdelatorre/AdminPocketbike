@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import './Payments.css';
 import { getAllPayments } from '../services/api';
 
@@ -10,6 +10,7 @@ const Payments = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, completed, pending, failed
     const [sortBy, setSortBy] = useState('date'); // date, amount, device
+    const [searchQuery, setSearchQuery] = useState(''); // NEW search state
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 20,
@@ -142,19 +143,27 @@ const Payments = () => {
         }
     };
 
-    // Client-side sorting (since backend returns all for current page)
-    const sortedPayments = [...payments].sort((a, b) => {
-        switch (sortBy) {
-            case 'date':
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            case 'amount':
-                return b.amount - a.amount;
-            case 'device':
-                return a.deviceId.localeCompare(b.deviceId);
-            default:
-                return 0;
-        }
-    });
+    // Client-side filtering and sorting
+    const sortedPayments = [...payments]
+        .filter(p => {
+            if (!searchQuery) return true;
+            const query = searchQuery.toLowerCase();
+            const deviceMatch = p.deviceId && p.deviceId.toLowerCase().includes(query);
+            const invoiceMatch = (p.invoiceId || p.unpaidInvoiceId || p.paymentReference || '').toLowerCase().includes(query);
+            return deviceMatch || invoiceMatch;
+        })
+        .sort((a, b) => {
+            switch (sortBy) {
+                case 'date':
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                case 'amount':
+                    return b.amount - a.amount;
+                case 'device':
+                    return a.deviceId.localeCompare(b.deviceId);
+                default:
+                    return 0;
+            }
+        });
 
     const totalAmount = payments.reduce((sum, p) => {
         const status = p.status.toUpperCase();
@@ -262,6 +271,24 @@ const Payments = () => {
                     >
                         {t('payments.filters.failed')}
                     </button>
+
+                    <div className="search-box">
+                        <Search className="search-icon" />
+                        <input
+                            type="text"
+                            placeholder={t('invoices.searchPlaceholder')}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                className="clear-search"
+                                onClick={() => setSearchQuery('')}
+                            >
+                                <X />
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <select
                     className="sort-select"

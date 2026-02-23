@@ -66,7 +66,7 @@ export const api = new ApiClient(API_URL);
 
 // Add interceptor to include token automatically
 api.addRequestInterceptor((config) => {
-  const token = sessionStorage.getItem('paymentAuthToken');
+  const token = localStorage.getItem('paymentAuthToken');
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -92,7 +92,7 @@ export const getUIMessages = () => api.get('/apinode/messages/ui');
 
 // EventSource helper for payment streaming
 export const createPaymentStream = (reference) => {
-  const token = sessionStorage.getItem('paymentAuthToken');
+  const token = localStorage.getItem('paymentAuthToken');
   const url = `/apinode/payments/stream/${reference}?token=${token}`;
   return new EventSource(url);
 };

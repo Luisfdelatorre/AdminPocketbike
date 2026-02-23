@@ -99,10 +99,25 @@ const contractSchema = new mongoose.Schema({
         type: Number,
         default: 4, // Limit for monthly free days
     },
+    freeDayPolicy: {
+        type: String,
+        enum: ['FLEXIBLE', 'FIXED_WEEKDAY'],
+        default: 'FLEXIBLE',
+    },
+    fixedFreeDayOfWeek: {
+        type: Number,
+        min: 0,
+        max: 6,
+        default: 0, // 0 = Sunday
+    },
     reactivationRule: {
         type: String,
         enum: ['ALWAYS', 'SAME_OR_AFTER', 'DAY_BEFORE'],
         default: 'SAME_OR_AFTER',
+    },
+    exemptFromCutOff: {
+        type: Boolean,
+        default: false,
     },
 }, {
     timestamps: true,

@@ -28,6 +28,14 @@ class ContractService {
             throw new Error(`Device ${device.name} already has an active contract (${existingContract.contractId}). Please cancel it before creating a new one.`);
         }
 
+        // 3. Fallback to Company settings if anything is missing
+        const { Company } = await import('../models/Company.js');
+        const company = await Company.findById(device.companyId);
+        if (company && company.contractDefaults) {
+            if (data.freeDayPolicy === undefined) data.freeDayPolicy = company.contractDefaults.freeDayPolicy;
+            if (data.fixedFreeDayOfWeek === undefined) data.fixedFreeDayOfWeek = company.contractDefaults.fixedFreeDayOfWeek;
+        }
+
         // 4. Create Contract
         const contract = await contractRepository.createContract(data, device);
 

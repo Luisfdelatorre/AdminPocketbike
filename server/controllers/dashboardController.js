@@ -1,6 +1,7 @@
 import contractRepository from '../repositories/contractRepository.js';
 import invoiceRepository from '../repositories/invoiceRepository.js';
 import paymentRepository from '../repositories/paymentRepository.js';
+import deviceRepository from '../repositories/deviceRepository.js';
 
 /**
  * Get dashboard statistics including revenue, contracts, payments, devices
@@ -13,6 +14,12 @@ const getDashboardStats = async (req, res) => {
         // Get all contracts for this company
         const allContracts = await contractRepository.getAllContracts({ companyId });
         console.log(`Found ${allContracts.length} contracts`);
+
+        // Get all devices for this company
+        const allDevices = await deviceRepository.findDevicesByCompany(companyId);
+        const totalDevices = allDevices.length;
+        const devicesWithContract = allDevices.filter(d => d.hasActiveContract).length;
+        console.log(`Found ${totalDevices} devices, ${devicesWithContract} with contract`);
 
         // Get active contracts
         const activeContracts = allContracts.filter(c => c.status === 'ACTIVE');
@@ -47,9 +54,45 @@ const getDashboardStats = async (req, res) => {
                 : 'N/A'
         }));
 
+        // Calculate dynamic changes
+        let revenueChange = 0;
+        let contractsChange = 0;
+        let pendingPaymentsChange = 0;
+
         // Revenue data for the last 6 months
         const rawRevenueData = await invoiceRepository.getMonthlyRevenueByCompany(companyId);
         const revenueData = formatMonthlyRevenue(rawRevenueData);
+
+        const currentMonthStats = await invoiceRepository.getInvoiceStatsThisMonthByCompany(companyId);
+
+        if (currentMonthStats.totalInvoices > 0) {
+            revenueChange = (currentMonthStats.paidInvoices / currentMonthStats.totalInvoices) * 100;
+        } else {
+            revenueChange = 0;
+        }
+
+        // Active contracts change based on createdAt
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+        let contractsThisMonth = 0;
+        let contractsLastMonth = 0;
+
+        allContracts.forEach(contract => {
+            const created = new Date(contract.createdAt);
+            if (created >= startOfThisMonth) {
+                contractsThisMonth++;
+            } else if (created >= startOfLastMonth && created < startOfThisMonth) {
+                contractsLastMonth++;
+            }
+        });
+
+        if (contractsLastMonth > 0) {
+            contractsChange = ((contractsThisMonth - contractsLastMonth) / contractsLastMonth) * 100;
+        } else if (contractsThisMonth > 0) {
+            contractsChange = 100; // 100% increase if there were none last month
+        }
 
         // Device status data
         const deviceData = calculateDeviceStatus(allContracts);
@@ -61,8 +104,13 @@ const getDashboardStats = async (req, res) => {
             data: {
                 stats: {
                     totalRevenue,
-                    activeContracts: activeContracts.length,
-                    pendingPayments
+                    activeDevices: devicesWithContract,
+                    pendingPayments,
+                    changes: {
+                        totalRevenue: parseFloat(revenueChange.toFixed(1)),
+                        activeDevices: parseFloat(((devicesWithContract / totalDevices) * 100).toFixed(1)),
+                        pendingPayments: 0 // Placeholder or calculated if historical pending data exists
+                    }
                 },
                 recentPayments: sortedPayments,
                 revenueData,

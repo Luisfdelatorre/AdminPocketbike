@@ -116,23 +116,31 @@ class megaRastreoApiWeb {
 
     // Minimal "status": returns true only if the latest command row for this vehicle shows estado "R" (confirmed).
     // NOTE: This checks command confirmation, not GPS "online".
-    async checkDeviceStatus(deviceId) {
+    async checkDeviceStatus(responseId) {
         await ensureLogin();
 
-        const page = await http.get("/comandos", { headers: { Accept: "text/html" } });
-        const $ = cheerio.load(page.data);
+        const ids = Array.isArray(responseId) ? responseId : [responseId];
+        const token = csrfComandos; // Use the token obtained during login
 
+        const params = new URLSearchParams();
+        params.append('_token', token);
+        ids.forEach(id => params.append('ids[]', id));
+
+        const response = await http.post('/comandos/update', params, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        });
+
+        const data = response.data;
         let estado = null;
 
-        $("table tbody tr").each((_, tr) => {
-            const rowText = $(tr).text();
-            if (!rowText.includes(String(deviceId))) return;
-
-            // crude but usually works: find first single-letter state among known codes
-            const m = rowText.match(/\b([RPEF])\b/);
-            if (m) estado = m[1];
-            return false; // break
-        });
+        if (Array.isArray(data)) {
+            const command = data.find(c => String(c.id) === String(ids[0]));
+            if (command) estado = command.estado;
+        }
 
         return estado === "R"; // R = confirmed
     }

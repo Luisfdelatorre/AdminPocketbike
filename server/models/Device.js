@@ -44,6 +44,8 @@ const deviceSchema = new mongoose.Schema({
     activeContractId: { type: String, default: null }, // Denormalized: ID of the current active contract
     hasActiveContract: { type: Boolean, default: false, index: true }, // Denormalized: Easy query flag
     dailyRate: { type: Number, default: 0 }, // Denormalized: Current active daily rate
+    exemptFromCutOff: { type: Boolean, default: false }, // Syncs from Contract
+    curfewStatus: { type: Boolean, default: false }, // True if currently forced OFF by curfew
     attributes: {
         Cuota: { type: Number, default: DEFAULTAMOUNT },
         DailyPayment: { type: Boolean, default: false },

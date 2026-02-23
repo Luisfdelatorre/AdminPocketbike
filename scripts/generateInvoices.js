@@ -1,4 +1,5 @@
-import { connectDatabase, disconnectDatabase } from '../server/database/connection.js';
+import mongoose from 'mongoose';
+import { MongoDB } from '../server/config/components/core.js';
 import invoiceRepository from '../server/repositories/invoiceRepository.js';
 import contractRepository from '../server/repositories/contractRepository.js';
 
@@ -8,7 +9,7 @@ import contractRepository from '../server/repositories/contractRepository.js';
  */
 async function generateSampleInvoices() {
     try {
-        await connectDatabase();
+        await mongoose.connect(MongoDB.URI, { dbName: 'payments-wompi' });
 
         // Get all active contracts
         const allContracts = await contractRepository.getAllContracts();
@@ -16,7 +17,7 @@ async function generateSampleInvoices() {
 
         if (activeContracts.length === 0) {
             console.log('⚠️  No active contracts found. Please create contracts first.');
-            await disconnectDatabase();
+            await mongoose.disconnect();
             process.exit(0);
         }
 
@@ -36,10 +37,12 @@ async function generateSampleInvoices() {
                 const amount = contract.dailyRate; // Already in cents
                 const deviceId = contract.deviceId;
                 const contractId = contract.contractId;
+                const deviceIdName = contract.deviceIdName;
 
                 try {
                     const invoice = await invoiceRepository.createInvoice({
                         contractId,
+                        deviceIdName,
                         deviceId,
                         date: dateStr,
                         amount,
@@ -61,7 +64,7 @@ async function generateSampleInvoices() {
 
         console.log(`✅ Generated ${invoices.length} sample invoices`);
 
-        await disconnectDatabase();
+        await mongoose.disconnect();
         process.exit(0);
     } catch (error) {
         console.error('❌ Error generating invoices:', error);

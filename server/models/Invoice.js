@@ -30,6 +30,7 @@ const InvoiceSchema = new mongoose.Schema(
         paid: { type: Boolean, default: false },
         deviceIdName: { type: String, required: true },//this is device name
         deviceId: { type: String, required: true },//this is device id
+        megaDeviceId: { type: String },
         companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
         companyName: { type: String },
         dayType: {
@@ -84,6 +85,7 @@ InvoiceSchema.statics.createInvoice = async function ({
     date,
     deviceIdName,
     deviceId,
+    megaDeviceId,
     companyId,
     companyName
 }) {
@@ -95,6 +97,7 @@ InvoiceSchema.statics.createInvoice = async function ({
         amount,
         deviceIdName,
         deviceId,
+        megaDeviceId,
         companyId,
         companyName,
         paid: false,

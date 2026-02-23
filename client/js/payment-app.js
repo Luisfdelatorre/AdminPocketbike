@@ -621,11 +621,26 @@ class PaymentManager {
             dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
             const freeDaysCount = STATE.paymentData.freeDaysAvailable || 0;
             const badge = dom.get('displays.freeDaysCount');
-            if (badge) {
-                badge.textContent = freeDaysCount;
-                badge.style.display = freeDaysCount > 0 ? 'block' : 'none';
-                badge.textContent = freeDaysCount;
-                badge.style.display = freeDaysCount > 0 ? 'block' : 'none';
+            const useFreeDayBtn = dom.get('buttons.freeDay');
+            const loanBtn = dom.get('buttons.loan');
+
+            if (badge && useFreeDayBtn) {
+                if (STATE.paymentData.freeDayPolicy === 'FIXED_WEEKDAY') {
+                    // Hide entirely because Fixed Days are applied automatically by the backend
+                    badge.style.display = 'none';
+                    useFreeDayBtn.style.display = 'none';
+                    useFreeDayBtn.parentElement.style.display = 'none';
+                    loanBtn.style.display = 'none';
+                    loanBtn.parentElement.style.display = 'none';
+                } else {
+                    // Flexible policy: Show based on count availability
+                    badge.textContent = freeDaysCount;
+                    badge.style.display = freeDaysCount > 0 ? 'block' : 'none';
+                    useFreeDayBtn.style.display = freeDaysCount > 0 ? 'block' : 'none';
+                    useFreeDayBtn.parentElement.style.display = freeDaysCount > 0 ? 'block' : 'none';
+                    loanBtn.style.display = 'block';
+                    loanBtn.parentElement.style.display = 'block';
+                }
             }
 
             // Check for pending payment
@@ -736,7 +751,7 @@ class PaymentManager {
     logout() {
         STATE.authToken = null;
         STATE.paymentData = null;
-        sessionStorage.removeItem('paymentAuthToken');
+        localStorage.removeItem('paymentAuthToken');
 
         // Reset inputs
         const deviceIdInput = this.dom.get('inputs.deviceId');
@@ -1116,7 +1131,7 @@ class EventHandler {
             const data = response.data;
 
             STATE.authToken = data.token;
-            sessionStorage.setItem('paymentAuthToken', STATE.authToken);
+            localStorage.setItem('paymentAuthToken', STATE.authToken);
             STATE.fromLogin = true;
             this.screen.switchScreen(this.dom.get('screens.payment'));
 
@@ -1235,7 +1250,7 @@ async function initPaymentApp() {
     const events = new EventHandler(dom, pinManager, screen, modal, payment);
 
     // Show screen ASAP
-    const savedToken = sessionStorage.getItem('paymentAuthToken');
+    const savedToken = localStorage.getItem('paymentAuthToken');
     if (savedToken) {
         STATE.authToken = savedToken;
         screen.switchScreen(dom.get('screens.payment'));

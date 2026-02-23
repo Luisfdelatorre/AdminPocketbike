@@ -31,6 +31,7 @@ export class InvoiceRepository {
                 date,
                 deviceIdName,
                 deviceId: device.deviceId, // Numeric ID
+                megaDeviceId: device.megaDeviceId || device.deviceId,
                 companyId: companyId || device.companyId,
                 companyName: device.companyName
             });
@@ -39,7 +40,7 @@ export class InvoiceRepository {
         } catch (error) {
             // Check if duplicate (device + date already exists)
             if (error.code === 11000) {
-                return await this.getInvoiceByDeviceAndDate(deviceIdName, date);
+                return await Invoice.findByDate(deviceIdName, date);
             }
             throw error;
         }
@@ -48,7 +49,7 @@ export class InvoiceRepository {
     /**
      * Helper to create next day invoice
      */
-    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null) {
+    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, megaDeviceId = null) {
         // Find last paid invoice to determine next date
         let nextDate;
         if (!date) {
@@ -67,11 +68,17 @@ export class InvoiceRepository {
             return invoice;
         }
 
+        if (!megaDeviceId) {
+            const device = await Device.findOne({ name: deviceIdName });
+            if (device) megaDeviceId = device.megaDeviceId || device.deviceId;
+        }
+
         invoice = await Invoice.createInvoice({
             amount,
             date: nextDate,
             deviceIdName,
             deviceId,
+            megaDeviceId,
             companyId
         });
         return invoice;
@@ -100,21 +107,30 @@ export class InvoiceRepository {
         throw new Error('Create Next Day Invoice failed.');
     }
 
-    async findOrCreateInvoiceByName(deviceIdName, deviceId, amount, date, companyId) {
+    async findOrCreateInvoiceByName(deviceIdName, deviceId, amount, date, companyId, megaDeviceId = null) {
         try {
 
-            let invoice = await Invoice.findOne({ deviceIdName, date: date });
+            let invoice = await Invoice.findByDate(deviceIdName, date);
             if (!invoice) {
+                if (!megaDeviceId) {
+                    const device = await Device.findOne({ name: deviceIdName });
+                    if (device) megaDeviceId = device.megaDeviceId || device.deviceId;
+                }
                 invoice = await Invoice.createInvoice({
                     deviceIdName,
                     amount,
                     date,
                     deviceId,
+                    megaDeviceId,
                     companyId
                 });
             }
             return invoice;
         } catch (error) {
+            if (error.code === 11000) {
+                logger.info(`Invoice ${deviceIdName} on date ${date} already exists (Duplicate Key caught). Returning it.`);
+                return await Invoice.findByDate(deviceIdName, date);
+            }
             logger.error(`Error finding/creating invoice for ${deviceIdName}:`, error);
             throw error;
         }
@@ -133,9 +149,8 @@ export class InvoiceRepository {
      * Get invoice by device and date
      */
     async getInvoiceByDeviceAndDate(deviceIdName, date) {
-        // Use the new static method, or just findOne
-        // The static findByDate builds the ID and finds by _id
-        return await Invoice.findOne({ deviceIdName, date });
+        // Use the fast deterministic _id lookup
+        return await Invoice.findByDate(deviceIdName, date);
     }
 
 
@@ -308,6 +323,29 @@ export class InvoiceRepository {
             companyId,
             dayType: INVOICE_DAYTYPE.PENDING
         });
+    }
+
+    /**
+     * Get stats on paid vs total invoices for the current month
+     */
+    async getInvoiceStatsThisMonthByCompany(companyId) {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const companyObjId = new mongoose.Types.ObjectId(companyId);
+
+        const totalInvoices = await Invoice.countDocuments({
+            companyId: companyObjId,
+            date: { $gte: startOfMonth }
+        });
+
+        const paidInvoices = await Invoice.countDocuments({
+            companyId: companyObjId,
+            date: { $gte: startOfMonth },
+            paid: true
+        });
+
+        return { totalInvoices, paidInvoices };
     }
 
     /**

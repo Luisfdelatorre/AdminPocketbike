@@ -8,6 +8,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
     margin-bottom: 24px;
     background: white;
     padding: 20px;
@@ -24,6 +26,8 @@
 
 .controls {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
 }
 
@@ -34,6 +38,8 @@
     font-size: 14px;
     outline: none;
     cursor: pointer;
+    background-color: white;
+    color: #1a1a1a;
 }
 
 .matrix-container {

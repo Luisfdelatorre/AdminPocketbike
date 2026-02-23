@@ -117,24 +117,22 @@ const paymentController = {
 
     /*Get device online status*/
     async getDeviceStatus(req, res) {
-        // try {
-        const { deviceIdName, deviceId } = req.paymentAuth;
-        const status = await paymentService.getDataStatus(deviceId);
-        res.json(status);
-        // } catch (error) {
-        //  logger.error(`Error in getDeviceStatus for ${req.paymentAuth?.deviceId}:`, error.message);
-        // res.status(500).json({ error: 'Failed to get device status' });
-        //  }
+        try {
+            const { deviceIdName } = req.paymentAuth;
+            const status = await paymentService.getDataStatus(deviceIdName);
+            res.json(status);
+        } catch (error) {
+            logger.error(`Error in getDeviceStatus for ${req.paymentAuth?.deviceIdName}:`, error.message);
+            res.status(500).json({ error: 'Failed to get device status' });
+        }
     },
 
     /*Use free day*/
     async useFreeDay(req, res) {
         try {
-
             const { deviceIdName, companyId } = req.paymentAuth;
             // Try to get contractId from token, if not, fetch active contract
             let contractId = req.paymentAuth.contractId;
-
             if (!contractId) {
                 const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
                 if (!contract) {
@@ -142,14 +140,8 @@ const paymentController = {
                 }
                 contractId = contract.contractId;
             }
-            console.log("Device ID:", deviceIdName);
-            console.log("Contract ID:", contractId);
-            console.log("Company ID:", companyId);
-
             const result = await paymentService.applyFreeDay(deviceIdName, contractId, companyId);
-
             res.json(result);
-
         } catch (error) {
             logger.error('Use free day error:', error.message);
             res.status(500).json({ error: error.message || 'Failed to use free day' });
@@ -215,27 +207,38 @@ const paymentController = {
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
         res.write(`data: ${JSON.stringify({ status: 'CONNECTED', reference })}\n\n`);
-        let stopMonitoring = null;
+
+        let closed = false;
+
+        const closeStream = () => {
+            if (closed) return;
+            closed = true;
+            if (!res.writableEnded) res.end();
+        };
+
         const sendUpdate = (update) => {
+            if (closed || res.writableEnded) return; // guard against write after end
             try {
                 res.write(`data: ${JSON.stringify(update)}\n\n`);
-                if (['COMPLETED', 'FAILED', 'TIMEOUT', 'ERROR'].includes(update.status)) {
-                    res.end();
+                if (['COMPLETED', 'FAILED', 'TIMEOUT', 'ERROR', 'DECLINED'].includes(update.status)) {
+                    closeStream();
                 }
             } catch (error) {
                 logger.error(`SSE write error for ${reference}:`, error.message);
-                res.end();
+                closeStream();
             }
         };
+
         paymentService.monitorTransactionStatus(reference, {
             onUpdate: sendUpdate,
             timeout: TEMPORARY_RESERVATION_TIMEOUT
         }).catch(err => {
             logger.error(`Error in monitorTransactionStatus for ${reference}:`, err.message);
+            closeStream();
         });
 
         req.on('close', () => {
-            if (stopMonitoring) stopMonitoring();
+            closed = true; // client disconnected — silence any further writes
         });
     }
 };

@@ -63,6 +63,73 @@ const resources = {
                 users: 'Users',
                 companies: 'Companies'
             },
+            contracts: {
+                title: 'Contract Management',
+                subtitle: 'Manage 500-day rental contracts for all devices',
+                newContract: 'New Contract',
+                stats: {
+                    total: 'Total Contracts',
+                    active: 'Active',
+                    completed: 'Completed',
+                    totalValue: 'Total Value'
+                },
+                filters: {
+                    all: 'All',
+                    active: 'Active',
+                    completed: 'Completed',
+                    cancelled: 'Cancelled'
+                },
+                searchPlaceholder: 'Search by ID, name or email...',
+                loading: 'Loading contracts...',
+                empty: {
+                    title: 'No contracts found',
+                    subtitle: 'Create a new contract to get started'
+                },
+                card: {
+                    customer: 'Customer',
+                    dailyRate: 'Daily Rate',
+                    totalDays: 'Total Days',
+                    totalAmount: 'Total Amount',
+                    edit: 'Edit',
+                    complete: 'Complete',
+                    cancel: 'Cancel',
+                    progress: 'Progress: {{paid}} / {{total}} days',
+                    paid: 'Paid:',
+                    statusConfirm: 'Are you sure you want to change the status to {{status}}?'
+                },
+                modal: {
+                    editTitle: 'Edit Contract',
+                    addTitle: 'New Contract',
+                    deviceId: 'Device ID *',
+                    selectDevice: 'Select device...',
+                    deviceWarning: 'Each device can only have one active contract. Cancel existing contracts before creating a new one.',
+                    startDate: 'Start Date *',
+                    customerPhone: 'Customer Phone',
+                    devicePin: 'Device PIN',
+                    devicePinCustom: 'Device PIN (Leave empty to keep current)',
+                    usePhonePin: 'Use last 4 digits of phone',
+                    usePhonePinError: 'Enter a valid cell phone number first',
+                    customerName: 'Customer Name',
+                    customerEmail: 'Customer Email',
+                    customerDocument: 'Customer Document',
+                    customerDocumentPlaceholder: 'ID/NIT',
+                    dailyRateCop: 'Daily Rate (COP)',
+                    contractDays: 'Contract Days',
+                    initialFeeCop: 'Initial Fee (COP)',
+                    freeDaysMonth: 'Free Days per Month',
+                    exemptCutoff: 'Do not apply Automatic Cut-off',
+                    notes: 'Notes',
+                    notesPlaceholder: 'Additional notes...',
+                    cancelBtn: 'Cancel',
+                    saveBtn: 'Save Contract',
+                    createBtn: 'Create Contract',
+                    updateBtn: 'Update Contract',
+                    savingBtn: 'Saving...',
+                    successUpdate: 'Contract updated successfully!',
+                    successCreate: 'Contract created successfully!',
+                    errorSave: 'Error saving contract'
+                }
+            },
             dashboard: {
                 title: 'Dashboard',
                 welcome: 'Welcome back, {{name}}!',
@@ -199,6 +266,109 @@ const resources = {
                     next: 'Next',
                     pageInfo: 'Page {{page}} of {{totalPages}} ({{total}} total)'
                 }
+            },
+            settings: {
+                title: 'Settings',
+                subtitle: 'Configure your application preferences',
+                tabs: {
+                    branding: 'Company Branding',
+                    business: 'Business Settings',
+                    integrations: 'Integrations',
+                    system: 'System'
+                },
+                branding: {
+                    title: 'Company Branding',
+                    displayName: 'Company Display Name',
+                    displayNameDesc: 'This name will be displayed on the payment page.',
+                    emailDomain: 'Default Email Domain',
+                    emailDomainDesc: 'Domain used for auto-generated customer emails',
+                    logo: 'Company Logo',
+                    changeLogo: 'Change Logo',
+                    uploadNew: 'Upload New Logo',
+                    recommended: 'RECOMMENDED: 60X60PX, PNG OR JPG, MAX 2MB'
+                },
+                general: {
+                    title: 'General Settings',
+                    dailyRate: 'Default Daily Rate (COP)',
+                    dailyRateDesc: 'Base rate per day in COP',
+                    contractDays: 'Default Contract Days',
+                    contractDaysDesc: 'Default duration for new contracts',
+                    freeDayPolicy: 'Free Day Policy',
+                    policyFlexible: 'Flexible Limit (Monthly Allowance)',
+                    policyFixed: 'Fixed Day of the Week',
+                    freeDayPolicyDesc: 'Determine if free days are a flexible monthly allowance or strictly applied on a specific day',
+                    freeDaysLimit: 'Default Free Days Limit',
+                    freeDaysLimitDesc: 'Default monthly free days allowance for new contracts',
+                    fixedFreeDay: 'Fixed Free Day',
+                    fixedFreeDayDesc: 'The specific day of the week that will automatically be marked as free',
+                    days: {
+                        sun: 'Sunday', mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday'
+                    },
+                    initialFee: 'Default Initial Fee',
+                    initialFeeDesc: 'Default initial fee for new contracts',
+                    currency: 'Currency',
+                    currencyDesc: 'Display currency for amounts',
+                    timezone: 'Timezone',
+                    timezoneDesc: 'Timezone for dates and times'
+                },
+                integrations: {
+                    gpsTitle: 'GPS Service Integration',
+                    selectProvider: 'Select Provider',
+                    megarastreoUsername: 'MegaRastreo Username',
+                    megarastreoPassword: 'MegaRastreo Password',
+                    traccarHost: 'Traccar Host',
+                    traccarUser: 'Username',
+                    traccarPass: 'Password',
+                    traccarNotImplemented: 'Traccar (Not implemented yet)',
+                    wompiTitle: 'Wompi Payments Configuration',
+                    publicKey: 'Public Key',
+                    privateKey: 'Private Key',
+                    integritySecret: 'Integrity Secret',
+                    eventsSecret: 'Events Secret'
+                },
+                cutoff: {
+                    title: 'Automatic Cut-Off Control',
+                    enable: 'Enable Automatic Engine Stop',
+                    enableDesc: 'Automatically turn off engines at 11:59 PM for devices with unpaid invoices.',
+                    strategy: 'Cut-Off Strategy',
+                    strategy1: '1. Today\'s invoice is not paid',
+                    strategy2: '2. Yesterday\'s invoice is not paid',
+                    strategy3: '3. Do not turn off / Leave free',
+                    strategyDesc: 'Choose which payment condition triggers the automatic cutoff.',
+                    curfewTitle: 'Nightly Curfew',
+                    curfewEnable: 'Enable Nightly Curfew',
+                    curfewEnableDesc: 'Automatically turn off engines every night for security purposes.',
+                    startTime: 'Curfew Start Time (Off)',
+                    startTimeDesc: 'Time when all non-exempt devices will automatically turn off.',
+                    endTime: 'Curfew End Time (On)',
+                    endTimeDesc: 'Time when all non-exempt paid devices will automatically turn back on.'
+                },
+                system: {
+                    title: 'System Information',
+                    version: 'Application Version',
+                    dbStatus: 'Database Status',
+                    apiStatus: 'API Status',
+                    lastBackup: 'Last Backup',
+                    connected: 'Connected',
+                    active: 'Active',
+                    never: 'Never',
+                    discoveryTitle: 'Device Discovery',
+                    discoveryDesc: 'Force a synchronization with the configured GPS provider to discover new devices. Use this if a newly added device is not showing up in the platform.',
+                    syncing: 'Syncing...',
+                    syncNow: 'Sync Devices Now'
+                },
+                actions: {
+                    saveSection: 'Saved',
+                    saving: 'Saving...',
+                    saveAll: 'Save All Settings',
+                    allSaved: 'All Settings Saved!'
+                },
+                crop: {
+                    title: 'Crop Your Logo',
+                    hint: 'Drag to reposition • Use slider to zoom',
+                    cancel: 'Cancel',
+                    save: 'Crop & Save'
+                }
             }
         }
     },
@@ -260,7 +430,74 @@ const resources = {
                 settings: 'Configuración',
                 logout: 'Salir',
                 users: 'Usuarios',
-                companies: 'Compañías'
+                companies: 'Empresas'
+            },
+            contracts: {
+                title: 'Gestión de Contratos',
+                subtitle: 'Gestionar contratos de alquiler de 500 días para todos los dispositivos',
+                newContract: 'Nuevo Contrato',
+                stats: {
+                    total: 'Total Contratos',
+                    active: 'Activos',
+                    completed: 'Completados',
+                    totalValue: 'Valor Total'
+                },
+                filters: {
+                    all: 'Todos',
+                    active: 'Activos',
+                    completed: 'Completados',
+                    cancelled: 'Cancelados'
+                },
+                searchPlaceholder: 'Buscar por ID, nombre o email...',
+                loading: 'Cargando contratos...',
+                empty: {
+                    title: 'No se encontraron contratos',
+                    subtitle: 'Cree un nuevo contrato para comenzar'
+                },
+                card: {
+                    customer: 'Cliente',
+                    dailyRate: 'Tarifa Diaria',
+                    totalDays: 'Días Totales',
+                    totalAmount: 'Monto Total',
+                    edit: 'Editar',
+                    complete: 'Completar',
+                    cancel: 'Cancelar',
+                    progress: 'Progreso: {{paid}} / {{total}} días',
+                    paid: 'Pagado:',
+                    statusConfirm: '¿Está seguro de cambiar el estado a {{status}}?'
+                },
+                modal: {
+                    editTitle: 'Editar Contrato',
+                    addTitle: 'Nuevo Contrato',
+                    deviceId: 'ID Dispositivo *',
+                    selectDevice: 'Seleccionar dispositivo...',
+                    deviceWarning: 'Cada dispositivo solo puede tener un contrato activo. Cancele los contratos existentes antes de crear uno nuevo.',
+                    startDate: 'Fecha Inicio *',
+                    customerPhone: 'Teléfono del Cliente',
+                    devicePin: 'PIN del Dispositivo',
+                    devicePinCustom: 'PIN del Dispositivo (Dejar vacío para mantener el actual)',
+                    usePhonePin: 'Usa los últimos 4 del celular',
+                    usePhonePinError: 'Ingrese un número de celular válido primero',
+                    customerName: 'Nombre del Cliente',
+                    customerEmail: 'Email del Cliente',
+                    customerDocument: 'Documento del Cliente',
+                    customerDocumentPlaceholder: 'Cédula/NIT',
+                    dailyRateCop: 'Tarifa Diaria (COP)',
+                    contractDays: 'Días de Contrato',
+                    initialFeeCop: 'Cuota Inicial (COP)',
+                    freeDaysMonth: 'Días Libres al Mes',
+                    exemptCutoff: 'No aplicar Apagado Automático',
+                    notes: 'Notas',
+                    notesPlaceholder: 'Notas adicionales...',
+                    cancelBtn: 'Cancelar',
+                    saveBtn: 'Guardar Contrato',
+                    createBtn: 'Crear Contrato',
+                    updateBtn: 'Actualizar Contrato',
+                    savingBtn: 'Guardando...',
+                    successUpdate: '¡Contrato actualizado exitosamente!',
+                    successCreate: '¡Contrato creado exitosamente!',
+                    errorSave: 'Error al guardar contrato'
+                }
             },
             dashboard: {
                 title: 'Panel Principal',
@@ -397,6 +634,109 @@ const resources = {
                     previous: 'Anterior',
                     next: 'Siguiente',
                     pageInfo: 'Página {{page}} de {{totalPages}} ({{total}} total)'
+                }
+            },
+            settings: {
+                title: 'Configuración',
+                subtitle: 'Configura las preferencias de tu aplicación',
+                tabs: {
+                    branding: 'Perfil de Empresa',
+                    business: 'Ajustes de Negocio',
+                    integrations: 'Integraciones',
+                    system: 'Sistema'
+                },
+                branding: {
+                    title: 'Perfil de Empresa',
+                    displayName: 'Nombre visible de la Empresa',
+                    displayNameDesc: 'Este nombre se mostrará en la página de pagos.',
+                    emailDomain: 'Dominio de Correo por Defecto',
+                    emailDomainDesc: 'Dominio utilizado para correos autogenerados de clientes',
+                    logo: 'Logo de la Empresa',
+                    changeLogo: 'Cambiar Logo',
+                    uploadNew: 'Subir Nuevo Logo',
+                    recommended: 'RECOMENDADO: 60X60PX, PNG O JPG, MÁX 2MB'
+                },
+                general: {
+                    title: 'Ajustes Generales',
+                    dailyRate: 'Tarifa Diaria base (COP)',
+                    dailyRateDesc: 'Tarifa base por día en COP',
+                    contractDays: 'Días de Contrato por Defecto',
+                    contractDaysDesc: 'Duración por defecto para nuevos contratos',
+                    freeDayPolicy: 'Política de Días Libres',
+                    policyFlexible: 'Límite Flexible (Mensual)',
+                    policyFixed: 'Día Fijo de la Semana',
+                    freeDayPolicyDesc: 'Determina si los días libres son un límite mensual o un día específico de la semana',
+                    freeDaysLimit: 'Límite de Días Libres por Defecto',
+                    freeDaysLimitDesc: 'Cantidad de días libres al mes por defecto para nuevos contratos',
+                    fixedFreeDay: 'Día Libre Fijo',
+                    fixedFreeDayDesc: 'El día específico de la semana que será libre',
+                    days: {
+                        sun: 'Domingo', mon: 'Lunes', tue: 'Martes', wed: 'Miércoles', thu: 'Jueves', fri: 'Viernes', sat: 'Sábado'
+                    },
+                    initialFee: 'Cuota Inicial por Defecto',
+                    initialFeeDesc: 'Cuota inicial por defecto para nuevos contratos',
+                    currency: 'Moneda',
+                    currencyDesc: 'Moneda para mostrar cantidades',
+                    timezone: 'Zona Horaria',
+                    timezoneDesc: 'Zona horaria para fechas y horas'
+                },
+                integrations: {
+                    gpsTitle: 'Integración de Servicio GPS',
+                    selectProvider: 'Seleccionar Proveedor',
+                    megarastreoUsername: 'Usuario MegaRastreo',
+                    megarastreoPassword: 'Contraseña MegaRastreo',
+                    traccarHost: 'Host Traccar',
+                    traccarUser: 'Usuario',
+                    traccarPass: 'Contraseña',
+                    traccarNotImplemented: 'Traccar (Aún no implementado)',
+                    wompiTitle: 'Configuración de Pagos Wompi',
+                    publicKey: 'Llave Pública',
+                    privateKey: 'Llave Privada',
+                    integritySecret: 'Secreto de Integridad',
+                    eventsSecret: 'Secreto de Eventos'
+                },
+                cutoff: {
+                    title: 'Control de Corte Automático',
+                    enable: 'Activar Corte Automático (Deuda)',
+                    enableDesc: 'Apaga automáticamente los motores a las 11:59 PM para dispositivos con facturas sin pagar.',
+                    strategy: 'Estrategia de Corte (11:59 PM)',
+                    strategy1: '1. Apagar si debe hoy',
+                    strategy2: '2. Apagar si debe ayer',
+                    strategy3: '3. No apagar / Dejar libre',
+                    strategyDesc: 'Elige qué condición de pago activa el corte automático.',
+                    curfewTitle: 'Toque de Queda Nocturno',
+                    curfewEnable: 'Habilitar Toque de Queda Nocturno',
+                    curfewEnableDesc: 'Apaga automáticamente los motores todas las noches por seguridad.',
+                    startTime: 'Hora Apagado',
+                    startTimeDesc: 'Hora en la que todos los dispositivos no exentos se apagarán.',
+                    endTime: 'Hora Encendido',
+                    endTimeDesc: 'Hora en la que todos los dispositivos no exentos que estén al día se encenderán.'
+                },
+                system: {
+                    title: 'Información del Sistema',
+                    version: 'Versión de la Aplicación',
+                    dbStatus: 'Estado de la Base de Datos',
+                    apiStatus: 'Estado de la API',
+                    lastBackup: 'Último Respaldo',
+                    connected: 'Conectado',
+                    active: 'Activo',
+                    never: 'Nunca',
+                    discoveryTitle: 'Descubrimiento de Dispositivos',
+                    discoveryDesc: 'Fuerza una sincronización con el proveedor GPS para descubrir nuevos dispositivos. Úsalo si un dispositivo nuevo no aparece en la plataforma.',
+                    syncing: 'Sincronizando...',
+                    syncNow: 'Sincronizar Dispositivos Ahora'
+                },
+                actions: {
+                    saveSection: 'Guardado',
+                    saving: 'Guardando...',
+                    saveAll: 'Guardar Toda la Configuración',
+                    allSaved: '¡Toda la configuración guardada!'
+                },
+                crop: {
+                    title: 'Recortar Logo',
+                    hint: 'Arrastra para mover • Usa el control de zoom',
+                    cancel: 'Cancelar',
+                    save: 'Recortar y Guardar'
                 }
             }
         }

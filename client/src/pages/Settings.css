@@ -24,14 +24,48 @@
 .settings-container {
     display: flex;
     flex-direction: column;
+    gap: .5rem;
+}
+
+/* Settings Tabs Navigation */
+.settings-tabs {
+    display: flex;
     gap: 2rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #E5E7EB;
+    overflow-x: auto;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 0 0 1rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #9CA3AF;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.tab-button:hover {
+    color: #4B5563;
+}
+
+.tab-button.active {
+    color: #03C9D7;
+    border-bottom-color: #03C9D7;
 }
 
 /* Settings Section */
 .settings-section {
     background: white;
     border-radius: 0.75rem;
-    padding: 2rem;
+    padding: .5em 2rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -57,7 +91,7 @@
 
 /* Setting Item */
 .setting-item {
-    margin-bottom: 1.5rem;
+    /* margin-bottom: 1.5rem; */
 }
 
 .setting-item:last-child {
@@ -88,6 +122,7 @@
 .setting-item input[type="email"],
 .setting-item input[type="number"],
 .setting-item input[type="password"],
+.setting-item input[type="time"],
 .setting-item select {
     flex: 1;
     padding: 0.75rem 1rem;
@@ -104,6 +139,7 @@
 .setting-item input[type="email"]:focus,
 .setting-item input[type="number"]:focus,
 .setting-item input[type="password"]:focus,
+.setting-item input[type="time"]:focus,
 .setting-item select:focus {
     outline: none;
     border-color: #03C9D7;
@@ -588,10 +624,11 @@
     justify-content: space-between;
     align-items: center;
     gap: 1.5rem;
-    padding: 1rem;
+    padding: .5rem;
     background: #F9FAFB;
     border-radius: 0.75rem;
     border: 1px solid #E5E7EB;
+    margin-bottom: 1em;
 }
 
 .toggle-info {
@@ -641,4 +678,80 @@
 
 .strategy-select option {
     padding: 10px;
+}
+
+/* Sync Devices */
+.sync-devices-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #E5E7EB;
+    margin-bottom: 0;
+}
+
+.sync-devices-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.btn-sync-devices {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    background: transparent;
+    color: #03C9D7;
+    border: 1px solid #03C9D7;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-sync-devices:hover:not(:disabled) {
+    background: #03C9D7;
+    color: white;
+}
+
+.btn-sync-devices:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.sync-result {
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.3rem 0.75rem;
+    border-radius: 0.4rem;
+}
+
+.sync-result.success {
+    color: #059669;
+    background: #ECFDF5;
+}
+
+.sync-result.error {
+    color: #DC2626;
+    background: #FEF2F2;
+}
+
+/* Spin animation for the RefreshCw icon */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 0.9s linear infinite;
 }

@@ -168,7 +168,8 @@ class DeviceRepository {
                 nequiNumber: contract.nequiNumber,
                 companyId: contract.companyId,
                 companyName: contract.companyName,
-                dailyRate: contract.dailyRate
+                dailyRate: contract.dailyRate,
+                exemptFromCutOff: contract.exemptFromCutOff
             };
 
             // Remove undefined/null values to avoid overwriting with null if not provided
@@ -198,6 +199,25 @@ class DeviceRepository {
             );
         } catch (error) {
             logger.error(`Error updating cutOff status for device ${deviceId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update device curfew exemption
+     * @param {String} deviceIdentifier - Device ID or Name
+     * @param {Boolean} exemptFromCutOff
+     */
+    async updateDeviceExemption(deviceIdentifier, exemptFromCutOff) {
+        try {
+            const query = !isNaN(deviceIdentifier) ? { _id: Number(deviceIdentifier) } : { name: deviceIdentifier };
+            return await Device.findOneAndUpdate(
+                query,
+                { exemptFromCutOff: exemptFromCutOff },
+                { new: true }
+            );
+        } catch (error) {
+            logger.error(`Error updating exemption for device ${deviceIdentifier}:`, error);
             throw error;
         }
     }

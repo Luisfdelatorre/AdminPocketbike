@@ -90,6 +90,26 @@ class MyTraccar {
         return await this.changeEngineStatus(deviceId, ENGINESTOP);
     };
 
+    stopDevices = async (deviceIds) => {
+        logger.info(`ES (Bulk fallback)`, { deviceIds });
+        if (!deviceIds || deviceIds.length === 0) return [];
+
+        // Traccar API likely doesn't have a bulk command endpoint natively,
+        // so we map them to individual stopDevice promises
+        const promises = deviceIds.map(async id => {
+            try {
+                await this.stopDevice(id);
+                return id; // Return the deviceId itself as the command ID to confirm later
+            } catch (error) {
+                logger.error(`Error stopping device ${id} in bulk`, error);
+                return null;
+            }
+        });
+
+        const results = await Promise.all(promises);
+        return results.filter(id => id !== null);
+    };
+
     resumeDeviceWithRetry = async (deviceId, name = '') => {
         logger.info('ER-RETRY', { deviceId, name });
         await this.changeEngineStatus(deviceId, ENGINERESUME);
@@ -153,6 +173,31 @@ class MyTraccar {
             logger.error('Error checking device status', e);
             return 1;
         }
+    };
+
+    confirmCommand = async (commandId) => {
+        // In Traccar, commandId returned by stopDevices fallback is just the deviceId
+        // Traccar state 0 = Stopped/Cut, 1 = Active
+        const status = await this.checkDeviceStatus(commandId);
+        return status === 0;
+    };
+
+    confirmCommands = async (commandIds) => {
+        if (!commandIds || commandIds.length === 0) return {};
+
+        const resultMap = {};
+        const promises = commandIds.map(async id => {
+            try {
+                const isConfirmed = await this.confirmCommand(id);
+                resultMap[id] = isConfirmed;
+            } catch (error) {
+                logger.error(`Error confirming command ${id} in bulk`, error);
+                resultMap[id] = false;
+            }
+        });
+
+        await Promise.all(promises);
+        return resultMap;
     };
 
     getDetailedStatus = async (deviceId) => {

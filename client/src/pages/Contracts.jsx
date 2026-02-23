@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings } from '../services/api';
+import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import './Contracts.css';
 
 const Contracts = () => {
+    const { t } = useTranslation();
     const [contracts, setContracts] = useState([]);
     const [availableDevices, setAvailableDevices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,7 +27,8 @@ const Contracts = () => {
         notes: '',
         devicePin: '',
         freeDaysLimit: 4,
-        initialFee: 0
+        initialFee: 0,
+        exemptFromCutOff: false
     });
 
     const [companySettings, setCompanySettings] = useState(null);
@@ -103,7 +106,8 @@ const Contracts = () => {
             notes: '',
             devicePin: Math.floor(1000 + Math.random() * 9000).toString(),
             freeDaysLimit: defaults.freeDaysLimit || 4,
-            initialFee: defaults.initialFee || 0
+            initialFee: defaults.initialFee || 0,
+            exemptFromCutOff: false
         });
         setShowModal(true);
     };
@@ -121,7 +125,8 @@ const Contracts = () => {
             startDate: contract.startDate,
             notes: contract.notes || '',
             devicePin: '', // Keep empty to not change unless user enters new one
-            freeDaysLimit: contract.freeDaysLimit || 4
+            freeDaysLimit: contract.freeDaysLimit || 4,
+            exemptFromCutOff: contract.exemptFromCutOff || false
         });
         setShowModal(true);
     };
@@ -138,20 +143,20 @@ const Contracts = () => {
             if (result.success) {
                 setShowModal(false);
                 loadContracts();
-                showToast(editingContract ? '¡Contrato actualizado exitosamente!' : '¡Contrato creado exitosamente!', 'success');
+                showToast(editingContract ? t('contracts.modal.successUpdate') : t('contracts.modal.successCreate'), 'success');
             } else {
                 showToast(`Error: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('Error saving contract:', error);
-            showToast('Error al guardar contrato', 'error');
+            showToast(t('contracts.modal.errorSave'), 'error');
         } finally {
             setLoading(false);
         }
     };
 
     const handleStatusChange = async (contractId, newStatus) => {
-        if (!confirm(`¿Está seguro de cambiar el estado a ${newStatus}?`)) {
+        if (!window.confirm(t('contracts.card.statusConfirm', { status: newStatus }))) {
             return;
         }
 
@@ -160,13 +165,13 @@ const Contracts = () => {
 
             if (result.success) {
                 loadContracts();
-                showToast('¡Estado actualizado exitosamente!', 'success');
+                showToast(t('contracts.modal.successUpdate'), 'success');
             } else {
                 showToast(`Error: ${result.error}`, 'error');
             }
         } catch (error) {
             console.error('Error updating status:', error);
-            showToast('Error al actualizar estado', 'error');
+            showToast(t('common.error'), 'error');
         }
     };
 
@@ -220,36 +225,36 @@ const Contracts = () => {
         <div className="contracts-page">
             <div className="page-header">
                 <div>
-                    <h1>📋 Gestión de Contratos</h1>
-                    <p>Gestionar contratos de alquiler de 500 días para todos los dispositivos</p>
+                    <h1>📋 {t('contracts.title')}</h1>
+                    <p>{t('contracts.subtitle')}</p>
                 </div>
                 <button className="btn-primary" onClick={handleNewContract}>
-                    <Plus /> Nuevo Contrato
+                    <Plus /> {t('contracts.newContract')}
                 </button>
             </div>
 
             {/* Summary Stats */}
             <div className="contracts-stats">
                 <StatCard
-                    title="Total Contratos"
+                    title={t('contracts.stats.total')}
                     value={contracts.length}
                     icon={FileText}
                     color="#03C9D7"
                 />
                 <StatCard
-                    title="Activos"
+                    title={t('contracts.stats.active')}
                     value={contracts.filter(c => c.status === 'ACTIVE').length}
                     icon={TrendingUp}
                     color="#00C292"
                 />
                 <StatCard
-                    title="Completados"
+                    title={t('contracts.stats.completed')}
                     value={contracts.filter(c => c.status === 'COMPLETED').length}
                     icon={Check}
                     color="#7460EE"
                 />
                 <StatCard
-                    title="Valor Total"
+                    title={t('contracts.stats.totalValue')}
                     value={formatCurrency(contracts.reduce((sum, c) => sum + c.totalAmount, 0))}
                     icon={DollarSign}
                     color="#FB9678"
@@ -264,25 +269,25 @@ const Contracts = () => {
                     className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                     onClick={() => setFilter('all')}
                 >
-                    Todos
+                    {t('contracts.filters.all')}
                 </button>
                 <button
                     className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
                     onClick={() => setFilter('active')}
                 >
-                    Activos
+                    {t('contracts.filters.active')}
                 </button>
                 <button
                     className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
                     onClick={() => setFilter('completed')}
                 >
-                    Completados
+                    {t('contracts.filters.completed')}
                 </button>
                 <button
                     className={`filter-btn ${filter === 'cancelled' ? 'active' : ''}`}
                     onClick={() => setFilter('cancelled')}
                 >
-                    Cancelados
+                    {t('contracts.filters.cancelled')}
                 </button>
                 {/* Search Bar */}
 
@@ -290,7 +295,7 @@ const Contracts = () => {
                     <Search className="search-icon" />
                     <input
                         type="text"
-                        placeholder="Buscar por ID, nombre o email..."
+                        placeholder={t('contracts.searchPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -312,13 +317,13 @@ const Contracts = () => {
                 {loading ? (
                     <div className="loading-state">
                         <div className="spinner"></div>
-                        <p>Cargando contratos...</p>
+                        <p>{t('contracts.loading')}</p>
                     </div>
                 ) : filteredContracts.length === 0 ? (
                     <div className="empty-state">
                         <FileText size={48} />
-                        <h3>No se encontraron contratos</h3>
-                        <p>Cree un nuevo contrato para comenzar</p>
+                        <h3>{t('contracts.empty.title')}</h3>
+                        <p>{t('contracts.empty.subtitle')}</p>
                     </div>
                 ) : (
                     filteredContracts.map(contract => (
@@ -355,24 +360,24 @@ const Contracts = () => {
                                                     color: getStatusColor(contract.status)
                                                 }}
                                             >
-                                                {contract.status}
+                                                {t(`common.${contract.status.toLowerCase()}`, contract.status)}
                                             </span>
                                         </a>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Cliente</span>
+                                        <span className="info-label">{t('contracts.card.customer')}</span>
                                         <span className="info-value">{contract.customerName || 'N/A'}</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Tarifa Diaria</span>
+                                        <span className="info-label">{t('contracts.card.dailyRate')}</span>
                                         <span className="info-value">{formatCurrency(contract.dailyRate)}</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Días Totales</span>
+                                        <span className="info-label">{t('contracts.card.totalDays')}</span>
                                         <span className="info-value">{contract.contractDays} días</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="info-label">Monto Total</span>
+                                        <span className="info-label">{t('contracts.card.totalAmount')}</span>
                                         <span className="info-value">{formatCurrency(contract.totalAmount)}</span>
                                     </div>
 
@@ -393,7 +398,7 @@ const Contracts = () => {
                                                         handleEdit(contract);
                                                         setActiveMenu(null);
                                                     }}>
-                                                        <Edit size={16} /> Editar
+                                                        <Edit size={16} /> {t('contracts.card.edit')}
                                                     </button>
                                                     {contract.status === 'ACTIVE' && (
                                                         <>
@@ -401,13 +406,13 @@ const Contracts = () => {
                                                                 handleStatusChange(contract.contractId, 'COMPLETED');
                                                                 setActiveMenu(null);
                                                             }}>
-                                                                <Check size={16} /> Completar
+                                                                <Check size={16} /> {t('contracts.card.complete')}
                                                             </button>
                                                             <button className="text-danger" onClick={() => {
                                                                 handleStatusChange(contract.contractId, 'CANCELLED');
                                                                 setActiveMenu(null);
                                                             }}>
-                                                                <X size={16} /> Cancelar
+                                                                <X size={16} /> {t('contracts.card.cancel')}
                                                             </button>
                                                         </>
                                                     )}
@@ -422,7 +427,7 @@ const Contracts = () => {
 
                                 <div className="contract-progress">
                                     <div className="progress-header">
-                                        <span>Progreso: {contract.paidDays} / {contract.contractDays} días</span>
+                                        <span>{t('contracts.card.progress', { paid: contract.paidDays, total: contract.contractDays })}</span>
                                         <span className="progress-percent">
                                             {((contract.paidDays / contract.contractDays) * 100).toFixed(1)}%
                                         </span>
@@ -439,7 +444,7 @@ const Contracts = () => {
                                     <div className="progress-details">
                                         <div>
                                             <Check size={14} />
-                                            Pagado: {formatCurrency(contract.paidAmount)}
+                                            {t('contracts.card.paid')} {formatCurrency(contract.paidAmount)}
                                         </div>
                                         <div>
                                             <Calendar size={14} />
@@ -460,13 +465,13 @@ const Contracts = () => {
                 <div className="modal-overlay">
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>{editingContract ? 'Editar Contrato' : 'Nuevo Contrato'}</h2>
+                            <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <form onSubmit={handleSubmit} className="contract-form">
                             <div className="form-grid">
                                 <div className="form-group">
-                                    <label>ID Dispositivo *</label>
+                                    <label>{t('contracts.modal.deviceId')}</label>
                                     {editingContract ? (
                                         <input
                                             type="text"
@@ -495,7 +500,7 @@ const Contracts = () => {
                                                 }}
                                                 required
                                             >
-                                                <option value="">Seleccionar dispositivo...</option>
+                                                <option value="">{t('contracts.modal.selectDevice')}</option>
                                                 {availableDevices.filter(d => !d.hasActiveContract).map(device => (
                                                     <option
                                                         key={device.deviceId}
@@ -505,14 +510,12 @@ const Contracts = () => {
                                                     </option>
                                                 ))}
                                             </select>
-                                            <small style={{ color: '#6B7280', fontSize: '0.813rem', marginTop: '0.25rem', display: 'block' }}>
-                                                Cada dispositivo solo puede tener un contrato activo. Cancele los contratos existentes antes de crear uno nuevo.
-                                            </small>
+
                                         </>
                                     )}
                                 </div>
                                 <div className="form-group">
-                                    <label>Fecha Inicio *</label>
+                                    <label>{t('contracts.modal.startDate')}</label>
                                     <input
                                         type="date"
                                         value={formData.startDate}
@@ -522,7 +525,7 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Teléfono del Cliente</label>
+                                    <label>{t('contracts.modal.customerPhone')}</label>
                                     <input
                                         type="tel"
                                         inputMode="numeric"
@@ -540,12 +543,12 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>PIN del Dispositivo {editingContract ? '(Dejar vacío para mantener el actual)' : '*'}</label>
+                                    <label>{t('contracts.modal.devicePin')}</label>
                                     <input
                                         type="text"
                                         value={formData.devicePin}
                                         onChange={(e) => setFormData({ ...formData, devicePin: e.target.value })}
-                                        placeholder="PIN de 4 dígitos"
+                                        placeholder={t('contracts.modal.devicePin')}
                                         maxLength="4"
                                         className="font-mono"
                                         required={!editingContract}
@@ -562,19 +565,19 @@ const Contracts = () => {
                                                     if (digits.length >= 4) {
                                                         setFormData(prev => ({ ...prev, devicePin: digits.slice(-4) }));
                                                     } else {
-                                                        showToast('Ingrese un número de celular válido primero', 'error');
+                                                        showToast(t('contracts.modal.usePhonePinError'), 'error');
                                                         e.target.checked = false;
                                                     }
                                                 }
                                             }}
                                         />
-                                        <label htmlFor="usePhonePin" style={{ fontSize: '0.9rem', color: '#4B5563', cursor: 'pointer' }}>
-                                            Usa los últimos 4 del celular
+                                        <label htmlFor="usePhonePin" style={{ fontSize: '0.6rem', color: '#4B5563', cursor: 'pointer' }}>
+                                            {t('contracts.modal.usePhonePin')}
                                         </label>
                                     </div>
                                 </div>
                                 <div className="form-group">
-                                    <label>Nombre del Cliente</label>
+                                    <label>{t('contracts.modal.customerName')}</label>
                                     <input
                                         type="text"
                                         value={formData.customerName}
@@ -583,7 +586,7 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Email del Cliente</label>
+                                    <label>{t('contracts.modal.customerEmail')}</label>
                                     <input
                                         type="email"
                                         value={formData.customerEmail}
@@ -596,16 +599,16 @@ const Contracts = () => {
 
 
                                 <div className="form-group">
-                                    <label>Documento del Cliente</label>
+                                    <label>{t('contracts.modal.customerDocument')}</label>
                                     <input
                                         type="text"
                                         value={formData.customerDocument}
                                         onChange={(e) => setFormData({ ...formData, customerDocument: e.target.value })}
-                                        placeholder="Cédula/NIT"
+                                        placeholder={t('contracts.modal.customerDocumentPlaceholder')}
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Tarifa Diaria (COP)</label>
+                                    <label>{t('contracts.modal.dailyRateCop')}</label>
                                     <input
                                         type="text"
                                         value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.dailyRate)}
@@ -617,7 +620,7 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Días de Contrato</label>
+                                    <label>{t('contracts.modal.contractDays')}</label>
                                     <input
                                         type="number"
                                         value={formData.contractDays}
@@ -628,10 +631,10 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Cuota Inicial (COP)</label>
+                                    <label>{t('contracts.modal.initialFeeCop')}</label>
                                     <input
                                         type="text"
-                                        value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.initialFee)}
+                                        value={formData.initialFee ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.initialFee) : ''}
                                         onChange={(e) => {
                                             const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
                                             setFormData({ ...formData, initialFee: val });
@@ -641,7 +644,7 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Días Libres al Mes</label>
+                                    <label>{t('contracts.modal.freeDaysMonth')}</label>
                                     <input
                                         type="number"
                                         value={formData.freeDaysLimit}
@@ -650,22 +653,36 @@ const Contracts = () => {
                                         max="31"
                                     />
                                 </div>
+                                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                    <div className="phone-pin-checkbox" style={{ marginTop: '0.5rem', padding: '10px', borderRadius: '8px' }}>
+                                        <input
+                                            type="checkbox"
+                                            id="exemptFromCutOff"
+                                            checked={formData.exemptFromCutOff}
+                                            onChange={(e) => setFormData({ ...formData, exemptFromCutOff: e.target.checked })}
+                                            style={{ marginRight: '0.5rem', width: 'auto' }}
+                                        />
+                                        <label htmlFor="exemptFromCutOff" style={{ fontSize: '0.7rem', cursor: 'pointer', fontWeight: '600' }}>
+                                            {t('contracts.modal.exemptCutoff')}
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                             <div className="form-group full-width">
-                                <label>Notas</label>
+                                <label>{t('contracts.modal.notes')}</label>
                                 <textarea
                                     value={formData.notes}
                                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                     rows="3"
-                                    placeholder="Notas adicionales..."
+                                    placeholder={t('contracts.modal.notesPlaceholder')}
                                 />
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                                    Cancelar
+                                    {t('contracts.modal.cancelBtn')}
                                 </button>
                                 <button type="submit" className="btn-primary" disabled={loading}>
-                                    {loading ? 'Guardando...' : editingContract ? 'Actualizar Contrato' : 'Crear Contrato'}
+                                    {loading ? t('contracts.modal.savingBtn') : editingContract ? t('contracts.modal.updateBtn') : t('contracts.modal.createBtn')}
                                 </button>
                             </div>
                         </form>

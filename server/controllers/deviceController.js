@@ -5,7 +5,8 @@ import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
 
 import deviceServices from '../services/deviceServices.js';
-import MegaRastreo from '../services/megaRastreoServices1.js';
+import gpsService from '../services/megaRastreoServices.js';
+import companyService from '../services/companyService.js';
 import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
 import bcrypt from 'bcryptjs';
 
@@ -181,18 +182,29 @@ const deleteDevice = async (req, res) => {
 const syncDevices = async (req, res) => {
     try {
         const { companyId } = req.auth;
-        let companyConfig = null;
         let company = null;
+        let adapter;
 
         if (companyId) {
-            company = await Company.findById({ _id: companyId });
-            if (company) {
-                companyConfig = company.gpsConfig;
-                console.log(`[SYNC] Using custom config for company: ${company.name}`);
-            }
+            company = await Company.findById(companyId);
+            adapter = await companyService.getGpsAdapter(companyId);
+        } else {
+            // Fallback for system admin fetching all?
+            adapter = await companyService.getGpsAdapter(null);
         }
 
-        const gpsDevices = await MegaRastreo.getDeviceListByCompany(company);
+        const rawDevices = await adapter.fetchDevices();
+
+        let gpsDevices = rawDevices;
+        // Stamp company info if syncing for a specific company
+        if (company) {
+            gpsDevices = rawDevices.map(d => ({
+                ...d,
+                companyId: company._id.toString(),
+                companyName: company.name
+            }));
+        }
+
         if (gpsDevices.length === 0) {
             return res.json({
                 success: true,
@@ -245,26 +257,6 @@ const assignDevicesToCompany = async (req, res) => {
             });
         }
 
-        // 1. Remove devices from this company (if they are NOT in the new list)
-        // This effectively "unassigns" devices if they were unchecked
-        // BUT, unassigning usually means setting to a default system company or null?
-        // For now, checks are "add/keep". If I uncheck a device that WAS assigned,
-        // it should probably be removed from this company.
-        // STRATEGY:
-        // - Set companyId/Name to target for all in deviceIds.
-        // - Set companyId/Name to System/Default for all currently in companyId but NOT in deviceIds?
-        // Let's implement robust Logic:
-        // "Set all these devices to this company".
-        // What do we do with devices that *used* to be in this company but are not in the list?
-        // If the UI sends "All devices properly assigned to this company", then we should:
-        // A. Remove all devices from this company.
-        // B. Add the requested devices to this company.
-        // However, devices MUST belong to a company. We can't leave them orphan.
-        // So, we will only UPDATE the devices in the list.
-        // If the user wants to "remove" a device, they should assign it to another company (or System).
-        // Let's stick to "Assign these devices to this company".
-
-        // Sanitize IDs (handle potential numbers)
         const sanitizedDeviceIds = deviceIds.map(id => {
             const trimmed = String(id).trim();
             // If it looks like a number, cast to number to match DB types
@@ -275,7 +267,7 @@ const assignDevicesToCompany = async (req, res) => {
             { _id: { $in: sanitizedDeviceIds } },
             {
                 $set: {
-                    companyId: company._id,
+                    companyId: company._id.toString(),
                     companyName: company.name
                 }
             }
@@ -336,7 +328,7 @@ const controlEngine = async (req, res) => {
 
         // Execute and verify via MegaRastreo service
         // We use megaDeviceId (numeric platform ID) for commands
-        const success = await MegaRastreo.executeAndVerify(device.megaDeviceId, commandType, {
+        const success = await gpsService.executeAndVerify(device.megaDeviceId, commandType, {
             companyConfig
         });
 

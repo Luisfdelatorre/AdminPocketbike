@@ -11,7 +11,7 @@ import { Device } from '../models/Device.js';
 import { Payment } from '../models/index.js';
 import { Company } from '../models/Company.js';
 import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
-import gpsServices from './megaRastreoServices1.js';
+import gpsServices from './megaRastreoServices.js';
 import companyService from './companyService.js';
 
 
@@ -47,12 +47,21 @@ export class PaymentService {
         const oldestUnpaidInvoice = await invoiceRepository.findLastUnPaid(deviceIdName);
         const pendingPayment = await paymentRepository.findPendingPayment(deviceIdName, MAX_NEQUI_PAYMENT_TIMEOUT);
 
+        let policy = contract.freeDayPolicy;
+        if (!policy && contract.companyId) {
+            const company = await Company.findById(contract.companyId).select('contractDefaults.freeDayPolicy').lean();
+            if (company?.contractDefaults?.freeDayPolicy) {
+                policy = company.contractDefaults.freeDayPolicy;
+            }
+        }
+
         return {
             deviceIdName,
             customerPhone: contract.customerPhone,
             dailyRate: contract.dailyRate,
             pendingInvoiceDate: oldestUnpaidInvoice?.date,
             freeDaysAvailable: monthlyFreeDaysAvailable,
+            freeDayPolicy: policy, // Ultimate fallback 
             isOverdue,
             pendingPayment: pendingPayment ? pendingPayment.getPendingFormat() : null
         };
@@ -60,8 +69,12 @@ export class PaymentService {
 
     /**
      * Apply a free day usage
+     * @param {string} deviceIdName
+     * @param {string} contractId
+     * @param {string} companyId
+     * @param {boolean} isAutomaticTrigger - If true, skips monthly limit checks and GPS activation commands
      */
-    async applyFreeDay(deviceIdName, contractId, companyId) {
+    async applyFreeDay(deviceIdName, contractId, companyId, isAutomaticTrigger = false) {
         const dummyOnUpdate = (update) => {
             logger.info(`[FREE DAY] Activation status: ${update.status} - ${update.message}`);
         };
@@ -69,36 +82,38 @@ export class PaymentService {
         if (!contract) {
             return { success: false, message: 'Contract not found' };
         }
-        // Check free days status
-        const { monthlyFreeDaysAvailable } = await invoiceRepository.getFreeDaysStatus(deviceIdName, contract.freeDaysLimit);
 
-        if (monthlyFreeDaysAvailable < 1) {
-            return { success: false, message: 'No tienes mas dias disponibles' };
+        if (!isAutomaticTrigger) {
+            const { monthlyFreeDaysAvailable } = await invoiceRepository.getFreeDaysStatus(deviceIdName, contract.freeDaysLimit);
+            if (monthlyFreeDaysAvailable < 1) {
+                return { success: false, message: 'No tienes mas dias disponibles' };
+            }
         }
+
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
         const payment = await paymentRepository.createFreePayment(deviceIdName, contract, unpaidInvoice, companyId);
         const paidInvoice = await unpaidInvoice.applyPayment(payment);
 
-        // Activate device
+        let deviceStatus = null;
 
-        // Activate device
-        // ... (activation calls activateDevice which is already refactored)
+        // Skip calling the physical device activation if this is just an automatic scheduled billing day setup
+        if (!isAutomaticTrigger) {
+            const yesterday = dayjs().add(-1, 'day').startOf('day');
+            const invoiceDate = dayjs(paidInvoice.date).startOf('day');
+            if (!invoiceDate.isBefore(yesterday)) {
+                await this.activateDevice(paidInvoice.megaDeviceId, payment.reference, dummyOnUpdate, companyId);
+            } else {
+                logger.info(`[FREE DAY] Activation warning: Invoice date too old`);
+            }
 
-        const yesterday = dayjs().add(-1, 'day').startOf('day');
-        const invoiceDate = dayjs(paidInvoice.date).startOf('day');
-        if (!invoiceDate.isBefore(yesterday)) {
-            await this.activateDevice(paidInvoice, payment.reference, dummyOnUpdate, companyId);
-        } else {
-            logger.info(`[FREE DAY] Activation warning: Invoice date too old`); // Fixed undefined 'e'
+            // Get updated device status only if we potentially interacted with it
+            const gpsAdapter = await companyService.getGpsAdapter(companyId);
+            deviceStatus = await gpsAdapter.getDetailedStatus(unpaidInvoice.deviceId);
         }
-
-        // Get updated device status
-        const gpsAdapter = await companyService.getGpsAdapter(companyId);
-        const deviceStatus = await gpsAdapter.getDetailedStatus(unpaidInvoice.deviceId);
 
         return {
             success: true,
-            message: 'Free day applied successfully',
+            message: isAutomaticTrigger ? 'Automatic free day recorded successfully' : 'Free day applied successfully',
             deviceIdName,
             invoiceId: unpaidInvoice._id,
             deviceStatus
@@ -112,7 +127,7 @@ export class PaymentService {
             const date = dayjs(cleanDate).startOf('day');
             console.log("date", date);
 
-            const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId, date);
+            const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId, date, device.megaDeviceId);
             // 2. Create Payment
             const payment = await paymentRepository.createInitialFeePayment(device, contract, invoice, initialFee);
             // Link payment to invoice
@@ -146,7 +161,7 @@ export class PaymentService {
                 try {
                     const yesterday = dayjs().add(-1, 'day').startOf('day');
                     if (!invoiceDate.isBefore(yesterday)) {
-                        await this.activateDevice(existingUnpaid, `LOAN-${payment._id}`, dummyOnUpdate, companyId);
+                        await this.activateDevice(existingUnpaid.megaDeviceId, `LOAN-${payment._id}`, dummyOnUpdate, companyId);
                     }
 
 
@@ -189,28 +204,31 @@ export class PaymentService {
     /**
      * Get Device Status (Traccar)
      */
-    async getDataStatus(deviceId) {
+    async getDataStatus(deviceIdName) {
         try {
-            console.log('Device ID:', deviceId);
-            // We need companyId to get the correct adapter. 
-            // Assuming deviceId is the external ID (e.g. Traccar ID or MegaRastreo ID), we might need to look it up in our DB first?
-            // Or assume only our DB ids are passed? 
-            // The method signature suggests 'deviceId'. If this is our DB _id, we can look up the device.
-            // If it's the external ID, we might have a problem if multiple companies use same external IDs (unlikely for IMEI/TraccarID).
+            console.log('Device ID:', deviceIdName);
 
-            // Let's assume it's the 'deviceId' field from our Device model (which often matches external ID)
-            const device = await deviceRepository.findByDeviceId(deviceId); // You might need to ensure this method exists or use findOne
+            // Look up device by name to get megaDeviceId and companyId
+            const device = await deviceRepository.getDeviceByName(deviceIdName);
 
-            // Fallback for companyId if device not found (maybe generic status check?)
-            const companyId = device?.companyId;
+            if (!device) {
+                logger.warn(`[DEVICE STATUS] Device not found for name: ${deviceIdName}`);
+                return { deviceIdName, engineOn: null, cutOff: null };
+            }
+
+            const companyId = device.companyId;
+            const megaDeviceId = device.megaDeviceId ?? device._id;
 
             const gpsAdapter = await companyService.getGpsAdapter(companyId);
-            const details = await gpsAdapter.getDetailedStatus(deviceId);
+            // checkDeviceStatus returns a boolean: true = engine confirmed ON
+            const engineOn = await gpsAdapter.checkDeviceStatus(megaDeviceId);
 
-            console.log('Device Status:', details);
+            console.log('Device Status:', { deviceIdName, engineOn, cutOff: device.cutOff });
             return {
-                ...details,
-                deviceId
+                deviceIdName,
+                megaDeviceId,
+                engineOn,
+                cutOff: device.cutOff
             };
         } catch (error) {
             logger.error('[DEVICE STATUS] Error checking status:', error);
@@ -227,7 +245,10 @@ export class PaymentService {
         this.validatePaymentInput(deviceIdName, phone);
         await this.checkDuplicatePayment(deviceIdName);
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+
+        // Find the next unpaid invoice
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
+        const appDevice = await deviceRepository.getDeviceByName(deviceIdName);
 
         const wompiAdapter = await companyService.getWompiAdapter(companyId);
 
@@ -356,14 +377,22 @@ export class PaymentService {
                 throw new Error('Invoice not found or could not be processed');
             }
             await payment.markAsUsed(invoice);
+
             try {
                 const contract = await contractRepository.getActiveContractByDevice(payment.deviceIdName);
                 if (contract) {
                     const amountPaid = payment.amount_in_cents ? payment.amount_in_cents / 100 : payment.amount;
                     const daysPaid = contract.dailyRate > 0 ? amountPaid / contract.dailyRate : 0;
                     await contractRepository.updateContractProgress(contract.contractId, amountPaid, daysPaid);
-
                     logger.info(`[CONTRACT] Updated progress for ${contract.contractId}: +${amountPaid} (${daysPaid.toFixed(2)} days)`);
+                    if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && contract.fixedFreeDayOfWeek !== undefined) {
+                        const nextDayOfWeek = dayjs(invoice.date).add(1, 'day').day();
+                        if (nextDayOfWeek === contract.fixedFreeDayOfWeek) {
+                            logger.info(`[PAYMENT] Tomorrow is Fixed Free Day (${contract.fixedFreeDayOfWeek}) for ${payment.deviceIdName}. Preventive auto-generation triggered.`);
+                            await this.applyFreeDay(payment.deviceIdName, contract.contractId, payment.companyId, true);
+                        }
+                    }
+
                 } else {
                     logger.warn(`[CONTRACT] No active contract found for device ${payment.deviceIdName} during payment processing.`);
                 }
@@ -380,7 +409,8 @@ export class PaymentService {
             const invoiceDate = dayjs(invoice.date).startOf('day');
 
             if (invoiceDate.isSameOrAfter(yesterday)) {
-                await this.activateDevice(payment.deviceId, reference, onUpdate, payment.companyId);
+                console.log(`[TRACE-1] processApprovedPayment → activateDevice | megaDeviceId=${payment.megaDeviceId} companyId=${payment.companyId}`);
+                await this.activateDevice(payment.megaDeviceId, reference, onUpdate, payment.companyId);
 
             } else {
                 logger.info(`[DEVICE] Activation skipped - invoice date out of range (not yesterday/today): ${invoice.date}`);
@@ -412,24 +442,21 @@ export class PaymentService {
     /**
      * Activate Device via Traccar
      */
-    async activateDevice(deviceIdOrInvoice, reference, onUpdate, companyId) {
-
-        const deviceId = deviceIdOrInvoice?.deviceId || deviceIdOrInvoice;
-
+    async activateDevice(deviceId, reference, onUpdate, companyId) {
+        console.log(`[TRACE-2] activateDevice received | deviceId=${deviceId} companyId=${companyId}`);
         if (!deviceId) {
-            logger.error(`[DEVICE] Failed to activate: webDeviceId not found for input ${deviceIdOrInvoice}`);
+            logger.error(`[DEVICE] activateDevice called with null/undefined deviceId!`);
             return;
         }
 
         // 1. Initial notification
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
 
-        // 2. Execute and verify via centralized service
+        // 2. Execute and verify via GpsService wrapper (has executeAndVerify; raw adapter does not)
         try {
-            const gpsAdapter = await companyService.getGpsAdapter(companyId);
-
-            const isConfirmed = await gpsAdapter.executeAndVerify(deviceId, ENGINERESUME, {
-                companyConfig: companyId, // Some adapters might need this, or it's redundant if adapter is configured
+            console.log(`[TRACE-3] activateDevice → gpsServices.executeAndVerify | deviceId=${deviceId}`);
+            const isConfirmed = await gpsServices.executeAndVerify(deviceId, ENGINERESUME, {
+                companyConfig: companyId,
                 onProgress: (p) => {
                     notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
                         reference,
@@ -523,7 +550,7 @@ export class PaymentService {
             console.log("paymentsObj", paymentsObj);
             invoices.forEach((invoice) => {
                 const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
-                const day = new Date(invoice.date).getUTCDate();
+                const day = dayjs(invoice.date).date();
                 const devName = invoice.deviceIdName;
                 if (!deviceMap[devName]) {
                     deviceMap[devName] = {

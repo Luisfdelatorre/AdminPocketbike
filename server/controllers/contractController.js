@@ -286,7 +286,10 @@ const updateContract = async (req, res) => {
             contractDays, // Added contractDays
             notes,
             devicePin,
-            freeDaysLimit // Added freeDaysLimit
+            freeDaysLimit, // Added freeDaysLimit
+            freeDayPolicy,
+            fixedFreeDayOfWeek,
+            exemptFromCutOff
         } = req.body;
 
         const contract = await contractRepository.getContractById(contractId);
@@ -307,10 +310,19 @@ const updateContract = async (req, res) => {
             contractDays, // Added contractDays
             notes,
             devicePin,
-            freeDaysLimit // Added freeDaysLimit
+            freeDaysLimit, // Added freeDaysLimit
+            freeDayPolicy,
+            fixedFreeDayOfWeek,
+            exemptFromCutOff
         });
         console.log('Update contract:', updatedContract);
         const result = await deviceRepository.updateContractStatus(contract.deviceId, contractId, true);
+
+        // Denormalize exempt flag to Device
+        if (exemptFromCutOff !== undefined) {
+            await deviceRepository.updateDeviceExemption(contract.deviceIdName || contract.deviceId, exemptFromCutOff);
+        }
+
         console.log('Update contract status result:', result);
 
         res.json({

@@ -6,7 +6,9 @@ import dayjs from "../config/dayjs.js";
 import { Company } from "../models/Company.js";
 
 import { Device } from "../models/Device.js";
-import { Transaction, ENGINESTOP } from "../config/config.js";
+import { Invoice } from "../models/Invoice.js";
+import { Transaction, ENGINESTOP, ENGINERESUME } from "../config/config.js";
+
 
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 
@@ -16,15 +18,28 @@ const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 // Start the queue service
 //activationQueue.start();
 
+import paymentService from './paymentService.js';
+
 const generateDailyInvoices = async () => {
   try {
     // Use today's date, normalized to start of day
     const today = dayjs().startOf('day').toDate();
     logger.info("🚀 Starting global daily invoice generation for:", today);
 
-    // 1. Fetch all devices that are marked as having an active contract
+    // 1. Find companies with automatic invoicing enabled
+    const enabledCompanies = await Company.find({ automaticInvoicing: true, isActive: true }).lean();
+
+    if (!enabledCompanies || enabledCompanies.length === 0) {
+      logger.info('No companies have automatic invoicing enabled. Skipping.');
+      return;
+    }
+
+    const companyIds = enabledCompanies.map(c => c._id);
+
+    // 2. Fetch all devices that are marked as having an active contract AND belong to enabled companies
     const devices = await Device.find({
       hasActiveContract: true,
+      companyId: { $in: companyIds }
     }).lean();
 
     if (!devices || devices.length === 0) {
@@ -32,10 +47,30 @@ const generateDailyInvoices = async () => {
       return;
     }
 
-    logger.info(`🚀 Found ${devices.length} devices with active contracts for processing.`);
+    logger.info(`🚀 Found ${devices.length} devices with active contracts spanning ${enabledCompanies.length} companies for processing.`);
 
     for (const device of devices) {
       try {
+        const contract = await ContractRepository.getActiveContractByDevice(device.name);
+        if (!contract) {
+          logger.warn(`Device ${device.name} has hasActiveContract=true but no active contract found.`);
+          continue;
+        }
+
+        // Check for FIXED_WEEKDAY automatic free day policy
+        if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && today.getDay() === contract.fixedFreeDayOfWeek) {
+          const existingInvoice = await invoiceRepository.getInvoiceByDeviceAndDate(device.name, today);
+
+          if (existingInvoice) {
+            logger.info(`[CRON] Fixed Free Day already applied preventively for ${device.name} on ${dayjs(today).format('YYYY-MM-DD')}. Skipping duplicate generation.`);
+            continue; // Skip since it's already there
+          }
+
+          logger.info(`🎉 Automatic Fixed Free Day triggered for device ${device.name}`);
+          await paymentService.applyFreeDay(device.name, contract.contractId, device.companyId, true);
+          continue; // Skip standard invoice generation since applyFreeDay handles it
+        }
+
         // Use denormalized dailyRate directly from the device record for efficiency
         const amount = device.dailyRate || 0;
 
@@ -66,22 +101,6 @@ const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId, companyId
 
   try {
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
-    // Use deviceId (which might be the DB ID or external ID depending on adapter expectation)
-    // MegaRastreo uses megaDeviceId/externalId. Traccar uses local ID? 
-    // The previous code passed megaDeviceId. Traccar adapter likely expects its own ID format.
-    // If using Traccar, megaDeviceId might be null or different.
-    // Ideally, we should pass the ID the adapter expects.
-    // For now, let's stick to what was passed (megaDeviceId) but we might need to verify if Traccar needs something else.
-    // Actually, paymentService used `deviceId` (DB id?) for Traccar.
-    // Let's pass `megaDeviceId` for MegaRastreo legacy support, but if it's Traccar, it might need `deviceId` (DB ID) or `imei`.
-    // Safe bet: Pass both or let the adapter handle it?
-    // The previous code passed `megaDeviceId` to `gpsServices.executeAndVerify`.
-    // megaRastreoServices1.js's executeAndVerify takes `deviceId`.
-
-    // If company uses Traccar, `megaDeviceId` might be undefined if not set.
-    // We should probably rely on `deviceId` (DB ID) if the adapter can handle looking it up, OR ensure we pass the right ID.
-    // Given existing `megaRastreoServices1.js` takes `megaDeviceId` (mapped to `deviceId` param), let's prioritize that for MegaRastreo.
-    // For Traccar, we might need to check.
 
     // For safety, let's use the `deviceId` (DB ID) if `megaDeviceId` is missing, assuming existing logic populated `megaDeviceId` correctly.
     const targetId = megaDeviceId || deviceId;
@@ -102,12 +121,67 @@ const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId, companyId
   }
 };
 
+const verifyAndMarkCutOffBatch = async (batch, companyId) => {
+  logger.info(`[CUT-OFF] Batch engine stop verification starting for ${batch.length} devices...`);
+
+  try {
+    const gpsAdapter = await companyService.getGpsAdapter(companyId);
+
+    // Prepare arrays for the adapter
+    const targetIds = batch.map(d => d.megaDeviceId || d.deviceId); // Need fallback if megaDeviceId is undefined
+
+    const streamedConfirmedIds = new Set();
+
+    const handleDeviceConfirmed = (targetId) => {
+      streamedConfirmedIds.add(targetId);
+      // Find original device inside the batch
+      const originalDevice = batch.find(d => (d.megaDeviceId || d.deviceId) === targetId);
+      if (originalDevice) {
+        logger.info(`[CUT-OFF] Device ${originalDevice.name} engine stop confirmed early.`);
+        // Fire and forget updating the status async
+        deviceRepository.updateCutOffStatus(originalDevice.deviceId, 1).catch(err => {
+          logger.error(`Error streaming update for ${originalDevice.name}:`, err);
+        });
+      }
+    };
+
+    // pass onDeviceConfirmed
+    const resultsMap = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP, {
+      companyConfig: companyId,
+      onDeviceConfirmed: handleDeviceConfirmed
+    });
+
+    // Iterate through the original batch to correlate results and update DB
+    // We only process devices that were NOT confirmed early.
+    const updatePromises = batch.map(async (device) => {
+      const targetId = device.megaDeviceId || device.deviceId;
+
+      // If we already successfully streamed its update, do nothing
+      if (streamedConfirmedIds.has(targetId)) return;
+
+      const confirmed = resultsMap[targetId];
+
+      if (!confirmed) {
+        logger.warn(`[CUT-OFF] Device ${device.name} engine stop command not confirmed after retries.`);
+        return deviceRepository.updateCutOffStatus(device.deviceId, 2); // 2 = Sent but not confirmed
+      } else {
+        // Technically this shouldn't happen unless the callback missed it, 
+        // but we handle it just in case as a fallback.
+        logger.info(`[CUT-OFF] Device ${device.name} engine stop confirmed (fallback DB write).`);
+        return deviceRepository.updateCutOffStatus(device.deviceId, 1); // 1 = Confirmed
+      }
+    });
+
+    await Promise.all(updatePromises);
+  } catch (error) {
+    logger.error(`[CUT-OFF] Error executing batch cut-off:`, error);
+  }
+};
+
 const performDailyCutOff = async () => {
   logger.info("🕒 Starting daily cut-off process (23:59)...");
   try {
 
-
-    // 1. Find companies with automatic cut-off enabled
     const enabledCompanies = await Company.find({ automaticCutOff: true, isActive: true }).lean();
 
     if (!enabledCompanies || enabledCompanies.length === 0) {
@@ -127,7 +201,6 @@ const performDailyCutOff = async () => {
 
       logger.info(`🏢 Processing company: ${company.name} (Strategy: ${strategy})`);
 
-      // 2. Fetch active devices for this company
       const devices = await Device.find({
         companyId: company._id,
         hasActiveContract: true,
@@ -138,14 +211,31 @@ const performDailyCutOff = async () => {
         continue;
       }
 
+      // 3. Determine the target date based on strategy and fetch all company invoices for that date ONCE
+      const targetDateObject = strategy === 1 ? today.toDate() : yesterday.toDate();
+      const targetDateLabel = strategy === 1 ? 'Today' : 'Yesterday';
+      const targetDateFormatted = strategy === 1 ? today.format('YYYY-MM-DD') : yesterday.format('YYYY-MM-DD');
+
+      console.log(`[DEBUG] Company ${company.name}: Fetching all invoices for ${targetDateLabel} (${targetDateFormatted})`);
+
+      // Retrieve all invoices for this company on the target date efficiently
+      const companyInvoices = await invoiceRepository.findInvoices({
+        companyId: company._id,
+        date: targetDateObject
+      });
+
+      // Build a fast lookup map: deviceIdName -> Invoice
+      const invoiceMap = new Map();
+      companyInvoices.forEach(inv => {
+        invoiceMap.set(inv.deviceIdName, inv);
+      });
+
+      const devicesToCutOff = [];
+
       for (const device of devices) {
-        if (device.name !== 'YAG34H') {
-          continue;
-        }
         console.log(`[DEBUG] Checking device: ${device.name}`);
         try {
           const deviceName = device.name;
-          let shouldCutOff = false;
 
           // Helper to check if an invoice is "OK" (paid or special)
           const isUpToDate = (inv) => {
@@ -159,28 +249,14 @@ const performDailyCutOff = async () => {
             return specialTypes.includes(inv.dayType);
           };
 
-          if (strategy === 1) {
-            // Strategy 1: Check today's invoice
-            console.log(`[DEBUG] Device ${deviceName}: Using Strategy 1 (Today: ${today.format('YYYY-MM-DD')})`);
-            const invToday = await invoiceRepository.getInvoiceByDeviceAndDate(deviceName, today.toDate());
-            if (!isUpToDate(invToday)) {
-              shouldCutOff = true;
-            }
-          } else if (strategy === 2) {
-            // Strategy 2: Check yesterday's invoice
-            console.log(`[DEBUG] Device ${deviceName}: Using Strategy 2 (Yesterday: ${yesterday.format('YYYY-MM-DD')})`);
-            const invYesterday = await invoiceRepository.getInvoiceByDeviceAndDate(deviceName, yesterday.toDate());
-            if (!isUpToDate(invYesterday)) {
-              shouldCutOff = true;
-            }
-          }
+          const invTarget = invoiceMap.get(deviceName);
+          const shouldCutOff = !isUpToDate(invTarget);
 
-          if (shouldCutOff) {
+          if (device.exemptFromCutOff === true) {
+            logger.info(`🛡️ Device ${deviceName} is exempt from Cut-Off. Skipping.`);
+          } else if (shouldCutOff) {
             console.log(`[DEBUG] Device ${deviceName}: SHOULD CUT OFF.`);
-            logger.info(`🚫 Cutting off device ${deviceName} (Company: ${company.name}, Strategy: ${strategy}): Unpaid invoice detected.`);
-
-            // 3. Command and Verify engine stop
-            await verifyAndMarkCutOff(deviceName, device.deviceId, device.megaDeviceId, company._id);
+            devicesToCutOff.push(device);
           } else {
             logger.info(`✅ Device ${deviceName} is up to date.`);
           }
@@ -188,6 +264,18 @@ const performDailyCutOff = async () => {
           logger.error(`Error processing cut-off for device ${device.name}:`, innerErr);
         }
       }
+
+      // 3. Command and Verify engine stop in batches of 10
+      if (devicesToCutOff.length > 0) {
+        logger.info(`🚫 Cutting off ${devicesToCutOff.length} devices for Company: ${company.name} (Strategy: ${strategy})`);
+
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < devicesToCutOff.length; i += BATCH_SIZE) {
+          const batch = devicesToCutOff.slice(i, i + BATCH_SIZE);
+          await verifyAndMarkCutOffBatch(batch, company._id);
+        }
+      }
+
     }
 
     logger.info("✅ Daily cut-off process completed.");
@@ -196,7 +284,83 @@ const performDailyCutOff = async () => {
   }
 };
 
+const performCurfewStart = async (companyId) => {
+  logger.info(`🌙 Starting Night Curfew for company: ${companyId}`);
+  try {
+    const devices = await Device.find({
+      companyId,
+      hasActiveContract: true,
+      exemptFromCutOff: { $ne: true },
+      cutOff: { $in: [0, null] }
+    }).lean();
+
+    if (!devices || devices.length === 0) return;
+
+    logger.info(`[CURFEW] Stopping ${devices.length} devices.`);
+    const gpsAdapter = await companyService.getGpsAdapter(companyId);
+
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+      const batch = devices.slice(i, i + BATCH_SIZE);
+      const targetIds = batch.map(d => d.megaDeviceId || d.deviceId);
+
+      const resultsMap = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP, {
+        companyConfig: companyId
+      });
+
+      // Update curfewStatus=true for all that were successfully stopped
+      const successfulIds = batch.filter(d => resultsMap[d.megaDeviceId || d.deviceId]).map(d => d._id);
+      if (successfulIds.length > 0) {
+        await Device.updateMany({ _id: { $in: successfulIds } }, { $set: { curfewStatus: true } });
+        logger.info(`[CURFEW] Successfully turned off ${successfulIds.length} devices.`);
+      }
+    }
+  } catch (err) {
+    logger.error(`[CURFEW START] Error:`, err);
+  }
+};
+
+const performCurfewEnd = async (companyId) => {
+  logger.info(`☀️ Ending Night Curfew for company: ${companyId}`);
+  try {
+    // Only resume devices that were actually turned off by curfew AND don't have pending cutOff for unpaid invoices
+    const devices = await Device.find({
+      companyId,
+      hasActiveContract: true,
+      exemptFromCutOff: { $ne: true },
+      curfewStatus: true,
+      cutOff: { $in: [0, null] } // Safely resume ONLY if not marked with unpaid cutoffs
+    }).lean();
+
+    if (!devices || devices.length === 0) return;
+
+    logger.info(`[CURFEW] Resuming ${devices.length} devices.`);
+    const gpsAdapter = await companyService.getGpsAdapter(companyId);
+
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+      const batch = devices.slice(i, i + BATCH_SIZE);
+      const targetIds = batch.map(d => d.megaDeviceId || d.deviceId);
+
+      const resultsMap = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINERESUME, {
+        companyConfig: companyId
+      });
+
+      // Clear curfewStatus=false for ALL attempted (even if it failed, to not forever loop, though we can retry if we wanted)
+      const idsToClear = batch.map(d => d._id);
+      await Device.updateMany({ _id: { $in: idsToClear } }, { $set: { curfewStatus: false } });
+
+      const successCount = Object.values(resultsMap).filter(Boolean).length;
+      logger.info(`[CURFEW] Successfully turned back on ${successCount} devices.`);
+    }
+  } catch (err) {
+    logger.error(`[CURFEW END] Error:`, err);
+  }
+};
+
 export default {
   generateDailyInvoices,
   performDailyCutOff,
+  performCurfewStart,
+  performCurfewEnd
 };

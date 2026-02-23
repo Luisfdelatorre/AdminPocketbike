@@ -13,7 +13,7 @@ class MegaRastreoApiWeb {
         const finalConfig = config.gpsConfig || config;
 
         this.baseUrl = finalConfig.host || DEFAULT_BASE_URL;
-        this.user = finalConfig.user || 'yairpacheco';
+        this.user = finalConfig.username || 'yairpacheco';
         this.pass = finalConfig.password || 'cartagena.25';
         this.jar = new CookieJar();
         this.http = wrapper(
@@ -87,57 +87,105 @@ class MegaRastreoApiWeb {
         const res = await this.http.get("/rastreo/getmoviles", {
             headers: { Accept: "application/json, text/javascript, */*; q=0.01" },
         });
-        return Array.isArray(res.data) ? res.data : [];
+        const raw = Array.isArray(res.data) ? res.data : [];
+        // Map raw MegaRastreo fields to a common domain shape
+        return raw.map(d => ({
+            name: d.placa?.replace(/\s+/g, '') ?? '',
+            model: d.model,
+            category: d.icono,
+            lastUpdate: d.fecha_gps,
+            imei: d.imei,
+            megaDeviceId: d.id,
+            cutOff: 0,
+        }));
+    }
+
+    async _sendCommand(comandoId, deviceId, isRetry = false) {
+        await this.ensureLogin();
+        console.log(`[MegaRastreo] Sending command ${comandoId} to device ${deviceId}...`);
+
+        const payload = qs.stringify(
+            { _token: this.csrfComandos, comando_id: String(comandoId), vehiculos_ids: [String(deviceId)] },
+            { arrayFormat: "brackets" }
+        );
+        console.log(payload);
+
+        const xsrf = await this.getCookie("XSRF-TOKEN");
+        const res = await this.http.post("/comandos/enviar", payload, {
+            headers: {
+                Accept: "application/json, text/javascript, */*; q=0.01",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-Requested-With": "XMLHttpRequest",
+                ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
+                Referer: `${this.baseUrl}/comandos`,
+                Origin: this.baseUrl,
+            },
+        });
+
+        const id = Number(res?.data?.[0]?.id);
+
+        if (!id) {
+            // Empty response [] means the server-side session expired even though the cookie exists.
+            // Force a fresh login and retry once.
+            if (!isRetry) {
+                this.loggedIn = false;
+                this.csrfComandos = null;
+                return this._sendCommand(comandoId, deviceId, true);
+            }
+            throw new Error(`No command id returned: ${JSON.stringify(res.data)}`);
+        }
+
+        return id;
+    }
+
+    async _sendCommandsBulk(comandoId, deviceIds, isRetry = false) {
+        await this.ensureLogin();
+        console.log(`[MegaRastreo] Sending command ${comandoId} in bulk to devices [${deviceIds.join(', ')}]...`);
+
+        const params = new URLSearchParams();
+        params.set("_token", this.csrfComandos);
+        params.set("comando_id", String(comandoId));
+        deviceIds.forEach(id => params.append("vehiculos_ids[]", String(id)));
+
+        const xsrf = await this.getCookie("XSRF-TOKEN");
+        const res = await this.http.post("/comandos/enviar", params.toString(), {
+            headers: {
+                Accept: "application/json, text/javascript, */*; q=0.01",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-Requested-With": "XMLHttpRequest",
+                ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
+                Referer: `${this.baseUrl}/comandos`,
+                Origin: this.baseUrl,
+            },
+        });
+
+        // The response contains an array of { id, vehiculo_id, ... }
+        const data = Array.isArray(res?.data) ? res.data : [];
+
+        if (data.length === 0) {
+            if (!isRetry) {
+                this.loggedIn = false;
+                this.csrfComandos = null;
+                return this._sendCommandsBulk(comandoId, deviceIds, true);
+            }
+            throw new Error(`No command ids returned for bulk request: ${JSON.stringify(res.data)}`);
+        }
+
+        // Return an array of response command IDs to be confirmed later
+        return data.map(cmd => Number(cmd.id)).filter(id => id);
     }
 
     async resumeDevice(deviceId) {
-        await this.ensureLogin();
-
-        const payload = qs.stringify(
-            { _token: this.csrfComandos, comando_id: "1", vehiculos_ids: [String(deviceId)] },
-            { arrayFormat: "brackets" }
-        );
-
-        const xsrf = await this.getCookie("XSRF-TOKEN");
-        const res = await this.http.post("/comandos/enviar", payload, {
-            headers: {
-                Accept: "application/json, text/javascript, */*; q=0.01",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "X-Requested-With": "XMLHttpRequest",
-                ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
-                Referer: `${this.baseUrl}/comandos`,
-                Origin: this.baseUrl,
-            },
-        });
-
-        const id = Number(res?.data?.[0]?.id);
-        if (!id) throw new Error(`No command id returned: ${JSON.stringify(res.data)}`);
-        return id;
+        return this._sendCommand("1", deviceId);
     }
 
     async stopDevice(deviceId) {
-        await this.ensureLogin();
+        return this._sendCommand("2", deviceId);
+    }
 
-        const payload = qs.stringify(
-            { _token: this.csrfComandos, comando_id: "2", vehiculos_ids: [String(deviceId)] },
-            { arrayFormat: "brackets" }
-        );
-
-        const xsrf = await this.getCookie("XSRF-TOKEN");
-        const res = await this.http.post("/comandos/enviar", payload, {
-            headers: {
-                Accept: "application/json, text/javascript, */*; q=0.01",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "X-Requested-With": "XMLHttpRequest",
-                ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
-                Referer: `${this.baseUrl}/comandos`,
-                Origin: this.baseUrl,
-            },
-        });
-
-        const id = Number(res?.data?.[0]?.id);
-        if (!id) throw new Error(`No command id returned: ${JSON.stringify(res.data)}`);
-        return id;
+    async stopDevices(deviceIds) {
+        if (!deviceIds || deviceIds.length === 0) return [];
+        return this._sendCommandsBulk("2", deviceIds);
     }
 
     async confirmCommand(commandId) {
@@ -161,6 +209,45 @@ class MegaRastreoApiWeb {
 
         const estado = res?.data?.[0]?.estado;
         return estado === "R";
+    }
+
+    async confirmCommands(commandIds) {
+        if (!commandIds || commandIds.length === 0) return {};
+        await this.ensureLogin();
+
+        const params = new URLSearchParams();
+        params.set("_token", this.csrfComandos);
+        commandIds.forEach(id => params.append("ids[]", String(id)));
+
+        const xsrf = await this.getCookie("XSRF-TOKEN");
+        const res = await this.http.post("/comandos/update", params.toString(), {
+            headers: {
+                Accept: "application/json, text/javascript, */*; q=0.01",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-Requested-With": "XMLHttpRequest",
+                ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
+                Referer: `${this.baseUrl}/comandos`,
+                Origin: this.baseUrl,
+            },
+        });
+
+        const data = Array.isArray(res?.data) ? res.data : [];
+        const resultMap = {};
+
+        data.forEach(cmd => {
+            if (cmd && cmd.id) {
+                resultMap[cmd.id] = (cmd.estado === "R");
+            }
+        });
+
+        // Initialize any missing mapped IDs with false
+        commandIds.forEach(id => {
+            if (resultMap[id] === undefined) {
+                resultMap[id] = false;
+            }
+        });
+
+        return resultMap;
     }
 
     async checkDeviceStatus(deviceId) {

@@ -1,5 +1,6 @@
 import { Company } from '../models/Company.js';
 import authService from '../services/authService.js';
+import cron from '../cron-server/cron.js';
 
 const companyController = {
     // Create new company
@@ -302,7 +303,7 @@ const companyController = {
             // Allowed fields for update
             const allowedFields = [
                 'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
-                'displayName', 'logo', 'automaticCutOff', 'cutOffStrategy',
+                'displayName', 'logo', 'automaticCutOff', 'cutOffStrategy', 'curfew',
                 'gpsService', 'gpsConfig', 'wompiConfig', 'contractDefaults'
             ];
 
@@ -313,6 +314,13 @@ const companyController = {
             });
 
             await company.save();
+
+            // Re-schedule dynamic node-cron curfew jobs
+            try {
+                cron.scheduleCompanyCurfew(company);
+            } catch (cronErr) {
+                console.error('Error scheduling company curfew:', cronErr);
+            }
 
             res.json({
                 success: true,

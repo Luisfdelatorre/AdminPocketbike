@@ -44,6 +44,7 @@ class WompiAdapter {
       deviceIdName: unpaidInvoice.deviceIdName,
       unpaidInvoiceId: unpaidInvoice._id,
       deviceId: unpaidInvoice.deviceId,
+      megaDeviceId: unpaidInvoice.megaDeviceId,
       invoiceDate: unpaidInvoice.date,
       companyId: companyId,
       type: PAYMENT_TYPE.WOMPI,

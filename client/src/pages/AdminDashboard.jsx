@@ -18,7 +18,7 @@ const AdminDashboard = () => {
     const { t } = useTranslation();
     const [stats, setStats] = useState({
         totalRevenue: 0,
-        activeContracts: 0,
+        activeDevices: 0,
         pendingPayments: 0,
         totalDevices: 0
     });
@@ -94,21 +94,21 @@ const AdminDashboard = () => {
                 <StatCard
                     title={t('dashboard.stats.totalRevenue')}
                     value={`$${stats.totalRevenue.toLocaleString()}`}
-                    change={12.5}
+                    change={stats.changes?.totalRevenue || 0}
                     icon={DollarSign}
                     color="#03C9D7"
                 />
                 <StatCard
-                    title={t('dashboard.stats.activeContracts')}
-                    value={stats.activeContracts}
-                    change={5.2}
-                    icon={FileText}
+                    title={t('dashboard.stats.activeDevices', 'Active Devices')}
+                    value={stats.activeDevices || 0}
+                    change={stats.changes?.activeDevices || 0}
+                    icon={Users}
                     color="#FB9678"
                 />
                 <StatCard
                     title={t('dashboard.stats.pendingPayments')}
                     value={stats.pendingPayments}
-                    change={-2.1}
+                    change={stats.changes?.pendingPayments || 0}
                     icon={CreditCard}
                     color="#00C292"
                 />
@@ -199,7 +199,7 @@ const AdminDashboard = () => {
                             recentPayments.map(payment => (
                                 <tr key={payment.id}>
                                     <td><strong>{payment.device}</strong></td>
-                                    <td>${(payment.amount / 100).toLocaleString()} COP</td>
+                                    <td>${payment.amount.toLocaleString()} COP</td>
                                     <td>
                                         <span className={`status-badge ${(payment.status || 'unknown').toLowerCase()}`}>
                                             {payment.status || 'Unknown'}

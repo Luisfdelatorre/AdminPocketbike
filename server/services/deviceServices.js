@@ -1,7 +1,7 @@
 import deviceRepository from '../repositories/deviceRepository.js';
 import { Device } from '../models/Device.js';
 import { Transaction, PAYMENTMESSAGES as PM } from '../config/config.js';
-import MegaRastreo from '../services/megaRastreoServices1.js';
+import gpsService from '../services/megaRastreoServices.js';
 import helper from '../utils/helpers.js';
 
 
@@ -64,7 +64,7 @@ const initializeGpsUpdates = async () => {
         );
     };
 
-    await MegaRastreo.startAutoUpdate(imeis, onFlush);
+    await gpsService.startAutoUpdate(imeis, onFlush);
 };
 
 export default {
