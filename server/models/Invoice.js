@@ -40,6 +40,12 @@ const InvoiceSchema = new mongoose.Schema(
         }, // Ej: "APPROVED"
         reservedUntil: { type: Date },
         cutOff: { type: Boolean, default: false }, // Device turned off due to non-payment
+        adjustmentReason: {
+            type: String,
+            enum: ['REPAIR', 'DAMAGE', 'MAINTENANCE', null],
+            default: null
+        }, // Reason why this day was altered
+        adjustmentComment: { type: String, default: '' }, // Free-text explanation for the adjustment
     },
     { collection: 'invoices' }
 );

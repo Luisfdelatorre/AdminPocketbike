@@ -535,11 +535,12 @@ export class PaymentService {
     async getPaymentSummary({ month, year, companyId }) {
         try {
 
-            const startDate = dayjs().year(year).month(month - 1).startOf('month').toDate();
-            const endDate = dayjs().year(year).month(month - 1).endOf('month').toDate();
+            const startDate = dayjs().year(year).month(month - 1).startOf('month').add(-2, 'day').toDate();
+            const endDate = dayjs().year(year).month(month - 1).endOf('month').add(1, 'day').toDate();
             const deviceMap = {};
             const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
             if (companyId) deviceQuery.companyId = companyId;
+            console.log("deviceQuery", deviceQuery);
 
             // 4. Fetch data in parallel
             const [invoices, payments] = await Promise.all([

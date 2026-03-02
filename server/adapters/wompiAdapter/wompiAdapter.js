@@ -14,6 +14,7 @@ class WompiAdapter {
     this.config = config;
     this.api = config ? getWompiApi(config) : wompiApi;
     this.integritySecret = config?.integritySecret || Wompi.privateKeyEvents;
+    this.eventsSecret = Wompi.eventsSecret;
   }
   init(reponseData) {
     if (!reponseData || typeof reponseData !== 'object') {
@@ -170,7 +171,8 @@ class WompiAdapter {
         return String(value);
       });
 
-      const concatenated = values.join('') + timestamp + this.integritySecret;
+      const concatenated = values.join('') + timestamp + this.eventsSecret;
+      console.log("concatenated", concatenated);
       const calculatedChecksum = crypto.createHash('sha256').update(concatenated).digest('hex');
 
       // Prevent timing attacks using timingSafeEqual

@@ -4,8 +4,8 @@ import crypto from "crypto";
 //const queue = require("./modules/queue");
 //const log = require("../logger");
 // Cambia esta URL por la de tu servidor y endpoint
-const WEBHOOK_URL = "http://localhost:3000/apinode/webhooks/wompi";
-const WOMPI_INTEGRITY_SECRET = "test_events_5iTO7kZHuLzAKn7p2YPZArEhoJ0S9Yj7"; // Matches config.js privateKeyEvents
+const WEBHOOK_URL = "https://pagos.tumotoya.online/apinode/webhooks/wompi";
+const WOMPI_INTEGRITY_SECRET = "prod_events_K50mCvxN8NkOjdYMWVkLmVhOwWRwMSXM"; // Matches config.js privateKeyEvents
 
 // JSON simulado del webhook
 const uniqueId = Date.now();
@@ -20,8 +20,8 @@ const payload = {
       "created_at": "2026-02-14T09:03:27.773Z",
       "finalized_at": "2026-02-14T09:03:28.313Z",
       "amount_in_cents": 3500000,
-      "reference": "XZQ78H-2026-02-14-N3",
-      "customer_email": "XZQ78H@PocketBike.app",
+      "reference": "YAG36H-2026-02-25-HI",
+      "customer_email": "YAG36H@PocketBike.app",
       "currency": "COP",
       "payment_method_type": "NEQUI",
       "payment_method": {
@@ -34,7 +34,7 @@ const payload = {
         },
         "phone_number": "3991111111"
       },
-      "status": "APPROVED",
+      "status": "PENDING",
       "status_message": null,
       "shipping_address": null,
       "redirect_url": "https://pocketbike.app/apinode/",
@@ -61,6 +61,27 @@ const payload = {
   "environment": "test"
 }
 
+const payload2 = {
+  "event": "transaction.updated", "data":
+  {
+    "transaction": {
+      "id": "1362970-1772161998-78582", "created_at": "2026-02-27T03:13:18.588Z",
+      "finalized_at": "2026-02-27T03:58:24.000Z", "amount_in_cents": 3500000,
+      "reference": "YAG21H-2026-02-27-BJ", "customer_email": "YAG21H@PocketBike.app",
+      "currency": "COP", "payment_method_type": "NEQUI", "payment_method":
+      {
+        "type": "NEQUI", "extra":
+        {
+          "is_three_ds": false, "transaction_id": "350-123-674225-1772161999JYJo", "three_ds_auth_type": null,
+          "external_identifier": "1772161999JYJo", "nequi_transaction_id": "350-123-674225-1772161999JYJo"
+        },
+        "afe_decision": "FRAUD_CHECK", "phone_number": "3016862185"
+      }, "status": "DECLINED", "status_message": "La transacción caducó", "shipping_address": null, "redirect_url": "https://pocketbike.app/apinode/", "payment_source_id": null, "payment_link_id": null, "customer_data": { "full_name": "YAG21H PocketBike", "phone_number": "3016862185" }, "billing_data": null, "origin": null
+    }
+  }, "sent_at": "2026-02-27T04:00:25.512Z", "timestamp": 1772164825, "signature": { "checksum": "1c1a17a9cb4f8038a26f56ca83c158a61fbcb2e75d55742ceea31b1a939df683", "properties": ["transaction.id", "transaction.status", "transaction.amount_in_cents"] }, "environment": "prod"
+}
+
+
 // Calculate Signature
 function calculateSignature(payload, secret) {
   const { data, timestamp } = payload;
@@ -71,21 +92,23 @@ function calculateSignature(payload, secret) {
     transaction.amount_in_cents
   ];
   const joined = properties.join('') + timestamp + secret;
+  console.log("joined", joined);
   return crypto.createHash('sha256').update(joined).digest('hex');
 }
-
-payload.signature.checksum = calculateSignature(payload, WOMPI_INTEGRITY_SECRET);
+console.log(payload2.signature.checksum);
+console.log(calculateSignature(payload2, WOMPI_INTEGRITY_SECRET));
+//payload2.signature.checksum = calculateSignature(payload2, WOMPI_INTEGRITY_SECRET);
 
 if (FORCE_INVALID_SIGNATURE) {
   console.log("⚠️ SIMULANDO FIRMA INVÁLIDA...");
-  payload.signature.checksum = "bad_checksum_123";
+  payload2.signature.checksum = "bad_checksum_123";
 }
 
 // Función para enviar el webhook
 async function sendWebhook() {
 
   try {
-    const res = await axios.post(WEBHOOK_URL, payload, {
+    const res = await axios.post(WEBHOOK_URL, payload2, {
       headers: { "Content-Type": "application/json" },
     });
     console.log("✅ Webhook simulado enviado:", res.data);

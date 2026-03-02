@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Calendar, DollarSign, Check, X, Search, Filter } from 'lucide-react';
+import {
+    FileText, Calendar, DollarSign, Check, X, Search, Filter,
+    HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle
+} from 'lucide-react';
 import './Invoices.css';
 import { getAllInvoices, getInvoiceStats } from '../services/api';
 
@@ -10,6 +13,100 @@ const Invoices = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, paid, unpaid, pending
     const [searchQuery, setSearchQuery] = useState('');
+
+    // ── Manual Payment Modal ──────────────────────────────
+    const [manualPayModal, setManualPayModal] = useState({ open: false, invoice: null });
+    const [manualPayForm, setManualPayForm] = useState({
+        amount: '',
+        reference: '',
+        note: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        adjustmentReason: null, // REPAIR | DAMAGE | MAINTENANCE | null
+    });
+    const [manualPayLoading, setManualPayLoading] = useState(false);
+    const [manualPayError, setManualPayError] = useState('');
+
+    // Config per adjustment type
+    const ADJUSTMENT_CONFIG = {
+        REPAIR: {
+            label: 'Reparación',
+            color: '#FB9678',
+            bg: '#FFF4EF',
+            description: 'El dispositivo estaba en reparación — día sin cobro al cliente.',
+            autoAmount: 0,         // free day
+            autoReference: 'REPARACIÓN - Día ajustado automáticamente',
+        },
+        DAMAGE: {
+            label: 'Daño',
+            color: '#EF4444',
+            bg: '#FEF2F2',
+            description: 'Cobro completo por daño — el cliente es responsable.',
+            autoAmount: null,      // full invoice amount
+            autoReference: 'DAÑO - Cobro completo por responsabilidad del cliente',
+        },
+        MAINTENANCE: {
+            label: 'Mantenimiento',
+            color: '#7460EE',
+            bg: '#F5F3FF',
+            description: 'Mantenimiento programado — día sin cobro al cliente.',
+            autoAmount: 0,         // free day
+            autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
+        },
+    };
+
+    const openManualPayModal = (invoice) => {
+        const reason = invoice.adjustmentReason || null;
+        const cfg = reason ? ADJUSTMENT_CONFIG[reason] : null;
+        const autoAmount = cfg
+            ? (cfg.autoAmount !== null ? cfg.autoAmount : invoice.amount)
+            : invoice.amount;
+
+        setManualPayForm({
+            amount: autoAmount,
+            reference: cfg ? cfg.autoReference : '',
+            note: invoice.adjustmentComment || '',
+            paymentDate: new Date().toISOString().split('T')[0],
+            adjustmentReason: reason,
+        });
+        setManualPayError('');
+        setManualPayModal({ open: true, invoice });
+    };
+
+    const closeManualPayModal = () => {
+        setManualPayModal({ open: false, invoice: null });
+        setManualPayError('');
+    };
+
+    const handleManualPaySubmit = async (e) => {
+        e.preventDefault();
+        const isAdjustment = !!manualPayForm.adjustmentReason;
+        // For REPAIR/MAINTENANCE amount=0 is valid; for plain manual it must be > 0
+        if (!isAdjustment && (!manualPayForm.amount || Number(manualPayForm.amount) <= 0)) {
+            setManualPayError('El monto debe ser mayor a 0.');
+            return;
+        }
+        setManualPayLoading(true);
+        setManualPayError('');
+        try {
+            // TODO: wire to real API endpoint
+            // await registerManualPayment({
+            //   invoiceId: manualPayModal.invoice.invoiceId,
+            //   adjustmentReason: manualPayForm.adjustmentReason,
+            //   ...manualPayForm,
+            // });
+            console.log('Manual payment submitted', {
+                invoiceId: manualPayModal.invoice.invoiceId,
+                ...manualPayForm,
+            });
+            await loadInvoices();
+            closeManualPayModal();
+        } catch (err) {
+            setManualPayError(err.message || 'Error al registrar el pago.');
+        } finally {
+            setManualPayLoading(false);
+        }
+    };
+    // ─────────────────────────────────────────────────────
 
     const [stats, setStats] = useState({
         total: 0,
@@ -217,7 +314,6 @@ const Invoices = () => {
                             <div>{t('login.deviceId')}</div>
                             <div>Amount</div>
                             <div>Dia Pago</div>
-
                             <div>{t('common.status')}</div>
                         </div>
                         {filteredInvoices.map((invoice) => (
@@ -232,6 +328,7 @@ const Invoices = () => {
                                     {formatDate(invoice.transaction?.finalized_at)}
                                 </div>
                                 <div className="invoice-status">
+                                    {/* Status badge */}
                                     <span
                                         className="status-badge"
                                         style={{
@@ -239,8 +336,44 @@ const Invoices = () => {
                                             color: getStatusColor(invoice.dayType)
                                         }}
                                     >
+                                        {invoice.dayType === 'PENDING' && (
+                                            <HandCoins size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                                        )}
                                         {invoice.dayType}
                                     </span>
+
+                                    {/* Adjustment icon (repair / damage / maintenance) */}
+                                    {invoice.adjustmentReason && (
+                                        <span
+                                            className="adjustment-badge"
+                                            data-tooltip={
+                                                `${invoice.adjustmentReason}${invoice.adjustmentComment ? ': ' + invoice.adjustmentComment : ''}`
+                                            }
+                                            style={{
+                                                color:
+                                                    invoice.adjustmentReason === 'REPAIR' ? '#FB9678'
+                                                        : invoice.adjustmentReason === 'DAMAGE' ? '#EF4444'
+                                                            : '#7460EE'
+                                            }}
+                                        >
+
+                                        </span>
+                                    )}
+
+                                    {/* Manual payment button — only for unpaid / PENDING / DEBT */}
+                                    {(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') && (
+                                        <button
+                                            className="manual-pay-btn"
+                                            title="Registrar pago manual"
+                                            onClick={() => openManualPayModal(invoice)}
+                                        >
+
+                                            {!invoice.adjustmentReason && <PlusCircle size={18} />}
+                                            {invoice.adjustmentReason === 'REPAIR' && <Wrench size={13} />}
+                                            {invoice.adjustmentReason === 'DAMAGE' && <AlertTriangle size={13} />}
+                                            {invoice.adjustmentReason === 'MAINTENANCE' && <Hammer size={13} />}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -250,6 +383,142 @@ const Invoices = () => {
                         Showing {filteredInvoices.length} of {invoices.length} invoices
                     </div>
                 </>
+            )}
+
+            {/* ── Manual Payment Modal ─────────────────────────── */}
+            {manualPayModal.open && manualPayModal.invoice && (
+                <div className="modal-overlay" onClick={closeManualPayModal}>
+                    <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal header — icon changes by adjustment type */}
+                        <div className="modal-header" style={
+                            manualPayForm.adjustmentReason
+                                ? { background: `linear-gradient(135deg, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentReason].color}, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentReason].color}cc)` }
+                                : {}
+                        }>
+                            <div className="modal-header-left">
+                                {!manualPayForm.adjustmentReason && <HandCoins size={20} />}
+                                {manualPayForm.adjustmentReason === 'REPAIR' && <Wrench size={20} />}
+                                {manualPayForm.adjustmentReason === 'DAMAGE' && <AlertTriangle size={20} />}
+                                {manualPayForm.adjustmentReason === 'MAINTENANCE' && <Hammer size={20} />}
+                                <span>
+                                    {manualPayForm.adjustmentReason
+                                        ? ADJUSTMENT_CONFIG[manualPayForm.adjustmentReason].label
+                                        : 'Pago Manual'}
+                                </span>
+                            </div>
+                            <button className="modal-close" onClick={closeManualPayModal}>
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Invoice info */}
+                        <div className="modal-invoice-info">
+                            <div className="modal-info-row">
+                                <span className="modal-info-label">Factura</span>
+                                <span className="modal-info-value">{manualPayModal.invoice.invoiceId}</span>
+                            </div>
+                            <div className="modal-info-row">
+                                <span className="modal-info-label">Dispositivo</span>
+                                <span className="modal-info-value">{manualPayModal.invoice.deviceIdName}</span>
+                            </div>
+                            <div className="modal-info-row">
+                                <span className="modal-info-label">Monto total</span>
+                                <span className="modal-info-value modal-info-amount">
+                                    {formatCurrency(manualPayModal.invoice.amount)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Form */}
+                        <form className="modal-form" onSubmit={handleManualPaySubmit}>
+
+                            {/* Adjustment type banner */}
+                            {manualPayForm.adjustmentReason && (() => {
+                                const cfg = ADJUSTMENT_CONFIG[manualPayForm.adjustmentReason];
+                                return (
+                                    <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: cfg.color + '50', color: cfg.color }}>
+                                        {manualPayForm.adjustmentReason === 'REPAIR' && <Wrench size={14} />}
+                                        {manualPayForm.adjustmentReason === 'DAMAGE' && <AlertTriangle size={14} />}
+                                        {manualPayForm.adjustmentReason === 'MAINTENANCE' && <Hammer size={14} />}
+                                        <span>{cfg.description}</span>
+                                    </div>
+                                );
+                            })()}
+
+                            <div className="modal-field">
+                                <label>Monto pagado {!manualPayForm.adjustmentReason && <span className="required">*</span>}</label>
+                                <div className="modal-amount-input">
+                                    <span className="currency-symbol">$</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        placeholder="0"
+                                        value={manualPayForm.amount}
+                                        onChange={(e) => setManualPayForm(f => ({ ...f, amount: e.target.value }))}
+                                        readOnly={!!manualPayForm.adjustmentReason}
+                                        style={manualPayForm.adjustmentReason ? { background: '#F9FAFB', cursor: 'default', fontWeight: 700 } : {}}
+                                        required={!manualPayForm.adjustmentReason}
+                                    />
+                                </div>
+                                {manualPayForm.adjustmentReason && (
+                                    <span className="field-hint">
+                                        {Number(manualPayForm.amount) === 0
+                                            ? '✓ Día sin cobro (ajuste automático)'
+                                            : `✓ Cobro completo: ${formatCurrency(manualPayForm.amount)}`}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="modal-field">
+                                <label>Fecha de pago <span className="required">*</span></label>
+                                <input
+                                    type="date"
+                                    value={manualPayForm.paymentDate}
+                                    onChange={(e) => setManualPayForm(f => ({ ...f, paymentDate: e.target.value }))}
+                                    required
+                                />
+                            </div>
+
+                            <div className="modal-field">
+                                <label>Referencia / comprobante</label>
+                                <input
+                                    type="text"
+                                    placeholder="Nro. transferencia, recibo, etc."
+                                    value={manualPayForm.reference}
+                                    onChange={(e) => setManualPayForm(f => ({ ...f, reference: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="modal-field">
+                                <label>Nota</label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="Ej: Pago en efectivo, depósito bancario…"
+                                    value={manualPayForm.note}
+                                    onChange={(e) => setManualPayForm(f => ({ ...f, note: e.target.value }))}
+                                />
+                            </div>
+
+                            {manualPayError && (
+                                <div className="modal-error">{manualPayError}</div>
+                            )}
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn-cancel" onClick={closeManualPayModal}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn-confirm" disabled={manualPayLoading}>
+                                    {manualPayLoading ? (
+                                        <><span className="btn-spinner" /> Registrando…</>
+                                    ) : (
+                                        <><Check size={15} /> Confirmar pago</>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             )}
         </div>
     );

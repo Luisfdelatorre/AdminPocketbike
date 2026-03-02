@@ -232,7 +232,57 @@
 }
 
 .invoice-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     font-size: 0.875rem;
+}
+
+/* Adjustment icon with tooltip */
+.adjustment-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+
+.adjustment-badge svg {
+    color: white;
+    flex-shrink: 0;
+}
+
+.adjustment-badge::after {
+    content: attr(data-tooltip);
+    display: none;
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1F2937;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.35rem;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    max-width: 260px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.adjustment-badge:hover::after {
+    display: block;
 }
 
 .status-badge {
@@ -304,6 +354,278 @@
     font-size: 0.875rem;
 }
 
+/* ── Manual Pay Trigger Button ─────────────────────── */
+.manual-pay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 2px;
+    margin-left: 2px;
+    cursor: pointer;
+    color: #03C9D7;
+    border-radius: 50%;
+    transition: color 0.18s, background 0.18s, transform 0.15s;
+    flex-shrink: 0;
+}
+
+.manual-pay-btn:hover {
+    color: white;
+    background: #03C9D7;
+    transform: scale(1.15);
+}
+
+/* ── Modal Overlay ─────────────────────────────────── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeOverlay 0.18s ease;
+}
+
+@keyframes fadeOverlay {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-card {
+    background: #fff;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    overflow: hidden;
+    animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Modal Header */
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #03C9D7, #00a8b5);
+    color: white;
+}
+
+.modal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+/* Invoice Info Panel */
+.modal-invoice-info {
+    background: #F9FAFB;
+    border-bottom: 1px solid #E5E7EB;
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.modal-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.813rem;
+}
+
+.modal-info-label {
+    color: #6B7280;
+}
+
+.modal-info-value {
+    font-weight: 600;
+    color: #1F2937;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+}
+
+.modal-info-amount {
+    color: #03C9D7;
+    font-size: 0.875rem;
+}
+
+/* Form */
+.modal-form {
+    padding: 1.1rem 1.25rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.modal-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.required {
+    color: #EF4444;
+}
+
+.modal-field input,
+.modal-field textarea {
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
+    color: #1F2937;
+    background: white;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.modal-field input:focus,
+.modal-field textarea:focus {
+    outline: none;
+    border-color: #03C9D7;
+    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.12);
+}
+
+.modal-amount-input {
+    position: relative;
+}
+
+.modal-amount-input .currency-symbol {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6B7280;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.modal-amount-input input {
+    padding-left: 1.5rem;
+}
+
+/* Error */
+.modal-error {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #DC2626;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+/* Actions */
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 0.6rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    background: white;
+    color: #6B7280;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+}
+
+.btn-cancel:hover {
+    background: #F3F4F6;
+    color: #374151;
+}
+
+.btn-confirm {
+    flex: 2;
+    padding: 0.6rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: linear-gradient(135deg, #03C9D7, #00a8b5);
+    color: white;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    transition: opacity 0.18s, transform 0.15s;
+}
+
+.btn-confirm:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-confirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+}
+
+
 /* Responsive */
 @media (max-width: 768px) {
 
@@ -337,4 +659,32 @@
     .invoices-stats {
         grid-template-columns: 1fr;
     }
+}
+
+/* ── Adjustment Banner (inside modal) ─────────────── */
+.adjustment-info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border: 1px solid;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 0.25rem;
+}
+
+.adjustment-info-banner svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Field hint below amount input */
+.field-hint {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #00C292;
+    margin-top: 0.2rem;
+    display: block;
 }
