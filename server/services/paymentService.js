@@ -3,16 +3,15 @@ import paymentRepository from '../repositories/paymentRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import wompiService from './wompiService.js';
-import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINERESUME } from '../config/config.js';
+import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINE_COMMANDS } from '../config/config.js';
 import dayjs from '../config/dayjs.js';
 import logger from '../config/logger.js';
 import { Invoice } from '../models/Invoice.js';
 import { Device } from '../models/Device.js';
 import { Payment } from '../models/index.js';
 import { Company } from '../models/Company.js';
-import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
-import gpsServices from './megaRastreoServices.js';
 import companyService from './companyService.js';
+import helpers from '../utils/helpers.js';
 
 
 const { INVOICE_DAYTYPE_TRANSLATION } = Transaction;
@@ -25,7 +24,6 @@ const PM = PAYMENTMESSAGES;
 
 // Helper function for state change notifications
 const notifyStateChange = (fn, status, msj, refOrObj) => {
-    console.log("--notifyStateChange", fn, status, msj, refOrObj);
     let obj = { status, message: msj };
     if (typeof refOrObj === 'string') obj.reference = refOrObj;
     else if (typeof refOrObj === 'object' && refOrObj !== null) Object.assign(obj, refOrObj);
@@ -101,7 +99,7 @@ export class PaymentService {
             const yesterday = dayjs().add(-1, 'day').startOf('day');
             const invoiceDate = dayjs(paidInvoice.date).startOf('day');
             if (!invoiceDate.isBefore(yesterday)) {
-                await this.activateDevice(paidInvoice.megaDeviceId, payment.reference, dummyOnUpdate, companyId);
+                await this.activateDevice(paidInvoice.gpsId, payment.reference, dummyOnUpdate, companyId);
             } else {
                 logger.info(`[FREE DAY] Activation warning: Invoice date too old`);
             }
@@ -109,6 +107,7 @@ export class PaymentService {
             // Get updated device status only if we potentially interacted with it
             const gpsAdapter = await companyService.getGpsAdapter(companyId);
             deviceStatus = await gpsAdapter.getDetailedStatus(unpaidInvoice.deviceId);
+
         }
 
         return {
@@ -119,13 +118,59 @@ export class PaymentService {
             deviceStatus
         };
     };
+    async applyFreeDayAutomatic(deviceIdName, companyId, unpaidInvoice) {
+        const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+        if (!contract) {
+            return { success: false, message: 'Contract not found' };
+        }
+        const payment = await paymentRepository.createFreePayment(deviceIdName, contract, unpaidInvoice, companyId);
+        await unpaidInvoice.applyPayment(payment);
+        logger.info(`[FREE DAY AUTO] Applied free day for ${deviceIdName}, invoice: ${unpaidInvoice._id}`);
+    }
+    async applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note }) {
+        const invoice = await Invoice.findOne({ _id: invoiceId, paid: false });
+        if (!invoice) {
+            throw new Error('Invoice not found or already paid');
+        }
+        const deviceIdName = invoice.deviceIdName;
+        const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+        if (!contract) {
+            throw new Error('Active contract not found for this device');
+        }
+
+        // REPAIR/MAINTENANCE/WORKSHOP → $0 (free day for customer), DAMAGE → full invoice amount
+        const isFreeAdjustment = ['REPAIR', 'MAINTENANCE', 'WORKSHOP'].includes(adjustmentType);
+        const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
+
+        const payment = await paymentRepository.createManualPayment({
+            deviceIdName,
+            contract,
+            invoice,
+            companyId,
+            amount: paymentAmount,
+            adjustmentType,
+            adjustmentReference: adjustmentReference,
+            note,
+        });
+        // Attach adjustmentType + adjustmentReference so applyPayment can persist them on the invoice
+        payment.adjustmentType = adjustmentType;
+        payment.adjustmentReference = adjustmentReference;
+        await invoice.applyPayment(payment);
+        logger.info(`[MANUAL ADJ] ${adjustmentType} applied for ${deviceIdName}, invoice: ${invoice._id}, amount: ${paymentAmount}`);
+        return {
+            success: true,
+            invoiceId: invoice._id,
+            deviceIdName,
+            adjustmentType,
+            amount: paymentAmount,
+        };
+    }
     async processInitialFee(contract, device, initialFee) {
         try {
             // Remove timezone name in parentheses if present to ensure dayjs parsing robustness
             const startDateStr = contract.startDate;
             const cleanDate = typeof startDateStr === 'string' ? startDateStr.replace(/\s*\(.*\)$/, '') : startDateStr;
             const date = dayjs(cleanDate).startOf('day');
-            console.log("date", date);
 
             const invoice = await invoiceRepository.createNextDayInvoice(device.name, initialFee, device.deviceId, device.companyId, date, device.megaDeviceId);
             // 2. Create Payment
@@ -137,12 +182,10 @@ export class PaymentService {
             // Don't fail the contract creation, just log error
         }
     }
-
     async applyLoan(deviceIdName, contractId, companyId) {
         const dummyOnUpdate = (update) => {
             logger.info(`[LOAN] Activation status: ${update.status} - ${update.message}`);
         };
-        console.log("applyLoan", deviceIdName, contractId, companyId);
 
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
         if (!contract) throw new Error('Contract not found');
@@ -153,18 +196,12 @@ export class PaymentService {
         if (existingUnpaid) {
             const invoiceDate = dayjs(existingUnpaid.date).startOf('day');
             if (invoiceDate.isSameOrAfter(yesterday)) {
-
                 const payment = await paymentRepository.createLoanPayment(deviceIdName, contract, existingUnpaid);
-
                 await existingUnpaid.applyPayment(payment);
-
                 try {
-                    const yesterday = dayjs().add(-1, 'day').startOf('day');
                     if (!invoiceDate.isBefore(yesterday)) {
-                        await this.activateDevice(existingUnpaid.megaDeviceId, `LOAN-${payment._id}`, dummyOnUpdate, companyId);
+                        await this.activateDevice(existingUnpaid.gpsId, `LOAN-${payment._id}`, dummyOnUpdate, companyId);
                     }
-
-
                 } catch (e) {
                     logger.error(`[LOAN] Activation error: ${e.message}`);
                 }
@@ -184,15 +221,7 @@ export class PaymentService {
             deviceStatus
         };
     }
-
-    /**
-     * Register a device cutoff event
-     */
     async registerCutOff(deviceIdName) {
-        // Find the invoice responsible for the cutoff
-        // Usually the oldest unpaid invoice? Or the last unpaid one?
-        // "ese device fue apagado en ese invoice por falta de pago"
-        // Likely the last unpaid invoice that is overdue using findLastUnPaid
         const invoice = await invoiceRepository.findLastUnPaid(deviceIdName);
         if (invoice) {
             await invoiceRepository.setCutOff(invoice._id, true);
@@ -200,61 +229,56 @@ export class PaymentService {
         }
         return { success: false, message: 'No unpaid invoice found to mark as cutoff' };
     }
-
-    /**
-     * Get Device Status (Traccar)
-     */
     async getDataStatus(deviceIdName) {
         try {
-            console.log('Device ID:', deviceIdName);
-
-            // Look up device by name to get megaDeviceId and companyId
             const device = await deviceRepository.getDeviceByName(deviceIdName);
-
             if (!device) {
                 logger.warn(`[DEVICE STATUS] Device not found for name: ${deviceIdName}`);
                 return { deviceIdName, engineOn: null, cutOff: null };
             }
-
-            const companyId = device.companyId;
-            const megaDeviceId = device.megaDeviceId ?? device._id;
-
+            const { companyId, gpsId } = device;
             const gpsAdapter = await companyService.getGpsAdapter(companyId);
-            // checkDeviceStatus returns a boolean: true = engine confirmed ON
-            const engineOn = await gpsAdapter.checkDeviceStatus(megaDeviceId);
+            const details = await gpsAdapter.checkDeviceStatus(gpsId);
 
-            console.log('Device Status:', { deviceIdName, engineOn, cutOff: device.cutOff });
             return {
-                deviceIdName,
-                megaDeviceId,
-                engineOn,
-                cutOff: device.cutOff
+                online: dayjs().diff(dayjs(details.lastUpdate), 'second') < Transaction.DEVICE_ONLINE_TIMEOUT,
+                cutOff: details.cutOff,
+                ignition: details.ignition,
+                batteryLevel: details.batteryLevel || helpers.calculateBatteryLevel(details.lastUpdate),
+                lastUpdate: details.lastUpdate
             };
         } catch (error) {
             logger.error('[DEVICE STATUS] Error checking status:', error);
             throw error;
         }
     };
-
-    /**
-     * Initiate Wompi Payment (Wrapper around createPaymentIntent logic)
-     */
-    /*Initiate a new payment*/
-    /*Initiate a new payment*/
     async initiateWompiPaymentTransaction(deviceIdName, phone, companyId) {
         this.validatePaymentInput(deviceIdName, phone);
         await this.checkDuplicatePayment(deviceIdName);
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+        let unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
 
-        // Find the next unpaid invoice
-        const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
-        const appDevice = await deviceRepository.getDeviceByName(deviceIdName);
+        if (
+            contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
+            contract.fixedFreeDayOfWeek !== undefined &&
+            unpaidInvoice?.paid === false &&
+            dayjs(unpaidInvoice.date).day() === contract.fixedFreeDayOfWeek
+        ) {
+            logger.info(`[PAYMENT] Free day fallback — auto-applying free day for ${deviceIdName} before Wompi.`);
+            await this.applyFreeDayAutomatic(deviceIdName, companyId, unpaidInvoice);
+            // Get the next unpaid invoice (next day) to proceed with payment
+            unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
+        }
+        console.log("****unpaidInvoice", unpaidInvoice);
 
         const wompiAdapter = await companyService.getWompiAdapter(companyId);
 
-        console.log('wompiAdapter', wompiAdapter);
         const acceptanceToken = await wompiAdapter.getMerchantData();
+
+
         const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId);
+
+
         console.log('paymentData', paymentData);
         const payment = await paymentRepository.upsertPayment(paymentData);
         if (unpaidInvoice) {
@@ -263,7 +287,6 @@ export class PaymentService {
         }
         return { paymentData };
     }
-    /*Monitor transaction status*/
     async monitorTransactionStatus(reference, { onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT }) {
         try {
 
@@ -297,10 +320,8 @@ export class PaymentService {
             throw error;
         }
     };
-
     async pollPaymentStatus(reference, onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT) {
         // If a polling process exists for this reference, join it
-        console.log("activePolls", reference, activePolls);
         if (activePolls.has(reference)) {
             logger.info(`[PAYMENT] Joining existing poll for reference: ${reference}`);
             const active = activePolls.get(reference);
@@ -363,11 +384,32 @@ export class PaymentService {
     async processApprovedPayment(paymentData, onUpdate) {
         const { reference } = paymentData;
         try {
-            const payment = await paymentRepository.claimPaymentForProcessing(paymentData);
+            let payment = await paymentRepository.claimPaymentForProcessing(paymentData);
+            console.log('Payment locked for processing:', payment);
+
             if (!payment) {
-                logger.warn(`[PAYMENT] Payment ${reference} already used or locked. Skipping reprocessing.`);
-                notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_ALREADY_PROCESSED, { reference });
-                return { success: true, alreadyProcessed: true };
+                // Distinguish: truly not found (webhook for untracked payment) vs already used
+                const existing = await Payment.findById(paymentData._id).lean();
+                if (existing) {
+                    // Payment exists but already used — skip to avoid double-processing
+                    logger.warn(`[PAYMENT] Payment ${reference} already used. Skipping reprocessing.`);
+                    notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_ALREADY_PROCESSED, { reference });
+                    return { success: true, alreadyProcessed: true };
+                }
+
+                // Payment not found in DB — webhook arrived for untracked payment, hydrate it
+                logger.info(`[PAYMENT] Payment ${reference} not found in DB — hydrating from webhook data.`);
+                payment = await this.hydratePaymentFromWebhook(paymentData);
+                if (!payment) {
+                    logger.warn(`[PAYMENT] Could not hydrate payment for reference ${reference}. Skipping.`);
+                    return { success: false, reason: 'Could not hydrate payment' };
+                }
+                // Re-lock the freshly upserted payment
+                payment = await paymentRepository.claimPaymentForProcessing(payment);
+                if (!payment) {
+                    logger.warn(`[PAYMENT] Hydrated payment ${reference} could not be claimed. Skipping.`);
+                    return { success: false, reason: 'Hydrated payment claim failed' };
+                }
             }
 
             logger.info(`----[PAYMENT] Payment locked for processing: ${payment.deviceIdName}`, { reference });
@@ -409,9 +451,30 @@ export class PaymentService {
             const invoiceDate = dayjs(invoice.date).startOf('day');
 
             if (invoiceDate.isSameOrAfter(yesterday)) {
-                console.log(`[TRACE-1] processApprovedPayment → activateDevice | megaDeviceId=${payment.megaDeviceId} companyId=${payment.companyId}`);
-                await this.activateDevice(payment.megaDeviceId, reference, onUpdate, payment.companyId);
+                // --- Curfew check: skip activation if we are in the night curfew window ---
+                const company = await Company.findById(payment.companyId).select('curfew').lean();
+                const curfew = company?.curfew;
+                const start = curfew.startTime.split(':');
+                const end = curfew.endTime.split(':');
+                let inCurfew = false;
+                if (curfew?.enabled && curfew.startTime && curfew.endTime) {
+                    const now = dayjs();
+                    const base = now.startOf('day');
+                    const curfewStart = base.add(parseInt(start[0]), 'hour').add(parseInt(start[1]), 'minute');
+                    const curfewEnd = base.add(parseInt(end[0]), 'hour').add(parseInt(end[1]), 'minute');
+                    // Handle overnight ranges (e.g. 00:05 → 04:00)
+                    inCurfew = curfewStart.isBefore(curfewEnd)
+                        ? now.isSameOrAfter(curfewStart) && now.isBefore(curfewEnd)
+                        : now.isSameOrAfter(curfewStart) || now.isBefore(curfewEnd);
+                }
 
+                if (inCurfew) {
+                    logger.info(`[DEVICE] Activation skipped - curfew active (${curfew.startTime}–${curfew.endTime}) for device: ${payment.megaDeviceId}`);
+                    notifyStateChange(onUpdate, PS.S_COMPLETED, `Pago registrado ✅. El dispositivo se activará al finalizar el toque de queda (${curfew.endTime}).`, reference);
+                } else {
+                    console.log(`[TRACE-1] processApprovedPayment → activateDevice | megaDeviceId=${payment.megaDeviceId} companyId=${payment.companyId}`);
+                    await this.activateDevice(payment.gpsId, reference, onUpdate, payment.companyId);
+                }
             } else {
                 logger.info(`[DEVICE] Activation skipped - invoice date out of range (not yesterday/today): ${invoice.date}`);
             }
@@ -424,38 +487,73 @@ export class PaymentService {
             throw error;
         }
     };
+    async hydratePaymentFromWebhook(paymentData) {
+        try {
+            const { _id, reference, amount_in_cents, finalized_at, payment_method_type } = paymentData;
+            const deviceIdName = reference?.split('-')[0];
+            if (!deviceIdName) {
+                logger.error(`[PAYMENT] Cannot parse deviceIdName from reference: ${reference}`);
+                return null;
+            }
+            const device = await deviceRepository.getDeviceByName(deviceIdName);
+            if (!device) {
+                logger.error(`[PAYMENT] Device not found for name: ${deviceIdName}`);
+                return null;
+            }
 
-    /*Validate payment input*/
+            const { companyId, gpsId, deviceId } = device;
+
+            // Find the oldest unpaid invoice for this device (the one the payment covers)
+            const unpaidInvoice = await invoiceRepository.findLastUnPaid(deviceIdName);
+            const invoiceId = unpaidInvoice?._id || unpaidInvoice?.invoiceId || null;
+
+            const now = dayjs().toDate();
+            const hydratedPayment = {
+                _id,
+                paymentId: _id,
+                reference,
+                status: PAYMENT_STATUS.S_APPROVED,
+                amount: amount_in_cents ? amount_in_cents / 100 : 0,
+                amount_in_cents: amount_in_cents || 0,
+                currency: paymentData.currency || 'COP',
+                payment_method_type: payment_method_type || PAYMENT_TYPE.WOMPI,
+                type: PAYMENT_TYPE.WOMPI,
+                deviceIdName,
+                deviceId: String(deviceId || ''),
+                gpsId: String(gpsId || ''),
+                companyId,
+                invoiceId,
+                unpaidInvoiceId: invoiceId,
+                invoiceDate: unpaidInvoice?.date || null,
+                finalized_at: finalized_at || now,
+                created_at: now,
+                used: false,
+            };
+
+            logger.info(`[PAYMENT] Hydrating payment ${_id} for device ${deviceIdName}, invoice ${invoiceId}`);
+            return await paymentRepository.upsertPayment(hydratedPayment);
+        } catch (err) {
+            logger.error(`[PAYMENT] Error hydrating payment from webhook: ${err.message}`);
+            return null;
+        }
+    }
     validatePaymentInput = (deviceIdName, phone) => {
         if (!phone || !deviceIdName) {
             throw new Error("Missing required fields: phone and deviceIdName");
         }
     }
-    /*Check for duplicate payment*/
     checkDuplicatePayment = async (deviceIdName) => {
         const pendingPayment = await paymentRepository.findPendingPayment(deviceIdName, TEMPORARY_RESERVATION_TIMEOUT);
         if (pendingPayment) {
             throw new Error("A payment is already being processed for this device");
         }
     }
-
-    /**
-     * Activate Device via Traccar
-     */
-    async activateDevice(deviceId, reference, onUpdate, companyId) {
-        console.log(`[TRACE-2] activateDevice received | deviceId=${deviceId} companyId=${companyId}`);
-        if (!deviceId) {
-            logger.error(`[DEVICE] activateDevice called with null/undefined deviceId!`);
-            return;
-        }
-
-        // 1. Initial notification
+    async activateDevice(gpsId, reference, onUpdate, companyId) {
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
-
-        // 2. Execute and verify via GpsService wrapper (has executeAndVerify; raw adapter does not)
         try {
-            console.log(`[TRACE-3] activateDevice → gpsServices.executeAndVerify | deviceId=${deviceId}`);
-            const isConfirmed = await gpsServices.executeAndVerify(deviceId, ENGINERESUME, {
+            const gpsService = await companyService.getGpsAdapter(companyId);
+            console.log(`[TRACE-6] activateDevice → gpsService.executeAndVerify | gpsId=${gpsId}`);
+            const isConfirmed = await gpsService.executeAndVerify(gpsId, ENGINE_COMMANDS.RESUME, {
                 companyConfig: companyId,
                 onProgress: (p) => {
                     notifyStateChange(onUpdate, PS.S_DEVICE_CHECKING, PM.M_DEVICE_CHECKING, {
@@ -470,28 +568,25 @@ export class PaymentService {
 
             // 3. Handle result and database update
             if (isConfirmed) {
-                logger.info(`[DEVICE] Activation confirmed for ${deviceId}`);
+                logger.info(`[DEVICE] Activation confirmed for ${gpsId}`);
                 try {
                     // Use deviceId (Traccar ID) for repository update
-                    await deviceRepository.updateCutOffStatus(deviceId, 0); // 0 = Active/No CutOff
-                    logger.info(`[DEVICE] CutOff flag updated to 0 for device: ${deviceId}`);
+                    await deviceRepository.updateCutOffStatus(gpsId, 0); // 0 = Active/No CutOff
+                    logger.info(`[DEVICE] CutOff flag updated to 0 for device: ${gpsId}`);
 
                     if (onUpdate) onUpdate({ status: PS.S_DEVICE_ACTIVE, message: PM.M_DEVICE_ACTIVE });
                 } catch (dbError) {
-                    logger.error(`[DEVICE] Failed to update cutOff flag in DB for ${deviceId}:`, dbError);
+                    logger.error(`[DEVICE] Failed to update cutOff flag in DB for ${gpsId}:`, dbError);
                 }
             } else {
-                logger.warn(`[DEVICE] Activation not confirmed after retries for ${deviceId}`);
+                logger.warn(`[DEVICE] Activation not confirmed after retries for ${gpsId}`);
                 if (onUpdate) onUpdate({ status: 'DEVICE_QUEUED', message: 'Dispositivo en cola (Sin confirmación)' });
             }
         } catch (error) {
-            logger.error(`[DEVICE] Error retrieving GPS adapter or executing command for ${deviceId}:`, error);
+            logger.error(`[DEVICE] Error retrieving GPS adapter or executing command for ${gpsId}:`, error);
             if (onUpdate) onUpdate({ status: PS.S_ERROR, message: 'Error de conexión con GPS' });
         }
     }
-
-    // --- Kept existing methods (refactored) ---
-
     async createPaymentIntent(deviceIdName, customerEmail = null) {
         const invoice = await invoiceRepository.getOldestUnpaidInvoice(deviceIdName);
         if (!invoice) throw new Error('No unpaid invoices found');
@@ -528,27 +623,28 @@ export class PaymentService {
 
         return { invoice, payment, checkoutUrl: wompiResult.checkoutUrl };
     }
-
-    /**
-     * Get monthly payment summary (Moved from Repository to Service)
-     */
     async getPaymentSummary({ month, year, companyId }) {
         try {
 
-            const startDate = dayjs().year(year).month(month - 1).startOf('month').add(-2, 'day').toDate();
+            const today = dayjs();
+            const isCurrentMonth = today.year() === year && today.month() + 1 === month;
+            const isStartOfMonth = today.date() <= 3;
+            const lookBackDays = (isCurrentMonth && isStartOfMonth) ? 2 : 0;
+            const startDate = dayjs().year(year).month(month - 1).startOf('month').subtract(lookBackDays, 'day').toDate();
             const endDate = dayjs().year(year).month(month - 1).endOf('month').add(1, 'day').toDate();
             const deviceMap = {};
             const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
             if (companyId) deviceQuery.companyId = companyId;
-            console.log("deviceQuery", deviceQuery);
 
             // 4. Fetch data in parallel
             const [invoices, payments] = await Promise.all([
                 invoiceRepository.findInvoices(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery)
             ]);
+            const allInvoices = await invoiceRepository.findInvoices({ date: { $gte: startDate, $lte: endDate } });
+            console.log(`[DEBUG] invoices with companyId filter: ${invoices.length}, without: ${allInvoices.length}`, allInvoices.map(i => ({ id: i._id, cId: i.companyId })));
             const paymentsObj = payments.length > 0 ? payments[0] : {};
-            console.log("paymentsObj", paymentsObj);
+
             invoices.forEach((invoice) => {
                 const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
                 const day = dayjs(invoice.date).date();
@@ -564,7 +660,8 @@ export class PaymentService {
                 }
                 const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
 
-                if (invoice.dayType !== 'FREE') {
+                const isFuture = dayjs(invoice.date).startOf('day').isAfter(dayjs().startOf('day'));
+                if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && !isFuture) {
                     deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
                 }
                 deviceMap[devName].days[day] = { ...invoice, totalPaid };

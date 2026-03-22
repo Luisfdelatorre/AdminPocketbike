@@ -1,9 +1,12 @@
 
 import { Company } from '../models/Company.js';
 import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
-import MegaRastreoApiWeb from '../api/megaRastreoWebApi.js';
+import MegaRastreo from '../adapters/megaRastreo/megaRastreoAdapter.js';
+import { User } from '../models/User.js';
+import { Contract } from '../models/Contract.js';
 import logger from '../config/logger.js';
-import MyTraccar from './traccarService.js';
+import { GPS_SERVICES } from '../config/components/constants.js';
+import GpsService from './gpsServices.js';
 
 class CompanyService {
     constructor() {
@@ -28,7 +31,7 @@ class CompanyService {
 
         try {
             const company = await Company.findById(companyId);
-            const adapter = new WompiAdapter(company?.wompiConfig || null);
+            const adapter = new WompiAdapter(null, company?.wompiConfig);
             this.wompiAdapters.set(key, adapter);
             logger.debug(`[CompanyService] Wompi adapter created for company: ${company?.name}`);
             return adapter;
@@ -38,16 +41,12 @@ class CompanyService {
         }
     }
 
-    /**
-     * Get the GPS adapter for the specified company.
-     * Supports 'megarastreo' and 'traccar'.
-     * @param {string} companyId 
-     * @returns {Promise<object>} GPS API adapter
-     */
     async getGpsAdapter(companyId) {
+
+
         // No companyId: return a default MegaRastreo instance (legacy fallback)
         if (!companyId) {
-            return new MegaRastreoApiWeb();
+            return new GpsService(null);
         }
 
         // Return cached instance if already created for this company
@@ -59,21 +58,14 @@ class CompanyService {
         // Not cached: load company config and create the right adapter
         try {
             const company = await Company.findById(companyId);
-            const serviceType = company?.gpsService || 'megarastreo';
-
-            let adapter;
-            if (serviceType === 'traccar') {
-                adapter = new MyTraccar(company); // inject company config
-            } else {
-                adapter = new MegaRastreoApiWeb(company); // inject company config
-            }
-
+            const adapter = new GpsService(company);
+            const serviceType = company?.gpsService || GPS_SERVICES.TRACCAR;
             this.gpsAdapters.set(key, adapter);
             logger.debug(`[CompanyService] GPS adapter created for company ${company?.name} (${serviceType})`);
             return adapter;
         } catch (error) {
             logger.error(`[CompanyService] Error getting GPS adapter for company ${companyId}:`, error);
-            return new MegaRastreoApiWeb(); // fallback to default
+            return new GpsService(null); // fallback to default
         }
     }
 }

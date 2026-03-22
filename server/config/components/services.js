@@ -33,6 +33,7 @@ export const Login = {
         ],
     },
     Traccar: {
+        user: 'admin',     // alias used by traccarService.js
         email: 'admin',
         password: 'Medalla6571*',
     },
@@ -75,6 +76,7 @@ export const Url = {
     CommandList: ServerApi + 'commands',
     Session: ServerApi + 'session',
     Socket: 'ws://198.74.54.252/api/socket',
+    Traccar: ServerApi, // https://pocketbike.app/api
     Payments: 'getdaysales',
 };
 

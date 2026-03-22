@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import './Payments.css';
 import { getAllPayments } from '../services/api';
 
@@ -62,6 +62,14 @@ const Payments = () => {
             setLoading(false);
         }
     };
+
+    const downloadCSV = () => {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+        window.open(`/api/payments/export?month=${month}&year=${year}`, '_blank');
+    };
+
 
     const formatCurrency = (amount) => {
         if (amount === undefined || amount === null) return '$0 COP';
@@ -199,9 +207,14 @@ const Payments = () => {
                     <h1>💳 {t('payments.title')}</h1>
                     <p>{t('payments.subtitle')}</p>
                 </div>
-                <button className="btn-primary" onClick={loadPayments}>
-                    🔄 {t('payments.refresh')}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-primary" onClick={loadPayments}>
+                        🔄 {t('payments.refresh')}
+                    </button>
+                    <button className="btn-primary" onClick={downloadCSV} style={{ background: '#00C292' }}>
+                        <Download size={16} style={{ marginRight: 4 }} /> CSV
+                    </button>
+                </div>
             </div>
 
             {/* Summary Stats */}

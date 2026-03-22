@@ -231,12 +231,14 @@ const DeviceManagement = () => {
     };
 
     const handleEngineToggle = async (device) => {
-        const deviceId = device.deviceId;
-        setPendingCommands(prev => ({ ...prev, [deviceId]: true }));
-        console.log('Engine control request:', deviceId, device.cutOff);
+        const id = device.id;
+        // cutOff=1 → device stopped → toggle to resume (command=1)
+        // cutOff=0 → device active  → toggle to stop  (command=0)
+        const command = device.cutOff === 1 ? 1 : 0;
+        setPendingCommands(prev => ({ ...prev, [id]: true }));
 
         try {
-            const result = await controlEngine(deviceId, device.cutOff);
+            const result = await controlEngine(id, command);
             if (result.success) {
                 showToast(result.message, 'success');
                 loadDevices();
@@ -247,7 +249,7 @@ const DeviceManagement = () => {
             console.error('Engine control error:', err);
             showToast(err.message || 'Error controlling engine', 'error');
         } finally {
-            setPendingCommands(prev => ({ ...prev, [deviceId]: false }));
+            setPendingCommands(prev => ({ ...prev, [id]: false }));
         }
     };
 
@@ -257,7 +259,7 @@ const DeviceManagement = () => {
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             const deviceName = device.name || device.deviceName || ''; // Handle both structures
-            const deviceId = device._id || '';
+            const deviceId = device.id || '';
 
             if (!String(deviceId).includes(query) &&
                 !deviceName.toLowerCase().includes(query)) {
@@ -479,12 +481,12 @@ const DeviceManagement = () => {
                                             e.stopPropagation();
                                             handleEngineToggle(device);
                                         }}
-                                        disabled={pendingCommands[device.deviceId]}
-                                        className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.deviceId] ? 'pending' : ''}`}
+                                        disabled={pendingCommands[device.id]}
+                                        className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
                                         title={device.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
                                     >
                                         <div className="slider-knob">
-                                            {pendingCommands[device.deviceId] ? (
+                                            {pendingCommands[device.id] ? (
                                                 <RefreshCw size={12} className="spin" />
                                             ) : (
                                                 <Power size={12} />

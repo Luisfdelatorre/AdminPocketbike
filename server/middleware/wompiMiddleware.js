@@ -1,4 +1,4 @@
-import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
+import companyService from '../services/companyService.js';
 import { getWompiApi } from '../adapters/wompiAdapter/wompiApi.js';
 import { Payment } from '../models/index.js';
 import { Company } from '../models/Company.js';
@@ -8,35 +8,27 @@ import logger from '../config/logger.js';
 
 const validateWompiSignature = async (req, res, next) => {
     try {
-        const wompiAdapter = new WompiAdapter(req.body);
 
+        logger.info(`Webhook Wompi`, req.body);
+
+        const reference = req.body.data.transaction.reference;
+        if (!reference) {
+            logger.warn('Invalid webhook structure', validated);
+            return res.status(400).json(validated);
+        }
+        console.log("reference", reference);
+        // const payment = await Payment.findOne({ reference });
+
+        const wompiAdapter = await companyService.getWompiAdapter('69b26d6f318e40e31d1d2495');
+        wompiAdapter.init(req.body);
         // 1️⃣ Validate Webhook Data Structure
         const validated = wompiAdapter.validateWebhookData();
-
         if (!validated.valid) {
             logger.warn('Invalid webhook structure', validated);
             return res.status(400).json(validated);
         }
-
-        // 1.5️⃣ Identify company and re-configure adapter with correct integrity secret
-        const reference = validated.transaction.reference;
-        const payment = await Payment.findOne({ $or: [{ reference }, { paymentId: validated.transaction.id }] });
-
-        if (payment && payment.companyId) {
-            const company = await Company.findById(payment.companyId);
-            if (company && company.wompiConfig) {
-                // Update adapter with company-specific config
-                const config = company.wompiConfig;
-                wompiAdapter.config = config;
-                wompiAdapter.api = getWompiApi(config);
-                wompiAdapter.integritySecret = config.integritySecret || Wompi.privateKeyEvents;
-                console.log(`[WOMPI] Validating signature with custom secret for company: ${company.name}`);
-            }
-        }
-
         // 2️⃣ Validate Signature
         const signatureCheck = await wompiAdapter.validateWebhookSignature();
-        console.log("--signatureCheck", signatureCheck);
         if (!signatureCheck.ok) {
             logger.warn('Invalid webhook signature', signatureCheck);
             return res.status(403).json(signatureCheck);
@@ -44,6 +36,7 @@ const validateWompiSignature = async (req, res, next) => {
 
         // 3️⃣ Attach adapter to request for controller to use (optional but efficient)
         req.wompiAdapter = wompiAdapter;
+        req.validated = validated;
 
         next();
     } catch (err) {

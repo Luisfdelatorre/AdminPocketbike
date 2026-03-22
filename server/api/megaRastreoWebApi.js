@@ -95,7 +95,7 @@ class MegaRastreoApiWeb {
             category: d.icono,
             lastUpdate: d.fecha_gps,
             imei: d.imei,
-            megaDeviceId: d.id,
+            gpsId: d.id,
             cutOff: 0,
         }));
     }

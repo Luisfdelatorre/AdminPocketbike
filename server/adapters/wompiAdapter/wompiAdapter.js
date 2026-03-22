@@ -6,15 +6,14 @@ import { Transaction, Login, Url } from '../../config/config.js';
 import dayjs from '../../config/dayjs.js';
 
 const { PAYMENT_TYPE, currencyCode, defaultCustomer } = Transaction;
-const { Wompi } = Login;
 
 class WompiAdapter {
-  constructor(config, reponseData) {
+  constructor(reponseData, config) {
     this.reponseData = reponseData;
     this.config = config;
     this.api = config ? getWompiApi(config) : wompiApi;
-    this.integritySecret = config?.integritySecret || Wompi.privateKeyEvents;
-    this.eventsSecret = Wompi.eventsSecret;
+    this.integritySecret = config?.integritySecret;
+    this.eventsSecret = config?.eventsSecret;
   }
   init(reponseData) {
     if (!reponseData || typeof reponseData !== 'object') {
@@ -33,7 +32,7 @@ class WompiAdapter {
     const body = this.buildTransactionBody(phone, unpaidInvoice, reference, acceptanceToken);
     let transactionData;
     try {
-      const response = await wompiApi.createTransaction(body);
+      const response = await this.api.createTransaction(body);
       transactionData = response.data.data;
     } catch (error) {
       if (error.response) {
@@ -45,7 +44,7 @@ class WompiAdapter {
       deviceIdName: unpaidInvoice.deviceIdName,
       unpaidInvoiceId: unpaidInvoice._id,
       deviceId: unpaidInvoice.deviceId,
-      megaDeviceId: unpaidInvoice.megaDeviceId,
+      gpsId: unpaidInvoice.gpsId,
       invoiceDate: unpaidInvoice.date,
       companyId: companyId,
       type: PAYMENT_TYPE.WOMPI,
@@ -91,7 +90,7 @@ class WompiAdapter {
       //  publicKey: Wompi.publicKey,
       //  headers: Wompi.AUTH
       //});
-      const response = await wompiApi.getMerchantData();
+      const response = await this.api.getMerchantData();
       //console.log(response);
       return response.data.data.presigned_acceptance.acceptance_token;
     } catch (error) {
@@ -263,7 +262,7 @@ class WompiAdapter {
   }
 
   _generateSignature(reference, amountInCents, currency) {
-    const dataString = `${reference}${amountInCents}${currency}${Wompi.secretIntegrity}`;
+    const dataString = `${reference}${amountInCents}${currency}${this.integritySecret}`;
     return crypto.createHash('sha256').update(dataString).digest('hex');
   }
 

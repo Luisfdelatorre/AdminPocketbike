@@ -4,8 +4,7 @@ import { Transaction } from '../config/config.js';
 import helpers from '../utils/helpers.js';
 
 const { generateInvoiceId, getToday } = helpers;
-import logger from '../config/logger.js';
-import Traccar from '../adapters/traccarAdapter.js';
+
 
 const { INVOICE_DAYTYPE, PAYMENT_TYPE, TEMPORARY_RESERVATION_TIMEOUT } = Transaction;
 
@@ -30,7 +29,7 @@ const InvoiceSchema = new mongoose.Schema(
         paid: { type: Boolean, default: false },
         deviceIdName: { type: String, required: true },//this is device name
         deviceId: { type: String, required: true },//this is device id
-        megaDeviceId: { type: String },
+        gpsId: { type: String },
         companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
         companyName: { type: String },
         dayType: {
@@ -40,11 +39,12 @@ const InvoiceSchema = new mongoose.Schema(
         }, // Ej: "APPROVED"
         reservedUntil: { type: Date },
         cutOff: { type: Boolean, default: false }, // Device turned off due to non-payment
-        adjustmentReason: {
+        adjustmentType: {
             type: String,
-            enum: ['REPAIR', 'DAMAGE', 'MAINTENANCE', null],
+            enum: ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', null],
             default: null
         }, // Reason why this day was altered
+        adjustmentReference: { type: String, default: '' }, // Admin reference / note for the adjustment
         adjustmentComment: { type: String, default: '' }, // Free-text explanation for the adjustment
     },
     { collection: 'invoices' }
@@ -91,7 +91,7 @@ InvoiceSchema.statics.createInvoice = async function ({
     date,
     deviceIdName,
     deviceId,
-    megaDeviceId,
+    gpsId,
     companyId,
     companyName
 }) {
@@ -103,7 +103,7 @@ InvoiceSchema.statics.createInvoice = async function ({
         amount,
         deviceIdName,
         deviceId,
-        megaDeviceId,
+        gpsId,
         companyId,
         companyName,
         paid: false,
@@ -158,6 +158,18 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.paid = true; // Debt remains
             this.dayType = INVOICE_DAYTYPE.PAID;
             this.paidAmount = payment.amount;
+            this.transaction.id = payment._id;
+            this.transaction.reference = payment.reference;
+            this.transaction.finalized_at = payment.finalized_at;
+            this.transaction.type = payment.type;
+            break;
+
+        case PAYMENT_TYPE.ADJUSTMENT:
+            this.paid = true;
+            this.dayType = INVOICE_DAYTYPE.ADJUSTMENT; // $0 cost to customer
+            this.paidAmount = payment.amount;
+            this.adjustmentType = payment.adjustmentType || payment.adjustmentReason || null;
+            this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
             this.transaction.id = payment._id;
             this.transaction.reference = payment.reference;
             this.transaction.finalized_at = payment.finalized_at;

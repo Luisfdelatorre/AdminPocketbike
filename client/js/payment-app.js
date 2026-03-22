@@ -212,7 +212,7 @@ class UIUtils {
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        }, 5000);
     }
 
     static showError(message) {
@@ -885,8 +885,8 @@ class PaymentManager {
                 return;
             }
 
-            alert(messagesService.get('SUCCESS.LOAN_APPLIED'));
             await this.loadData();
+            UIUtils.showToast(messagesService.get('SUCCESS.LOAN_APPLIED'), 'success');
         } catch (error) {
             console.error('Loan request failed:', error);
             const msg = error.response?.data?.error || error.message || messagesService.get('ERRORS.LOAN_ERROR');

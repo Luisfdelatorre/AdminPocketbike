@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Download } from 'lucide-react';
 
-import { getPaymentSummary } from '../services/api';
+import { getPaymentSummary, exportPaymentsCSV } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './PaymentSummary.css';
 import MotorIcon from '../components/MotorIcon';
@@ -20,6 +20,7 @@ const PaymentSummary = () => {
     // Token is handled by api interceptor
     const { } = useAuth(); // Removed token from destructuring
     const [loading, setLoading] = useState(false);
+    const [downloading, setDownloading] = useState(false);
     const [summaryData, setSummaryData] = useState([]);
     const tableContainerRef = useRef(null);
 
@@ -61,6 +62,19 @@ const PaymentSummary = () => {
             setLoading(false);
         }
     };
+
+    const handleExport = async () => {
+        setDownloading(true);
+        try {
+            await exportPaymentsCSV(selectedMonth, selectedYear);
+        } catch (err) {
+            console.error('CSV export error:', err);
+            alert('Error al descargar el CSV: ' + err.message);
+        } finally {
+            setDownloading(false);
+        }
+    };
+
 
     useEffect(() => {
         fetchData();
@@ -109,6 +123,18 @@ const PaymentSummary = () => {
                         title="Actualizar datos"
                     >
                         <RefreshCw size={20} />
+                    </button>
+
+                    <button
+                        className="select-control refresh-btn"
+                        onClick={handleExport}
+                        disabled={downloading}
+                        title="Descargar CSV"
+                        style={{ background: '#00C292', color: '#fff', border: 'none' }}
+                    >
+                        {downloading
+                            ? <RefreshCw size={20} className="spinning" />
+                            : <Download size={20} />}
                     </button>
                 </div>
             </div>
@@ -167,6 +193,9 @@ const PaymentSummary = () => {
                                             } else if (dayData.dayType === 'FREE') {
                                                 cellClass = 'status-cell free';
                                                 content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
+                                            } else if (dayData.dayType === 'ADJUSTMENT') {
+                                                cellClass = 'status-cell adjusted';
+                                                content = '🔧';
                                             } else {
                                                 cellClass = 'status-cell pending';
                                             }

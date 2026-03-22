@@ -19,6 +19,7 @@ const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 //activationQueue.start();
 
 import paymentService from './paymentService.js';
+import companyService from "./companyService.js";
 
 const generateDailyInvoices = async () => {
   try {
@@ -57,31 +58,27 @@ const generateDailyInvoices = async () => {
           continue;
         }
 
-        // Check for FIXED_WEEKDAY automatic free day policy
-        if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && today.getDay() === contract.fixedFreeDayOfWeek) {
-          const existingInvoice = await invoiceRepository.getInvoiceByDeviceAndDate(device.name, today);
-
-          if (existingInvoice) {
-            logger.info(`[CRON] Fixed Free Day already applied preventively for ${device.name} on ${dayjs(today).format('YYYY-MM-DD')}. Skipping duplicate generation.`);
-            continue; // Skip since it's already there
-          }
-
-          logger.info(`🎉 Automatic Fixed Free Day triggered for device ${device.name}`);
-          await paymentService.applyFreeDay(device.name, contract.contractId, device.companyId, true);
-          continue; // Skip standard invoice generation since applyFreeDay handles it
-        }
-
         // Use denormalized dailyRate directly from the device record for efficiency
         const amount = device.dailyRate || 0;
 
         if (amount > 0) {
           const invoice = await invoiceRepository.findOrCreateInvoiceByName(
-            device.name, // deviceIdName
-            device.deviceId, // deviceId
-            amount, // dailyRate
-            today, // date
-            device.companyId
+            device.name,           // deviceIdName
+            device.deviceId,       // deviceId
+            amount,                // amount / dailyRate
+            today,                 // date  ← must be before companyId
+            device.companyId       // companyId
           );
+          // Check for FIXED_WEEKDAY automatic free day policy
+          if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && today.getDay() === contract.fixedFreeDayOfWeek) {
+            if (invoice && invoice.paid === false) {
+              logger.info(`🎉 Automatic Fixed Free Day triggered for device ${device.name}`);
+              await paymentService.applyFreeDayAutomatic(device.name, device.companyId, invoice);
+              logger.info(`[FREE DAY AUTO] Applied free day for ${device.name} on ${dayjs(today).format('YYYY-MM-DD')}.`);
+            } else {
+              logger.info(`[FREE DAY AUTO] Invoice for ${device.name} already paid — skipping.`);
+            }
+          }
           logger.info(`Invoice generated/verified for ${device.name}: ${invoice._id}`);
         } else {
           logger.warn(`Device ${device.name} has hasActiveContract=true but dailyRate is 0 or missing.`);
@@ -94,7 +91,7 @@ const generateDailyInvoices = async () => {
     logger.error('Error generando invoices diarios', err);
   }
 };
-import companyService from "./companyService.js";
+
 
 const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId, companyId) => {
   logger.info(`[CUT-OFF] Device ${deviceName} engine stop verification starting...`);
@@ -332,9 +329,12 @@ const performCurfewEnd = async (companyId) => {
       cutOff: { $in: [0, null] } // Safely resume ONLY if not marked with unpaid cutoffs
     }).lean();
 
-    if (!devices || devices.length === 0) return;
+    if (!devices || devices.length === 0) {
+      logger.info(`[CURFEW END] No devices pending resume for company: ${companyId}`);
+      return;
+    }
 
-    logger.info(`[CURFEW] Resuming ${devices.length} devices.`);
+    logger.info(`[CURFEW] Resuming ${devices.length} devices (will clear only confirmed ones).`);
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
 
     const BATCH_SIZE = 10;

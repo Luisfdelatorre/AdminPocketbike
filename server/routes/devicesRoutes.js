@@ -37,7 +37,7 @@ router.put('/:deviceId', deviceController.updateDevice);
  * POST /api/devices/:deviceId/engine
  * Control device engine (stop/resume)
  */
-router.post('/:deviceId/engine', deviceController.controlEngine);
+router.post('/:id/engine', deviceController.controlEngine);
 
 /**
  * DELETE /api/devices/:deviceId

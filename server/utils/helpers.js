@@ -25,6 +25,9 @@ function generateReference(invoiceId) {
 function generateReferenceFreeDay(invoiceId) {
     return `FREE-${invoiceId}-${nanoid(2).toUpperCase()}`;
 }
+function generateReferenceAdjustment(invoiceId) {
+    return `ADJ-${invoiceId}-${nanoid(2).toUpperCase()}`;
+}
 function generateReferenceLoan(invoiceId) {
     return `LOAN-${invoiceId}-${nanoid(2).toUpperCase()}`;
 }
@@ -64,6 +67,7 @@ function generateContractId(deviceIdName) {
     return `CI${sanitizedName}${nanoid(2).toUpperCase()}`;
 }
 
+
 function generateDeviceId(plate) {
     const p = String(plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (!p) return null; // Return null if no valid chars, let caller handle fallback
@@ -86,6 +90,7 @@ export default {
     generateReference,
     generateReferenceFreeDay,
     generateReferenceLoan,
+    generateReferenceAdjustment,
     generateInvoiceId,
     formatDate,
     generateEmail,

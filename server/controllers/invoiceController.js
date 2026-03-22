@@ -250,6 +250,58 @@ const getInvoiceStats = async (req, res) => {
     }
 };
 
+/**
+ * Export invoices as CSV for a given month/year
+ */
+const exportCSV = async (req, res) => {
+    try {
+        const { isSuperAdmin, companyId, role, companyName } = req.auth;
+        const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+
+        const now = new Date();
+        const month = Number(req.query.month || now.getMonth() + 1);
+        const year = Number(req.query.year || now.getFullYear());
+
+        const from = new Date(year, month - 1, 1);
+        const to = new Date(year, month, 1);
+
+        const query = { date: { $gte: from, $lt: to } };
+        if (!isSystemAdmin) query.companyId = new mongoose.Types.ObjectId(companyId);
+
+        const invoices = await Invoice.find(query).sort({ date: 1 }).lean();
+
+        const headers = [
+            'Factura', 'Dispositivo', 'Fecha', 'Monto', 'Pagado', 'Estado',
+            'Fecha Pago', 'Referencia'
+        ];
+
+        const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const fmtDate = d => d ? new Date(d).toLocaleDateString('es-CO') : '';
+
+        const rows = invoices.map(inv => [
+            esc(inv._id),
+            esc(inv.deviceIdName),
+            esc(fmtDate(inv.date)),
+            esc(inv.paidAmount ?? 0),
+            esc(inv.paid ? 'SI' : 'NO'),
+            esc(inv.dayType),
+            esc(fmtDate(inv.transaction?.finalized_at)),
+            esc(inv.transaction?.reference)
+        ].join(','));
+
+        const monthStr = String(month).padStart(2, '0');
+        const filename = `facturas_${year}-${monthStr}.csv`;
+        const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    } catch (error) {
+        logger.error('Invoice CSV export error:', error.message);
+        res.status(500).json({ success: false, error: 'Failed to export invoices CSV' });
+    }
+};
+
 export default {
     createInvoice,
     getInvoiceStats,
@@ -257,5 +309,6 @@ export default {
     getInvoiceHistory,
     getAllInvoices,
     getInvoicesByDevice,
-    getUnpaidInvoices
+    getUnpaidInvoices,
+    exportCSV
 };

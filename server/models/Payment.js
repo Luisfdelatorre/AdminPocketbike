@@ -23,7 +23,7 @@ const paymentSchema = new mongoose.Schema({
     //device data
     deviceIdName: { type: String, required: true },
     deviceId: { type: String, required: true },
-    megaDeviceId: { type: String, required: true },
+    gpsId: { type: String },
     // invoice data
     invoiceDate: { type: Date, default: Date.now }, //fecha de la factura pagada
     invoiceId: { type: String, default: null }, // ID de la factura asociada

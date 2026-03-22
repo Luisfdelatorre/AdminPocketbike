@@ -3,16 +3,10 @@ import { DeviceAccess } from '../models/DeviceAccess.js';
 import { Contract } from '../models/Contract.js';
 import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
-
 import deviceServices from '../services/deviceServices.js';
-import gpsService from '../services/megaRastreoServices.js';
 import companyService from '../services/companyService.js';
 import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
-import bcrypt from 'bcryptjs';
 
-/**
- * Get all devices with status info
- */
 const getAllDevices = async (req, res) => {
     try {
         const devices = await Device.find({ isDeleted: { $ne: true } }).sort({ _id: 1 });
@@ -29,9 +23,6 @@ const getAllDevices = async (req, res) => {
     }
 };
 
-/**
- * Create a new device
- */
 const createDevice = async (req, res) => {
     try {
         const {
@@ -73,9 +64,6 @@ const createDevice = async (req, res) => {
     }
 };
 
-/**
- * Update device information
- */
 const updateDevice = async (req, res) => {
     try {
         const { deviceId } = req.params;
@@ -182,45 +170,21 @@ const deleteDevice = async (req, res) => {
 const syncDevices = async (req, res) => {
     try {
         const { companyId } = req.auth;
-        let company = null;
-        let adapter;
+        const stats = await deviceServices.syncFromGps(companyId);
 
-        if (companyId) {
-            company = await Company.findById(companyId);
-            adapter = await companyService.getGpsAdapter(companyId);
-        } else {
-            // Fallback for system admin fetching all?
-            adapter = await companyService.getGpsAdapter(null);
-        }
-
-        const rawDevices = await adapter.fetchDevices();
-
-        let gpsDevices = rawDevices;
-        // Stamp company info if syncing for a specific company
-        if (company) {
-            gpsDevices = rawDevices.map(d => ({
-                ...d,
-                companyId: company._id.toString(),
-                companyName: company.name
-            }));
-        }
-
-        if (gpsDevices.length === 0) {
+        if (stats.created === 0 && stats.updated === 0) {
             return res.json({
                 success: true,
                 message: 'No devices found to sync',
-                stats: { created: 0, updated: 0, errors: 0 }
+                stats
             });
         }
 
-        const stats = await deviceServices.bulkWriteDevices(gpsDevices);
-
         res.json({
             success: true,
-            message: `Sync complete. Devices: ${stats.created} new, ${stats.updated} updated. PINs: ${stats.pinUpdates} synced.`,
+            message: `Sync complete. Devices: ${stats.created} new, ${stats.updated} updated. PINs: ${stats.pinUpdates ?? 0} synced.`,
             stats
         });
-
     } catch (error) {
         console.error('Sync devices error:', error);
         res.status(500).json({
@@ -229,6 +193,7 @@ const syncDevices = async (req, res) => {
         });
     }
 };
+
 
 /**
  * Assign devices to a company (Bulk Update)
@@ -294,58 +259,29 @@ const assignDevicesToCompany = async (req, res) => {
  */
 const controlEngine = async (req, res) => {
     try {
-        const { deviceId } = req.params;
-        const { command } = req.body; // 'stop' or 'resume'
-        console.log('Control engine request:', deviceId, command);
+        const { id } = req.params;
+        const { companyId } = req.auth;
+        const rawCommand = req.body.command;
+        const command = Number(rawCommand);  // coerce: true→1, false→0, '0'→0, etc.
+        console.log('Control engine request:', id, 'raw:', rawCommand, '→', command);
 
         if (command !== 0 && command !== 1) {
             return res.status(400).json({
                 success: false,
-                error: 'Invalid command. Use "stop" or "resume".'
+                error: `Invalid command '${rawCommand}'. Use 0 (stop) or 1 (resume).`
             });
         }
+        const response = await deviceServices.controlEngine(id, command, companyId);
 
-        const device = await Device.findById(deviceId * 1);
-        console.log('Device found:', deviceId, device);
-        if (!device) {
-            return res.status(404).json({
-                success: false,
-                error: 'Device not found'
-            });
-        }
-
-        const commandType = command === 0 ? ENGINESTOP : ENGINERESUME;
-
-        // Fetch company integration config if available
-        let companyConfig = null;
-        if (device.companyId) {
-            const company = await Company.findById(device.companyId);
-            if (company && company.gpsService === 'megarastreo') {
-                companyConfig = company.gpsConfig;
-                console.log(`[GPS] Using custom config for company: ${company.name}`);
-            }
-        }
-
-        // Execute and verify via MegaRastreo service
-        // We use megaDeviceId (numeric platform ID) for commands
-        const success = await gpsService.executeAndVerify(device.megaDeviceId, commandType, {
-            companyConfig
-        });
-
-        if (success) {
-            // Update device status in DB
-            device.cutOff = !command;
-            await device.save();
-
+        if (response && response.success) {
             return res.json({
                 success: true,
-                message: `Engine ${command === 0 ? 'stopped' : 'resumed'} successfully`,
-                cutOff: device.cutOff
+                response
             });
         } else {
             return res.status(500).json({
                 success: false,
-                error: `Failed to ${command} engine. Command not confirmed by device.`
+                error: response?.error || 'Failed to control engine'
             });
         }
     } catch (error) {

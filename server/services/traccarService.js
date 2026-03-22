@@ -3,18 +3,17 @@ import { Transaction, ENGINERESUME, ENGINESTOP, Url, Login } from '../config/con
 import { CommandBody } from '../utils/CommandBody.js';
 import logger from '../config/logger.js';
 
+
 class MyTraccar {
     constructor(config = {}) {
-        // Handle both flat config or Company model instance
-        const finalConfig = config.gpsConfig || config;
+        this.host = config.host || Url.Traccar;
+        this.user = config.user || Login.Traccar.user;
+        this.password = config.password || Login.Traccar.password;
 
-        this.host = finalConfig.host || Url.Traccar;
-        this.user = finalConfig.user || Login.Traccar.user;
-        this.password = finalConfig.password || Login.Traccar.password;
-
-        // Remove trailing slash if present
-        if (this.host && this.host.endsWith('/')) {
-            this.host = this.host.slice(0, -1);
+        // Normalize host → always: https://<host>/api
+        // Handles: "pocketbike.app", "https://pocketbike.app"
+        if (this.host && !this.host.startsWith('http')) {
+            this.host = `https://${this.host}`;
         }
 
         this.api = axios.create({

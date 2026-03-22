@@ -8,7 +8,7 @@ const deviceSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.Mixed, required: true, default: function () { return (this && this.name) ? helpers.generateDeviceId(this.name) : new mongoose.Types.ObjectId(); } }, // Custom ID based on name or ObjectId
     name: { type: String, unique: true }, //plate
     model: { type: String },
-    status: { type: String, enum: ['active', 'inactive', 'maintenance'], default: 'active', },
+    status: { type: String, enum: ['active', 'inactive', 'maintenance', 'online'], default: 'active', },
     disabled: { type: Boolean, default: false },
     lastUpdate: { type: Date },
     positionId: { type: Number },
@@ -17,9 +17,7 @@ const deviceSchema = new mongoose.Schema({
     contractId: { type: String, },
     deviceId: { type: Number, default: function () { return (this && this.name) ? helpers.generateDeviceId(this.name) : null; } },
     driverName: { type: String },
-    megaDeviceId: { type: String, required: true },
-    apiDeviceId: { type: Number, default: null },
-    traccarDeviceId: { type: Number, default: null },
+    gpsId: { type: String, required: true },
     imei: { type: String, default: null },
     deviceType: { type: String },//groupId traccar
     category: { type: String, default: null },//car moto//icon 
@@ -49,8 +47,8 @@ const deviceSchema = new mongoose.Schema({
     attributes: {
         Cuota: { type: Number, default: DEFAULTAMOUNT },
         DailyPayment: { type: Boolean, default: false },
-        FreeDays: { type: Number, default: 2 },
-        Contrato: { type: Number, default: 520 },
+        FreeDays: { type: Number, default: 4 },
+        Contrato: { type: Number, default: 500 },
     },
 }, {
     timestamps: true,

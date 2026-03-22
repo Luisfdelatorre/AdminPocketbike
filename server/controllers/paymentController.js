@@ -63,7 +63,6 @@ const paymentController = {
         try {
             const { page, limit, status } = req.query;
             const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
-            console.log("Auth:", req.auth);
 
             // Check if it's a device request (req.paymentAuth) or admin request (req.auth)
             // The route seems to be used by Admin panel (req.auth) based on context
@@ -120,6 +119,7 @@ const paymentController = {
         try {
             const { deviceIdName } = req.paymentAuth;
             const status = await paymentService.getDataStatus(deviceIdName);
+
             res.json(status);
         } catch (error) {
             logger.error(`Error in getDeviceStatus for ${req.paymentAuth?.deviceIdName}:`, error.message);
@@ -240,7 +240,83 @@ const paymentController = {
         req.on('close', () => {
             closed = true; // client disconnected — silence any further writes
         });
-    }
+    },
+
+    /*Stream payments as CSV file for the requested month/year*/
+    async exportCSV(req, res) {
+
+        try {
+            const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
+            let { month, year } = req.query;
+
+            const now = new Date();
+            month = Number(month || now.getMonth() + 1);
+            year = Number(year || now.getFullYear());
+
+            let filter = {};
+            const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+            if (!isSystemAdmin) filter.companyId = companyId;
+
+            // Date range for the requested month
+            const from = new Date(year, month - 1, 1);
+            const to = new Date(year, month, 1); // exclusive start of next month
+            filter.createdAt = { $gte: from, $lt: to };
+
+            const { payments } = await paymentService.getPaymentHistory({ limit: 9999, filter });
+
+            const headers = [
+                'Fecha', 'Dispositivo', 'Monto (COP)', 'Estado',
+                'Referencia', 'Tipo Pago', 'Telefono', 'Factura', 'Empresa'
+            ];
+
+            const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+            const rows = payments.map(p => [
+                esc(p.finalized_at
+                    ? new Date(p.finalized_at).toLocaleString('es-CO')
+                    : new Date(p.createdAt).toLocaleString('es-CO')),
+                esc(p.deviceIdName || p.deviceId),
+                esc(p.amount ?? 0),
+                esc(p.status),
+                esc(p.reference),
+                esc(p.payment_method_type || p.paymentMethodType),
+                esc(p.phone_number),
+                esc(p.invoiceId || p.unpaidInvoiceId),
+                esc(p.companyName)
+            ].join(','));
+
+            const monthStr = String(month).padStart(2, '0');
+            const filename = `pagos_${year}-${monthStr}.csv`;
+            const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(csv);
+
+        } catch (error) {
+            logger.error('Export CSV error:', error.message);
+            res.status(500).json({ success: false, error: 'Failed to export CSV' });
+        }
+    },
+    /*Admin: apply a manual adjustment (REPAIR / DAMAGE / MAINTENANCE / WORKSHOP)*/
+    async manualAdjustment(req, res) {
+        try {
+            const { companyId } = req.auth;
+            const { invoiceId, adjustmentType, amount, adjustmentReference, note } = req.body;
+            if (!invoiceId || !adjustmentType) {
+                return res.status(400).json({ success: false, error: 'invoiceId and adjustmentReason are required' });
+            }
+            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP'];
+            if (!VALID_REASONS.includes(adjustmentType)) {
+                return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${VALID_REASONS.join(', ')}` });
+            }
+            const result = await paymentService.applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentType, adjustmentReference, note });
+            return res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            logger.error('Manual adjustment error:', error.message);
+            return res.status(500).json({ success: false, error: error.message });
+        }
+    },
 };
 
 export default paymentController;

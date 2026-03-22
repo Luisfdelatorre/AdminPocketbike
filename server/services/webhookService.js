@@ -13,13 +13,15 @@ export class WebhookService {
     /**
      * Process incoming Wompi webhook
      */
+
     async processWebhook(wompiAdapter) {
         const eventData = wompiAdapter.getEventData();
+        console.log("eventData", eventData);
 
         if (eventData.eventType === WOMPI_EVENTS.TRANSACTION_UPDATED) {
             const paymentData = wompiAdapter.getPaymentData();
             const dummyOnUpdate = () => { };
-            if (paymentData.status === PAYMENT_STATUS.APPROVED) {
+            if (paymentData.status === PAYMENT_STATUS.S_APPROVED) {
                 await paymentService.processApprovedPayment(paymentData, dummyOnUpdate);
             }
             await webhookRepository.recordWebhookEvent(eventData);

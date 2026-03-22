@@ -3,44 +3,29 @@ import logger from '../config/logger.js';
 
 class DeviceRepository {
     /**
-     * Upsert devices in batch from Traccar
+     * Bulk upsert GPS devices. Receives already-prepared docs with _id set.
+     * @param {object[]} docs  Clean device docs (empty objects already stripped)
+     * @returns {{ created, updated, errors }}
      */
-    async upsertDevicesBatch(devices) {
+    async upsertDevicesBatch(docs) {
         try {
-            if (!devices || devices.length === 0) {
-                logger.info('No devices to upsert');
-                return;
-            }
+            if (!docs || docs.length === 0) return { created: 0, updated: 0, errors: 0 };
 
-            const bulkOps = devices.map(device => ({
+            const bulkOps = docs.map(doc => ({
                 updateOne: {
-                    filter: { _id: device.id },
-                    update: {
-                        $set: {
-                            _id: device.id,
-                            uniqueId: device.uniqueId,
-                            name: device.name,
-                            model: device.model,
-                            status: device.status,
-                            disabled: device.disabled,
-                            lastUpdate: device.lastUpdate,
-                            positionId: device.positionId,
-                            phone: device.phone,
-                            contact: device.contact,
-                            groupId: device.groupId,
-                            calendarId: device.calendarId,
-                            category: device.category,
-                            megaDeviceId: device.megaDeviceId,
-                            attributes: device.attributes || {}
-                        }
-                    },
+                    filter: { _id: doc._id },
+                    update: [{ $set: doc }],   // pipeline stage — allows computed fields
                     upsert: true
                 }
             }));
 
             const result = await Device.bulkWrite(bulkOps);
-            logger.info(`Upserted ${result.upsertedCount} devices, modified ${result.modifiedCount} devices`);
-            return result;
+            logger.info(`GPS sync: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
+            return {
+                created: result.upsertedCount,
+                updated: result.modifiedCount,
+                errors: 0
+            };
         } catch (error) {
             logger.error('Error upserting devices batch:', error);
             throw error;
@@ -55,6 +40,31 @@ class DeviceRepository {
             return await Device.find({});
         } catch (error) {
             logger.error('Error getting all devices:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get minimal device info needed for GPS sync initialization
+     */
+    async getDevicesForGpsSync() {
+        try {
+            return await Device.find({}, 'imei companyId').lean();
+        } catch (error) {
+            logger.error('Error getting devices for GPS sync:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get devices by company ID
+     * @param {String} companyId 
+     */
+    async getDevicesByCompanyId(companyId) {
+        try {
+            return await Device.find({ companyId }).lean();
+        } catch (error) {
+            logger.error(`Error getting devices for company ${companyId}:`, error);
             throw error;
         }
     }
@@ -199,6 +209,23 @@ class DeviceRepository {
             );
         } catch (error) {
             logger.error(`Error updating cutOff status for device ${deviceId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update device cutOff status bypassing strict validation
+     * @param {String} objectId - Internal MongoDB Object ID
+     * @param {Number|Boolean} cutOff - New status
+     */
+    async updateDeviceCutOff(objectId, cutOff) {
+        try {
+            return await Device.updateOne(
+                { _id: objectId },
+                { $set: { cutOff } }
+            );
+        } catch (error) {
+            logger.error(`Error updating device _id ${objectId} cutOff:`, error);
             throw error;
         }
     }

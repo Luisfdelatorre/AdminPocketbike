@@ -37,6 +37,9 @@ router.post('/create', verifyToken, invoiceController.createInvoice);
  */
 router.get('/all', verifyToken, invoiceController.getAllInvoices);
 
+// Export invoices as CSV (month/year via query params)
+router.get('/export', verifyToken, invoiceController.exportCSV);
+
 /**
  * GET /api/invoices/:deviceId
  * Get all invoices for a device

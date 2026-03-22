@@ -37,7 +37,7 @@ export const verifyDevicePin = (data) => api.post('/auth/device-pin', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
 // --- Dashboard ---
-export const getDashboardStats = () => api.get('/dashboard/stats');
+export const getDashboardStats = (params) => api.get('/dashboard/stats', { params });
 
 // --- Devices ---
 export const getAllDevices = () => api.get('/devices');
@@ -59,6 +59,23 @@ export const getActiveContract = (deviceId) => api.get(`/contracts/${deviceId}`)
 
 // --- Invoices ---
 export const getAllInvoices = (params) => api.get('/invoices/all', { params });
+
+export const exportInvoicesCSV = async (month, year) => {
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
+        || localStorage.getItem('token') || localStorage.getItem('adminToken');
+    const res = await fetch(`${API_URL}/invoices/export?month=${month}&year=${year}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `facturas_${year}-${String(month).padStart(2, '0')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
 export const getInvoiceStats = async () => {
     const response = await api.get('/invoices/stats');
     return response.data;
@@ -93,6 +110,24 @@ export const getPaymentSummary = (params) => api.get('/payments/allPayments', { 
 export const getPaymentStatus = (reference) => api.get(`/payments/status/${reference}`);
 export const getPaymentHistory = (deviceId, params) => api.get(`/payments/history/${deviceId}`, { params });
 export const verifyTransaction = (reference) => api.post(`/payments/verify/${reference}`);
+export const registerManualAdjustment = (data) => api.post('/payments/admin/manual', data);
+
+export const exportPaymentsCSV = async (month, year) => {
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
+        || localStorage.getItem('token') || localStorage.getItem('adminToken');
+    const res = await fetch(`${API_URL}/payments/export?month=${month}&year=${year}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pagos_${year}-${String(month).padStart(2, '0')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
 
 // --- settings ---
 export const getSettings = () => api.get('/companies/settings');

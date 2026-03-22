@@ -1,5 +1,6 @@
 export const ENGINERESUME = 'engineResume';
 export const ENGINESTOP = 'engineStop';
+export const ENGINE_COMMANDS = { STOP: 0, RESUME: 1 };
 export const LOGFILENAMEFORMAT = 'roll-<DATE>.log';
 export const DATEFORMAT = 'YYYY.MM.DD';
 export const TIMEFORMAT = 'YYYY-MM-DD HH:mm:ss.SSS';
@@ -88,3 +89,10 @@ export const UI_MESSAGES = {
         PAYMENT_METHOD: 'Pagar con Nequi'
     }
 };
+
+export const GPS_SERVICES = {
+    MEGARASTREO: 'megarastreo',
+    TRACCAR: 'traccar',
+    // XXXXX:    'xxxxx', // <-- espacio para futuros proveedores
+};
+

@@ -37,6 +37,8 @@ const Settings = () => {
         }
     });
 
+    const [availableGpsServices, setAvailableGpsServices] = useState([]);
+
     const [saved, setSaved] = useState(false);
     const [savingSections, setSavingSections] = useState({});
     const [savedSections, setSavedSections] = useState({});
@@ -76,14 +78,16 @@ const Settings = () => {
             try {
                 const data = await getSettings();
                 if (data.success) {
+                    const { availableGpsServices: gpsList, ...rest } = data.data;
+                    if (gpsList?.length) setAvailableGpsServices(gpsList);
                     setSettings(prev => ({
                         ...prev,
-                        ...data.data,
+                        ...rest,
                         contractDefaults: {
                             ...prev.contractDefaults,
-                            ...(data.data.contractDefaults || {})
+                            ...(rest.contractDefaults || {})
                         },
-                        companyLogo: data.data.logo || prev.companyLogo // Map logo to companyLogo for state
+                        companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
                     }));
                 }
             } catch (error) {
@@ -812,8 +816,20 @@ const Settings = () => {
                                 value={settings.gpsService}
                                 onChange={(e) => handleChange('gpsService', e.target.value)}
                             >
-                                <option value="megarastreo">MegaRastreo</option>
-                                <option value="traccar">{t('settings.integrations.traccarNotImplemented')}</option>
+                                {(availableGpsServices.length
+                                    ? availableGpsServices
+                                    : ['megarastreo', 'traccar']
+                                ).map(svc => {
+                                    const GPS_LABELS = {
+                                        megarastreo: 'MegaRastreo',
+                                        traccar: 'Traccar'
+                                    };
+                                    return (
+                                        <option key={svc} value={svc}>
+                                            {GPS_LABELS[svc] ?? svc}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
 

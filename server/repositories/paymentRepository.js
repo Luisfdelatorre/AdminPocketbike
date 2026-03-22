@@ -81,31 +81,7 @@ export class PaymentRepository {
     async createLoanPayment(deviceIdName, contract, unpaidInvoice) {
         try {
             const reference = helper.generateReferenceLoan(unpaidInvoice._id);
-
-            // Use local timezone (default: America/Bogota)
-            const now = dayjs().toDate();
-
-            const payment = {
-                _id: reference,
-                type: PAYMENT_TYPE.LOAN,
-                deviceIdName: deviceIdName,
-                deviceId: contract.deviceId,
-                amount_in_cents: 0,
-                amount: 0,
-                reference: reference,
-                status: PAYMENT_STATUS.S_APPROVED,
-                created_at: now,
-                finalized_at: now,
-                phoneNumber: contract.customerPhone || '',
-                used: true,
-                unpaidInvoiceId: unpaidInvoice._id,
-                invoiceId: unpaidInvoice._id,
-                payment_method_type: PAYMENT_TYPE.LOAN,
-                companyId: unpaidInvoice.companyId
-            };
-
-            const newPayment = await Payment.create(payment);
-            return newPayment;
+            return await this.createStandarPayment(0, reference, deviceIdName, contract, unpaidInvoice, unpaidInvoice.companyId, PAYMENT_TYPE.LOAN);
         } catch (error) {
             logger.error('Error creating loan payment:', error);
             throw error;
@@ -115,66 +91,56 @@ export class PaymentRepository {
     async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
         try {
             const paymentId = helper.generateReferenceFreeDay(unpaidInvoice.invoiceId);
-
-            // Use local timezone (default: America/Bogota)
-            const now = dayjs().toDate();
-
-            const payment = {
-                _id: paymentId,
-                paymentId: paymentId,
-                invoiceId: unpaidInvoice.invoiceId,
-                companyId: companyId,
-                //companyName: device.companyName,
-                reference: paymentId,
-                amount: 0,
-                amount_in_cents: 0,
-                payment_method_type: PAYMENT_TYPE.FREE,
-                type: PAYMENT_TYPE.FREE,
-                deviceIdName: deviceIdName,
-                deviceId: contract.deviceId,
-                status: PAYMENT_STATUS.S_APPROVED,
-                created_at: now,
-                finalized_at: now,
-                phoneNumber: contract.customerPhone || '',
-                used: true,
-                unpaidInvoiceId: unpaidInvoice._id,
-                megaDeviceId: unpaidInvoice.megaDeviceId,
-                invoiceDate: unpaidInvoice.invoiceDate,
-            };
-
-            const newPayment = await Payment.create(payment);
-            return newPayment;
+            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, companyId, PAYMENT_TYPE.FREE);
         } catch (error) {
             logger.error('Error creating free payment:', error);
             throw error;
         }
     }
+    async createManualPayment({ deviceIdName, contract, invoice, companyId, amount }) {
+        try {
+            const paymentId = helper.generateReferenceAdjustment(invoice.invoiceId);
+            return await this.createStandarPayment(amount, paymentId, deviceIdName, contract, invoice, companyId, PAYMENT_TYPE.ADJUSTMENT);
+        } catch (error) {
+            logger.error('Error creating manual adjustment payment:', error);
+            throw error;
+        }
+    }
+    async createStandarPayment(amount, paymentId, deviceIdName, contract, unpaidInvoice, companyId, type) {
+        const now = dayjs().toDate();
+        const payment = {
+            _id: paymentId,
+            paymentId: paymentId,
+            invoiceId: unpaidInvoice.invoiceId,
+            companyId: companyId,
+            reference: paymentId,
+            amount: 0,
+            amount_in_cents: 0,
+            payment_method_type: type,
+            type: type,
+            deviceIdName: deviceIdName,
+            deviceId: contract.deviceId,
+            status: PAYMENT_STATUS.S_APPROVED,
+            created_at: now,
+            finalized_at: now,
+            phoneNumber: contract.customerPhone || '',
+            used: true,
+            unpaidInvoiceId: unpaidInvoice._id,
+            gpsId: unpaidInvoice.gpsId,
+            invoiceDate: unpaidInvoice.invoiceDate,
+        };
+        return await Payment.create(payment);
+    }
+
+    /**
+     * Create a manual admin adjustment payment (REPAIR / DAMAGE / MAINTENANCE / WORKSHOP)
+     */
+
 
     async createInitialFeePayment(device, contract, invoice, initialFee, date) {
         try {
             const paymentId = helper.generateInvoiceIdInitialFee(device.name, date);
-            console.log("----paymentId", paymentId);
-            const now = dayjs().toDate();
-            const payment = await Payment.create({
-                _id: paymentId,
-                paymentId: paymentId,
-                invoiceId: invoice.invoiceId,
-                companyId: device.companyId,
-                companyName: device.companyName,
-                reference: paymentId,
-                amount: initialFee,
-                amount_in_cents: initialFee * 100,
-                payment_method_type: PAYMENT_TYPE.INITIAL_FEE,
-                type: PAYMENT_TYPE.INITIAL_FEE,
-                status: PAYMENT_STATUS.S_APPROVED,
-                deviceIdName: device.name,
-                deviceId: device.deviceId,
-                megaDeviceId: device.megaDeviceId,
-                invoiceDate: invoice.date || now,
-                finalized_at: now,
-                phoneNumber: contract.customerPhone || '',
-            });
-            return payment;
+            return this.createStandarPayment(initialFee, paymentId, device.name, contract, invoice, device.companyId, PAYMENT_TYPE.INITIAL_FEE);
         } catch (error) {
             logger.error('Error creating initial fee payment:', error);
             throw error;
@@ -405,8 +371,30 @@ export class PaymentRepository {
             deviceId: p.deviceIdName || p.deviceId
         }));
     }
+    /**
+     * Recalculate total revenue from actual APPROVED payments for a company.
+     * @param {string|ObjectId} companyId
+     * @param {{ month?: number, year?: number }} options  — scope to a month or year
+     * @returns {Promise<number>} total amount in COP
+     */
+    async getTotalRevenueByCompany(companyId, { month, year } = {}) {
+        const match = {
+            companyId: new mongoose.Types.ObjectId(companyId),
+            status: { $in: ['APPROVED', 'COMPLETED'] },
+        };
 
+        if (month && year) {
+            match.createdAt = { $gte: new Date(year, month - 1, 1), $lt: new Date(year, month, 1) };
+        } else if (year) {
+            match.createdAt = { $gte: new Date(year, 0, 1), $lt: new Date(year + 1, 0, 1) };
+        }
 
+        const result = await Payment.aggregate([
+            { $match: match },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        return result[0]?.total ?? 0;
+    }
 }
 
 export default new PaymentRepository();

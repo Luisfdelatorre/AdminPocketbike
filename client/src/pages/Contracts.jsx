@@ -21,12 +21,14 @@ const Contracts = () => {
         customerEmail: '',
         customerPhone: '',
         customerDocument: '',
-        dailyRate: 30000, // 30,000 COP
+        dailyRate: 30000,
         contractDays: 500,
         startDate: new Date().toISOString().split('T')[0],
         notes: '',
         devicePin: '',
         freeDaysLimit: 4,
+        freeDayPolicy: 'FLEXIBLE',
+        fixedFreeDayOfWeek: 0,
         initialFee: 0,
         exemptFromCutOff: false
     });
@@ -106,6 +108,8 @@ const Contracts = () => {
             notes: '',
             devicePin: Math.floor(1000 + Math.random() * 9000).toString(),
             freeDaysLimit: defaults.freeDaysLimit || 4,
+            freeDayPolicy: defaults.freeDayPolicy || 'FLEXIBLE',
+            fixedFreeDayOfWeek: defaults.fixedFreeDayOfWeek ?? 0,
             initialFee: defaults.initialFee || 0,
             exemptFromCutOff: false
         });
@@ -124,8 +128,10 @@ const Contracts = () => {
             contractDays: contract.contractDays,
             startDate: contract.startDate,
             notes: contract.notes || '',
-            devicePin: '', // Keep empty to not change unless user enters new one
+            devicePin: '',
             freeDaysLimit: contract.freeDaysLimit || 4,
+            freeDayPolicy: contract.freeDayPolicy || 'FLEXIBLE',
+            fixedFreeDayOfWeek: contract.fixedFreeDayOfWeek ?? 0,
             exemptFromCutOff: contract.exemptFromCutOff || false
         });
         setShowModal(true);
@@ -338,31 +344,31 @@ const Contracts = () => {
                                 <div className="contract-info-grid">
                                     <div className="contract-title">
                                         <h3>
-
-                                            {contract.deviceIdName || contract.deviceId}
+                                            <a
+                                                //stop propagation
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                }}
+                                                href={`/p/${contract.deviceIdName || contract.deviceId}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-gray-900 hover:text-indigo-600 transition-colors"
+                                                title="Open Payment Page"
+                                            >
+                                                {contract.deviceIdName || contract.deviceId}</a>
 
                                         </h3>
-                                        <a
-                                            //stop propagation
-                                            onClick={(e) => {
-                                                e.stopPropagation();
+
+                                        <span
+                                            className="status-badge"
+                                            style={{
+                                                background: `${getStatusColor(contract.status)}20`,
+                                                color: getStatusColor(contract.status)
                                             }}
-                                            href={`/p/${contract.deviceIdName || contract.deviceId}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-gray-900 hover:text-indigo-600 transition-colors"
-                                            title="Open Payment Page"
                                         >
-                                            <span
-                                                className="status-badge"
-                                                style={{
-                                                    background: `${getStatusColor(contract.status)}20`,
-                                                    color: getStatusColor(contract.status)
-                                                }}
-                                            >
-                                                {t(`common.${contract.status.toLowerCase()}`, contract.status)}
-                                            </span>
-                                        </a>
+                                            {t(`common.${contract.status.toLowerCase()}`, contract.status)}
+                                        </span>
+
                                     </div>
                                     <div className="info-item">
                                         <span className="info-label">{t('contracts.card.customer')}</span>
@@ -485,13 +491,13 @@ const Contracts = () => {
                                                 onChange={(e) => {
                                                     const selectedDeviceId = e.target.value;
                                                     console.log(selectedDeviceId);
-                                                    console.log(availableDevices);
                                                     const selectedDevice = availableDevices.find(d => d.deviceId === selectedDeviceId * 1);
                                                     console.log(selectedDevice);
                                                     const domain = companySettings?.contractDefaults?.emailDomain || 'pocketbike.app';
                                                     const email = selectedDevice && selectedDevice.name
-                                                        ? `${selectedDevice.name.trim()}@${domain}`.toLowerCase()
+                                                        ? `${selectedDevice.name.toUpperCase()}@${domain.toLowerCase()}`
                                                         : '';
+                                                    console.log(email);
                                                     setFormData({
                                                         ...formData,
                                                         deviceId: selectedDeviceId,
@@ -644,15 +650,43 @@ const Contracts = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>{t('contracts.modal.freeDaysMonth')}</label>
-                                    <input
-                                        type="number"
-                                        value={formData.freeDaysLimit}
-                                        onChange={(e) => setFormData({ ...formData, freeDaysLimit: parseInt(e.target.value) })}
-                                        min="0"
-                                        max="31"
-                                    />
+                                    <label>{t('contracts.modal.freeDayPolicy') || 'Política de día libre'}</label>
+                                    <select
+                                        value={formData.freeDayPolicy}
+                                        onChange={(e) => setFormData({ ...formData, freeDayPolicy: e.target.value })}
+                                    >
+                                        <option value="FLEXIBLE">{t('settings.general.policyFlexible') || 'Flexible (días por mes)'}</option>
+                                        <option value="FIXED_WEEKDAY">{t('settings.general.policyFixed') || 'Día fijo semanal'}</option>
+                                    </select>
                                 </div>
+                                {formData.freeDayPolicy !== 'FIXED_WEEKDAY' ? (
+                                    <div className="form-group">
+                                        <label>{t('contracts.modal.freeDaysMonth')}</label>
+                                        <input
+                                            type="number"
+                                            value={formData.freeDaysLimit}
+                                            onChange={(e) => setFormData({ ...formData, freeDaysLimit: parseInt(e.target.value) })}
+                                            min="0"
+                                            max="31"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="form-group">
+                                        <label>{t('settings.general.fixedFreeDay') || 'Día libre fijo'}</label>
+                                        <select
+                                            value={formData.fixedFreeDayOfWeek}
+                                            onChange={(e) => setFormData({ ...formData, fixedFreeDayOfWeek: parseInt(e.target.value) })}
+                                        >
+                                            <option value={0}>{t('settings.general.days.sun') || 'Domingo'}</option>
+                                            <option value={1}>{t('settings.general.days.mon') || 'Lunes'}</option>
+                                            <option value={2}>{t('settings.general.days.tue') || 'Martes'}</option>
+                                            <option value={3}>{t('settings.general.days.wed') || 'Miércoles'}</option>
+                                            <option value={4}>{t('settings.general.days.thu') || 'Jueves'}</option>
+                                            <option value={5}>{t('settings.general.days.fri') || 'Viernes'}</option>
+                                            <option value={6}>{t('settings.general.days.sat') || 'Sábado'}</option>
+                                        </select>
+                                    </div>
+                                )}
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                     <div className="phone-pin-checkbox" style={{ marginTop: '0.5rem', padding: '10px', borderRadius: '8px' }}>
                                         <input

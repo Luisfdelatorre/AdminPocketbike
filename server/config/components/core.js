@@ -1,5 +1,5 @@
 export const MongoDB = {
-    URI: 'mongodb://127.0.0.1:27017/payments-wompi-dev',
+    URI: 'mongodb://127.0.0.1:27017/payments-wompi-pocketbike',
 };
 
 export const debugMode = process.env.DEBUG === 'true' || true; // Default to true for development if not specified
@@ -55,6 +55,7 @@ export const Transaction = {
         LOAN: 'LOAN',
         CASH_OTHER: 'CASH/OTHER',
         INITIAL_FEE: 'INITIAL_FEE',
+        ADJUSTMENT: 'ADJUSTMENT',  // Manual admin adjustment (REPAIR/DAMAGE/MAINTENANCE/WORKSHOP)
     },
     INVOICE_DAYTYPE: {
         PENDING: 'PENDING',        // No hay pago iniciado
@@ -68,7 +69,8 @@ export const Transaction = {
         INITIAL_FEE: 'INITIAL_FEE', // Cuota inicial contrato
         ERROR: 'ERROR',
         VOIDED: 'VOIDED',
-        DECLINED: 'DECLINED'
+        DECLINED: 'DECLINED',
+        ADJUSTMENT: 'ADJUSTMENT',
     },
     INVOICE_DAYTYPE_TRANSLATION: {
         PENDING: 'Pendiente',
@@ -82,7 +84,8 @@ export const Transaction = {
         INITIAL_FEE: 'Cuota Inicial',
         ERROR: 'Error',
         VOIDED: 'Anulado',
-        DECLINED: 'Rechazado'
+        DECLINED: 'Rechazado',
+        ADJUSTMENT: 'Ajuste',
     },
 
     PAYMENT_STATUS: {

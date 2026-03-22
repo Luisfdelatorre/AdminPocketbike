@@ -4,8 +4,8 @@ import crypto from "crypto";
 //const queue = require("./modules/queue");
 //const log = require("../logger");
 // Cambia esta URL por la de tu servidor y endpoint
-const WEBHOOK_URL = "https://pagos.tumotoya.online/apinode/webhooks/wompi";
-const WOMPI_INTEGRITY_SECRET = "prod_events_K50mCvxN8NkOjdYMWVkLmVhOwWRwMSXM"; // Matches config.js privateKeyEvents
+const WEBHOOK_URL = "http://192.168.1.150:5173/apinode/webhooks/wompi";
+const WOMPI_INTEGRITY_SECRET = "prod_events_TpPLiX3mc0PxEzquqhT5t2WaSZeaDzer"; // Matches config.js privateKeyEvents
 
 // JSON simulado del webhook
 const uniqueId = Date.now();
@@ -61,25 +61,7 @@ const payload = {
   "environment": "test"
 }
 
-const payload2 = {
-  "event": "transaction.updated", "data":
-  {
-    "transaction": {
-      "id": "1362970-1772161998-78582", "created_at": "2026-02-27T03:13:18.588Z",
-      "finalized_at": "2026-02-27T03:58:24.000Z", "amount_in_cents": 3500000,
-      "reference": "YAG21H-2026-02-27-BJ", "customer_email": "YAG21H@PocketBike.app",
-      "currency": "COP", "payment_method_type": "NEQUI", "payment_method":
-      {
-        "type": "NEQUI", "extra":
-        {
-          "is_three_ds": false, "transaction_id": "350-123-674225-1772161999JYJo", "three_ds_auth_type": null,
-          "external_identifier": "1772161999JYJo", "nequi_transaction_id": "350-123-674225-1772161999JYJo"
-        },
-        "afe_decision": "FRAUD_CHECK", "phone_number": "3016862185"
-      }, "status": "DECLINED", "status_message": "La transacción caducó", "shipping_address": null, "redirect_url": "https://pocketbike.app/apinode/", "payment_source_id": null, "payment_link_id": null, "customer_data": { "full_name": "YAG21H PocketBike", "phone_number": "3016862185" }, "billing_data": null, "origin": null
-    }
-  }, "sent_at": "2026-02-27T04:00:25.512Z", "timestamp": 1772164825, "signature": { "checksum": "1c1a17a9cb4f8038a26f56ca83c158a61fbcb2e75d55742ceea31b1a939df683", "properties": ["transaction.id", "transaction.status", "transaction.amount_in_cents"] }, "environment": "prod"
-}
+const payload2 = { "event": "transaction.updated", "data": { "transaction": { "id": "1133374-1772889143-55381", "created_at": "2026-03-07T13:12:23.503Z", "finalized_at": "2026-03-07T13:13:25.627Z", "amount_in_cents": 3500000, "reference": "NDK03H-1772889142427", "customer_email": "NDK03H@PocketBike.app", "currency": "COP", "payment_method_type": "NEQUI", "payment_method": { "type": "NEQUI", "extra": { "is_three_ds": false, "transaction_id": "350-123-17273521-17728891444lmh", "three_ds_auth_type": null, "external_identifier": "17728891444lmh", "nequi_transaction_id": "350-123-17273521-17728891444lmh" }, "afe_decision": "FRAUD_CHECK", "phone_number": "3017577422" }, "status": "APPROVED", "status_message": null, "shipping_address": null, "redirect_url": "https://pocketbike.app/apinode/", "payment_source_id": null, "payment_link_id": null, "customer_data": { "full_name": "NDK03H PocketBike", "phone_number": "3017577422" }, "billing_data": null, "origin": null } }, "sent_at": "2026-03-07T13:17:01.446Z", "timestamp": 1772889421, "signature": { "checksum": "4ff8e701af4d49d9df1bb3ab42cab8f9ebd69b69ee6b5b7e2158e8589c526eb0", "properties": ["transaction.id", "transaction.status", "transaction.amount_in_cents"] }, "environment": "prod" }
 
 
 // Calculate Signature
@@ -92,17 +74,13 @@ function calculateSignature(payload, secret) {
     transaction.amount_in_cents
   ];
   const joined = properties.join('') + timestamp + secret;
-  console.log("joined", joined);
+  //console.log("joined", joined);
   return crypto.createHash('sha256').update(joined).digest('hex');
 }
 console.log(payload2.signature.checksum);
 console.log(calculateSignature(payload2, WOMPI_INTEGRITY_SECRET));
 //payload2.signature.checksum = calculateSignature(payload2, WOMPI_INTEGRITY_SECRET);
 
-if (FORCE_INVALID_SIGNATURE) {
-  console.log("⚠️ SIMULANDO FIRMA INVÁLIDA...");
-  payload2.signature.checksum = "bad_checksum_123";
-}
 
 // Función para enviar el webhook
 async function sendWebhook() {

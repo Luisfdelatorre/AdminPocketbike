@@ -63,6 +63,7 @@
     text-align: center;
     border-bottom: 1px solid #f0f0f0;
     min-width: 50px;
+    max-width: 65px;
 }
 
 .summary-table th {
@@ -164,6 +165,12 @@
     color: #7f1d1d;
 }
 
+.status-cell.adjusted {
+    background-color: #5bc4e4;
+    /* Amber-500 */
+    color: white;
+}
+
 .status-cell.cutoff {
     background-color: #ef4444;
     /* Red-500 */
@@ -171,7 +178,7 @@
 }
 
 .status-cell.loand {
-    background-color: #eae010;
+    background-color: #ea580c;
     /* Amber-500 */
     color: white;
 }

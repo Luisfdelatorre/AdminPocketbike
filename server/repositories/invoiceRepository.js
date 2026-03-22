@@ -16,7 +16,7 @@ export class InvoiceRepository {
     /**
      * Create a daily invoice for a device
      */
-    async createInvoice({ deviceIdName, date, amount, companyId }) {
+    async createInvoice({ deviceIdName, date, amount }) {
         try {
             // Need numeric deviceId for the new Invoice schema
             const device = await Device.findOne({ name: deviceIdName });
@@ -31,8 +31,8 @@ export class InvoiceRepository {
                 date,
                 deviceIdName,
                 deviceId: device.deviceId, // Numeric ID
-                megaDeviceId: device.megaDeviceId || device.deviceId,
-                companyId: companyId || device.companyId,
+                gpsId: device.gpsId,
+                companyId: device.companyId,
                 companyName: device.companyName
             });
 
@@ -49,7 +49,7 @@ export class InvoiceRepository {
     /**
      * Helper to create next day invoice
      */
-    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, megaDeviceId = null) {
+    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, gpsId = null) {
         // Find last paid invoice to determine next date
         let nextDate;
         if (!date) {
@@ -68,9 +68,9 @@ export class InvoiceRepository {
             return invoice;
         }
 
-        if (!megaDeviceId) {
+        if (!gpsId) {
             const device = await Device.findOne({ name: deviceIdName });
-            if (device) megaDeviceId = device.megaDeviceId || device.deviceId;
+            if (device) gpsId = device.gpsId;
         }
 
         invoice = await Invoice.createInvoice({
@@ -78,7 +78,7 @@ export class InvoiceRepository {
             date: nextDate,
             deviceIdName,
             deviceId,
-            megaDeviceId,
+            gpsId,
             companyId
         });
         return invoice;
@@ -107,21 +107,21 @@ export class InvoiceRepository {
         throw new Error('Create Next Day Invoice failed.');
     }
 
-    async findOrCreateInvoiceByName(deviceIdName, deviceId, amount, date, companyId, megaDeviceId = null) {
+    async findOrCreateInvoiceByName(deviceIdName, deviceId, amount, date, companyId, gpsId = null) {
         try {
 
             let invoice = await Invoice.findByDate(deviceIdName, date);
             if (!invoice) {
-                if (!megaDeviceId) {
+                if (!gpsId) {
                     const device = await Device.findOne({ name: deviceIdName });
-                    if (device) megaDeviceId = device.megaDeviceId || device.deviceId;
+                    if (device) gpsId = device.gpsId;
                 }
                 invoice = await Invoice.createInvoice({
                     deviceIdName,
                     amount,
                     date,
                     deviceId,
-                    megaDeviceId,
+                    gpsId,
                     companyId
                 });
             }
@@ -291,7 +291,7 @@ export class InvoiceRepository {
         return await Invoice.findOne({
             deviceIdName,
             paid: false
-        }).sort({ date: -1 }).lean();
+        }).sort({ date: -1 });
     }
 
     /**
@@ -452,6 +452,36 @@ export class InvoiceRepository {
         }
 
         throw new Error('Max retry attempts reached while creating/paying invoice.');
+    }
+
+    /**
+     * Compare invoiced vs paid amounts for a company in a given period.
+     * @param {string|ObjectId} companyId
+     * @param {{ month?: number, year?: number }} options
+     * @returns {Promise<{ totalInvoiced: number, totalPaid: number, totalUnpaid: number }>}
+     */
+    async getTotalInvoicedByCompany(companyId, { month, year } = {}) {
+        const match = { companyId: new mongoose.Types.ObjectId(companyId) };
+
+        if (month && year) {
+            match.date = { $gte: new Date(year, month - 1, 1), $lt: new Date(year, month, 1) };
+        } else if (year) {
+            match.date = { $gte: new Date(year, 0, 1), $lt: new Date(year + 1, 0, 1) };
+        }
+
+        const result = await Invoice.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: null,
+                    totalInvoiced: { $sum: '$amount' },
+                    totalPaid: { $sum: { $cond: ['$paid', '$amount', 0] } },
+                    totalUnpaid: { $sum: { $cond: ['$paid', 0, '$amount'] } }
+                }
+            }
+        ]);
+
+        return result[0] ?? { totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0 };
     }
 }
 

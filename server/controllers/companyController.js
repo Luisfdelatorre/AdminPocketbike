@@ -1,6 +1,7 @@
 import { Company } from '../models/Company.js';
 import authService from '../services/authService.js';
 import cron from '../cron-server/cron.js';
+import { GPS_SERVICES } from '../config/components/constants.js';
 
 const companyController = {
     // Create new company
@@ -275,7 +276,10 @@ const companyController = {
 
             res.json({
                 success: true,
-                data: maskedData
+                data: {
+                    ...maskedData,
+                    availableGpsServices: Object.values(GPS_SERVICES)
+                }
             });
         } catch (error) {
             console.error('Error fetching company settings:', error);

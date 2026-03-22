@@ -4,22 +4,12 @@ import { authenticate } from '../middleware/auth.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
-/**
- * PUBLIC ROUTES
- */
-
-// Get public device info (for pre-filling payment form)
-//router.get('/device-info/:deviceIdName', paymentController.getDeviceInfo);
-
-/**
- * PROTECTED ROUTES (Require Token)
- */
 router.get('/status', verifyToken, paymentController.getPaymentStatus);
-// Get device status
 router.get('/device-status', verifyToken, paymentController.getDeviceStatus);
 router.post("/request", verifyToken, paymentController.createPayment);
 router.get("/stream/:reference", verifyToken, paymentController.getPaymentStream);
 router.post('/use-free-day', verifyToken, paymentController.useFreeDay);
+router.post('/request-loan', verifyToken, paymentController.requestLoan);
 
 /*
 router.get('/status', authenticatePaymentApp, paymentController.getPaymentStatus);
@@ -39,6 +29,12 @@ router.get('/all', authenticate, paymentController.getPaymentHistory);
 // Get payment summary matrix
 router.get('/allPayments', authenticate, paymentController.getPaymentSummary);
 
+// Export payments as CSV (month/year via query params)
+router.get('/export', authenticate, paymentController.exportCSV);
+
+// Admin: apply a manual adjustment (REPAIR / DAMAGE / MAINTENANCE / WORKSHOP)
+router.post('/admin/manual', authenticate, paymentController.manualAdjustment);
+
 // Get payment history (Legacy/Device specific)
 router.get('/history', authenticate, paymentController.getPaymentHistory);
 
@@ -49,7 +45,7 @@ router.get('/history', authenticate, paymentController.getPaymentHistory);
 
 
 // Request loan
-router.post('/request-loan', paymentController.requestLoan);
+
 
 // Create payment
 router.post('/create', paymentController.createPayment);

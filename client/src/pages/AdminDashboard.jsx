@@ -20,21 +20,30 @@ const AdminDashboard = () => {
         totalRevenue: 0,
         activeDevices: 0,
         pendingPayments: 0,
-        totalDevices: 0
+        totalDevices: 0,
+        totalInvoiced: 0,
+        collectionGap: 0,
+        collectionRate: 100
     });
     const [revenueData, setRevenueData] = useState([]);
     const [deviceData, setDeviceData] = useState([]);
     const [recentPayments, setRecentPayments] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const today = new Date();
+    const [selectedMonth, setSelectedMonth] = useState(''); // '' = all year
+    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+
     useEffect(() => {
         fetchDashboardData();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
     const fetchDashboardData = async () => {
         setLoading(true);
         try {
-            const result = await getDashboardStats();
+            const params = { year: selectedYear };
+            if (selectedMonth) params.month = selectedMonth;
+            const result = await getDashboardStats(params);
 
             if (result.success) {
                 setStats(result.data.stats);
@@ -86,7 +95,30 @@ const AdminDashboard = () => {
                 <div>
                     <h1>{t('dashboard.title')}</h1>
                 </div>
-                <button className="btn-download">📊 {t('dashboard.downloadReport')}</button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <select
+                        value={selectedMonth}
+                        onChange={e => setSelectedMonth(e.target.value)}
+                        className="select-control"
+                    >
+                        <option value="">Todo el año</option>
+                        {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        value={selectedYear}
+                        onChange={e => setSelectedYear(Number(e.target.value))}
+                        className="select-control"
+                    >
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                        <option value={2027}>2027</option>
+                    </select>
+                    <button className="btn-download">📊 {t('dashboard.downloadReport')}</button>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -111,6 +143,20 @@ const AdminDashboard = () => {
                     change={stats.changes?.pendingPayments || 0}
                     icon={CreditCard}
                     color="#00C292"
+                />
+                <StatCard
+                    title="Facturado (año)"
+                    value={`$${(stats.totalInvoiced || 0).toLocaleString()}`}
+                    change={0}
+                    icon={FileText}
+                    color="#7460EE"
+                />
+                <StatCard
+                    title="Cartera Pendiente"
+                    value={`$${(stats.collectionGap || 0).toLocaleString()}`}
+                    change={stats.collectionRate ? -(100 - stats.collectionRate) : 0}
+                    icon={TrendingDown}
+                    color="#EF4444"
                 />
                 {/*  <StatCard
                     title={t('dashboard.stats.totalDevices')}

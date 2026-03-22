@@ -9,30 +9,32 @@ import deviceRepository from '../repositories/deviceRepository.js';
 const getDashboardStats = async (req, res) => {
     try {
         const { companyId } = req.auth;
-        console.log(`📊 Fetching dashboard stats for company: ${companyId}`);
 
         // Get all contracts for this company
         const allContracts = await contractRepository.getAllContracts({ companyId });
-        console.log(`Found ${allContracts.length} contracts`);
 
         // Get all devices for this company
         const allDevices = await deviceRepository.findDevicesByCompany(companyId);
         const totalDevices = allDevices.length;
         const devicesWithContract = allDevices.filter(d => d.hasActiveContract).length;
-        console.log(`Found ${totalDevices} devices, ${devicesWithContract} with contract`);
-
         // Get active contracts
         const activeContracts = allContracts.filter(c => c.status === 'ACTIVE');
 
-        // Calculate total revenue (sum of all paid amounts)
-        const totalRevenue = allContracts.reduce((sum, contract) => {
-            return sum + (contract.paidAmount || 0);
-        }, 0);
+        // Calculate total revenue from APPROVED payments AND invoice comparison
+        const now2 = new Date();
+        const scopeMonth = req.query.month ? Number(req.query.month) : undefined;
+        const scopeYear = req.query.year ? Number(req.query.year) : now2.getFullYear();
+        const periodScope = scopeMonth ? { month: scopeMonth, year: scopeYear } : { year: scopeYear };
+
+        const [totalRevenue, invoiceStats] = await Promise.all([
+            paymentRepository.getTotalRevenueByCompany(companyId, periodScope),
+            invoiceRepository.getTotalInvoicedByCompany(companyId, periodScope)
+        ]);
+        const collectionGap = invoiceStats.totalInvoiced - totalRevenue;
 
 
         // Get pending payments count directly by company
         const pendingPayments = await invoiceRepository.countPendingInvoicesByCompany(companyId);
-        console.log(`Found ${pendingPayments} pending payments`);
 
         // Get recent payments filtered by companyId
         // paymentRepository.getAllPaymentsPaginated supports filter
@@ -97,8 +99,6 @@ const getDashboardStats = async (req, res) => {
         // Device status data
         const deviceData = calculateDeviceStatus(allContracts);
 
-        console.log('✅ Dashboard stats compiled successfully');
-
         res.json({
             success: true,
             data: {
@@ -106,10 +106,17 @@ const getDashboardStats = async (req, res) => {
                     totalRevenue,
                     activeDevices: devicesWithContract,
                     pendingPayments,
+                    // Invoice vs Payment comparison
+                    totalInvoiced: invoiceStats.totalInvoiced,
+                    totalPaidInvoices: invoiceStats.totalPaid,
+                    collectionGap,           // totalInvoiced - totalRevenue
+                    collectionRate: invoiceStats.totalInvoiced > 0
+                        ? parseFloat(((totalRevenue / invoiceStats.totalInvoiced) * 100).toFixed(1))
+                        : 100,
                     changes: {
                         totalRevenue: parseFloat(revenueChange.toFixed(1)),
                         activeDevices: parseFloat(((devicesWithContract / totalDevices) * 100).toFixed(1)),
-                        pendingPayments: 0 // Placeholder or calculated if historical pending data exists
+                        pendingPayments: 0
                     }
                 },
                 recentPayments: sortedPayments,

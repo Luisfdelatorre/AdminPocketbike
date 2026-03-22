@@ -120,7 +120,7 @@ async function startServer() {
         await seedSuperAdmin();
         await cron.init();
         //execute cron jobs
-        await cron.execute('dailyInvoicesCreation');
+        //  await cron.execute('dailyInvoicesCreation');
 
         // Start Express server
         app.listen(config.server.port, async () => {
@@ -136,7 +136,7 @@ async function startServer() {
             console.log('');
 
             // Start MegaRastreo Auto Update via Device Service
-            await deviceServices.initializeGpsUpdates();
+            //await deviceServices.initializeGpsUpdates();
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);
