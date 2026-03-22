@@ -36,7 +36,7 @@ const bulkWriteDevices = async (gpsDevices) => {
         );
     });
 
-    return deviceRepository.upsertDevicesBatch(safeDocs);
+    return deviceRepository.insertDevicesBatch(safeDocs);
 }
 
 
