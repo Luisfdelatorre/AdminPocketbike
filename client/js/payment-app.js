@@ -759,7 +759,7 @@ class PaymentManager {
         const urlDeviceId = this._getDeviceIdFromUrl();
 
         if (!urlDeviceId) {
-            deviceIdInput.value = '';
+            // Keep the previously typed deviceId, do not clear it
             deviceIdInput.disabled = false;
             deviceIdInput.style.display = 'block';
             if (deviceIdDisplay) deviceIdDisplay.style.display = 'none';
@@ -778,6 +778,10 @@ class PaymentManager {
     }
 
     _getDeviceIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        if (id) return id;
+
         const path = window.location.pathname;
         const match = path.match(/\/pagos\/([^\/]+)/);
         return match ? match[1] : null;
@@ -1230,6 +1234,10 @@ class EventHandler {
     }
 
     _getDeviceIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        if (id) return id;
+
         const path = window.location.pathname;
         const match = path.match(/\/pagos\/([^\/]+)/);
         return match ? match[1] : null;

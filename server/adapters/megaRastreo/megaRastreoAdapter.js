@@ -286,7 +286,8 @@ class MegaRastreoApiWeb {
         this._positionCallback = fn;
     }
 
-    async startAutoUpdate(imeis) {
+    async startAutoUpdate(imeis, onFlushCallback = null) {
+        if (onFlushCallback) this._onFlushCallback = onFlushCallback;
         if (!imeis || !Array.isArray(imeis)) {
             logger.warn("⚠️ startAutoUpdate called without valid imeis array.");
             return;
@@ -341,6 +342,16 @@ class MegaRastreoApiWeb {
         this.socket.on("trama", (track) => {
             if (this._positionCallback) {
                 this._positionCallback(track);
+            }
+            if (this._onFlushCallback) {
+                const standardUpdate = {
+                    filter: { imei: track.imei },
+                    ignition: track.motor === '1',
+                    lastUpdate: (track.fecha_gps || track.sys_date) ? new Date(track.fecha_gps || track.sys_date) : new Date(),
+                    cutOff: track.corte === '1' ? 1 : (track.corte === '0' ? 0 : undefined),
+                    batteryLevel: track.bateria ? parseFloat(track.bateria) : null,
+                };
+                this._onFlushCallback([standardUpdate]);
             }
         });
         

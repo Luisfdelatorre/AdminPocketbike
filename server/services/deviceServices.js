@@ -1,14 +1,11 @@
 import deviceRepository from '../repositories/deviceRepository.js';
 import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
-import { Transaction, PAYMENTMESSAGES as PM } from '../config/config.js';
+import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES } from '../config/config.js';
 import GpsService from '../services/gpsServices.js';
 import companyService from '../services/companyService.js';
 import helper from '../utils/helpers.js';
 import logger from '../utils/logger.js';
-
-
-
 
 // Centralized Day.js
 import dayjs from '../config/dayjs.js';
@@ -25,7 +22,7 @@ const {
     INVOICE_DAYTYPE_TRANSLATION
 } = Transaction;
 
-
+const deviceStateCache = new Map();
 
 
 const bulkWriteDevices = async (gpsDevices) => {
@@ -41,23 +38,110 @@ const bulkWriteDevices = async (gpsDevices) => {
 
     return deviceRepository.upsertDevicesBatch(safeDocs);
 }
-const onFlush = async (batch) => {
-    if (!batch || batch.length === 0) return;
-    console.log('onFlush', batch);
-};
+
+
 
 const initializeGpsUpdates = async () => {
-    // 1. Fetch devices and companies
+    // 1. Fetch all companies
     const companies = await Company.find({}).lean();
+
+    // 2. Pre-populate in-memory cache to avoid DB storm
+    const allDevices = await Device.find({}, 'gpsId imei ignition lastUpdate cutOff batteryLevel').lean();
+    for (const d of allDevices) {
+        if (d.gpsId) deviceStateCache.set(String(d.gpsId), { ...d, _lastDbWrite: Date.now() });
+        if (d.imei) deviceStateCache.set(String(d.imei), { ...d, _lastDbWrite: Date.now() });
+    }
+    console.log(`🧠 In-memory GPS state cache initialized with ${allDevices.length} devices.`);
+
+    const onFlush = async (batch) => {
+        if (!batch || batch.length === 0) return;
+
+        const bulkOps = [];
+        const NOW = Date.now();
+
+        // Traccar and MegaRastreo adapters yield identical payloads: { filter, ignition, lastUpdate, cutOff, batteryLevel }
+        for (const update of batch) {
+            // Dedupe id
+            const rawId = update.filter.gpsId || update.filter.imei;
+            if (!rawId) continue;
+
+            const idKey = String(rawId);
+            const existing = deviceStateCache.get(idKey);
+
+            let hasRealChange = !existing;
+            let timeSinceLastWrite = Infinity;
+            if (existing) {
+                if (existing.ignition !== update.ignition) hasRealChange = true;
+                if (update.cutOff !== undefined && existing.cutOff !== update.cutOff) hasRealChange = true;
+                if (update.batteryLevel !== null && existing.batteryLevel !== update.batteryLevel) hasRealChange = true;
+                timeSinceLastWrite = NOW - (existing._lastDbWrite || 0);
+            }
+
+            // Flush rule: Real change in state OR 5 seconds heartbeat elapsed
+            if (hasRealChange || timeSinceLastWrite >= 5000) {
+                const setDoc = {
+                    ignition: update.ignition,
+                    lastUpdate: update.lastUpdate
+                };
+                if (update.cutOff !== undefined) setDoc.cutOff = update.cutOff;
+                if (update.batteryLevel !== null) setDoc.batteryLevel = update.batteryLevel;
+
+                const finalFilter = { ...update.filter };
+                if (finalFilter.gpsId) {
+                    finalFilter.gpsId = Number(finalFilter.gpsId); // Force number, since raw MongoDB documents hold integers
+                }
+
+                bulkOps.push({
+                    updateOne: {
+                        filter: finalFilter, // use the safely typed filter
+                        update: { $set: setDoc }
+                    }
+                });
+
+                // Update memory cache
+                deviceStateCache.set(idKey, {
+                    ...existing,
+                    ...update,
+                    _lastDbWrite: NOW
+                });
+            }
+        }
+
+        // Send filtered updates to DB
+        if (bulkOps.length > 0) {
+            try {
+                await deviceRepository.upsertDevicesBatch(bulkOps);
+            } catch (error) {
+                logger.error('Error in GPS onFlush filter:', error);
+            }
+        }
+    };
+
+    // 2. Initialize per-company adapter based on service requirement
     for (const c of companies) {
-        const devices = await deviceRepository.getDevicesByCompanyId(c._id);
-        const adapter = await companyService.getGpsAdapter(c._id);
-        if (adapter && typeof adapter.startAutoUpdate === 'function') {
-            await adapter.startAutoUpdate(devices, onFlush);
+        const gpsAdapter = await companyService.getGpsAdapter(c._id);
+
+        if (gpsAdapter && typeof gpsAdapter.startAutoUpdate === 'function') {
+            let imeis = [];
+            const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
+
+            if (isMegaRastreo) {
+                const devices = await deviceRepository.getDevicesByCompanyId(c._id);
+                imeis = devices.map(d => d.imei).filter(Boolean);
+            }
+
+            await gpsAdapter.startAutoUpdate(imeis, onFlush);
         }
     }
 };
 
+/**
+ * Controls the engine (stop/resume) for a given device by communicating with the GPS provider.
+ * @param {string} id - The MongoDB ID of the device.
+ * @param {number} command - The command to send (0 = stop, 1 = resume).
+ * @param {string} companyId - The ID of the company.
+ * @returns {Promise<Object>} Object containing { success: boolean, message?: string, error?: string, cutOff?: boolean }
+ */
 const controlEngine = async (id, command, companyId) => {
     try {
         // 1. Validate device existence and GPS mapping

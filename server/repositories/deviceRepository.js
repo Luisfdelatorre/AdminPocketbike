@@ -2,25 +2,10 @@ import { Device } from '../models/Device.js';
 import logger from '../config/logger.js';
 
 class DeviceRepository {
-    /**
-     * Bulk upsert GPS devices. Receives already-prepared docs with _id set.
-     * @param {object[]} docs  Clean device docs (empty objects already stripped)
-     * @returns {{ created, updated, errors }}
-     */
-    async upsertDevicesBatch(docs) {
+    async upsertDevicesBatch(bulkOps) {
         try {
-            if (!docs || docs.length === 0) return { created: 0, updated: 0, errors: 0 };
-
-            const bulkOps = docs.map(doc => ({
-                updateOne: {
-                    filter: { _id: doc._id },
-                    update: [{ $set: doc }],   // pipeline stage — allows computed fields
-                    upsert: true
-                }
-            }));
 
             const result = await Device.bulkWrite(bulkOps);
-            logger.info(`GPS sync: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
             return {
                 created: result.upsertedCount,
                 updated: result.modifiedCount,
@@ -31,10 +16,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get all devices
-     */
     async getAllDevices() {
         try {
             return await Device.find({});
@@ -43,10 +24,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get minimal device info needed for GPS sync initialization
-     */
     async getDevicesForGpsSync() {
         try {
             return await Device.find({}, 'imei companyId').lean();
@@ -55,11 +32,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get devices by company ID
-     * @param {String} companyId 
-     */
     async getDevicesByCompanyId(companyId) {
         try {
             return await Device.find({ companyId }).lean();
@@ -68,10 +40,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get active devices (with active contract)
-     */
     async getActiveDevices() {
         try {
             return await Device.find({ hasActiveContract: true }).lean();
@@ -80,11 +48,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Find devices by company
-     * @param {String} companyId 
-     */
     async findDevicesByCompany(companyId) {
         try {
             return await Device.find({ companyId });
@@ -93,11 +56,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get device by ID
-     * @param {String} id 
-     */
     async getDeviceById(id) {
         try {
             return await Device.findById(id);
@@ -106,10 +64,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get device payment info by name
-     */
     async getDevicePaymentInfo(name) {
         try {
             const device = await Device.findOne({ name });
@@ -125,10 +79,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Get device by name
-     */
     async getDeviceByName(name) {
         try {
             return await Device.findOne({ name });
@@ -137,13 +87,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Update device contract status
-     * @param {String} deviceId 
-     * @param {String|null} contractId 
-     * @param {Boolean} hasContract 
-     */
     async updateContractStatus(deviceId, contractId, hasContract) {
         // try {
         // Cast deviceId to Number because the DB uses Numeric _id (Mixed type in schema)
@@ -162,12 +105,6 @@ class DeviceRepository {
         //  throw error;
         // }
     }
-
-    /**
-     * Assign contract details to device (Sync on creation)
-     * @param {String} deviceId
-     * @param {Object} data { contractId, driverName, nequiNumber, companyId, companyName, dailyRate }
-     */
     async assignContractToDevice(contract, data, device) {
         try {
             const updateData = {
@@ -194,12 +131,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Update device cutOff status
-     * @param {String} deviceId - Device ID (Traccar ID)
-     * @param {Boolean} cutOff - CutOff status
-     */
     async updateCutOffStatus(deviceId, cutOff) {
         try {
             return await Device.findOneAndUpdate(
@@ -212,12 +143,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Update device cutOff status bypassing strict validation
-     * @param {String} objectId - Internal MongoDB Object ID
-     * @param {Number|Boolean} cutOff - New status
-     */
     async updateDeviceCutOff(objectId, cutOff) {
         try {
             return await Device.updateOne(
@@ -229,12 +154,6 @@ class DeviceRepository {
             throw error;
         }
     }
-
-    /**
-     * Update device curfew exemption
-     * @param {String} deviceIdentifier - Device ID or Name
-     * @param {Boolean} exemptFromCutOff
-     */
     async updateDeviceExemption(deviceIdentifier, exemptFromCutOff) {
         try {
             const query = !isNaN(deviceIdentifier) ? { _id: Number(deviceIdentifier) } : { name: deviceIdentifier };

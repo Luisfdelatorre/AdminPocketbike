@@ -18,8 +18,8 @@ class GpsService {
         this.flushMap = {};
         this.flushTimer = null;
         this.onFlush = null;
-        const serviceType = company?.gpsService || GPS_SERVICES.TRACCAR;
-        if (serviceType === GPS_SERVICES.TRACCAR) {
+        this.serviceType = company?.gpsService || GPS_SERVICES.TRACCAR;
+        if (this.serviceType === GPS_SERVICES.TRACCAR) {
             this.adapter = new MyTraccar(company?.gpsConfig); // inject company config
         } else {
             this.adapter = new MegaRastreo(company?.gpsConfig); // inject company config

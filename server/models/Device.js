@@ -17,7 +17,7 @@ const deviceSchema = new mongoose.Schema({
     contractId: { type: String, },
     deviceId: { type: Number, default: function () { return (this && this.name) ? helpers.generateDeviceId(this.name) : null; } },
     driverName: { type: String },
-    gpsId: { type: String, required: true },
+    gpsId: { type: mongoose.Schema.Types.Mixed, required: true },
     imei: { type: String, default: null },
     deviceType: { type: String },//groupId traccar
     category: { type: String, default: null },//car moto//icon 

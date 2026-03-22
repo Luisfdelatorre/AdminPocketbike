@@ -237,22 +237,25 @@ class MyTraccar {
 
     updatePositions = (data) => {
         if (!data) return;
-        //console.log('updatePositions', data[0].attributes);
-        this._onFlushCallback(data);
-        /*if (data.length) { // data is array of positions here
-            for (const p of data) {
-                if (!p?.deviceId) continue;
-                const existing = this.flushMap[p.deviceId] || {
-                    filter: { deviceId: p.deviceId },
-                    update: {}
-                };
-                Object.assign(existing.update, {
-                    ignition: p.attributes?.ignition ?? false,
-                    lastUpdate: p.deviceTime || new Date(),
-                });
-                this.flushMap[p.deviceId] = existing;
-            }
-        }*/
+
+        const standardBatch = [];
+        const positions = Array.isArray(data) ? data : [data];
+
+        for (const p of positions) {
+            if (!p?.deviceId) continue;
+
+            standardBatch.push({
+                filter: { gpsId: p.deviceId },
+                ignition: p.attributes?.ignition ?? false,
+                lastUpdate: p.deviceTime ? new Date(p.deviceTime) : new Date(),
+                cutOff: p.attributes.status !== undefined
+                    ? !((p.attributes.status >> 27) & 1) * 1
+                    : 0,
+                batteryLevel: p.attributes?.batteryLevel ?? null,
+            });
+        }
+
+        this._onFlushCallback(standardBatch);
     };
 
 
