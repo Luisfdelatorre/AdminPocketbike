@@ -2,10 +2,34 @@ import { Device } from '../models/Device.js';
 import logger from '../config/logger.js';
 
 class DeviceRepository {
-    async upsertDevicesBatch(bulkOps) {
+    async insertDevicesBatch(docs) {
         try {
+            if (!docs || docs.length === 0) return { created: 0, updated: 0, errors: 0 };
+
+            const bulkOps = docs.map(doc => ({
+                updateOne: {
+                    filter: { _id: doc._id },
+                    update: [{ $set: doc }],   // pipeline stage — allows computed fields
+                    upsert: true
+                }
+            }));
 
             const result = await Device.bulkWrite(bulkOps);
+            logger.info(`GPS sync: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
+            return {
+                created: result.upsertedCount,
+                updated: result.modifiedCount,
+                errors: 0
+            };
+        } catch (error) {
+            logger.error('Error upserting devices batch:', error);
+            throw error;
+        }
+    }
+    async upsertDevicesBatch(bulkOps) {
+        try {
+            const result = await Device.bulkWrite(bulkOps);
+            logger.info(`GPS sync: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
             return {
                 created: result.upsertedCount,
                 updated: result.modifiedCount,
