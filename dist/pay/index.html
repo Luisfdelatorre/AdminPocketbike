@@ -679,6 +679,44 @@
             font-size: 14px;
             cursor: pointer;
         }
+
+        /* Toast Notifications */
+        .toast-notification {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            max-width: 320px;
+            max-height: 100px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .toast-notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast-notification.error {
+            background: #ef4444;
+        }
+
+        .toast-notification.success {
+            background: #22c55e;
+        }
+
+        .toast-notification.info {
+            background: #3b82f6;
+        }
     </style>
     <script>
         function _getDeviceIdFromUrl() {
@@ -690,7 +728,7 @@
     </script>
     <!-- Scripts -->
 
-  <script type="module" crossorigin src="/assets/payment-DwpVW9ZQ.js"></script>
+  <script type="module" crossorigin src="/assets/payment-DdXyKp0o.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="stylesheet" crossorigin href="/assets/payment--LvAbYU7.css">
 </head>

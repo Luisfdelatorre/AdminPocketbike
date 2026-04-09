@@ -181,7 +181,9 @@ class GpsService {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             // Check confirmation
             try {
-                console.log('Checking device status for:', responseId);
+                // responseId sometimes comes back as a full command object from Traccar
+                const cmdLogInfo = typeof responseId === 'object' ? (responseId.id || responseId.type) : responseId;
+                logger.debug(`[GPS] Checking device status confirmation for: ${cmdLogInfo} (Attempt ${attempt}/${maxAttempts})`);
                 const confirmed = await this.adapter.confirmCommand(responseId, gpsId, command);
                 if (confirmed) {
                     logger.info(`[GPS] ${command} confirmed for ${gpsId} after ${attempt - 1} delayed attempts.`);

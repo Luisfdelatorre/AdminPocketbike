@@ -175,10 +175,11 @@ const controlEngine = async (id, command, companyId) => {
             return { success: false, error: 'Device does not have a valid GPS ID assigned.' };
         }
 
-        // 2. Fetch the correct GPS adapter strategy for this company
-        const gpsAdapter = await companyService.getGpsAdapter(companyId);
+        // 2. Fetch the correct GPS adapter strategy for this company based on the device's company
+        const targetCompanyId = device.companyId || companyId;
+        const gpsAdapter = await companyService.getGpsAdapter(targetCompanyId);
         if (!gpsAdapter) {
-            return { success: false, error: `No GPS adapter configured for company ID: ${companyId}` };
+            return { success: false, error: `No GPS adapter configured for company ID: ${targetCompanyId}` };
         }
 
         // 3. Send command and verify execution with the hardware
