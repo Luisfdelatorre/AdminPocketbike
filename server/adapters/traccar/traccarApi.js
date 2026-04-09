@@ -33,7 +33,7 @@ class TraccarApi {
     const params = new URLSearchParams();
     params.append('email', this.axiosInstance.defaults.auth.username);
     params.append('password', this.axiosInstance.defaults.auth.password);
-    
+
     return this.axiosInstance.post('api/session', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'

@@ -183,7 +183,7 @@ class MyTraccar {
             this.JSESSIONID = Array.isArray(cookie) ? cookie.join('; ') : cookie;
         } catch (e) {
             logger.error('WebSocket auth failed', e.message);
-            setTimeout(() => this.initWebSocket(), WS_RECONNECT_DELAY);
+            setTimeout(() => this.startAutoUpdate(), WS_RECONNECT_DELAY);
             return;
         }
         this.openWebSocket();
@@ -207,7 +207,7 @@ class MyTraccar {
         ws.on('close', async () => {
             logger.warn(`WebSocket closed — fetching positions manually before reconnect...`);
             await this._performFallbackFetch();
-            setTimeout(() => this.initWebSocket(), WS_RECONNECT_DELAY);
+            setTimeout(() => this.startAutoUpdate(), WS_RECONNECT_DELAY);
         });
         this._ws = ws;
     };

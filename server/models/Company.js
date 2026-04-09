@@ -86,7 +86,7 @@ const companySchema = new mongoose.Schema({
         freeDayPolicy: { type: String, enum: ['FLEXIBLE', 'FIXED_WEEKDAY'], default: 'FLEXIBLE' },
         fixedFreeDayOfWeek: { type: Number, min: 0, max: 6, default: 0 }, // 0 = Sunday
         initialFee: { type: Number, default: 0 },
-        emailDomain: { type: String, default: 'tumotoya.online', trim: true }
+        emailDomain: { type: String, default: 'pocketbike.app', trim: true }
     }
 }, {
     timestamps: true

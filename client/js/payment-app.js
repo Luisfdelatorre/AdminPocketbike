@@ -88,7 +88,8 @@ class DOMManager {
             paymentAmount: document.getElementById('paymentAmount'),
             paymentDueDate: document.getElementById('paymentDueDate'),
             freeDaysCount: document.getElementById('freeDaysCount'),
-            loginError: document.getElementById('loginError')
+            loginError: document.getElementById('loginError'),
+            totalCuotas: document.getElementById('totalCuotas')
         };
 
         this.elements.loading = {
@@ -619,6 +620,12 @@ class PaymentManager {
             // Update Amounts & Phone
             dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.dailyRate);
             dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
+            
+            const totalCuotasDisplay = dom.get('displays.totalCuotas');
+            if (totalCuotasDisplay && STATE.paymentData.cuotasPagadas !== undefined) {
+                totalCuotasDisplay.textContent = STATE.paymentData.cuotasPagadas;
+            }
+
             const freeDaysCount = STATE.paymentData.freeDaysAvailable || 0;
             const badge = dom.get('displays.freeDaysCount');
             const useFreeDayBtn = dom.get('buttons.freeDay');
@@ -636,10 +643,10 @@ class PaymentManager {
                     // Flexible policy: Show based on count availability
                     badge.textContent = freeDaysCount;
                     badge.style.display = freeDaysCount > 0 ? 'block' : 'none';
-                    useFreeDayBtn.style.display = freeDaysCount > 0 ? 'block' : 'none';
-                    useFreeDayBtn.parentElement.style.display = freeDaysCount > 0 ? 'block' : 'none';
-                    loanBtn.style.display = 'block';
-                    loanBtn.parentElement.style.display = 'block';
+                    useFreeDayBtn.style.display = freeDaysCount > 0 ? '' : 'none';
+                    useFreeDayBtn.parentElement.style.display = freeDaysCount > 0 ? '' : 'none';
+                    loanBtn.style.display = '';
+                    loanBtn.parentElement.style.display = '';
                 }
             }
 

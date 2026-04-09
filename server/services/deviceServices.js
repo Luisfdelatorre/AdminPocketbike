@@ -28,7 +28,8 @@ const deviceStateCache = new Map();
 const bulkWriteDevices = async (gpsDevices) => {
     // Prepare clean docs: generate _id from name + strip empty objects
     const safeDocs = gpsDevices.map(d => {
-        const withId = { ...d, _id: helper.generateDeviceId(d.name) };
+        const id = helper.generateDeviceId(d.name);
+        const withId = { ...d, _id: id, id: id };
         return Object.fromEntries(
             Object.entries(withId).filter(([, v]) =>
                 !(v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)
@@ -48,72 +49,91 @@ const initializeGpsUpdates = async () => {
     // 2. Pre-populate in-memory cache to avoid DB storm
     const allDevices = await Device.find({}, 'gpsId imei ignition lastUpdate cutOff batteryLevel').lean();
     for (const d of allDevices) {
-        if (d.gpsId) deviceStateCache.set(String(d.gpsId), { ...d, _lastDbWrite: Date.now() });
-        if (d.imei) deviceStateCache.set(String(d.imei), { ...d, _lastDbWrite: Date.now() });
+        const entry = {
+            ...d,
+            filter: d.gpsId ? { gpsId: d.gpsId } : { imei: d.imei },
+            _dirty: true,   // force first run to write all
+            _lastDbWrite: 0
+        };
+
+        if (d.gpsId) deviceStateCache.set(String(d.gpsId), entry);
+        if (d.imei) deviceStateCache.set(String(d.imei), entry);
     }
     console.log(`🧠 In-memory GPS state cache initialized with ${allDevices.length} devices.`);
+
+    let _lastGlobalDbWrite = 0;
+
 
     const onFlush = async (batch) => {
         if (!batch || batch.length === 0) return;
 
-        const bulkOps = [];
         const NOW = Date.now();
 
-        // Traccar and MegaRastreo adapters yield identical payloads: { filter, ignition, lastUpdate, cutOff, batteryLevel }
+        // 1. Always check for real changes and update memory
         for (const update of batch) {
-            // Dedupe id
             const rawId = update.filter.gpsId || update.filter.imei;
             if (!rawId) continue;
 
+
             const idKey = String(rawId);
-            const existing = deviceStateCache.get(idKey);
+            const mem = deviceStateCache.get(idKey) || { filter: update.filter };
 
-            let hasRealChange = !existing;
-            let timeSinceLastWrite = Infinity;
-            if (existing) {
-                if (existing.ignition !== update.ignition) hasRealChange = true;
-                if (update.cutOff !== undefined && existing.cutOff !== update.cutOff) hasRealChange = true;
-                if (update.batteryLevel !== null && existing.batteryLevel !== update.batteryLevel) hasRealChange = true;
-                timeSinceLastWrite = NOW - (existing._lastDbWrite || 0);
+            const ignitionChanged = mem.ignition !== update.ignition;
+            const cutOffChanged = update.cutOff !== undefined && mem.cutOff !== update.cutOff;
+            const batteryChanged = update.batteryLevel !== null && mem.batteryLevel !== update.batteryLevel;
+
+            if (!deviceStateCache.has(idKey) || ignitionChanged || cutOffChanged || batteryChanged) {
+                mem.ignition = update.ignition;
+                mem.lastUpdate = update.lastUpdate;
+                if (update.cutOff !== undefined) mem.cutOff = update.cutOff;
+                if (update.batteryLevel !== null) mem.batteryLevel = update.batteryLevel;
+                mem._dirty = true;
+
+                deviceStateCache.set(idKey, mem);
             }
 
-            // Flush rule: Real change in state OR 5 seconds heartbeat elapsed
-            if (hasRealChange || timeSinceLastWrite >= 5000) {
-                const setDoc = {
-                    ignition: update.ignition,
-                    lastUpdate: update.lastUpdate
-                };
-                if (update.cutOff !== undefined) setDoc.cutOff = update.cutOff;
-                if (update.batteryLevel !== null) setDoc.batteryLevel = update.batteryLevel;
-
-                const finalFilter = { ...update.filter };
-                if (finalFilter.gpsId) {
-                    finalFilter.gpsId = Number(finalFilter.gpsId); // Force number, since raw MongoDB documents hold integers
-                }
-
-                bulkOps.push({
-                    updateOne: {
-                        filter: finalFilter, // use the safely typed filter
-                        update: { $set: setDoc }
-                    }
-                });
-
-                // Update memory cache
-                deviceStateCache.set(idKey, {
-                    ...existing,
-                    ...update,
-                    _lastDbWrite: NOW
-                });
-            }
         }
 
-        // Send filtered updates to DB
+        // 2. Every 5s, flush dirty devices to DB
+        if (NOW - _lastGlobalDbWrite < 5000) return;
+
+        const bulkOps = [];
+
+        for (const [idKey, mem] of deviceStateCache.entries()) {
+            if (!mem._dirty) continue;
+
+            const setDoc = {
+                ignition: mem.ignition,
+                lastUpdate: mem.lastUpdate
+            };
+            if (mem.cutOff !== undefined) setDoc.cutOff = mem.cutOff;
+            if (mem.batteryLevel !== null) setDoc.batteryLevel = mem.batteryLevel;
+
+            const finalFilter = { ...mem.filter };
+            if (finalFilter.gpsId) {
+                finalFilter.gpsId = Number(finalFilter.gpsId);
+            }
+
+            bulkOps.push({
+                updateOne: {
+                    filter: finalFilter,
+                    update: { $set: setDoc }
+                }
+            });
+
+            mem._dirty = false;
+        }
+
         if (bulkOps.length > 0) {
             try {
                 await deviceRepository.upsertDevicesBatch(bulkOps);
+                _lastGlobalDbWrite = NOW;
             } catch (error) {
-                logger.error('Error in GPS onFlush filter:', error);
+                logger.error('Error in GPS onFlush:', error);
             }
+        } else {
+            // No dirty devices but 5s elapsed — still advance the timer
+            _lastGlobalDbWrite = NOW;
         }
     };
 

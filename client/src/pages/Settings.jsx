@@ -15,7 +15,7 @@ const Settings = () => {
             contractDays: 500,
             freeDaysLimit: 4,
             initialFee: 0,
-            emailDomain: 'tumotoya.online'
+            emailDomain: 'pocketbike.app'
         },
         displayName: 'PocketBike',
         companyLogo: '/pocketbike_60x60.jpg',
@@ -466,9 +466,9 @@ const Settings = () => {
                                     <input
                                         id="emailDomain"
                                         type="text"
-                                        value={settings.contractDefaults?.emailDomain || 'tumotoya.online'}
+                                        value={settings.contractDefaults?.emailDomain || 'pocketbike.app'}
                                         onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
-                                        placeholder="tumotoya.online"
+                                        placeholder="pocketbike.app"
                                         className="input-display-name"
                                         style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, marginLeft: '-1rem' }}
                                     />
