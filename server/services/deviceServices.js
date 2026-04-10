@@ -50,94 +50,80 @@ const initializeGpsUpdates = async () => {
     const allDevices = await Device.find({}, 'gpsId imei ignition lastUpdate cutOff batteryLevel').lean();
     for (const d of allDevices) {
         const entry = {
-            ...d,
-            filter: d.gpsId ? { gpsId: d.gpsId } : { imei: d.imei },
-            _dirty: true,   // force first run to write all
-            _lastDbWrite: 0
+            ignition: d.ignition,
+            lastUpdate: d.lastUpdate,
+            cutOff: d.cutOff,
+            batteryLevel: d.batteryLevel,
+            filter: { gpsId: d.gpsId },
+            _dirty: false, // starts clean — no real change yet
         };
 
-        if (d.gpsId) deviceStateCache.set(String(d.gpsId), entry);
-        if (d.imei) deviceStateCache.set(String(d.imei), entry);
+        deviceStateCache.set(d.gpsId, entry);
     }
-    console.log(`🧠 In-memory GPS state cache initialized with ${allDevices.length} devices.`);
-
     let _lastGlobalDbWrite = 0;
-
-
     const onFlush = async (batch) => {
         if (!batch || batch.length === 0) return;
-
         const NOW = Date.now();
 
-        // 1. Always check for real changes and update memory
+        // 1. Detect real changes and mark dirty only if something actually changed
         for (const update of batch) {
-            const rawId = update.filter.gpsId || update.filter.imei;
-            if (!rawId) continue;
+            const mem = deviceStateCache.get(update.filter.gpsId);
+            if (!mem) continue;
 
+            const changed =
+                mem.ignition !== update.ignition ||
+                mem.lastUpdate !== update.lastUpdate ||
+                (update.cutOff !== undefined && mem.cutOff !== update.cutOff) ||
+                (update.batteryLevel !== null && mem.batteryLevel !== update.batteryLevel);
 
-            const idKey = String(rawId);
-            const mem = deviceStateCache.get(idKey) || { filter: update.filter };
-
-            const ignitionChanged = mem.ignition !== update.ignition;
-            const cutOffChanged = update.cutOff !== undefined && mem.cutOff !== update.cutOff;
-            const batteryChanged = update.batteryLevel !== null && mem.batteryLevel !== update.batteryLevel;
-
-            if (!deviceStateCache.has(idKey) || ignitionChanged || cutOffChanged || batteryChanged) {
+            if (changed) {
                 mem.ignition = update.ignition;
                 mem.lastUpdate = update.lastUpdate;
                 if (update.cutOff !== undefined) mem.cutOff = update.cutOff;
                 if (update.batteryLevel !== null) mem.batteryLevel = update.batteryLevel;
                 mem._dirty = true;
-
-                deviceStateCache.set(idKey, mem);
+                deviceStateCache.set(update.filter.gpsId, mem);
             }
-
         }
 
-        // 2. Every 5s, flush dirty devices to DB
+        // 2. Every 5s, flush only dirty devices to DB
         if (NOW - _lastGlobalDbWrite < 5000) return;
 
         const bulkOps = [];
 
         for (const [idKey, mem] of deviceStateCache.entries()) {
-            if (!mem._dirty) continue;
-
-            const setDoc = {
-                ignition: mem.ignition,
-                lastUpdate: mem.lastUpdate
-            };
-            if (mem.cutOff !== undefined) setDoc.cutOff = mem.cutOff;
-            if (mem.batteryLevel !== null) setDoc.batteryLevel = mem.batteryLevel;
-
-            const finalFilter = { ...mem.filter };
-            if (finalFilter.gpsId) {
-                finalFilter.gpsId = Number(finalFilter.gpsId);
-            }
+            if (!mem._dirty) continue; // skip unchanged devices
 
             bulkOps.push({
                 updateOne: {
-                    filter: finalFilter,
-                    update: { $set: setDoc }
+                    filter: mem.filter,
+                    update: {
+                        $set: {
+                            ignition: mem.ignition,
+                            lastUpdate: mem.lastUpdate,
+                            cutOff: mem.cutOff,
+                            batteryLevel: mem.batteryLevel,
+                        }
+                    }
                 }
             });
 
-            mem._dirty = false;
+            mem._dirty = false; // reset after queuing
         }
 
         if (bulkOps.length > 0) {
             try {
                 await deviceRepository.upsertDevicesBatch(bulkOps);
-                _lastGlobalDbWrite = NOW;
+                logger.info(`GPS bulk write: ${bulkOps.length} devices updated`);
             } catch (error) {
                 logger.error('Error in GPS onFlush:', error);
             }
-        } else {
-            // No dirty devices but 5s elapsed — still advance the timer
-            _lastGlobalDbWrite = NOW;
         }
+
+        _lastGlobalDbWrite = NOW;
     };
 
-    // 2. Initialize per-company adapter based on service requirement
+    // 3. Initialize per-company adapter based on service requirement
     for (const c of companies) {
         const gpsAdapter = await companyService.getGpsAdapter(c._id);
 

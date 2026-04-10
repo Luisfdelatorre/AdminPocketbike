@@ -28,6 +28,7 @@ class DeviceRepository {
     }
     async upsertDevicesBatch(bulkOps) {
         try {
+            // console.log('bulkOps', bulkOps);
             const result = await Device.bulkWrite(bulkOps);
             logger.info(`GPS sync upsert: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
             return {
