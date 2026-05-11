@@ -30,7 +30,8 @@ const Contracts = () => {
         freeDayPolicy: 'FLEXIBLE',
         fixedFreeDayOfWeek: 0,
         initialFee: 0,
-        exemptFromCutOff: false
+        exemptFromCutOff: false,
+        exemptFromCurfew: false
     });
 
     const [companySettings, setCompanySettings] = useState(null);
@@ -111,7 +112,8 @@ const Contracts = () => {
             freeDayPolicy: defaults.freeDayPolicy || 'FLEXIBLE',
             fixedFreeDayOfWeek: defaults.fixedFreeDayOfWeek ?? 0,
             initialFee: defaults.initialFee || 0,
-            exemptFromCutOff: false
+            exemptFromCutOff: false,
+            exemptFromCurfew: false
         });
         setShowModal(true);
     };
@@ -132,7 +134,8 @@ const Contracts = () => {
             freeDaysLimit: contract.freeDaysLimit || 4,
             freeDayPolicy: contract.freeDayPolicy || 'FLEXIBLE',
             fixedFreeDayOfWeek: contract.fixedFreeDayOfWeek ?? 0,
-            exemptFromCutOff: contract.exemptFromCutOff || false
+            exemptFromCutOff: contract.exemptFromCutOff || false,
+            exemptFromCurfew: contract.exemptFromCurfew || false
         });
         setShowModal(true);
     };
@@ -688,17 +691,31 @@ const Contracts = () => {
                                     </div>
                                 )}
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                    <div className="phone-pin-checkbox" style={{ marginTop: '0.5rem', padding: '10px', borderRadius: '8px' }}>
-                                        <input
-                                            type="checkbox"
-                                            id="exemptFromCutOff"
-                                            checked={formData.exemptFromCutOff}
-                                            onChange={(e) => setFormData({ ...formData, exemptFromCutOff: e.target.checked })}
-                                            style={{ marginRight: '0.5rem', width: 'auto' }}
-                                        />
-                                        <label htmlFor="exemptFromCutOff" style={{ fontSize: '0.7rem', cursor: 'pointer', fontWeight: '600' }}>
-                                            {t('contracts.modal.exemptCutoff')}
-                                        </label>
+                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                        <div className="phone-pin-checkbox" style={{ minWidth: '100px', marginTop: '0.5rem', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color, #e5e7eb)' }}>
+                                            <input
+                                                type="checkbox"
+                                                id="exemptFromCutOff"
+                                                checked={formData.exemptFromCutOff}
+                                                onChange={(e) => setFormData({ ...formData, exemptFromCutOff: e.target.checked })}
+                                                style={{ marginRight: '0.5rem', width: 'auto' }}
+                                            />
+                                            <label htmlFor="exemptFromCutOff" style={{ fontSize: '0.7rem', cursor: 'pointer', fontWeight: '600' }}>
+                                                {t('contracts.modal.exemptCutoff')}
+                                            </label>
+                                        </div>
+                                        <div className="phone-pin-checkbox" style={{ minWidth: '180px', marginTop: '0.5rem', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color, #e5e7eb)' }}>
+                                            <input
+                                                type="checkbox"
+                                                id="exemptFromCurfew"
+                                                checked={formData.exemptFromCurfew}
+                                                onChange={(e) => setFormData({ ...formData, exemptFromCurfew: e.target.checked })}
+                                                style={{ marginRight: '0.5rem', width: 'auto' }}
+                                            />
+                                            <label htmlFor="exemptFromCurfew" style={{ fontSize: '0.7rem', cursor: 'pointer', fontWeight: '600' }}>
+                                                {t('contracts.modal.exemptCurfew')}
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

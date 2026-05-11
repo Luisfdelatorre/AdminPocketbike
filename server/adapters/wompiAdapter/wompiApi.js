@@ -6,10 +6,17 @@ class WompiApi {
     // Handle both flat config or Company model instance
     const finalConfig = config.wompiConfig || config;
 
-    const publicKey = finalConfig.publicKey || Login.Wompi.publicKey;
+    const rawPublicKey = finalConfig.publicKey || Login.Wompi.publicKey;
+    const publicKey = rawPublicKey ? String(rawPublicKey).trim() : '';
     this.publicKey = publicKey;
-    this.privateKey = finalConfig.privateKey || Login.Wompi.privateKey;
-    this.baseUrl = Url.WompiBaseUrl;
+    this.privateKey = finalConfig.privateKey ? String(finalConfig.privateKey).trim() : (Login.Wompi.privateKey ? String(Login.Wompi.privateKey).trim() : '');
+    
+    // Auto-detect environment based on the key prefix to avoid 401 Unauthorized errors
+    if (publicKey.includes('_test_')) {
+        this.baseUrl = Url.WompiBaseUrlSandbox || 'https://sandbox.wompi.co/v1';
+    } else {
+        this.baseUrl = Url.WompiBaseUrl || 'https://production.wompi.co/v1';
+    }
     // console.log('publicKey', publicKey);
     // console.log('privateKey', this.privateKey);
     // console.log('baseUrl', this.baseUrl);

@@ -65,7 +65,7 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
     devices.forEach(d => {
         deviceMap[d.name] = {
             ...d,
-            batteryLevel: helpers.calculateBatteryLevel(d.lastUpdate, maxBatteryLevel),
+            batteryLevel: d.batteryLevel,//helpers.calculateBatteryLevel(d.lastUpdate, maxBatteryLevel),
             monthPaid: 0,
             monthDebt: 0,
             freeDays: 0,

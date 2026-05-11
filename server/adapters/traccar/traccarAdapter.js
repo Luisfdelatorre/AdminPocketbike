@@ -138,16 +138,23 @@ class MyTraccar {
             const res = await this._api.getPositions({ deviceId });
             if (!res.data?.length) return 1;
             const pos = res.data[res.data.length - 1];
-            const filter = {
-                status: pos.attributes.status,
-                cutOff: pos.attributes.status !== undefined
-                    ? !((pos.attributes.status >> 27) & 1) * 1
-                    : 0,
-                ignition: pos.attributes.ignition,
-                batteryLevel: pos.attributes.batteryLevel,
-                lastUpdate: pos.deviceTime
+
+            const status = pos?.attributes?.status || null;
+            const result = pos?.attributes?.result || null;
+            let data = {
+                status: pos.attributes?.status,
+                ignition: pos.attributes?.ignition ?? false,
+                lastUpdate: pos.deviceTime,
+                batteryLevel: pos.attributes?.batteryLevel ?? null,
             }
-            return filter
+            if (status != undefined) {
+                data.cutOff = ((status <= 255 && (status & 128) !== 0) || (status > 255 && ((status >> 27) & 1) == 0));
+            }
+            if (result == "Cut off the fuel supply: Success!") {
+                data.cutOff = true;
+            }
+
+            return data;
         } catch (e) {
             logger.error('Error checking device status', e);
             return 1;
@@ -243,16 +250,22 @@ class MyTraccar {
 
         for (const p of positions) {
             if (!p?.deviceId) continue;
-
-            standardBatch.push({
+            const status = p?.attributes?.status || null;
+            const result = p?.attributes?.result || null;
+            let updateData = {
                 filter: { gpsId: p.deviceId },
                 ignition: p.attributes?.ignition ?? false,
                 lastUpdate: p.deviceTime ? new Date(p.deviceTime) : new Date(),
-                cutOff: p.attributes.status !== undefined
-                    ? !((p.attributes.status >> 27) & 1) * 1
-                    : 0,
                 batteryLevel: p.attributes?.batteryLevel ?? null,
-            });
+            }
+            if (status != undefined) {
+                updateData.cutOff = ((status <= 255 && (status & 128) !== 0) || (status > 255 && ((status >> 27) & 1) == 0));
+            }
+            if (result == "Cut off the fuel supply: Success!") {
+                updateData.cutOff = true;
+            }
+
+            standardBatch.push(updateData);
         }
 
         this._onFlushCallback(standardBatch);

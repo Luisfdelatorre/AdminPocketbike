@@ -20,6 +20,7 @@ const Settings = () => {
         displayName: 'PocketBike',
         companyLogo: '/pocketbike_60x60.jpg',
         automaticCutOff: false,
+        cutOffTime: '23:59',
         cutOffStrategy: 1,
         gpsService: 'megarastreo',
         gpsConfig: {
@@ -223,6 +224,7 @@ const Settings = () => {
             } else if (section === 'cutoff') {
                 payload = {
                     automaticCutOff: settings.automaticCutOff,
+                    cutOffTime: settings.cutOffTime,
                     cutOffStrategy: settings.cutOffStrategy
                 };
             } else if (section === 'curfew') {
@@ -557,21 +559,36 @@ const Settings = () => {
                             </div>
 
                             {settings.automaticCutOff && (
-                                <div className="setting-item">
-                                    <label htmlFor="cutOffStrategy">{t('settings.cutoff.strategy')}</label>
-                                    <select
-                                        id="cutOffStrategy"
-                                        value={settings.cutOffStrategy}
-                                        onChange={(e) => handleChange('cutOffStrategy', parseInt(e.target.value))}
-                                        className="strategy-select"
-                                    >
-                                        <option value={1}>{t('settings.cutoff.strategy1')}</option>
-                                        <option value={2}>{t('settings.cutoff.strategy2')}</option>
-                                        <option value={3}>{t('settings.cutoff.strategy3')}</option>
-                                    </select>
-                                    <p className="setting-description">
-                                        {t('settings.cutoff.strategyDesc')}
-                                    </p>
+                                <div className="integration-fields">
+                                    <div className="setting-item">
+                                        <label htmlFor="cutOffTime">{t('settings.cutoff.cutOffTime')}</label>
+                                        <input
+                                            id="cutOffTime"
+                                            type="time"
+                                            value={settings.cutOffTime || '23:59'}
+                                            onChange={(e) => handleChange('cutOffTime', e.target.value)}
+                                            className="time-input"
+                                        />
+                                        <p className="setting-description">
+                                            {t('settings.cutoff.cutOffTimeDesc')}
+                                        </p>
+                                    </div>
+                                    <div className="setting-item">
+                                        <label htmlFor="cutOffStrategy">{t('settings.cutoff.strategy')}</label>
+                                        <select
+                                            id="cutOffStrategy"
+                                            value={settings.cutOffStrategy}
+                                            onChange={(e) => handleChange('cutOffStrategy', parseInt(e.target.value))}
+                                            className="strategy-select"
+                                        >
+                                            <option value={1}>{t('settings.cutoff.strategy1')}</option>
+                                            <option value={2}>{t('settings.cutoff.strategy2')}</option>
+                                            <option value={3}>{t('settings.cutoff.strategy3')}</option>
+                                        </select>
+                                        <p className="setting-description">
+                                            {t('settings.cutoff.strategyDesc')}
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                         </div>

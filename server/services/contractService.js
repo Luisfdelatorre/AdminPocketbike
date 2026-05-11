@@ -39,8 +39,7 @@ class ContractService {
         // 4. Create Contract
         const contract = await contractRepository.createContract(data, device);
 
-        // 5. Sync to Device (Denormalization)
-        // Map contract/form data to device fields expectations
+        // 5. Sync to Device (Denormalization) — mirrors exemptFromCutOff and exemptFromCurfew to Device
         await deviceRepository.assignContractToDevice(contract, data, device);
 
         // 6. Handle Initial Fee

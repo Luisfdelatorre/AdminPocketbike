@@ -1,40 +1,63 @@
 import companyService from '../services/companyService.js';
-import { getWompiApi } from '../adapters/wompiAdapter/wompiApi.js';
+import { Device } from '../models/Device.js';
 import { Payment } from '../models/index.js';
-import { Company } from '../models/Company.js';
-import { Login } from '../config/config.js';
-const { Wompi } = Login;
 import logger from '../config/logger.js';
 
 const validateWompiSignature = async (req, res, next) => {
     try {
+        logger.info(`Webhook Wompi received`);
 
-        logger.info(`Webhook Wompi`, req.body);
+        const transaction = req.body?.data?.transaction;
+        const reference = transaction?.reference;
 
-        const reference = req.body.data.transaction.reference;
         if (!reference) {
-            logger.warn('Invalid webhook structure', validated);
-            return res.status(400).json(validated);
+            logger.warn('Webhook missing reference');
+            return res.status(400).json({ valid: false, reason: 'Missing reference' });
         }
-        console.log("reference", reference);
-        // const payment = await Payment.findOne({ reference });
 
-        const wompiAdapter = await companyService.getWompiAdapter('69b26d6f318e40e31d1d2495');
+        // 1️⃣ Try to find the existing payment by Wompi transaction ID (primary path)
+        const transactionId = transaction?.id;
+        let wompiAdapter;
+
+        if (transactionId) {
+            const payment = await Payment.findById(transactionId).select('companyId').lean();
+            if (payment?.companyId) {
+                wompiAdapter = await companyService.getWompiAdapter(payment.companyId);
+            }
+        }
+
+        // 2️⃣ Payment not found yet (webhook arrived before payment record) — look up via device
+        if (!wompiAdapter) {
+            const deviceIdName = reference.split('-')[0];
+            const device = await Device.findOne({ name: deviceIdName }).select('companyId').lean();
+            if (device?.companyId) {
+                wompiAdapter = await companyService.getWompiAdapter(device.companyId);
+            }
+        }
+
+        // 3️⃣ Last resort: default adapter
+        if (!wompiAdapter) {
+            logger.warn(`[WOMPI] Could not resolve company for transaction ${transactionId}, using default adapter`);
+            wompiAdapter = await companyService.getWompiAdapter(null);
+        }
+
         wompiAdapter.init(req.body);
-        // 1️⃣ Validate Webhook Data Structure
+
+        // 4️⃣ Validate Webhook Data Structure
         const validated = wompiAdapter.validateWebhookData();
         if (!validated.valid) {
             logger.warn('Invalid webhook structure', validated);
             return res.status(400).json(validated);
         }
-        // 2️⃣ Validate Signature
+
+        // 5️⃣ Validate Signature
         const signatureCheck = await wompiAdapter.validateWebhookSignature();
         if (!signatureCheck.ok) {
             logger.warn('Invalid webhook signature', signatureCheck);
             return res.status(403).json(signatureCheck);
         }
 
-        // 3️⃣ Attach adapter to request for controller to use (optional but efficient)
+        // 6️⃣ Attach adapter to request for controller to use
         req.wompiAdapter = wompiAdapter;
         req.validated = validated;
 

@@ -1,5 +1,5 @@
 export const MongoDB = {
-    URI: 'mongodb://127.0.0.1:27017/payments-wompi-pocketbike',
+    URI: 'mongodb://127.0.0.1:27018/payments-wompi-pocketbike',
 };
 
 export const debugMode = process.env.DEBUG === 'true' || true; // Default to true for development if not specified

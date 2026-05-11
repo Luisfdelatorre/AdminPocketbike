@@ -20,9 +20,47 @@ export class WebhookService {
 
         if (eventData.eventType === WOMPI_EVENTS.TRANSACTION_UPDATED) {
             const paymentData = wompiAdapter.getPaymentData();
+            let processingResult = { success: true };
             const dummyOnUpdate = () => { };
+
             if (paymentData.status === PAYMENT_STATUS.S_APPROVED) {
-                await paymentService.processApprovedPayment(paymentData, dummyOnUpdate);
+                try {
+                    processingResult = await paymentService.processApprovedPayment(paymentData, dummyOnUpdate);
+                } catch (err) {
+                    console.error(`[WEBHOOK] processApprovedPayment failed for ${eventData.paymentReference}: ${err.message}`);
+                    processingResult = { success: false, error: err.message };
+                }
+            } else if (
+                paymentData.status === PAYMENT_STATUS.S_DECLINED ||
+                paymentData.status === PAYMENT_STATUS.S_VOIDED  ||
+                paymentData.status === PAYMENT_STATUS.S_ERROR
+            ) {
+                // Safely handle declined/failed payments: free up the reserved invoice
+                try {
+                    if (paymentData.reference) {
+                        // Update the payment status in DB to mirror Wompi's final status
+                        await paymentRepository.updatePaymentStatus({
+                            paymentReference: paymentData.reference,
+                            status: paymentData.status,
+                        });
+                        console.log(`[WEBHOOK] Payment ${paymentData.reference} marked as ${paymentData.status}`);
+                    }
+                } catch (statusErr) {
+                    console.error(`[WEBHOOK] Failed to update declined payment status for ${paymentData.reference}: ${statusErr.message}`);
+                }
+
+                try {
+                    // Unreserve the invoice so the customer can retry payment
+                    if (paymentData.invoiceId || paymentData.unpaidInvoiceId) {
+                        const invoiceId = paymentData.invoiceId || paymentData.unpaidInvoiceId;
+                        await invoiceRepository.unreserveInvoice(invoiceId);
+                        console.log(`[WEBHOOK] Invoice ${invoiceId} unreserved after ${paymentData.status}`);
+                    }
+                } catch (unreserveErr) {
+                    console.error(`[WEBHOOK] Failed to unreserve invoice for ${paymentData.reference}: ${unreserveErr.message}`);
+                }
+
+                processingResult = { success: true, status: paymentData.status };
             }
             await webhookRepository.recordWebhookEvent(eventData);
         }

@@ -134,5 +134,7 @@ paymentSchema.methods.markAsUsed = async function (invoice = null) {
 
 // Index for finding payments by status
 paymentSchema.index({ status: 1, createdAt: 1 });
+// Used by getTotalPerDayByDevice aggregation: match on status + invoiceDate range
+paymentSchema.index({ status: 1, invoiceDate: 1 });
 
 export const Payment = mongoose.model('Payment', paymentSchema);

@@ -625,47 +625,47 @@ export class PaymentService {
     }
     async getPaymentSummary({ month, year, companyId }) {
         try {
+            const t0 = Date.now();
 
             const today = dayjs();
-            const isCurrentMonth = today.year() === year && today.month() + 1 === month;
-            const isStartOfMonth = today.date() <= 3;
-            const lookBackDays = (isCurrentMonth && isStartOfMonth) ? 2 : 0;
-            const startDate = dayjs().year(year).month(month - 1).startOf('month').subtract(lookBackDays, 'day').toDate();
-            const endDate = dayjs().year(year).month(month - 1).endOf('month').add(1, 'day').toDate();
-            const deviceMap = {};
+            const startDate = dayjs().year(year).month(month - 1).startOf('month').toDate();
+            const endDate   = dayjs().year(year).month(month - 1).endOf('month').toDate();
+            const todayStart = today.startOf('day'); // compute once, reuse in loop
+
+            const deviceMap  = {};
             const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
             if (companyId) deviceQuery.companyId = companyId;
 
-            // 4. Fetch data in parallel
+            // Fetch invoices + payment aggregation in parallel (single round-trip each)
+            const t1 = Date.now();
             const [invoices, payments] = await Promise.all([
-                invoiceRepository.findInvoices(deviceQuery),
+                invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery)
             ]);
-            const allInvoices = await invoiceRepository.findInvoices({ date: { $gte: startDate, $lte: endDate } });
-            console.log(`[DEBUG] invoices with companyId filter: ${invoices.length}, without: ${allInvoices.length}`, allInvoices.map(i => ({ id: i._id, cId: i.companyId })));
+            logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
+
             const paymentsObj = payments.length > 0 ? payments[0] : {};
 
+            const t2 = Date.now();
             invoices.forEach((invoice) => {
-                const dateKey = dayjs(invoice.date).format('YYYY-MM-DD');
-                const day = dayjs(invoice.date).date();
-                const devName = invoice.deviceIdName;
+                const invoiceDay  = dayjs(invoice.date);
+                const dateKey     = invoiceDay.format('YYYY-MM-DD');
+                const day         = invoiceDay.date();
+                const devName     = invoice.deviceIdName;
+
                 if (!deviceMap[devName]) {
-                    deviceMap[devName] = {
-                        device: {
-                            name: devName,
-                            unpaidTotal: 0
-                        },
-                        days: {}
-                    };
+                    deviceMap[devName] = { device: { name: devName, unpaidTotal: 0 }, days: {} };
                 }
+
                 const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
 
-                const isFuture = dayjs(invoice.date).startOf('day').isAfter(dayjs().startOf('day'));
+                const isFuture = invoiceDay.startOf('day').isAfter(todayStart);
                 if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && !isFuture) {
                     deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
                 }
                 deviceMap[devName].days[day] = { ...invoice, totalPaid };
             });
+            logger.info(`[SUMMARY TIMING] JS loop: ${Date.now() - t2}ms | total: ${Date.now() - t0}ms`);
 
             return Object.values(deviceMap);
 

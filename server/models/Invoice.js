@@ -29,6 +29,7 @@ const InvoiceSchema = new mongoose.Schema(
         paid: { type: Boolean, default: false },
         deviceIdName: { type: String, required: true },//this is device name
         deviceId: { type: String, required: true },//this is device id
+        megaDeviceId: { type: String },              // GPS provider device ID (megarastreo)
         gpsId: { type: String },
         companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
         companyName: { type: String },
@@ -52,8 +53,9 @@ const InvoiceSchema = new mongoose.Schema(
 
 // Indexes
 // _id is name-date. So unique _id ensures unique name-date.
-// We only need deviceIdName index for query performance.
 InvoiceSchema.index({ deviceIdName: 1, date: 1 });
+// Used by getPaymentSummary: filter by company + date range
+InvoiceSchema.index({ companyId: 1, date: 1 });
 
 // ════════════════════════════════════════════
 // statics
@@ -91,6 +93,7 @@ InvoiceSchema.statics.createInvoice = async function ({
     date,
     deviceIdName,
     deviceId,
+    megaDeviceId,
     gpsId,
     companyId,
     companyName
@@ -103,6 +106,7 @@ InvoiceSchema.statics.createInvoice = async function ({
         amount,
         deviceIdName,
         deviceId,
+        megaDeviceId,
         gpsId,
         companyId,
         companyName,
@@ -133,6 +137,7 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
         case PAYMENT_TYPE.FREE:
             this.paid = true; // no genera deuda
             this.dayType = INVOICE_DAYTYPE.FREE;
+            this.amount = 0;
             this.paidAmount = 0;
             this.transaction.id = payment._id;
             this.transaction.reference = payment.reference;

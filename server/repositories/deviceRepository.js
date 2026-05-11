@@ -141,7 +141,8 @@ class DeviceRepository {
                 companyId: contract.companyId,
                 companyName: contract.companyName,
                 dailyRate: contract.dailyRate,
-                exemptFromCutOff: contract.exemptFromCutOff
+                exemptFromCutOff: contract.exemptFromCutOff,
+                exemptFromCurfew: contract.exemptFromCurfew
             };
 
             // Remove undefined/null values to avoid overwriting with null if not provided
@@ -179,12 +180,15 @@ class DeviceRepository {
             throw error;
         }
     }
-    async updateDeviceExemption(deviceIdentifier, exemptFromCutOff) {
+    async updateDeviceExemption(deviceIdentifier, exemptFromCutOff, exemptFromCurfew) {
         try {
             const query = !isNaN(deviceIdentifier) ? { _id: Number(deviceIdentifier) } : { name: deviceIdentifier };
+            const update = {};
+            if (exemptFromCutOff !== undefined) update.exemptFromCutOff = exemptFromCutOff;
+            if (exemptFromCurfew !== undefined) update.exemptFromCurfew = exemptFromCurfew;
             return await Device.findOneAndUpdate(
                 query,
-                { exemptFromCutOff: exemptFromCutOff },
+                update,
                 { new: true }
             );
         } catch (error) {

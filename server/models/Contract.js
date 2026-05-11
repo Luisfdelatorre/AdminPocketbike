@@ -119,6 +119,10 @@ const contractSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    exemptFromCurfew: {
+        type: Boolean,
+        default: false, // If true, curfew (toque de queda) will not apply to this device
+    },
 }, {
     timestamps: true,
 });

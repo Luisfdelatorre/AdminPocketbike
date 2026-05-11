@@ -207,8 +207,8 @@ export class PaymentRepository {
     /**
      * Get payment by payment reference
      */
-    async getPaymentByReference(paymentReference) {
-        return await Payment.findOne({ paymentReference }).lean();
+    async getPaymentByReference(paymentId) {
+        return await Payment.findOne({ paymentId }).lean();
     }
 
     /**

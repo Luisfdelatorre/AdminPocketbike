@@ -44,6 +44,12 @@ const PaymentSummary = () => {
     const displayDays = Math.min(Math.max(maxDay, 1), daysInMonth);
     const daysArray = Array.from({ length: displayDays }, (_, i) => i + 1);
 
+    // Vertical sum of totalPaid per day across all devices
+    const dailyTotals = daysArray.reduce((acc, day) => {
+        acc[day] = summaryData.reduce((sum, item) => sum + (item.days[day]?.totalPaid || 0), 0);
+        return acc;
+    }, {});
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -150,6 +156,16 @@ const PaymentSummary = () => {
                             ))}
                             <th key={"day" + 1}>--</th>
                         </tr>
+                        <tr className="daily-totals-row">
+                            <th className="totals-label">Total día</th>
+                            <th></th>
+                            {daysArray.map(day => (
+                                <th key={day} className="daily-total-cell">
+                                    {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
+                                </th>
+                            ))}
+                            <th></th>
+                        </tr>
                     </thead>
                     <tbody>
                         {loading ? (
@@ -182,7 +198,6 @@ const PaymentSummary = () => {
                                         let content = '--';
                                         content = formatCurrency(dayData?.totalPaid);
                                         if (dayData) {
-                                            console.log(dayData);
 
                                             if (dayData.dayType === 'LOAN') {
                                                 cellClass = 'status-cell loand';

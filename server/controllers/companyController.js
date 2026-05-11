@@ -296,7 +296,29 @@ const companyController = {
             const { companyId } = req.auth;
             const updates = req.body;
 
-            const company = await Company.findById(companyId);
+            // Allowed fields for update
+            const allowedFields = [
+                'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
+                'displayName', 'logo', 'automaticCutOff', 'cutOffTime', 'cutOffStrategy', 'curfew',
+                'gpsService', 'gpsConfig', 'wompiConfig', 'contractDefaults'
+            ];
+
+            // Build $set payload from allowed fields only
+            const setPayload = {};
+            allowedFields.forEach(field => {
+                if (updates[field] !== undefined) {
+                    setPayload[field] = updates[field];
+                }
+            });
+
+            // Use findByIdAndUpdate with $set to guarantee all fields are persisted
+            // including fields that didn't previously exist on the document
+            const company = await Company.findByIdAndUpdate(
+                companyId,
+                { $set: setPayload },
+                { new: true, runValidators: true }
+            );
+
             if (!company) {
                 return res.status(404).json({
                     success: false,
@@ -304,26 +326,12 @@ const companyController = {
                 });
             }
 
-            // Allowed fields for update
-            const allowedFields = [
-                'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
-                'displayName', 'logo', 'automaticCutOff', 'cutOffStrategy', 'curfew',
-                'gpsService', 'gpsConfig', 'wompiConfig', 'contractDefaults'
-            ];
-
-            allowedFields.forEach(field => {
-                if (updates[field] !== undefined) {
-                    company[field] = updates[field];
-                }
-            });
-
-            await company.save();
-
-            // Re-schedule dynamic node-cron curfew jobs
+            // Re-schedule dynamic curfew and cut-off cron jobs for this company
             try {
                 cron.scheduleCompanyCurfew(company);
+                cron.scheduleCompanyCutOff(company);
             } catch (cronErr) {
-                console.error('Error scheduling company curfew:', cronErr);
+                console.error('Error rescheduling company cron jobs:', cronErr);
             }
 
             res.json({

@@ -11,6 +11,11 @@ class Cron {
   }
   async init() {
     for (const task of this.jobsConfig) {
+      // Skip the static global dailyCutOff — it is handled dynamically per company below
+      if (task.name === 'dailyCutOff') {
+        log.info(`⏭️ Skipping static job '${task.name}' — handled dynamically per company`);
+        continue;
+      }
       if (task.flag && jobs[task.job]) {
         const scheduled = this.scheduleTask(task, jobs[task.job]);
         this.scheduledTasks.push({ name: task.name, instance: scheduled });
@@ -20,19 +25,52 @@ class Cron {
       }
     }
 
-    // Initialize dynamic Curfew jobs
+    // Initialize dynamic Curfew + CutOff jobs per company
     try {
       const { Company } = await import('../models/Company.js');
+
       const companiesWithCurfew = await Company.find({ 'curfew.enabled': true }).lean();
       for (const company of companiesWithCurfew) {
         this.scheduleCompanyCurfew(company);
       }
       log.info(`✅ Initialized curfews for ${companiesWithCurfew.length} companies`);
+
+      const companiesWithCutOff = await Company.find({ automaticCutOff: true, isActive: true }).lean();
+      for (const company of companiesWithCutOff) {
+        this.scheduleCompanyCutOff(company);
+      }
+      log.info(`✅ Initialized dynamic cut-off jobs for ${companiesWithCutOff.length} companies`);
     } catch (err) {
-      log.error(`❌ Failed to initialize dynamic curfews:`, err);
+      log.error(`❌ Failed to initialize dynamic cron jobs:`, err);
     }
 
     log.info(`✅ ${this.scheduledTasks.length} total cron jobs initialized`);
+  }
+
+  // ---- SCHEDULED JOB HELPERS ----
+  scheduleCompanyCutOff(company) {
+    const jobName = `dailyCutOff_${company._id}`;
+
+    // Remove any existing job for this company
+    this.scheduledTasks = this.scheduledTasks.filter(job => {
+      if (job.name === jobName) {
+        job.instance.stop();
+        log.info(`🛑 Stopped existing cutOff job: ${job.name}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (!company.automaticCutOff) return;
+
+    const time = company.cutOffTime || '23:59';
+    const [hh, mm] = time.split(':');
+    const cronExpr = `${mm} ${hh} * * *`;
+
+    const task = { name: jobName, time: cronExpr };
+    const instance = this.scheduleTask(task, () => jobs.performDailyCutOff(company._id));
+    this.scheduledTasks.push({ name: jobName, instance });
+    log.info(`⏰ Scheduled dynamic cutOff job: ${jobName} (${cronExpr})`);
   }
 
   async execute(jobName) {

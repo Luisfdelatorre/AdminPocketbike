@@ -16,7 +16,7 @@ export class InvoiceRepository {
     /**
      * Create a daily invoice for a device
      */
-    async createInvoice({ deviceIdName, date, amount }) {
+    async createInvoice({ deviceIdName, date, amount, companyId, megaDeviceId }) {
         try {
             // Need numeric deviceId for the new Invoice schema
             const device = await Device.findOne({ name: deviceIdName });
@@ -31,8 +31,9 @@ export class InvoiceRepository {
                 date,
                 deviceIdName,
                 deviceId: device.deviceId, // Numeric ID
+                megaDeviceId: megaDeviceId ?? device.megaDeviceId,
                 gpsId: device.gpsId,
-                companyId: device.companyId,
+                companyId: companyId || device.companyId,
                 companyName: device.companyName
             });
 
@@ -49,7 +50,7 @@ export class InvoiceRepository {
     /**
      * Helper to create next day invoice
      */
-    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, gpsId = null) {
+    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, gpsId = null, megaDeviceId = null) {
         // Find last paid invoice to determine next date
         let nextDate;
         if (!date) {
@@ -70,7 +71,10 @@ export class InvoiceRepository {
 
         if (!gpsId) {
             const device = await Device.findOne({ name: deviceIdName });
-            if (device) gpsId = device.gpsId;
+            if (device) {
+                gpsId = device.gpsId;
+                if (!megaDeviceId) megaDeviceId = device.megaDeviceId;
+            }
         }
 
         invoice = await Invoice.createInvoice({
@@ -79,6 +83,7 @@ export class InvoiceRepository {
             deviceIdName,
             deviceId,
             gpsId,
+            megaDeviceId,
             companyId
         });
         return invoice;
@@ -261,6 +266,22 @@ export class InvoiceRepository {
             return await Invoice.find(query).lean();
         } catch (error) {
             logger.error('Error finding invoices:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Lightweight projection for the payment summary grid.
+     * Only fetches the 7 fields the frontend actually renders,
+     * drastically reducing data transferred over the SSH tunnel.
+     */
+    async findInvoicesForSummary(query) {
+        try {
+            return await Invoice.find(query)
+                .select('date deviceIdName dayType amount paidAmount cutOff')
+                .lean();
+        } catch (error) {
+            logger.error('Error finding invoices for summary:', error);
             throw error;
         }
     }
