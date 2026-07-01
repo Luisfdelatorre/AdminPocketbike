@@ -323,9 +323,13 @@ class MegaRastreoApiWeb {
                 secure: true,
                 rejectUnauthorized: false,
                 path: "/socket.io",
-                upgrade: true,
+                transports: ["websocket"],   // skip xhr-poll to avoid noisy poll errors
+                upgrade: false,
                 reconnection: true,
-                reconnectionDelayMax: 10000,
+                reconnectionAttempts: 10,    // stop after 10 failed attempts
+                reconnectionDelay: 2000,
+                reconnectionDelayMax: 15000,
+                timeout: 20000,
             });
 
         const subscribe = () => {
@@ -355,8 +359,22 @@ class MegaRastreoApiWeb {
             }
         });
         
-        this.socket.on("connect_error", (err) => { console.log("⚠️ connect_error:", err?.message || err); });
-        this.socket.on("disconnect", (reason) => { console.log("❌ disconnected:", reason); });
+        let _connectErrLogged = false;
+        this.socket.on("connect_error", (err) => {
+            if (!_connectErrLogged) {
+                logger.warn(`[MegaRastreo] GPS stream unavailable: ${err?.message || err}. Retrying silently...`);
+                _connectErrLogged = true;
+            } else {
+                logger.debug(`[MegaRastreo] connect_error (retry): ${err?.message || err}`);
+            }
+        });
+        this.socket.on("connect", () => {
+            _connectErrLogged = false; // reset so next disconnect cycle logs once
+        });
+        this.socket.on("disconnect", (reason) => { logger.warn(`[MegaRastreo] disconnected: ${reason}`); });
+        this.socket.io.on("reconnect_failed", () => {
+            logger.error("[MegaRastreo] Max reconnection attempts reached. GPS stream stopped.");
+        });
     }
 
     addImeis(newImeis) {

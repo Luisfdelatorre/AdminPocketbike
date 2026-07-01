@@ -85,7 +85,7 @@ class GpsService {
         //const commandType = command === 0 ? ENGINESTOP : ENGINERESUME;
         if (!deviceIds || deviceIds.length === 0) return {};
 
-        const adapter = await companyService.getGpsAdapter(companyConfig);
+        const adapter = this.adapter;
         let responseIds = [];
 
         try {

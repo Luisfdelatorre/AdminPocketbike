@@ -42,6 +42,10 @@ const userSchema = new mongoose.Schema({
     lastLogin: {
         type: Date,
     },
+    accessibleCompanies: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Company'
+    }],
     companyId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Company',

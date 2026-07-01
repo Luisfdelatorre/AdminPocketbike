@@ -34,10 +34,10 @@ export const CRON_JOBS = [
         job: 'DeviceStatusUpdate',
     },
     {
-        name: 'dailyCutOff',
-        time: '59 23 * * *', // cada día a las 23:59
-        log: 'Automatic engine stop for unpaid invoices',
+        name: 'contractCutOffCheck',
+        time: '*/5 * * * *', // every 5 minutes
+        log: 'Checking and performing custom contract cutoffs',
         flag: true,
-        job: 'performDailyCutOff',
+        job: 'performPollingCutOff',
     },
 ];

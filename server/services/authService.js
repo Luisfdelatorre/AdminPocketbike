@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
 import { User } from '../models/User.js';
 import { DeviceAccess } from '../models/DeviceAccess.js';
+import { Company } from '../models/Company.js';
 import { Contract } from '../models/index.js';
 import { resolveDeviceId } from '../utils/deviceResolver.js';
 import contractRepository from '../repositories/contractRepository.js';
@@ -107,6 +108,20 @@ export class AuthService {
         user.lastLogin = new Date();
         await user.save();
 
+        // 4.5 Fetch accessible companies
+        let accessibleCompaniesData = [];
+        if (user.isSuperAdmin) {
+            accessibleCompaniesData = await Company.find({ isActive: true }).select('_id name');
+        } else if (user.accessibleCompanies && user.accessibleCompanies.length > 0) {
+            accessibleCompaniesData = await Company.find({
+                _id: { $in: user.accessibleCompanies },
+                isActive: true
+            }).select('_id name');
+        } else if (user.companyId) {
+            const c = await Company.findById(user.companyId).select('_id name');
+            if (c) accessibleCompaniesData = [c];
+        }
+
         // 5. Generate Token
         const token = this.generateToken({
             userId: user.userId,
@@ -124,7 +139,8 @@ export class AuthService {
                 email: user.email,
                 role: user.role,
                 permissions: user.permissions,
-                isSuperAdmin: user.isSuperAdmin
+                isSuperAdmin: user.isSuperAdmin,
+                accessibleCompanies: accessibleCompaniesData
             },
             token,
             traccarCookies: traccarCookies // Return the array of cookies

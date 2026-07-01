@@ -20,6 +20,7 @@ const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 
 import paymentService from './paymentService.js';
 import companyService from "./companyService.js";
+import deviceServices from "./deviceServices.js";
 
 const generateDailyInvoices = async () => {
   try {
@@ -175,109 +176,61 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
   }
 };
 
-const performDailyCutOff = async () => {
-  logger.info("🕒 Starting daily cut-off process (23:59)...");
+const performPollingCutOff = async () => {
+  logger.info("🕒 Starting 5-minute polling cut-off process...");
   try {
-
     const enabledCompanies = await Company.find({ automaticCutOff: true, isActive: true }).lean();
 
     if (!enabledCompanies || enabledCompanies.length === 0) {
-      logger.info('No companies have automatic cut-off enabled. Skipping.');
       return;
     }
 
-    const today = dayjs().startOf('day');
-    const yesterday = dayjs().subtract(1, 'day').startOf('day');
+    const currentTimeStr = dayjs().format('HH:mm');
 
     for (const company of enabledCompanies) {
-      const strategy = company.cutOffStrategy || 1; // 1: Today, 2: Yesterday, 3: Skip
-      if (strategy === 3) {
-        logger.info(`Strategy 3 (Disabled) for company ${company.name}. Skipping.`);
-        continue;
-      }
+      const companyCutOffTime = company.cutOffTime || '23:59';
 
-      logger.info(`🏢 Processing company: ${company.name} (Strategy: ${strategy})`);
-
-      const devices = await Device.find({
-        companyId: company._id,
-        hasActiveContract: true,
-      }).lean();
-
-      if (!devices || devices.length === 0) {
-        logger.info(`No active devices found for company ${company.name}.`);
-        continue;
-      }
-
-      // 3. Determine the target date based on strategy and fetch all company invoices for that date ONCE
-      const targetDateObject = strategy === 1 ? today.toDate() : yesterday.toDate();
-      const targetDateLabel = strategy === 1 ? 'Today' : 'Yesterday';
-      const targetDateFormatted = strategy === 1 ? today.format('YYYY-MM-DD') : yesterday.format('YYYY-MM-DD');
-
-      console.log(`[DEBUG] Company ${company.name}: Fetching all invoices for ${targetDateLabel} (${targetDateFormatted})`);
-
-      // Retrieve all invoices for this company on the target date efficiently
-      const companyInvoices = await invoiceRepository.findInvoices({
-        companyId: company._id,
-        date: targetDateObject
-      });
-
-      // Build a fast lookup map: deviceIdName -> Invoice
-      const invoiceMap = new Map();
-      companyInvoices.forEach(inv => {
-        invoiceMap.set(inv.deviceIdName, inv);
-      });
+      // 1. Get payment statuses of devices for this company
+      const paymentStatuses = await deviceServices.getCompanyDevicesPaymentStatus(company._id);
 
       const devicesToCutOff = [];
 
-      for (const device of devices) {
-        console.log(`[DEBUG] Checking device: ${device.name}`);
+      for (const { device, hasUnpaidInvoice } of paymentStatuses) {
         try {
-          const deviceName = device.name;
+          if (device.exemptFromCutOff === true) continue;
+          if (device.cutOff === 1 || device.cutOff === 2) continue; // Already cut off / pending
 
-          // Helper to check if an invoice is "OK" (paid or special)
-          const isUpToDate = (inv) => {
-            if (!inv) {
-              console.log(`[DEBUG] Device ${deviceName}: No invoice found for this date. Treating as up to date.`);
-              return true;
+          // Time verification
+          let timeReached = false;
+          if (currentTimeStr >= companyCutOffTime) {
+            if (device.cutOffTime && device.cutOffTime > currentTimeStr) {
+              timeReached = false;
+            } else {
+              timeReached = true;
             }
-            console.log(`[DEBUG] Device ${deviceName}: Invoice found. Paid: ${inv.paid}, DayType: ${inv.dayType}`);
-            if (inv.paid) return true;
-            const specialTypes = ['FREE', 'FREEPASS', 'LOAN'];
-            return specialTypes.includes(inv.dayType);
-          };
-
-          const invTarget = invoiceMap.get(deviceName);
-          const shouldCutOff = !isUpToDate(invTarget);
-
-          if (device.exemptFromCutOff === true) {
-            logger.info(`🛡️ Device ${deviceName} is exempt from Cut-Off. Skipping.`);
-          } else if (shouldCutOff) {
-            console.log(`[DEBUG] Device ${deviceName}: SHOULD CUT OFF.`);
-            devicesToCutOff.push(device);
           } else {
-            logger.info(`✅ Device ${deviceName} is up to date.`);
+            timeReached = !!(device.cutOffTime && device.cutOffTime <= currentTimeStr);
+          }
+
+          if (hasUnpaidInvoice && timeReached) {
+            devicesToCutOff.push(device);
           }
         } catch (innerErr) {
-          logger.error(`Error processing cut-off for device ${device.name}:`, innerErr);
+          logger.error(`Error processing cut-off check for device ${device.name}:`, innerErr);
         }
       }
 
-      // 3. Command and Verify engine stop in batches of 10
       if (devicesToCutOff.length > 0) {
-        logger.info(`🚫 Cutting off ${devicesToCutOff.length} devices for Company: ${company.name} (Strategy: ${strategy})`);
-
+        logger.info(`🚫 Cutting off ${devicesToCutOff.length} devices for Company: ${company.name} at ${currentTimeStr}`);
         const BATCH_SIZE = 10;
         for (let i = 0; i < devicesToCutOff.length; i += BATCH_SIZE) {
           const batch = devicesToCutOff.slice(i, i + BATCH_SIZE);
           await verifyAndMarkCutOffBatch(batch, company._id);
         }
       }
-
     }
-
-    logger.info("✅ Daily cut-off process completed.");
   } catch (err) {
-    logger.error("Critical error in performDailyCutOff job:", err);
+    logger.error("Critical error in performPollingCutOff job:", err);
   }
 };
 
@@ -320,38 +273,51 @@ const performCurfewStart = async (companyId) => {
 const performCurfewEnd = async (companyId) => {
   logger.info(`☀️ Ending Night Curfew for company: ${companyId}`);
   try {
-    // Only resume devices that were actually turned off by curfew AND don't have pending cutOff for unpaid invoices
-    const devices = await Device.find({
+    // 1. Find all active contract devices for this company that were off due to curfew
+    const curfewDevices = await Device.find({
       companyId,
       hasActiveContract: true,
       exemptFromCutOff: { $ne: true },
-      curfewStatus: true,
-      cutOff: { $in: [0, null] } // Safely resume ONLY if not marked with unpaid cutoffs
+      curfewStatus: true
     }).lean();
 
-    if (!devices || devices.length === 0) {
+    if (!curfewDevices || curfewDevices.length === 0) {
       logger.info(`[CURFEW END] No devices pending resume for company: ${companyId}`);
       return;
     }
 
-    logger.info(`[CURFEW] Resuming ${devices.length} devices (will clear only confirmed ones).`);
+    // 2. Get payment status of devices to check who has unpaid invoices
+    const paymentStatuses = await deviceServices.getCompanyDevicesPaymentStatus(companyId);
+    const unpaidMap = new Map();
+    paymentStatuses.forEach(p => {
+      unpaidMap.set(p.device._id.toString(), p.hasUnpaidInvoice);
+    });
+
+    // 3. Filter to resume ONLY devices that do NOT have an unpaid invoice
+    const devicesToResume = curfewDevices.filter(device => {
+      const hasUnpaid = unpaidMap.get(device._id.toString());
+      return !hasUnpaid && device.cutOff !== 1 && device.cutOff !== 2;
+    });
+
+    logger.info(`[CURFEW] Out of ${curfewDevices.length} curfew devices, resuming ${devicesToResume.length} (unpaid or already cut-off skipped).`);
+
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
 
     const BATCH_SIZE = 10;
-    for (let i = 0; i < devices.length; i += BATCH_SIZE) {
-      const batch = devices.slice(i, i + BATCH_SIZE);
-      const targetIds = batch.map(d => d.megaDeviceId || d.deviceId);
+    for (let i = 0; i < curfewDevices.length; i += BATCH_SIZE) {
+      const batchAll = curfewDevices.slice(i, i + BATCH_SIZE);
+      const batchToResume = devicesToResume.filter(d => batchAll.some(b => b._id.toString() === d._id.toString()));
 
-      const resultsMap = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINERESUME, {
-        companyConfig: companyId
-      });
+      if (batchToResume.length > 0) {
+        const targetIds = batchToResume.map(d => d.megaDeviceId || d.deviceId);
+        await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINERESUME, {
+          companyConfig: companyId
+        });
+      }
 
-      // Clear curfewStatus=false for ALL attempted (even if it failed, to not forever loop, though we can retry if we wanted)
-      const idsToClear = batch.map(d => d._id);
+      // Clear curfewStatus = false for all attempted in this batch to prevent infinite loops
+      const idsToClear = batchAll.map(d => d._id);
       await Device.updateMany({ _id: { $in: idsToClear } }, { $set: { curfewStatus: false } });
-
-      const successCount = Object.values(resultsMap).filter(Boolean).length;
-      logger.info(`[CURFEW] Successfully turned back on ${successCount} devices.`);
     }
   } catch (err) {
     logger.error(`[CURFEW END] Error:`, err);
@@ -360,7 +326,8 @@ const performCurfewEnd = async (companyId) => {
 
 export default {
   generateDailyInvoices,
-  performDailyCutOff,
+  performPollingCutOff,
+  performDailyCutOff: performPollingCutOff,
   performCurfewStart,
   performCurfewEnd
 };

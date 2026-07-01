@@ -33,6 +33,7 @@ api.interceptors.response.use(
 
 // --- Auth ---
 export const login = (data) => api.post('/auth/login', data);
+export const switchCompany = (targetCompanyId) => api.post('/auth/switch-company', { targetCompanyId });
 export const verifyDevicePin = (data) => api.post('/auth/device-pin', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
@@ -47,6 +48,7 @@ export const deleteDevice = (id) => api.delete(`/devices/${id}`);
 export const syncDevices = () => api.post('/devices/sync');
 export const assignDevicesToCompany = (companyId, deviceIds) => api.post('/devices/assign-to-company', { companyId, deviceIds });
 export const controlEngine = (deviceId, command) => api.post(`/devices/${deviceId}/engine`, { command });
+export const cutoffDebtors = () => api.post('/devices/cutoff-debtors');
 
 // --- Contracts ---
 export const getAllContracts = () => api.get('/contracts/all');
@@ -76,20 +78,36 @@ export const exportInvoicesCSV = async (month, year) => {
     URL.revokeObjectURL(url);
 };
 
-export const getInvoiceStats = async () => {
-    const response = await api.get('/invoices/stats');
-    return response.data;
+export const getInvoiceStats = async (params) => {
+    return api.get('/invoices/stats', { params });
 };
 
 export const getUnpaidInvoices = async (deviceId) => {
-    const response = await api.get(`/invoices/${deviceId}/unpaid`);
-    return response.data;
+    return api.get(`/invoices/${deviceId}/unpaid`);
 };
 
 export const getStatusReport = async () => {
-    const response = await api.get('/invoices/status-report');
-    return response.data;
+    return api.get('/invoices/status-report');
 };
+
+export const getDailyReconciliationReport = async (month, year) => {
+    try {
+        const response = await api.get(`/payments/reconciliation?month=${month}&year=${year}`);
+        return response;
+    } catch (error) {
+        return Promise.reject(error);
+    }
+};
+
+export const toggleReconciliation = async (date, reconciled, transactionId) => {
+    try {
+        const response = await api.post('/payments/reconciliation/toggle', { date, reconciled, transactionId });
+        return response;
+    } catch (error) {
+        return Promise.reject(error);
+    }
+};
+
 export const getInvoiceById = (id) => api.get(`/invoices/${id}`);
 
 // --- Users & Companies ---
@@ -136,6 +154,25 @@ export const updateSettings = (data) => api.put('/companies/settings', data);
 // --- SSE ---
 export const createSSEConnection = (clientId) => {
     return new EventSource(`${window.location.origin}${API_URL}/sse/subscribe?clientId=${clientId}`);
+};
+
+// --- Company Billing ---
+export const getCompanyInvoices = async (companyId = '') => {
+    try {
+        const response = await api.get(`/company-invoices${companyId ? `?companyId=${companyId}` : ''}`);
+        return response;
+    } catch (error) {
+        return Promise.reject(error);
+    }
+};
+
+export const generateCompanyInvoice = async (data) => {
+    try {
+        const response = await api.post('/company-invoices/generate', data);
+        return response;
+    } catch (error) {
+        return Promise.reject(error);
+    }
 };
 
 export default api;

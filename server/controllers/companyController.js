@@ -1,5 +1,6 @@
 import { Company } from '../models/Company.js';
 import authService from '../services/authService.js';
+import companyService from '../services/companyService.js';
 import cron from '../cron-server/cron.js';
 import { GPS_SERVICES } from '../config/components/constants.js';
 
@@ -32,10 +33,10 @@ const companyController = {
                 nit,
                 address,
                 phone,
-                address,
-                phone,
                 email,
-                automaticInvoicing: req.body.automaticInvoicing || false
+                automaticInvoicing: req.body.automaticInvoicing || false,
+                wompiConfig: req.body.wompiConfig || { wompiCommission: -0.01785 },
+                billingConfig: req.body.billingConfig || { transactionFixedFee: 0, transactionPercentage: 0, ivaPercentage: 0.19 }
             });
 
             res.status(201).json({
@@ -56,7 +57,7 @@ const companyController = {
     updateCompany: async (req, res) => {
         try {
             const { id } = req.params;
-            const { name, nit, address, phone, email, automaticInvoicing } = req.body;
+            const { name, nit, address, phone, email, automaticInvoicing, wompiConfig, billingConfig } = req.body;
 
             if (!name) {
                 return res.status(400).json({
@@ -104,8 +105,21 @@ const companyController = {
             company.phone = phone;
             company.email = email;
             if (typeof automaticInvoicing !== 'undefined') company.automaticInvoicing = automaticInvoicing;
+            
+            if (wompiConfig?.wompiCommission !== undefined) {
+                if (!company.wompiConfig) company.wompiConfig = {};
+                company.wompiConfig.wompiCommission = wompiConfig.wompiCommission;
+            }
+
+            if (billingConfig) {
+                if (!company.billingConfig) company.billingConfig = {};
+                if (billingConfig.transactionFixedFee !== undefined) company.billingConfig.transactionFixedFee = billingConfig.transactionFixedFee;
+                if (billingConfig.transactionPercentage !== undefined) company.billingConfig.transactionPercentage = billingConfig.transactionPercentage;
+                if (billingConfig.ivaPercentage !== undefined) company.billingConfig.ivaPercentage = billingConfig.ivaPercentage;
+            }
 
             await company.save();
+            companyService.clearCache(id);
 
             res.json({
                 success: true,
@@ -134,7 +148,7 @@ const companyController = {
             }
 
             const companies = await Company.find(query)
-                .select('name nit address phone email automaticInvoicing _id')
+                .select('name nit address phone email automaticInvoicing wompiConfig billingConfig _id')
                 .sort({ name: 1 });
 
             res.json({
@@ -231,6 +245,7 @@ const companyController = {
             if (cutOffStrategy !== undefined) company.cutOffStrategy = Boolean(automaticCutOff) ? cutOffStrategy : 3;
 
             await company.save();
+            companyService.clearCache(companyId);
 
             res.json({
                 success: true,
@@ -296,28 +311,7 @@ const companyController = {
             const { companyId } = req.auth;
             const updates = req.body;
 
-            // Allowed fields for update
-            const allowedFields = [
-                'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
-                'displayName', 'logo', 'automaticCutOff', 'cutOffTime', 'cutOffStrategy', 'curfew',
-                'gpsService', 'gpsConfig', 'wompiConfig', 'contractDefaults'
-            ];
-
-            // Build $set payload from allowed fields only
-            const setPayload = {};
-            allowedFields.forEach(field => {
-                if (updates[field] !== undefined) {
-                    setPayload[field] = updates[field];
-                }
-            });
-
-            // Use findByIdAndUpdate with $set to guarantee all fields are persisted
-            // including fields that didn't previously exist on the document
-            const company = await Company.findByIdAndUpdate(
-                companyId,
-                { $set: setPayload },
-                { new: true, runValidators: true }
-            );
+            const company = await Company.findById(companyId);
 
             if (!company) {
                 return res.status(404).json({
@@ -326,10 +320,83 @@ const companyController = {
                 });
             }
 
+            // Allowed fields for update
+            const allowedFields = [
+                'name', 'nit', 'address', 'phone', 'email', 'automaticInvoicing',
+                'displayName', 'logo', 'automaticCutOff', 'cutOffTime', 'cutOffStrategy', 'curfew',
+                'gpsService', 'timezone', 'currency'
+            ];
+
+            // Update simple fields
+            allowedFields.forEach(field => {
+                if (updates[field] !== undefined) {
+                    company[field] = updates[field];
+                }
+            });
+
+            // Update gpsConfig safely (handle masking)
+            if (updates.gpsConfig) {
+                if (!company.gpsConfig) company.gpsConfig = {};
+                const gpsFields = ['host', 'port', 'user', 'password', 'token'];
+                gpsFields.forEach(field => {
+                    const newVal = updates.gpsConfig[field];
+                    if (newVal !== undefined) {
+                        // Skip if it is masked
+                        if (newVal === '********') {
+                            return;
+                        }
+                        company.gpsConfig[field] = newVal;
+                    }
+                });
+            }
+
+            // Update wompiConfig safely (handle masking)
+            if (updates.wompiConfig) {
+                if (!company.wompiConfig) company.wompiConfig = {};
+                const wompiFields = ['publicKey', 'privateKey', 'integritySecret', 'eventsSecret', 'wompiCommission'];
+                wompiFields.forEach(field => {
+                    const newVal = updates.wompiConfig[field];
+                    if (newVal !== undefined) {
+                        // Skip if it is masked
+                        if (newVal === '********') {
+                            return;
+                        }
+                        company.wompiConfig[field] = newVal;
+                    }
+                });
+            }
+
+            // Update billingConfig safely
+            if (updates.billingConfig) {
+                if (!company.billingConfig) company.billingConfig = {};
+                const billingFields = ['transactionFixedFee', 'transactionPercentage', 'ivaPercentage'];
+                billingFields.forEach(field => {
+                    if (updates.billingConfig[field] !== undefined) {
+                        company.billingConfig[field] = updates.billingConfig[field];
+                    }
+                });
+            }
+
+            // Update contractDefaults safely
+            if (updates.contractDefaults) {
+                if (!company.contractDefaults) company.contractDefaults = {};
+                const contractFields = ['dailyRate', 'contractDays', 'freeDaysLimit', 'freeDayPolicy', 'fixedFreeDayOfWeek', 'initialFee', 'emailDomain'];
+                contractFields.forEach(field => {
+                    if (updates.contractDefaults[field] !== undefined) {
+                        company.contractDefaults[field] = updates.contractDefaults[field];
+                    }
+                });
+            }
+
+            // Save document so pre-save encryption hooks run
+            await company.save();
+
+            // Clear cached adapters in companyService
+            companyService.clearCache(companyId);
+
             // Re-schedule dynamic curfew and cut-off cron jobs for this company
             try {
                 cron.scheduleCompanyCurfew(company);
-                cron.scheduleCompanyCutOff(company);
             } catch (cronErr) {
                 console.error('Error rescheduling company cron jobs:', cronErr);
             }

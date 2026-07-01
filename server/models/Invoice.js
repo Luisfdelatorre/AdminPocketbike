@@ -171,10 +171,18 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
 
         case PAYMENT_TYPE.ADJUSTMENT:
             this.paid = true;
-            this.dayType = INVOICE_DAYTYPE.ADJUSTMENT; // $0 cost to customer
-            this.paidAmount = payment.amount;
+            this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;
             this.adjustmentType = payment.adjustmentType || payment.adjustmentReason || null;
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
+            
+            // For free adjustments (REPAIR, MAINTENANCE, WORKSHOP), the amount is $0
+            if (['REPAIR', 'MAINTENANCE', 'WORKSHOP'].includes(this.adjustmentType)) {
+                this.amount = 0;
+                this.paidAmount = 0;
+            } else {
+                this.paidAmount = payment.amount;
+            }
+            
             this.transaction.id = payment._id;
             this.transaction.reference = payment.reference;
             this.transaction.finalized_at = payment.finalized_at;

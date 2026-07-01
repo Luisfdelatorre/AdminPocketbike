@@ -17,7 +17,8 @@ const Users = () => {
         email: '',
         password: '',
         role: 'viewer',
-        companyId: ''
+        companyId: '',
+        accessibleCompanies: []
     });
 
     useEffect(() => {
@@ -43,7 +44,7 @@ const Users = () => {
     };
 
     const resetForm = () => {
-        setUserForm({ name: '', email: '', password: '', role: 'viewer', companyId: '' });
+        setUserForm({ name: '', email: '', password: '', role: 'viewer', companyId: '', accessibleCompanies: [] });
         setIsEditing(false);
         setEditUserId(null);
         setShowUserModal(false);
@@ -55,7 +56,8 @@ const Users = () => {
             email: user.email,
             password: '', // Password optional on edit
             role: user.role,
-            companyId: user.companyId || (companies.find(c => c.name === user.companyName)?._id) || ''
+            companyId: user.companyId || (companies.find(c => c.name === user.companyName)?._id) || '',
+            accessibleCompanies: user.accessibleCompanies || []
         });
         setIsEditing(true);
         setEditUserId(user._id);
@@ -119,7 +121,7 @@ const Users = () => {
                 </div>
                 <div className="header-actions">
                     <button className="btn-primary" onClick={() => {
-                        setUserForm({ name: '', email: '', password: '', role: 'viewer', companyId: '' });
+                        setUserForm({ name: '', email: '', password: '', role: 'viewer', companyId: '', accessibleCompanies: [] });
                         setIsEditing(false);
                         setEditUserId(null);
                         setShowUserModal(true);
@@ -246,7 +248,7 @@ const Users = () => {
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Company</label>
+                                <label>Primary Company</label>
                                 <select
                                     required
                                     value={userForm.companyId}
@@ -257,6 +259,61 @@ const Users = () => {
                                         <option key={c._id} value={c._id}>{c.name}</option>
                                     ))}
                                 </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Additional Accessible Companies</label>
+                                
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                                    {userForm.accessibleCompanies.map(companyId => {
+                                        const c = companies.find(comp => comp._id === companyId);
+                                        if (!c) return null;
+                                        return (
+                                            <div key={`badge-${companyId}`} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                backgroundColor: '#374151',
+                                                color: '#f9fafb',
+                                                padding: '4px 12px',
+                                                borderRadius: '16px',
+                                                fontSize: '13px',
+                                                fontWeight: '500',
+                                                gap: '6px',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                            }}>
+                                                {c.name}
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setUserForm(prev => ({ ...prev, accessibleCompanies: prev.accessibleCompanies.filter(id => id !== companyId) }))}
+                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#d1d5db', cursor: 'pointer', padding: '2px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    {userForm.accessibleCompanies.length === 0 && (
+                                        <span style={{ fontSize: '13px', color: '#9ca3af', fontStyle: 'italic', padding: '4px 0' }}>Ninguna seleccionada</span>
+                                    )}
+                                </div>
+
+                                <select
+                                    value=""
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val && !userForm.accessibleCompanies.includes(val)) {
+                                            setUserForm(prev => ({ ...prev, accessibleCompanies: [...prev.accessibleCompanies, val] }));
+                                        }
+                                    }}
+                                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', width: '100%', cursor: 'pointer', backgroundColor: '#f9fafb' }}
+                                >
+                                    <option value="" disabled>+ Seleccionar compañía para agregar...</option>
+                                    {companies
+                                        .filter(c => !userForm.accessibleCompanies.includes(c._id))
+                                        .map(c => (
+                                            <option key={`opt-${c._id}`} value={c._id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                <small style={{ color: '#6b7280', marginTop: '6px', display: 'block' }}>Selecciona las compañías adicionales a las que tendrá acceso este usuario.</small>
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>

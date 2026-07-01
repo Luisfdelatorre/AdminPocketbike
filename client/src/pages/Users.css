@@ -164,3 +164,165 @@
 .btn-secondary:hover {
     background-color: #d1d5db;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .users-page {
+        padding: 12px !important;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .header-actions {
+        width: 100%;
+    }
+
+    .header-actions button,
+    .header-actions .btn-primary {
+        width: 100%;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+
+    .mobile-only {
+        display: block !important;
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+
+    .table-container.desktop-only {
+        display: none !important;
+    }
+
+    .invoice-cards-container {
+        display: flex !important;
+    }
+}
+
+/* Invoice Cards for Mobile */
+.invoice-cards-container {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 1rem;
+}
+
+.invoice-card {
+    background: white;
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+}
+
+.invoice-card-row1 {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.invoice-card-number {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1c1c1e;
+}
+
+.invoice-card-badge {
+    margin-left: 8px;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.invoice-card-badge.status-paid {
+    background: #e2fbf0;
+    color: #10b981;
+}
+
+.invoice-card-badge.status-pending {
+    background: #fff3cd;
+    color: #b45309;
+}
+
+.invoice-card-options {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.invoice-card-row2 {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 4px;
+}
+
+.invoice-card-amount-due {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1c1c1e;
+}
+
+.invoice-card-tx-count {
+    font-size: 15px;
+    color: #1c1c1e;
+}
+
+.invoice-card-divider {
+    height: 1px;
+    background-color: #f2f2f7;
+    margin: 4px 0;
+}
+
+.invoice-card-row3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.invoice-card-company-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #3a3a3c;
+    text-transform: uppercase;
+}
+
+.invoice-card-total-payments {
+    font-size: 14px;
+    font-weight: 600;
+    color: #3a3a3c;
+}
+
+.invoice-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #8e8e93;
+    margin-top: 4px;
+}
+
+.invoice-card-footer-payments {
+    display: flex;
+    align-items: center;
+    color: #8e8e93;
+}
+
+.invoice-card-footer-period {
+    display: flex;
+    align-items: center;
+    color: #8e8e93;
+}

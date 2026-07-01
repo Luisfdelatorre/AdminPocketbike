@@ -73,13 +73,30 @@ const getAllInvoices = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
         const status = req.query.status; // optional: PAID, UNPAID, PENDING
+        const month = req.query.month ? parseInt(req.query.month) : null;
+        const year = req.query.year ? parseInt(req.query.year) : null;
         const skip = (page - 1) * limit;
 
         const { isSuperAdmin, companyId, role, companyName } = req.auth;
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
         // Build query
-        const query = status ? { status: status.toUpperCase() } : {};
+        const query = {};
+
+        if (status) {
+            const statusUpper = status.toUpperCase();
+            if (statusUpper === 'UNPAID') {
+                query.dayType = 'DEBT';
+            } else {
+                query.dayType = statusUpper;
+            }
+        }
+
+        if (month && year) {
+            const startOfMonth = new Date(year, month - 1, 1);
+            const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+            query.date = { $gte: startOfMonth, $lte: endOfMonth };
+        }
 
         // Apply company filter if not system admin
         if (!isSystemAdmin) {
@@ -148,18 +165,25 @@ const getInvoicesByDevice = async (req, res) => {
 };
 
 const getInvoiceHistory = async (req, res) => {
-    // try {
-    const { deviceIdName } = req.paymentAuth;
+    try {
+        const { deviceIdName } = req.paymentAuth;
+        const { month, year } = req.query;
 
-    // Delegate to service
-    const history = await invoiceServices.getInvoiceHistory(deviceIdName);
+        // Delegate to service with optional month/year filtering
+        const result = await invoiceServices.getInvoiceHistory(deviceIdName, month, year);
 
-    res.json({ history });
-
-    // } catch (error) {
-    //     logger.error('Get payment history error:', error.message);
-    //     res.status(500).json({ error: 'Failed to get payment history' });
-    // }
+        res.json({
+            success: true,
+            data: {
+                history: result.invoices,
+                month: result.month,
+                year: result.year
+            }
+        });
+    } catch (error) {
+        logger.error('Get invoice history error:', error.message);
+        res.status(500).json({ success: false, error: 'Failed to get invoice history' });
+    }
 };
 
 /**
@@ -193,10 +217,13 @@ const getInvoiceStats = async (req, res) => {
         const { isSuperAdmin, companyId, role, companyName } = req.auth;
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
-        // Current month date range
+        // Current month date range or query params
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const month = req.query.month ? parseInt(req.query.month) : (now.getMonth() + 1);
+        const year = req.query.year ? parseInt(req.query.year) : now.getFullYear();
+
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
         // Build match stage
         const matchStage = {

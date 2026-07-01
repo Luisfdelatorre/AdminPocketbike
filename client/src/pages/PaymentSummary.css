@@ -164,27 +164,27 @@
 }
 
 .status-cell.approved {
-    background-color: #4058c5b6;
-    /* Green-500 */
-    color: white;
+    background-color: #4a3fec30;
+    /* blue-purple tint */
+    color: #4a3fecff;
 }
 
 .status-cell.free {
-    background-color: #22c55eda;
-    /* Green-500 */
-    color: white;
+    background-color: #22C55E30;
+    /* green tint */
+    color: #22C55E;
 }
 
 .status-cell.partial {
     background-color: #86efac;
-    /* Green-300 */
+    /* light green */
     color: #14532d;
 }
 
 .status-cell.pending {
-    background-color: #fca5a5;
-    /* Red-300 - User example shows red for alerts */
-    color: #7f1d1d;
+    background-color: #FACC1530;
+    /* yellow tint */
+    color: #b45309;
 }
 
 .status-cell.adjusted {
@@ -265,9 +265,12 @@
 }
 
 .refresh-btn.spinning {
-    animation: spin 1s linear infinite;
     opacity: 0.7;
     cursor: not-allowed;
+}
+
+.refresh-btn.spinning svg {
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
@@ -277,5 +280,171 @@
 
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* Engine Toggle Slider */
+.engine-toggle-slider {
+    position: relative;
+    width: 40px;
+    height: 18px;
+    background-color: #E5E7EB;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.engine-toggle-slider.active {
+    background-color: #10B981;
+}
+
+.engine-toggle-slider.deactivated {
+    background-color: #EF4444;
+}
+
+.engine-toggle-slider.pending {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.slider-knob {
+    width: 14px;
+    height: 14px;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6B7280;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.engine-toggle-slider.active .slider-knob {
+    transform: translateX(22px);
+    color: #10B981;
+}
+
+.engine-toggle-slider.deactivated .slider-knob {
+    transform: translateX(0);
+    color: #EF4444;
+}
+
+.engine-toggle-slider:hover .slider-knob {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.engine-toggle-slider.pending .spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    .payment-summary-container {
+        padding: 60px 4px 4px 4px;
+        max-width: 100vw;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    .summary-table {
+        min-width: 100%;
+        width: max-content;
+    }
+
+    .summary-header {
+        padding: 8px 12px;
+        margin-bottom: 12px;
+    }
+
+    .summary-header h1 {
+        display: none;
+    }
+
+    .controls {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+    .controls select.select-control {
+        flex: 1;
+        min-width: 0;
+        padding: 6px;
+        font-size: 13px;
+    }
+
+    .controls button.select-control {
+        flex: 0 0 auto;
+        padding: 6px 12px;
+        width: auto;
+    }
+
+    .matrix-container {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .summary-table th,
+    .summary-table td {
+        padding: 1px;
+        min-width: 40px;
+        max-width: 40px;
+        width: 40px;
+        font-size: 10px;
+        text-align: center;
+    }
+
+    .summary-table th:first-child,
+    .summary-table td:first-child {
+        min-width: 60px;
+        max-width: 60px;
+        width: 60px;
+        font-size: 10px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .summary-table th:nth-child(2),
+    .summary-table td:nth-child(2) {
+        left: 60px;
+        min-width: 55px;
+        max-width: 55px;
+        width: 55px;
+    }
+
+    .driver-name {
+        display: none;
+    }
+
+    .device-name {
+        font-size: 11px;
+        margin-bottom: 0;
+    }
+
+    .status-cell {
+        font-size: 9px;
+        height: 24px;
+        width: 36px;
+        margin: 1px auto;
+        padding: 0;
+    }
+
+    .debt-badge {
+        padding: 2px 6px;
+        font-size: 10px;
+    }
+
+    .summary-header h1 {
+        font-size: 18px;
     }
 }

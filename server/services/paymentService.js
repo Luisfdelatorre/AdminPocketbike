@@ -8,10 +8,11 @@ import dayjs from '../config/dayjs.js';
 import logger from '../config/logger.js';
 import { Invoice } from '../models/Invoice.js';
 import { Device } from '../models/Device.js';
-import { Payment } from '../models/index.js';
+import { Payment, Reconciliation } from '../models/index.js';
 import { Company } from '../models/Company.js';
 import companyService from './companyService.js';
 import helpers from '../utils/helpers.js';
+import mongoose from 'mongoose';
 
 
 const { INVOICE_DAYTYPE_TRANSLATION } = Transaction;
@@ -88,33 +89,112 @@ export class PaymentService {
             }
         }
 
-        const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
-        const payment = await paymentRepository.createFreePayment(deviceIdName, contract, unpaidInvoice, companyId);
-        const paidInvoice = await unpaidInvoice.applyPayment(payment);
+        const todayDate = dayjs().startOf('day').toDate();
+        let targetInvoice = await Invoice.findOne({ deviceIdName, date: todayDate });
+
+        let paidInvoice;
+        let isPrepaidConversion = false;
+
+        if (targetInvoice && targetInvoice.paid && targetInvoice.dayType === 'PAID') {
+            logger.info(`[FREE DAY] Today's invoice ${targetInvoice._id} is prepaid. Converting to FREE and extending prepaid period.`);
+            
+            const originalTx = targetInvoice.transaction || {};
+            const payment = await paymentRepository.createFreePayment(deviceIdName, contract, targetInvoice, companyId);
+            paidInvoice = await targetInvoice.applyPayment(payment);
+
+            const lastInvoice = await Invoice.findOne({ deviceIdName }).sort({ date: -1 });
+            let nextPrepaidDate = lastInvoice 
+                ? dayjs(lastInvoice.date).add(1, 'day')
+                : dayjs().startOf('day');
+
+            let prepaidCreated = false;
+            while (!prepaidCreated) {
+                const dateVal = nextPrepaidDate.toDate();
+                const invoiceId = Invoice.buildId(deviceIdName, dateVal);
+
+                const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' && 
+                                       contract.fixedFreeDayOfWeek !== undefined && 
+                                       nextPrepaidDate.day() === contract.fixedFreeDayOfWeek;
+
+                if (isFixedFreeDay) {
+                    await Invoice.create({
+                        _id: invoiceId,
+                        invoiceId: invoiceId,
+                        date: dateVal,
+                        amount: 0,
+                        paidAmount: 0,
+                        paid: true,
+                        deviceIdName,
+                        deviceId: contract.deviceId,
+                        gpsId: contract.gpsId,
+                        megaDeviceId: contract.megaDeviceId,
+                        companyId: contract.companyId,
+                        companyName: contract.companyName,
+                        dayType: 'FREE',
+                        transaction: {
+                            id: payment._id,
+                            reference: payment.reference,
+                            finalized_at: payment.finalized_at,
+                            type: 'FREE'
+                        }
+                    });
+                    logger.info(`[FREE DAY EXTENSION] Created FREE Sunday invoice ${invoiceId} during extension.`);
+                } else {
+                    await Invoice.create({
+                        _id: invoiceId,
+                        invoiceId: invoiceId,
+                        date: dateVal,
+                        amount: contract.dailyRate,
+                        paidAmount: contract.dailyRate,
+                        paid: true,
+                        deviceIdName,
+                        deviceId: contract.deviceId,
+                        gpsId: contract.gpsId,
+                        megaDeviceId: contract.megaDeviceId,
+                        companyId: contract.companyId,
+                        companyName: contract.companyName,
+                        dayType: 'PAID',
+                        transaction: {
+                            id: originalTx.id || `EXT-${Date.now()}`,
+                            reference: originalTx.reference || `EXT-REF-${Date.now()}`,
+                            finalized_at: originalTx.finalized_at || new Date(),
+                            type: originalTx.type || 'WOMPI'
+                        }
+                    });
+                    logger.info(`[FREE DAY EXTENSION] Created PAID invoice ${invoiceId} to extend prepaid period.`);
+                    prepaidCreated = true;
+                }
+                nextPrepaidDate = nextPrepaidDate.add(1, 'day');
+            }
+            
+            isPrepaidConversion = true;
+        } else {
+            const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
+            const payment = await paymentRepository.createFreePayment(deviceIdName, contract, unpaidInvoice, companyId);
+            paidInvoice = await unpaidInvoice.applyPayment(payment);
+            targetInvoice = unpaidInvoice;
+        }
 
         let deviceStatus = null;
 
-        // Skip calling the physical device activation if this is just an automatic scheduled billing day setup
         if (!isAutomaticTrigger) {
             const yesterday = dayjs().add(-1, 'day').startOf('day');
             const invoiceDate = dayjs(paidInvoice.date).startOf('day');
             if (!invoiceDate.isBefore(yesterday)) {
-                await this.activateDevice(paidInvoice.gpsId, payment.reference, dummyOnUpdate, companyId);
+                await this.activateDevice(paidInvoice.gpsId, paidInvoice.transaction.reference, dummyOnUpdate, companyId);
             } else {
                 logger.info(`[FREE DAY] Activation warning: Invoice date too old`);
             }
 
-            // Get updated device status only if we potentially interacted with it
             const gpsAdapter = await companyService.getGpsAdapter(companyId);
-            deviceStatus = await gpsAdapter.getDetailedStatus(unpaidInvoice.deviceId);
-
+            deviceStatus = await gpsAdapter.getDetailedStatus(targetInvoice.deviceId);
         }
 
         return {
             success: true,
             message: isAutomaticTrigger ? 'Automatic free day recorded successfully' : 'Free day applied successfully',
             deviceIdName,
-            invoiceId: unpaidInvoice._id,
+            invoiceId: targetInvoice._id,
             deviceStatus
         };
     };
@@ -272,11 +352,15 @@ export class PaymentService {
         console.log("****unpaidInvoice", unpaidInvoice);
 
         const wompiAdapter = await companyService.getWompiAdapter(companyId);
-
         const acceptanceToken = await wompiAdapter.getMerchantData();
 
+        const multiplier = helpers.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
+        const targetAmount = contract.dailyRate * multiplier;
 
-        const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId);
+        const invoicePayload = unpaidInvoice.toObject ? unpaidInvoice.toObject() : { ...unpaidInvoice };
+        invoicePayload.amount = targetAmount;
+
+        const paymentData = await wompiAdapter.createTransactionRequest(phone, invoicePayload, acceptanceToken, companyId);
 
 
         console.log('paymentData', paymentData);
@@ -430,8 +514,21 @@ export class PaymentService {
                     if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && contract.fixedFreeDayOfWeek !== undefined) {
                         const nextDayOfWeek = dayjs(invoice.date).add(1, 'day').day();
                         if (nextDayOfWeek === contract.fixedFreeDayOfWeek) {
-                            logger.info(`[PAYMENT] Tomorrow is Fixed Free Day (${contract.fixedFreeDayOfWeek}) for ${payment.deviceIdName}. Preventive auto-generation triggered.`);
-                            await this.applyFreeDay(payment.deviceIdName, contract.contractId, payment.companyId, true);
+                            logger.info(`[PAYMENT] Tomorrow is Fixed Free Day (${contract.fixedFreeDayOfWeek}) for ${payment.deviceIdName}.`);
+
+                            // Check if a FREE invoice already exists for the target free day (free invoices are paid by default)
+                            const freeDayDate = dayjs(invoice.date).add(1, 'day').startOf('day').toDate();
+                            const existingFreeInvoice = await invoiceRepository.findOne({
+                                deviceIdName: payment.deviceIdName,
+                                dayType: 'FREE',
+                                invoiceDate: freeDayDate
+                            });
+                            if (existingFreeInvoice) {
+                                logger.info(`[FREE DAY] Existing FREE invoice (${existingFreeInvoice._id}) found – skipping creation.`);
+                            } else {
+                                await this.applyFreeDay(payment.deviceIdName, contract.contractId, payment.companyId, true);
+                                logger.info(`[FREE DAY] Applied preventive free day for ${payment.deviceIdName}.`);
+                            }
                         }
                     }
 
@@ -629,38 +726,58 @@ export class PaymentService {
 
             const today = dayjs();
             const startDate = dayjs().year(year).month(month - 1).startOf('month').toDate();
-            const endDate   = dayjs().year(year).month(month - 1).endOf('month').toDate();
+            const endDate = dayjs().year(year).month(month - 1).endOf('month').toDate();
             const todayStart = today.startOf('day'); // compute once, reuse in loop
 
-            const deviceMap  = {};
+            const deviceMap = {};
             const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
             if (companyId) deviceQuery.companyId = companyId;
 
-            // Fetch invoices + payment aggregation in parallel (single round-trip each)
+            // Build query to fetch device info (driverName, deviceId) in parallel
+            const deviceInfoQuery = companyId ? { companyId } : {};
+
+            // Fetch invoices, payments and device info in parallel (single round-trip each)
             const t1 = Date.now();
-            const [invoices, payments] = await Promise.all([
+            const [invoices, payments, deviceDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
-                paymentRepository.getTotalPerDayByDevice(deviceQuery)
+                paymentRepository.getTotalPerDayByDevice(deviceQuery),
+                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
+
+            // Build a lookup map: deviceName -> { driverName, deviceId }
+            const deviceInfoMap = {};
+            deviceDocs.forEach(d => {
+                if (d.name) deviceInfoMap[d.name] = { driverName: d.driverName || null, deviceId: d._id };
+            });
 
             const paymentsObj = payments.length > 0 ? payments[0] : {};
 
             const t2 = Date.now();
             invoices.forEach((invoice) => {
-                const invoiceDay  = dayjs(invoice.date);
-                const dateKey     = invoiceDay.format('YYYY-MM-DD');
-                const day         = invoiceDay.date();
-                const devName     = invoice.deviceIdName;
+                const invoiceDay = dayjs(invoice.date);
+                const dateKey = invoiceDay.format('YYYY-MM-DD');
+                const day = invoiceDay.date();
+                const devName = invoice.deviceIdName;
 
                 if (!deviceMap[devName]) {
-                    deviceMap[devName] = { device: { name: devName, unpaidTotal: 0 }, days: {} };
+                    const info = deviceInfoMap[devName] || {};
+                    deviceMap[devName] = {
+                        device: {
+                            name: devName,
+                            deviceId: info.deviceId || invoice.deviceId || devName,
+                            driverName: info.driverName || null,
+                            unpaidTotal: 0
+                        },
+                        days: {}
+                    };
                 }
 
                 const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
 
                 const isFuture = invoiceDay.startOf('day').isAfter(todayStart);
-                if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && !isFuture) {
+                const isBeforeToday = invoiceDay.startOf('day').isBefore(todayStart);
+                if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && isBeforeToday) {
                     deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
                 }
                 deviceMap[devName].days[day] = { ...invoice, totalPaid };
@@ -671,6 +788,167 @@ export class PaymentService {
 
         } catch (error) {
             logger.error('Error getting monthly payment summary in service:', error);
+            throw error;
+        }
+    }
+
+    async getDailyReconciliationReport({ month, year, companyId }) {
+        try {
+            const from = new Date(year, month - 1, 1);
+            const to = new Date(year, month, 1);
+
+            const match = {
+                status: 'APPROVED',
+                type: 'WOMPI',
+                finalized_at: { $gte: from, $lt: to }
+            };
+
+            let companyTz = TIMEZONE || 'America/Bogota';
+            let txPercentage = 0.0265;
+            let txFixedFee = 700;
+            let ivaMultiplier = 1.19;
+
+            if (companyId) {
+                match.companyId = new mongoose.Types.ObjectId(companyId);
+                const company = await Company.findById(companyId);
+                if (company) {
+                    if (company.timezone) {
+                        companyTz = company.timezone;
+                    }
+                    if (company.wompiConfig && company.wompiConfig.wompiCommission !== undefined) {
+                        txPercentage = Math.abs(company.wompiConfig.wompiCommission);
+                    }
+                    if (company.billingConfig) {
+                        txFixedFee = company.billingConfig.transactionFixedFee ?? 700;
+                        const ivaPercent = company.billingConfig.ivaPercentage ?? 0.19;
+                        ivaMultiplier = 1 + ivaPercent;
+                    }
+                }
+            }
+
+            // Calculate offset in milliseconds (utcOffset returns minutes)
+            const timezoneOffsetMs = dayjs().tz(companyTz).utcOffset() * 60000;
+
+            const results = await Payment.aggregate([
+                { $match: match },
+
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: {
+                                format: "%Y-%m-%d",
+                                date: { $add: ["$finalized_at", timezoneOffsetMs] }
+                            }
+                        },
+                        payments: { $sum: "$amount" },
+                        transactions: { $sum: 1 }
+                    }
+                },
+
+                { $sort: { _id: 1 } },
+
+                {
+                    $project: {
+                        _id: 0,
+                        date: "$_id",
+                        payments: 1,
+                        transactions: 1,
+
+                        commission: {
+                            $ceil: {
+                                $multiply: [
+                                    {
+                                        $add: [
+                                            { $multiply: ["$payments", txPercentage] },
+                                            { $multiply: ["$transactions", txFixedFee] }
+                                        ]
+                                    },
+                                    ivaMultiplier // IVA
+                                ]
+                            }
+                        }
+                    }
+                },
+
+                {
+                    $addFields: {
+                        bancolombia: {
+                            $trunc: [
+                                { $subtract: ["$payments", "$commission"] },
+                                0
+                            ]
+                        }
+                    }
+                }
+            ]);
+
+            const daysInMonth = dayjs(from).daysInMonth();
+
+            const reportMap = new Map();
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = dayjs(new Date(year, month - 1, i)).format('YYYY-MM-DD');
+
+                reportMap.set(dateStr, {
+                    date: dateStr,
+                    day: i,
+                    payments: 0,
+                    commission: 0,
+                    bancolombia: 0,
+                    transactions: 0
+                });
+            }
+
+            results.forEach(row => {
+                reportMap.set(row.date, {
+                    date: row.date,
+                    day: parseInt(row.date.split('-')[2], 10),
+                    payments: row.payments,
+                    commission: row.commission,
+                    bancolombia: row.bancolombia,
+                    transactions: row.transactions
+                });
+            });
+
+            // Fetch reconciled dates from database
+            const reconciliationRecords = await Reconciliation.find({
+                companyId: companyId || null,
+                date: { $regex: `^${year}-${String(month).padStart(2, '0')}-` }
+            }).lean();
+
+            const reconciledDates = {};
+            reconciliationRecords.forEach(rec => {
+                reconciledDates[rec.date] = {
+                    reconciled: rec.reconciled,
+                    transactionId: rec.transactionId || ''
+                };
+            });
+
+            return {
+                report: Array.from(reportMap.values()),
+                reconciledDates
+            };
+
+        } catch (error) {
+            logger.error('Error getting daily reconciliation report:', error);
+            throw error;
+        }
+    }
+
+    async toggleReconciliation({ date, reconciled, transactionId, companyId }) {
+        try {
+            const updateFields = { reconciled };
+            if (transactionId !== undefined) {
+                updateFields.transactionId = transactionId;
+            }
+            const result = await Reconciliation.findOneAndUpdate(
+                { companyId: companyId || null, date },
+                { $set: updateFields },
+                { upsert: true, new: true }
+            );
+            return result;
+        } catch (error) {
+            logger.error('Error toggling reconciliation in service:', error);
             throw error;
         }
     }

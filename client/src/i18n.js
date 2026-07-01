@@ -61,7 +61,13 @@ const resources = {
                 settings: 'Settings',
                 logout: 'Logout',
                 users: 'Users',
-                companies: 'Companies'
+                companies: 'Companies',
+                reports: 'Reports'
+            },
+            reports: {
+                totalPayments: 'Total Payments',
+                commission: 'Commission',
+                bancolombia: 'Bancolombia'
             },
             contracts: {
                 title: 'Contract Management',
@@ -90,6 +96,9 @@ const resources = {
                     dailyRate: 'Daily Rate',
                     totalDays: 'Total Days',
                     totalAmount: 'Total Amount',
+                    investment: 'Investment',
+                    term: 'Term',
+                    estimatedReturn: 'Estimated Return',
                     edit: 'Edit',
                     complete: 'Complete',
                     cancel: 'Cancel',
@@ -116,9 +125,16 @@ const resources = {
                     dailyRateCop: 'Daily Rate (COP)',
                     contractDays: 'Contract Days',
                     initialFeeCop: 'Initial Fee (COP)',
+                    freeDayPolicy: 'Free Day Policy',
                     freeDaysMonth: 'Free Days per Month',
+                    paymentFrequency: 'Payment Frequency',
+                    freqDaily: 'Daily (1 day)',
+                    freqWeekly: 'Weekly (7 days)',
+                    freqBiweekly: 'Bi-weekly (14 days)',
                     exemptCutoff: 'Do not apply Automatic Cut-off',
                     exemptCurfew: 'Exempt from Nightly Curfew',
+                    cutOffTime: 'Cut-Off Time (Optional)',
+                    cutOffTimeTooltip: 'Leave blank to use company default time',
                     notes: 'Notes',
                     notesPlaceholder: 'Additional notes...',
                     cancelBtn: 'Cancel',
@@ -433,14 +449,20 @@ const resources = {
                 settings: 'Configuración',
                 logout: 'Salir',
                 users: 'Usuarios',
-                companies: 'Empresas'
+                companies: 'Empresas',
+                reports: 'Reporte'
+            },
+            reports: {
+                totalPayments: 'Total Pagos',
+                commission: 'Comisión',
+                bancolombia: 'Bancolombia'
             },
             contracts: {
                 title: 'Gestión de Contratos',
-                subtitle: 'Gestionar contratos de alquiler de 500 días para todos los dispositivos',
+                subtitle: "",//'Gestionar contratos de alquiler de 500 días para todos los dispositivos',
                 newContract: 'Nuevo Contrato',
                 stats: {
-                    total: 'Total Contratos',
+                    total: 'Total',
                     active: 'Activos',
                     completed: 'Completados',
                     totalValue: 'Valor Total'
@@ -462,6 +484,9 @@ const resources = {
                     dailyRate: 'Tarifa Diaria',
                     totalDays: 'Días Totales',
                     totalAmount: 'Monto Total',
+                    investment: 'Inversión',
+                    term: 'Plazo',
+                    estimatedReturn: 'Cuota Diaria',
                     edit: 'Editar',
                     complete: 'Completar',
                     cancel: 'Cancelar',
@@ -488,15 +513,22 @@ const resources = {
                     dailyRateCop: 'Tarifa Diaria (COP)',
                     contractDays: 'Días de Contrato',
                     initialFeeCop: 'Cuota Inicial (COP)',
+                    freeDayPolicy: 'Política de Día Libre',
                     freeDaysMonth: 'Días Libres al Mes',
+                    paymentFrequency: 'Frecuencia de pago',
+                    freqDaily: 'Diario (1 día)',
+                    freqWeekly: 'Semanal (7 días)',
+                    freqBiweekly: 'Quincenal (14 días)',
                     exemptCutoff: 'No aplicar Apagado Automático',
                     exemptCurfew: 'No Apagado Nocturno',
+                    cutOffTime: 'Hora de Apagado (Opcional)',
+                    cutOffTimeTooltip: 'Dejar vacío para usar horario de la compañía',
                     notes: 'Notas',
                     notesPlaceholder: 'Notas adicionales...',
                     cancelBtn: 'Cancelar',
                     saveBtn: 'Guardar Contrato',
                     createBtn: 'Crear Contrato',
-                    updateBtn: 'Actualizar Contrato',
+                    updateBtn: 'Actualizar',
                     savingBtn: 'Guardando...',
                     successUpdate: '¡Contrato actualizado exitosamente!',
                     successCreate: '¡Contrato creado exitosamente!',
@@ -605,10 +637,10 @@ const resources = {
                 subtitle: 'Ver y gestionar todas las transacciones de pago',
                 refresh: 'Actualizar',
                 stats: {
-                    revenue: 'Ingresos (Página)',
-                    completed: 'Completados (Página)',
-                    pending: 'Pendientes (Página)',
-                    total: 'Total Transacciones'
+                    revenue: 'Ingresos*',
+                    completed: 'Completados*',
+                    pending: 'Pendientes*',
+                    total: 'Total'
                 },
                 filters: {
                     all: 'Todos',

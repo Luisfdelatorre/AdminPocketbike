@@ -241,11 +241,35 @@
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.375rem 0.75rem;
+    padding: 0.25rem 0.75rem;
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 600;
-    text-transform: uppercase;
+}
+
+.status-badge.approved,
+.status-badge.completed,
+.status-badge.free {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-badge.pending,
+.status-badge.verifying {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.status-badge.failed,
+.status-badge.declined,
+.status-badge.error {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.status-badge.unknown {
+    background: #F3F4F6;
+    color: #6B7280;
 }
 
 /* Pagination */
@@ -290,20 +314,196 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-    .payment-controls {
-        flex-direction: column;
-        align-items: stretch;
+    .payments-page {
+        padding-top: 50px;
     }
 
-    .payment-filters {
-        justify-content: center;
+    .payment-controls {
+        display: none !important;
     }
 
     .payments-table-container {
         overflow-x: scroll;
+        padding: 0.75rem;
     }
 
     .payments-table {
-        min-width: 800px;
+        min-width: 100% !important;
+        width: 100%;
     }
+
+    .payment-stats {
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 0.25rem !important;
+        margin-bottom: .5rem;
+        margin-top: .5rem;
+    }
+
+}
+
+.payment-stat-card {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.5rem 0.25rem !important;
+    gap: 0.25rem !important;
+}
+
+.payment-stat-card .stat-icon {
+    display: none !important;
+}
+
+.payment-stat-card .stat-info {
+    align-items: center;
+}
+
+.payment-stat-card .stat-label {
+    font-size: 0.65rem !important;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+}
+
+.payment-stat-card .stat-number {
+    font-size: 0.9rem !important;
+}
+
+.payments-table thead th {
+    font-size: 0.7rem !important;
+    padding: 0.5rem 0.25rem !important;
+}
+
+.payments-table tbody td {
+    font-size: 0.7rem !important;
+    padding: 0.5rem 0.25rem !important;
+}
+
+
+/* Collapsible Mobile Filters */
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 0;
+}
+
+.collapsible-content.expanded {
+    max-height: 500px;
+    opacity: 1;
+}
+
+/* Scrollbar Hiding */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Stat Value and Percentage Container */
+.stat-value-container {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.stat-change-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.stat-change-inline.positive {
+    color: #10B981;
+}
+
+.stat-change-inline.negative {
+    color: #EF4444;
+}
+
+/* Responsive Visibility Utilities */
+.mobile-only {
+    display: none !important;
+}
+
+.desktop-only {
+    display: inline !important;
+}
+
+@media (max-width: 768px) {
+    .mobile-only {
+        display: inline !important;
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+
+    .stat-value-container {
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .stat-change-inline {
+        font-size: 0.7rem;
+    }
+
+    .stat-change-inline svg {
+        width: 10px;
+        height: 10px;
+    }
+
+    .status-badge {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.65rem;
+    }
+
+    .pagination {
+        padding: 1rem 0 0.5rem !important;
+        margin-top: 1rem !important;
+        gap: 0.5rem;
+    }
+
+    .pagination-btn {
+        padding: 0.5rem !important;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50% !important;
+    }
+
+    .pagination-info {
+        font-size: 0.75rem !important;
+        font-weight: 600;
+        color: #4b5563;
+        flex: 1;
+        text-align: center;
+    }
+}
+
+/* Clean filter action buttons (Refresh, Download) */
+.filter-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    color: #4B5563;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.filter-action-btn:hover {
+    border-color: #03C9D7;
+    color: #03C9D7;
 }

@@ -290,7 +290,8 @@ const updateContract = async (req, res) => {
             freeDayPolicy,
             fixedFreeDayOfWeek,
             exemptFromCutOff,
-            exemptFromCurfew
+            exemptFromCurfew,
+            cutOffTime
         } = req.body;
 
         const contract = await contractRepository.getContractById(contractId);
@@ -315,7 +316,8 @@ const updateContract = async (req, res) => {
             freeDayPolicy,
             fixedFreeDayOfWeek,
             exemptFromCutOff,
-            exemptFromCurfew
+            exemptFromCurfew,
+            cutOffTime
         });
         console.log('Update contract:', updatedContract);
         const result = await deviceRepository.updateContractStatus(contract.deviceId, contractId, true);

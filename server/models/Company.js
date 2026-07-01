@@ -34,6 +34,14 @@ const companySchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    timezone: {
+        type: String,
+        default: 'America/Bogota'
+    },
+    currency: {
+        type: String,
+        default: 'COP'
+    },
     // Branding settings
     displayName: {
         type: String,
@@ -80,7 +88,14 @@ const companySchema = new mongoose.Schema({
         publicKey: { type: String, trim: true },
         privateKey: { type: String, trim: true },
         integritySecret: { type: String, trim: true },
-        eventsSecret: { type: String, trim: true }
+        eventsSecret: { type: String, trim: true },
+        wompiCommission: { type: Number, default: -0.01785 }
+    },
+    // Company Billing Settings (Invoices generated for the company)
+    billingConfig: {
+        transactionFixedFee: { type: Number, default: 0 },
+        transactionPercentage: { type: Number, default: 0 },
+        ivaPercentage: { type: Number, default: 0.19 }
     },
     // Default Contract Values
     contractDefaults: {
@@ -89,6 +104,7 @@ const companySchema = new mongoose.Schema({
         freeDaysLimit: { type: Number, default: 4 },
         freeDayPolicy: { type: String, enum: ['FLEXIBLE', 'FIXED_WEEKDAY'], default: 'FLEXIBLE' },
         fixedFreeDayOfWeek: { type: Number, min: 0, max: 6, default: 0 }, // 0 = Sunday
+        paymentFrequency: { type: Number, default: 1 },
         initialFee: { type: Number, default: 0 },
         emailDomain: { type: String, default: 'pocketbike.app', trim: true }
     }

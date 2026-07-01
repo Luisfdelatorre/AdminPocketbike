@@ -34,6 +34,7 @@ class ContractService {
         if (company && company.contractDefaults) {
             if (data.freeDayPolicy === undefined) data.freeDayPolicy = company.contractDefaults.freeDayPolicy;
             if (data.fixedFreeDayOfWeek === undefined) data.fixedFreeDayOfWeek = company.contractDefaults.fixedFreeDayOfWeek;
+            if (data.paymentFrequency === undefined) data.paymentFrequency = company.contractDefaults.paymentFrequency || 1;
         }
 
         // 4. Create Contract

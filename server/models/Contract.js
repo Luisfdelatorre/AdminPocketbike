@@ -29,6 +29,10 @@ const contractSchema = new mongoose.Schema({
         type: String,
     },
     // Contract details
+    cutOffTime: {
+        type: String, // 'HH:mm' format (e.g., '14:00')
+        default: null, // Null means fall back to Company default
+    },
     dailyRate: {
         type: Number, // Amount in COP (e.g., 30000 = 30,000 COP)
         required: true,
@@ -109,6 +113,11 @@ const contractSchema = new mongoose.Schema({
         min: 0,
         max: 6,
         default: 0, // 0 = Sunday
+    },
+    paymentFrequency: {
+        type: Number,
+        enum: [1, 7, 14],
+        default: 1, // 1 = Daily, 7 = Weekly, 14 = Biweekly
     },
     reactivationRule: {
         type: String,

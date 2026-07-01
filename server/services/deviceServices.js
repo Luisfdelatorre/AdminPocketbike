@@ -1,4 +1,5 @@
 import deviceRepository from '../repositories/deviceRepository.js';
+import invoiceRepository from '../repositories/invoiceRepository.js';
 import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
 import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES } from '../config/config.js';
@@ -222,10 +223,149 @@ const syncFromGps = async (companyId) => {
     return bulkWriteDevices(gpsDevices);
 };
 
+/**
+ * Gets payment status of all devices for a company based on the cutoff strategy and target daily invoice.
+ * @param {string} companyId - Company ID
+ * @returns {Promise<Array<{device: Object, hasUnpaidInvoice: boolean, invoice: Object|null}>>}
+ */
+const getCompanyDevicesPaymentStatus = async (companyId) => {
+    const company = await Company.findById(companyId).lean();
+    if (!company || !company.isActive) {
+        return [];
+    }
+
+    const strategy = company.cutOffStrategy || 1; // 1: Today, 2: Yesterday, 3: Skip
+    if (strategy === 3) {
+        return [];
+    }
+
+    const today = dayjs().startOf('day');
+    const yesterday = dayjs().subtract(1, 'day').startOf('day');
+    const targetDate = strategy === 1 ? today.toDate() : yesterday.toDate();
+
+    // Find all active devices for this company
+    const devices = await Device.find({
+        companyId,
+        hasActiveContract: true,
+        isDeleted: { $ne: true }
+    }).lean();
+
+    if (!devices || devices.length === 0) {
+        return [];
+    }
+
+    // Fetch invoices for target date
+    const invoices = await invoiceRepository.findInvoices({
+        companyId,
+        date: targetDate
+    });
+
+    const invoiceMap = new Map();
+    invoices.forEach(inv => {
+        invoiceMap.set(inv.deviceIdName, inv);
+    });
+
+    const results = [];
+    for (const device of devices) {
+        const invoice = invoiceMap.get(device.name) || null;
+        const hasUnpaidInvoice = !invoice || !invoice.paid;
+        results.push({
+            device,
+            hasUnpaidInvoice,
+            invoice
+        });
+    }
+    return results;
+};
+
+/**
+ * Cuts off the engine for all debtor devices of a company in parallel.
+ * @param {string} companyId 
+ * @returns {Promise<{results: Array, successCount: number, alreadyOffCount: number, failedCount: number}>}
+ */
+const cutoffDebtors = async (companyId) => {
+    const company = await Company.findById(companyId).lean();
+    if (!company) {
+        throw new Error('Company not found');
+    }
+    const companyCutOffTime = company.cutOffTime || '23:59';
+    const strategy = company.cutOffStrategy || 1;
+    const currentTimeStr = dayjs().format('HH:mm');
+
+    // 1. Evaluate payment status of all devices for this company
+    const paymentStatuses = await getCompanyDevicesPaymentStatus(companyId);
+
+    // 2. Filter devices that have an unpaid invoice (debtors), are not exempt, and whose cut-off time has been reached
+    const debtors = paymentStatuses.filter(({ device, hasUnpaidInvoice }) => {
+        if (!hasUnpaidInvoice || device.exemptFromCutOff === true) {
+            return false;
+        }
+
+        // If strategy is "Today" (1), check if today's cut-off time has been reached
+        if (strategy === 1) {
+            let timeReached = false;
+            if (currentTimeStr >= companyCutOffTime) {
+                if (device.cutOffTime && device.cutOffTime > currentTimeStr) {
+                    timeReached = false;
+                } else {
+                    timeReached = true;
+                }
+            } else {
+                timeReached = !!(device.cutOffTime && device.cutOffTime <= currentTimeStr);
+            }
+            return timeReached;
+        }
+
+        // For other strategies (e.g., Yesterday), the cut-off time has already passed
+        return true;
+    });
+
+    if (!debtors.length) {
+        return { results: [], successCount: 0, alreadyOffCount: 0, failedCount: 0 };
+    }
+
+    // 3. Send cutoff command to each debtor device in parallel for efficiency
+    const results = await Promise.all(debtors.map(async ({ device, invoice }) => {
+        const id = device._id;
+        const name = device.deviceName || device.name || device._id;
+
+        // Skip if already cut off
+        if (device.cutOff === true || device.cutOff === 1) {
+            return {
+                device: name,
+                status: 'already_off'
+            };
+        }
+        try {
+            const result = await controlEngine(id, 0, companyId);
+            return {
+                device: name,
+                status: result.success ? 'cut_off' : 'failed',
+                error: result.error || null
+            };
+        } catch (err) {
+            return { device: name, status: 'error', error: err.message };
+        }
+    }));
+
+    const successCount = results.filter(r => r.status === 'cut_off').length;
+    const alreadyOffCount = results.filter(r => r.status === 'already_off').length;
+    const failedCount = results.filter(r => r.status === 'failed' || r.status === 'error').length;
+
+    return {
+        results,
+        successCount,
+        alreadyOffCount,
+        failedCount
+    };
+};
+
 export default {
     bulkWriteDevices,
     syncFromGps,
     initializeGpsUpdates,
-    controlEngine
+    controlEngine,
+    getCompanyDevicesPaymentStatus,
+    cutoffDebtors
 };
 

@@ -1,5 +1,10 @@
 export function formatCurrency(amountInCents) {
-    return (amountInCents / 100).toLocaleString('es-CO', {
+    const amount = amountInCents;
+    if (amount >= 1000) {
+        // Show in thousands with K suffix
+        return `${(amount / 1000).toFixed(0)}K`;
+    }
+    return amount.toLocaleString('es-CO', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     });

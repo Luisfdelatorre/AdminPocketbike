@@ -7,11 +7,18 @@ class TraccarApi {
       host = `https://${host}`;
     }
 
+    const authHeader = 'Basic ' + Buffer.from(`${user}:${password}`).toString('base64');
+
+    this.user = user;
+    this.password = password;
+
     this.axiosInstance = axios.create({
       baseURL: host,
-      auth: { username: user, password },
       timeout: 15_000,
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        Authorization: authHeader
+      },
     });
 
     this.axiosInstance.interceptors.request.use((req) => {
@@ -31,8 +38,8 @@ class TraccarApi {
   sendCommand = (body = {}) => this.axiosInstance.post('api/commands/send', body);
   createSession = () => {
     const params = new URLSearchParams();
-    params.append('email', this.axiosInstance.defaults.auth.username);
-    params.append('password', this.axiosInstance.defaults.auth.password);
+    params.append('email', this.user);
+    params.append('password', this.password);
 
     return this.axiosInstance.post('api/session', params, {
       headers: {

@@ -7,7 +7,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .page-header h1 {
@@ -45,24 +45,31 @@
 /* Stats Cards */
 .contracts-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: .5rem;
 }
 
 .contract-stat-card {
     background: white;
     border-radius: 0.75rem;
-    padding: 0.5rem;
+    padding: 1rem;
     display: flex;
-    align-items: center;
     gap: 1rem;
+    align-items: flex-start;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    position: relative;
+}
+
+.contract-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .contract-stat-card .stat-icon {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 0.5rem;
     display: flex;
     align-items: center;
@@ -71,18 +78,19 @@
     flex-shrink: 0;
 }
 
-.stat-info {
+.stat-content {
     flex: 1;
 }
 
-.stat-label {
-    font-size: 0.813rem;
+.stat-content h3 {
+    font-size: 0.875rem;
     color: #6B7280;
-    margin-bottom: 0.25rem;
+    margin: 0 0 0 0;
+    font-weight: 500;
 }
 
-.stat-number {
-    font-size: 1rem;
+.stat-value {
+    font-size: 1.875rem;
     font-weight: 700;
     color: #1F2937;
 }
@@ -138,7 +146,7 @@
 
 .search-box input {
     width: 100%;
-    padding: 0.75rem 3rem 0.75rem 3rem;
+    padding: 0.25rem 1rem 0.25rem 2.5rem;
     border: 1px solid #E5E7EB;
     border-radius: 0.5rem;
     font-size: 0.938rem;
@@ -180,7 +188,10 @@
 /* Contracts List */
 .contracts-list {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    justify-content: start;
+    align-items: start;
 }
 
 .contract-card {
@@ -190,6 +201,7 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
     border: 1px solid #F3F4F6;
+    position: relative;
 }
 
 .contract-header {
@@ -304,6 +316,13 @@
 }
 
 /* Action Menu */
+.action-menu-wrapper {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: auto !important;
+}
+
 .action-menu-container {
     position: relative;
     display: inline-block;
@@ -577,6 +596,16 @@
     border-top: 1px solid #E5E7EB;
 }
 
+.form-actions .btn-secondary {
+    color: #4b5563 !important;
+    background: #f3f4f6 !important;
+    border: 1px solid #e5e7eb !important;
+}
+
+.form-actions .btn-secondary:hover {
+    background: #e5e7eb !important;
+}
+
 /* Additional button styles */
 .btn-complete {
     color: #00C292 !important;
@@ -594,18 +623,100 @@
     color: #DC2626 !important;
 }
 
-/* Responsive */
+.mobile-only {
+    display: none;
+}
+
+.desktop-only {
+    display: inline;
+}
+
 @media (max-width: 768px) {
     .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
+        display: none !important;
+    }
+
+    .contracts-filters {
+        display: none !important;
     }
 
     /* .contracts-stats handled by auto-fit minmax above */
 
     .contract-info-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "title title"
+            "total-amount total-days"
+            "customer daily-rate";
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+    }
+
+    .contract-title {
+        grid-area: title;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .contract-info-grid .info-label {
+        display: none;
+    }
+
+    /* Client name: info-item */
+    .contract-info-grid>div:nth-child(2) {
+        grid-area: customer;
+        text-align: left;
+    }
+
+    .contract-info-grid>div:nth-child(2) .info-value {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #4B5563;
+        text-transform: uppercase;
+    }
+
+    /* Daily Rate: info-item */
+    .contract-info-grid>div:nth-child(3) {
+        grid-area: daily-rate;
+        text-align: right;
+    }
+
+    .contract-info-grid>div:nth-child(3) .info-value {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #4B5563;
+    }
+
+    /* Total Days: info-item */
+    .contract-info-grid>div:nth-child(4) {
+        grid-area: total-days;
+        text-align: right;
+        border-bottom: 1px solid #E5E7EB;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .contract-info-grid>div:nth-child(4) .info-value {
+        font-size: 1.125rem;
+        font-weight: 500;
+        color: #1F2937;
+    }
+
+    /* Total Amount: info-item */
+    .contract-info-grid>div:nth-child(5) {
+        grid-area: total-amount;
+        text-align: left;
+        border-bottom: 1px solid #E5E7EB;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .contract-info-grid>div:nth-child(5) .info-value {
+        font-size: 1.25rem;
+        font-weight: 500;
+        color: #1F2937;
     }
 
     .contract-actions {
@@ -619,7 +730,152 @@
 
 /* Mobile Stats Grid (<600px) */
 @media (max-width: 600px) {
+    .mobile-only {
+        display: inline;
+    }
+
+    .desktop-only {
+        display: none;
+    }
+
     .contracts-stats {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.25rem;
+    }
+
+    .contract-stat-card {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0.25rem 0.25rem;
+        gap: 0.5rem;
+    }
+
+    .contract-stat-card .stat-icon {
+        display: none;
+    }
+
+    .stat-content h3 {
+        font-size: 0.65rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+        font-size: 0.9rem;
+    }
+}
+
+.text-main-dark {
+    color: #1e293b;
+}
+
+.bg-active-pill {
+    background-color: #e6fcf5;
+    color: #20c997;
+}
+
+.progress-bg {
+    background-color: #f1f5f9;
+}
+
+.progress-fill {
+    background-color: #20c997;
+}
+
+.text-muted-label {
+    color: #94a3b8;
+}
+
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 0;
+}
+
+.collapsible-content.expanded {
+    max-height: 150px;
+    opacity: 1;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.primary-blue {
+    background-color: #2563eb;
+}
+
+.primary-blue:hover {
+    background-color: #1d4ed8;
+}
+
+@media (max-width: 768px) {
+    .contracts-page {
+        padding-top: 55px;
+    }
+
+    .contracts-list {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .progress-details {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+
+    .modal-overlay {
+        padding: 0;
+    }
+
+    .modal-content {
+        max-width: 100%;
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        padding: 1rem;
+        border-bottom: 1px solid #E5E7EB;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+    }
+
+    .contract-form {
+        padding: 1rem;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1.25rem !important;
+    }
+
+    .form-actions {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 1rem;
+        border-top: 1px solid #E5E7EB;
+        z-index: 10;
+        margin-top: auto;
     }
 }

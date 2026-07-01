@@ -306,23 +306,65 @@ export class PaymentRepository {
      * Get all payments with pagination and optional status filter
      */
     async getAllPaymentsPaginated({ page = 1, limit = 50, status = null, filter = null }) {
-        const skip = (page - 1) * limit;
         let query = {};
         if (filter) {
             query = { ...filter };
-        } else if (status) {
+        }
+        if (status) {
             query.status = status;
         }
 
-        const [payments, total] = await Promise.all([
-            Payment.find(query)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
+        // Convert companyId string to ObjectId if present, as aggregation pipelines bypass Mongoose schema casting
+        if (query.companyId && typeof query.companyId === 'string' && mongoose.Types.ObjectId.isValid(query.companyId)) {
+            query.companyId = new mongoose.Types.ObjectId(query.companyId);
+        }
+
+        const companyTz = 'America/Bogota';
+        const tzOffsetMs = dayjs().tz(companyTz).utcOffset() * 60000;
+
+        const [daysResult, totalPaymentsCount] = await Promise.all([
+            Payment.aggregate([
+                { $match: query },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: {
+                                format: "%Y-%m-%d",
+                                date: { $add: ["$createdAt", tzOffsetMs] }
+                            }
+                        }
+                    }
+                },
+                { $sort: { _id: -1 } }
+            ]),
             Payment.countDocuments(query)
         ]);
-        console.log("Payments:", payments);
+
+        if (daysResult.length === 0) {
+            return {
+                payments: [],
+                pagination: {
+                    page: 1,
+                    limit: 0,
+                    total: 0,
+                    totalPages: 0,
+                    hasNext: false,
+                    hasPrev: false
+                }
+            };
+        }
+
+        const currentPage = Math.max(1, Math.min(Number(page), daysResult.length));
+        const selectedDayStr = daysResult[currentPage - 1]._id;
+
+        const startOfDay = dayjs.tz(selectedDayStr, companyTz).startOf('day').toDate();
+        const endOfDay = dayjs.tz(selectedDayStr, companyTz).endOf('day').toDate();
+
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+
+        const payments = await Payment.find(query)
+            .sort({ createdAt: -1 })
+            .lean();
 
         // Normalize legacy data
         const normalizedPayments = payments.map(p => ({
@@ -335,15 +377,17 @@ export class PaymentRepository {
             deviceId: p.deviceIdName || p.deviceId // Prefer name, fallback to ID
         }));
 
+        const totalDays = daysResult.length;
+
         return {
             payments: normalizedPayments,
             pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-                hasNext: page < Math.ceil(total / limit),
-                hasPrev: page > 1
+                page: currentPage,
+                limit: payments.length,
+                total: totalPaymentsCount,
+                totalPages: totalDays,
+                hasNext: currentPage < totalDays,
+                hasPrev: currentPage > 1
             }
         };
     }

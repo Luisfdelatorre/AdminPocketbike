@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, ZapOff, Power } from 'lucide-react';
 
-import { getPaymentSummary, exportPaymentsCSV } from '../services/api';
+import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
+import MobilePaymentSummary from '../components/MobilePaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 
 // Helper to format currency
@@ -17,16 +19,25 @@ const formatCurrency = (amount) => {
 };
 
 const PaymentSummary = () => {
-    // Token is handled by api interceptor
-    const { } = useAuth(); // Removed token from destructuring
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [downloading, setDownloading] = useState(false);
     const [summaryData, setSummaryData] = useState([]);
+    const [bulkOffLoading, setBulkOffLoading] = useState(false);
+    const [bulkOffModal, setBulkOffModal] = useState(false);
+    const [deviceStatuses, setDeviceStatuses] = useState([]);
+    const [pendingCommands, setPendingCommands] = useState({});
     const tableContainerRef = useRef(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Default to current month/year
     const today = new Date();
-    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // 1-12
+    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
 
     // Generate days 1..31 based on month
@@ -40,9 +51,8 @@ const PaymentSummary = () => {
         }))
         : daysInMonth; // Fallback to full month if no data or initial load
 
-    // Use maxDay for the grid, but ensure it doesn't exceed daysInMonth (sanity check)
-    const displayDays = Math.min(Math.max(maxDay, 1), daysInMonth);
-    const daysArray = Array.from({ length: displayDays }, (_, i) => i + 1);
+    const daysArray = Array.from({ length: maxDay }, (_, i) => i + 1);
+
 
     // Vertical sum of totalPaid per day across all devices
     const dailyTotals = daysArray.reduce((acc, day) => {
@@ -82,20 +92,192 @@ const PaymentSummary = () => {
     };
 
 
+    const loadDeviceStatuses = async () => {
+        try {
+            const data = await getStatusReport();
+            const list = Array.isArray(data) ? data : (data?.data ?? data?.devices ?? []);
+            setDeviceStatuses(list);
+        } catch (err) {
+            console.error('Error loading device statuses:', err);
+        }
+    };
+
+    const getDeviceStatus = (deviceId) =>
+        deviceStatuses.find(d => d.id === deviceId || d.name === deviceId);
+
+    const handleEngineToggle = async (device) => {
+        const status = getDeviceStatus(device.deviceId || device.name);
+        if (!status) return;
+        const id = status.id;
+        const command = status.cutOff === 1 ? 1 : 0;
+        setPendingCommands(prev => ({ ...prev, [id]: true }));
+        try {
+            const result = await controlEngine(id, command);
+            if (result.success) {
+                showToast(result.message, 'success');
+                loadDeviceStatuses();
+            } else {
+                showToast(result.error || 'Error controlando motor', 'error');
+            }
+        } catch (err) {
+            showToast(err.message || 'Error', 'error');
+        } finally {
+            setPendingCommands(prev => ({ ...prev, [id]: false }));
+        }
+    };
+
+    const handleBulkEngineOff = async () => {
+        setBulkOffModal(false);
+        setBulkOffLoading(true);
+        try {
+            const result = await cutoffDebtors();
+            const msg = result?.message || (result?.success ? 'Listo' : 'Error');
+            showToast(msg, result?.success ? 'success' : 'error');
+            fetchData(); // Reload to reflect new cutoff state in table
+        } catch (err) {
+            showToast(err.message || 'Error al apagar morosos', 'error');
+        } finally {
+            setBulkOffLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchData();
+        loadDeviceStatuses();
     }, [selectedMonth, selectedYear]);
 
-    // Auto-scroll to the end (current day) after data loads
     useEffect(() => {
         if (!loading && summaryData.length > 0 && tableContainerRef.current) {
-            // Scroll to the right end of the table
             tableContainerRef.current.scrollLeft = tableContainerRef.current.scrollWidth;
         }
     }, [loading, summaryData]);
 
+    const morososCount = summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
+
+    const renderEngineButton = (device) => {
+        const status = getDeviceStatus(device.deviceId || device.name);
+        if (!status) return <span style={{ color: '#D1D5DB', fontSize: '0.7rem' }}>--</span>;
+        if (user?.role === 'viewer') {
+            return (
+                <div
+                    className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'}`}
+                    style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
+                >
+                    <div className="slider-knob"><Power size={10} /></div>
+                </div>
+            );
+        }
+        return (
+            <button
+                onClick={() => handleEngineToggle(device)}
+                disabled={!!pendingCommands[status.id]}
+                className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[status.id] ? 'pending' : ''}`}
+                title={status.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
+                style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
+            >
+                <div className="slider-knob">
+                    {pendingCommands[status.id]
+                        ? <RefreshCw size={10} className="spin" />
+                        : <Power size={10} />}
+                </div>
+            </button>
+        );
+    };
+
+    const renderDayCell = (dayData) => {
+        let cellClass = 'status-cell empty';
+        let content = '--';
+        if (dayData) {
+            if (dayData.dayType === 'LOAN') {
+                cellClass = 'status-cell loand';
+                content = '--';
+            } else if (dayData.dayType === 'PAID') {
+                cellClass = 'status-cell approved';
+                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
+            } else if (dayData.dayType === 'FREE') {
+                cellClass = 'status-cell free';
+                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
+            } else if (dayData.dayType === 'ADJUSTMENT') {
+                cellClass = 'status-cell adjusted';
+                content = '🔧';
+            } else {
+                cellClass = 'status-cell pending';
+                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
+            }
+            if (dayData.cutOff) {
+                content = (
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span>{content}</span>
+                        <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
+                            <MotorIcon color="#ef4444" size={14} />
+                        </div>
+                    </div>
+                );
+            }
+        }
+        return { cellClass, content };
+    };
+
     return (
         <div className="payment-summary-container">
+
+            {bulkOffModal && (
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+                    }}
+                    onClick={() => setBulkOffModal(false)}
+                >
+                    <div
+                        style={{
+                            background: '#fff', borderRadius: '16px', padding: '28px 24px',
+                            maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                            <div style={{
+                                background: '#FEF2F2', borderRadius: '10px', padding: '10px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <ZapOff size={22} style={{ color: '#EF4444' }} />
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111' }}>Apagar veh&iacute;culos morosos</div>
+                                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '2px' }}>
+                                    {morososCount} moto(s) con deuda ser&aacute;n apagadas
+                                </div>
+                            </div>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '20px', lineHeight: 1.5 }}>
+                            Se enviar&aacute; comando de <strong>corte de motor</strong> solo a los dispositivos con <strong style={{ color: '#EF4444' }}>deuda pendiente</strong>. &iquest;Confirmar?
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setBulkOffModal(false)}
+                                style={{
+                                    flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB',
+                                    background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151'
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleBulkEngineOff}
+                                style={{
+                                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
+                                    background: '#EF4444', color: '#fff', cursor: 'pointer',
+                                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}
+                            >
+                                <ZapOff size={15} /> Apagar Todo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="summary-header">
                 <h1>Estatus de Pagos</h1>
 
@@ -131,120 +313,110 @@ const PaymentSummary = () => {
                         <RefreshCw size={20} />
                     </button>
 
-                    <button
-                        className="select-control refresh-btn"
-                        onClick={handleExport}
-                        disabled={downloading}
-                        title="Descargar CSV"
-                        style={{ background: '#00C292', color: '#fff', border: 'none' }}
-                    >
-                        {downloading
-                            ? <RefreshCw size={20} className="spinning" />
-                            : <Download size={20} />}
-                    </button>
+                    {user?.role !== 'viewer' && (
+                        <button
+                            className={`select-control refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
+                            onClick={() => setBulkOffModal(true)}
+                            disabled={bulkOffLoading || morososCount === 0}
+                            title={`Apagar motor de vehículos morosos (${morososCount})`}
+                            style={{
+                                background: bulkOffLoading ? '#FEE2E2' : '#EF4444',
+                                color: bulkOffLoading ? '#EF4444' : '#fff',
+                                border: 'none',
+                                opacity: morososCount === 0 ? 0.45 : 1,
+                                cursor: morososCount === 0 ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            {bulkOffLoading ? (
+                                <RefreshCw size={20} />
+                            ) : (
+                                <ZapOff size={20} />
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
-            <div className="matrix-container" ref={tableContainerRef}>
-                <table className="summary-table">
-                    <thead>
-                        <tr>
-                            <th>DISPOSITIVO</th>
-                            <th>Deuda</th>
-                            {daysArray.map(day => (
-                                <th key={day}>{String(day).padStart(2, '0')}</th>
-                            ))}
-                            <th key={"day" + 1}>--</th>
-                        </tr>
-                        <tr className="daily-totals-row">
-                            <th className="totals-label">Total día</th>
-                            <th></th>
-                            {daysArray.map(day => (
-                                <th key={day} className="daily-total-cell">
-                                    {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
-                                </th>
-                            ))}
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr><td colSpan={daysInMonth + 1}>Cargando...</td></tr>
-                        ) :
-
-
-                            summaryData.map((item) => (
-                                <tr key={item.device.deviceId}>
-                                    <td>
-                                        <div className="device-cell">
-                                            <span className="device-name">{item.device.name}</span>
-                                            <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="device-cell">
-                                            {item.device.unpaidTotal > 0 ? (
-                                                <span className="debt-badge">
-                                                    {formatCurrency(item.device.unpaidTotal)}
-                                                </span>
-                                            ) : (
-                                                <span className="no-debt">✓</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    {daysArray.map(day => {
-                                        const dayData = item.days[day];
-                                        let cellClass = 'status-cell empty';
-                                        let content = '--';
-                                        content = formatCurrency(dayData?.totalPaid);
-                                        if (dayData) {
-
-                                            if (dayData.dayType === 'LOAN') {
-                                                cellClass = 'status-cell loand';
-                                                content = '--';
-                                            } else if (dayData.dayType === 'PAID') {
-                                                cellClass = 'status-cell approved';
-                                                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-                                            } else if (dayData.dayType === 'FREE') {
-                                                cellClass = 'status-cell free';
-                                                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-                                            } else if (dayData.dayType === 'ADJUSTMENT') {
-                                                cellClass = 'status-cell adjusted';
-                                                content = '🔧';
-                                            } else {
-                                                cellClass = 'status-cell pending';
-                                            }
-
-                                            if (dayData.cutOff) {
-                                                content = (
-                                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <span>{content}</span>
-                                                        <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
-                                                            <MotorIcon color="#ef4444" size={14} />
-                                                        </div>
+            {isMobile ? (
+                <MobilePaymentSummary
+                    summaryData={summaryData}
+                    daysArray={daysArray}
+                    dailyTotals={dailyTotals}
+                    loading={loading}
+                    user={user}
+                    handleEngineToggle={handleEngineToggle}
+                    pendingCommands={pendingCommands}
+                    getDeviceStatus={getDeviceStatus}
+                    renderDayCell={renderDayCell}
+                />
+            ) : (
+                <div className="matrix-container" ref={tableContainerRef}>
+                    <table className="summary-table">
+                        <thead>
+                            <tr>
+                                <th>DISPOSITIVO</th>
+                                <th>Deuda</th>
+                                {daysArray.map(day => (
+                                    <th key={day}>{String(day).padStart(2, '0')}</th>
+                                ))}
+                                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
+                            </tr>
+                            <tr className="daily-totals-row">
+                                <th className="totals-label">Total día</th>
+                                <th></th>
+                                {daysArray.map(day => (
+                                    <th key={day} className="daily-total-cell">
+                                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
+                                    </th>
+                                ))}
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
+                            ) : (
+                                summaryData.map((item) => (
+                                    <tr key={item.device.deviceId}>
+                                        <td>
+                                            <div className="device-cell">
+                                                <span className="device-name">{item.device.name}</span>
+                                                <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div className="device-cell">
+                                                {item.device.unpaidTotal > 0 ? (
+                                                    <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
+                                                ) : (
+                                                    <span className="no-debt">✓</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        {daysArray.map(day => {
+                                            const { cellClass, content } = renderDayCell(item.days[day]);
+                                            return (
+                                                <td key={day}>
+                                                    <div className={cellClass}>
+                                                        {content}
                                                     </div>
-                                                );
-                                            }
-                                        }
+                                                </td>
+                                            );
+                                        })}
+                                        {/* Motor toggle per row */}
+                                        <td style={{ textAlign: 'center' }}>
+                                            {renderEngineButton(item)}
+                                        </td>
+                                    </tr>
+                                )))
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-                                        return (
-                                            <td key={day}>
-                                                <div className={cellClass}>
-                                                    {content}
-                                                </div>
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))
 
-
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="legend">
+            {/*<div className="legend">
                 <div className="legend-item">
                     <div className="indicator" style={{ background: '#22c55e' }}></div>
                     <span>Pagado</span>
@@ -265,7 +437,7 @@ const PaymentSummary = () => {
                     <div className="indicator" style={{ background: '#f1f5f9' }}></div>
                     <span>Sin registro</span>
                 </div>
-            </div>
+            </div>*/}
         </div>
     );
 };

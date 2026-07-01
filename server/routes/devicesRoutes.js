@@ -28,6 +28,12 @@ router.post('/sync', deviceController.syncDevices);
 router.post('/assign-to-company', deviceController.assignDevicesToCompany);
 
 /**
+ * POST /api/devices/cutoff-debtors
+ * Cut off engines of all devices with unpaid debt
+ */
+router.post('/cutoff-debtors', deviceController.cutoffDebtors);
+
+/**
  * PUT /api/devices/:deviceId
  * Update device information
  */

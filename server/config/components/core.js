@@ -1,6 +1,7 @@
 export const MongoDB = {
     URI: 'mongodb://127.0.0.1:27018/payments-wompi-pocketbike',
 };
+//payments-wompi   yu motoya
 
 export const debugMode = process.env.DEBUG === 'true' || true; // Default to true for development if not specified
 
@@ -116,11 +117,18 @@ export const Transaction = {
     RETRY_CHECK_INTERVAL: 5000,
     MAX_POLL_TIMEOUT: 1 * 300 * 1000, // 5 minutos
     POLL_INTERVAL: 5 * 1000,
-    maxPagesToShow: 10,
-    maxItemsPerPage: 10,
-    currencyCode: 'COP',
-    DEFAULTAMOUNT: 35000,
     googlesheetActive: true,
+    BILLING_MULTIPLIERS: {
+        FIXED_WEEKDAY: {
+            7: 6,
+            14: 12,
+        },
+        FLEXIBLE: {
+            7: 7,
+            14: 14,
+        }
+    },
+    maxPagesToShow: 10,
     DEFAULT_PAYMENT_EMAIL_DOMAIN: '@pocketbike.app',
     JWT_SECRET: process.env.JWT_SECRET || 'payment-app-secret-key-change-in-production',
     JWT_EXPIRY: '24h',

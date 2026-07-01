@@ -160,6 +160,35 @@
     line-height: 1.5;
 }
 
+.info-icon-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .setting-description {
+        display: none !important;
+    }
+
+    .info-icon-mobile {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+        color: #03C9D7;
+        font-size: 11px;
+        font-weight: bold;
+        font-style: normal;
+        cursor: pointer;
+        background: #F0FDFA;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        border: 1px solid #03C9D7;
+        vertical-align: middle;
+        box-sizing: border-box;
+    }
+}
+
 /* Info Grid */
 .info-grid {
     display: grid;
@@ -234,7 +263,7 @@
 
 /* Actions */
 .settings-actions {
-    margin-top: 2rem;
+    margin-top: 1rem;
     display: flex;
     justify-content: flex-end;
 }
@@ -274,7 +303,34 @@
 }
 
 /* Responsive */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.settings-flex-row {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
 @media (max-width: 768px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .settings-flex-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .settings-tabs {
+        display: none !important;
+    }
+
     .settings-section {
         padding: 1.5rem;
     }
@@ -301,6 +357,7 @@
         justify-content: center;
     }
 }
+
 
 /* Crop Modal Styles */
 .crop-modal-overlay {
@@ -754,4 +811,350 @@
 
 .spin {
     animation: spin 0.9s linear infinite;
+}
+
+/* Modern Layout Style Overrides */
+.settings-modern-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+}
+
+.settings-card-section {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025);
+    overflow: hidden;
+    padding: 0.5rem;
+}
+
+.card-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+}
+
+.settings-card-section:has(.settings-card-content) .card-section-header {
+    margin-bottom: 1.25rem;
+}
+
+.card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.card-icon {
+    color: #0d9488;
+}
+
+.settings-card-content {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border: 1px solid #f1f5f9;
+}
+
+.settings-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.settings-card-row:not(:last-child) {
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.75rem;
+}
+
+.settings-card-row label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.settings-inline-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.settings-inline-row .settings-form-group {
+    margin-bottom: 0;
+}
+
+.settings-inline-row .modern-input-box {
+    width: 100%;
+}
+
+.settings-inline-row .modern-select {
+    width: 100%;
+}
+
+.settings-card-input-wrapper {
+    display: flex;
+    align-items: center;
+    position: relative;
+    justify-content: flex-end;
+}
+
+.modern-time-input {
+    border: none !important;
+    background: transparent !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #0d9488 !important;
+    width: 130px;
+    text-align: right;
+    padding: 0.5rem 44px 0.5rem 0.5rem !important;
+    /* Spacing for clock icon and info icon */
+    cursor: pointer;
+}
+
+.modern-time-input::-webkit-calendar-picker-indicator {
+    opacity: 0 !important;
+    position: absolute;
+    right: 22px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+    z-index: 2;
+}
+
+.input-inner-icon {
+    position: absolute;
+    right: 22px;
+    color: #0d9488;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+}
+
+.modern-select {
+    border: none !important;
+    background: transparent !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    padding: 0.5rem 24px 0.5rem 0.5rem !important;
+    text-align: right;
+    text-align-last: right;
+    width: auto;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right center !important;
+    background-size: 14px !important;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* Info Tooltip Icon */
+.info-icon-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 8px;
+    user-select: none;
+    transition: all 0.2s;
+    vertical-align: middle;
+}
+
+.info-icon-mobile:hover {
+    background: #cbd5e1;
+    color: #475569;
+}
+
+.settings-card-input-wrapper .info-icon-mobile {
+    position: absolute;
+    right: 0;
+    margin-left: 0;
+}
+
+/* Curfew grid */
+.curfew-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.curfew-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.curfew-col label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+}
+
+/* General form layout */
+.general-form {
+    background: white;
+    border: none;
+    padding: 0;
+}
+
+.settings-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.settings-form-group label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.modern-input-box {
+    display: flex;
+    align-items: center;
+    position: relative;
+    border: none;
+    border-radius: 10px;
+    background: #f1f5f9;
+    overflow: hidden;
+    width: 100%;
+    height: 46px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modern-input-box:focus-within {
+    background: #e2e8f0;
+}
+
+.modern-input-box span.prefix {
+    padding-left: 14px;
+    padding-right: 4px;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.modern-input-box span.suffix {
+    padding-right: 14px;
+    padding-left: 4px;
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.modern-input-box input {
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    padding: 0.75rem 0.75rem !important;
+    font-size: 0.95rem !important;
+    color: #0f172a !important;
+    width: 100%;
+}
+
+.modern-input-box select {
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    padding: 0.75rem 32px 0.75rem 0.75rem !important;
+    font-size: 0.95rem !important;
+    color: #0f172a !important;
+    width: 100%;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 14px !important;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.modern-input-box .info-icon-mobile {
+    position: absolute;
+    right: 12px;
+    margin-left: 0;
+    z-index: 5;
+}
+
+/* Adjust layout inputs with tooltips and suffixes */
+.modern-input-box:has(.info-icon-mobile) input {
+    padding-right: 36px !important;
+}
+
+.modern-input-box:has(.info-icon-mobile) span.suffix {
+    padding-right: 36px;
+}
+
+.modern-input {
+    padding: 0.75rem 1rem !important;
+    border-radius: 10px !important;
+    border: none !important;
+    background: #f1f5f9 !important;
+    font-size: 0.95rem !important;
+    color: #0f172a !important;
+    height: 46px;
+    transition: background-color 0.2s ease;
+}
+
+.modern-input:focus {
+    background: #e2e8f0 !important;
+    outline: none;
+}
+
+.settings-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    width: 100%;
+}
+
+/* Save button in header */
+.btn-header-save {
+    background: #f0fdfa;
+    border: 1px solid #0d9488;
+    color: #0d9488;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-header-save:hover {
+    background: #0d9488;
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .settings-page {
+        margin-top: 65px;
+        padding: 0 0.25rem;
+    }
+
+    .settings-page .page-header {
+        display: none !important;
+    }
 }

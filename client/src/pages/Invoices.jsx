@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     FileText, Calendar, DollarSign, Check, X, Search, Filter,
-    HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Download, RefreshCw, Building2
+    HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Download, RefreshCw, Building2,
+    ChevronLeft, ChevronRight, ListFilter, TrendingUp, TrendingDown
 } from 'lucide-react';
+import './Payments.css';
 import './Invoices.css';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
 
@@ -22,6 +25,29 @@ const Invoices = () => {
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [downloading, setDownloading] = useState(false);
+
+    const [showFilters, setShowFilters] = useState(false);
+    const [portalElement, setPortalElement] = useState(null);
+
+    useEffect(() => {
+        setPortalElement(document.getElementById('mobile-header-actions'));
+    }, []);
+
+    useEffect(() => {
+        let lastScrollY = window.scrollY;
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            const diff = currentScrollY - lastScrollY;
+            if (diff > 10) {
+                if (showFilters) setShowFilters(false);
+            } else if (diff < -15) {
+                if (!showFilters) setShowFilters(true);
+            }
+            lastScrollY = currentScrollY;
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [showFilters]);
 
     const handleExport = async () => {
         setDownloading(true);
@@ -109,7 +135,6 @@ const Invoices = () => {
     const handleManualPaySubmit = async (e) => {
         e.preventDefault();
         const isAdjustment = !!manualPayForm.adjustmentType;
-        // For REPAIR/MAINTENANCE amount=0 is valid; for plain manual it must be > 0
         if (!isAdjustment && (!manualPayForm.amount || Number(manualPayForm.amount) <= 0)) {
             setManualPayError('El monto debe ser mayor a 0.');
             return;
@@ -118,7 +143,6 @@ const Invoices = () => {
         setManualPayError('');
         try {
             if (manualPayForm.adjustmentType) {
-                // Adjustment payment (REPAIR / DAMAGE / MAINTENANCE / WORKSHOP)
                 await registerManualAdjustment({
                     invoiceId: manualPayModal.invoice._id,
                     adjustmentType: manualPayForm.adjustmentType,
@@ -127,7 +151,6 @@ const Invoices = () => {
                     note: manualPayForm.note,
                 });
             } else {
-                // TODO: plain cash/manual payment endpoint
                 console.log('Plain manual payment submitted', {
                     invoiceId: manualPayModal.invoice._id,
                     ...manualPayForm,
@@ -153,11 +176,11 @@ const Invoices = () => {
     useEffect(() => {
         loadInvoices(currentPage);
         loadStats();
-    }, [currentPage]);
+    }, [currentPage, selectedMonth, selectedYear]);
 
     const loadStats = async () => {
         try {
-            const result = await getInvoiceStats();
+            const result = await getInvoiceStats({ month: selectedMonth, year: selectedYear });
             if (result.success) {
                 setStats(result.stats);
             }
@@ -169,8 +192,7 @@ const Invoices = () => {
     const loadInvoices = async (page = 1) => {
         setLoading(true);
         try {
-            const result = await getAllInvoices({ page, limit: PAGE_SIZE });
-
+            const result = await getAllInvoices({ page, limit: PAGE_SIZE, month: selectedMonth, year: selectedYear });
             if (result.success) {
                 setInvoices(result.invoices || []);
                 setTotalPages(result.pagination?.totalPages || 1);
@@ -185,17 +207,64 @@ const Invoices = () => {
         }
     };
 
-    const formatCurrency = (amount) => {
-        return `$${(amount).toLocaleString()} COP`;
+    const formatCurrency = (amount, isMobile = false) => {
+        if (amount === undefined || amount === null) return isMobile ? '$0' : '$0 COP';
+        return isMobile ? `$${amount.toLocaleString()}` : `$${amount.toLocaleString()} COP`;
     };
 
-    const formatDate = (dateString) => {
+    const formatCompact = (value) => {
+        if (!value) return '$0';
+        if (value >= 1000000) {
+            return `$${Math.round(value / 1000000)}M`;
+        }
+        if (value >= 1000) {
+            return `$${Math.round(value / 1000)}k`;
+        }
+        return `$${value}`;
+    };
+
+    const formatDate = (dateString, isMobile = false) => {
+        if (!dateString) return '--';
         const date = new Date(dateString);
-        return dateString ? date.toLocaleDateString('en-US', {
+        if (isMobile) {
+            const day = date.getDate();
+            const month = date.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+
+            let hours = date.getHours();
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+
+            return (
+                <div style={{ lineHeight: '1.2' }}>
+                    <div>{day} {month}</div>
+                    <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>{hours}:{minutes}{ampm}</div>
+                </div>
+            );
+        }
+        return date.toLocaleDateString('es-ES', {
             year: 'numeric',
             month: 'short',
-            day: 'numeric'
-        }) : '--';
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const formatInvoiceId = (invoiceId) => {
+        if (!invoiceId) return 'N/A';
+        const parts = invoiceId.split('-');
+        if (parts.length >= 4) {
+            const deviceName = parts[0];
+            const year = parts[1];
+            const month = parts[2];
+            const day = parts[3];
+            const dateObj = new Date(`${year}-${month}-${day}T12:00:00`);
+            const monthName = dateObj.toLocaleDateString('es-ES', { month: 'short' });
+            return `${deviceName}-${monthName.replace('.', '')}-${parseInt(day)}`;
+        }
+        return invoiceId;
     };
 
     const getStatusColor = (status) => {
@@ -210,14 +279,18 @@ const Invoices = () => {
         return colors[status] || '#6B7280';
     };
 
-    // Filter invoices
     const filteredInvoices = invoices.filter(invoice => {
-        // Status filter
-        if (filter !== 'all' && invoice.dayType.toLowerCase() !== filter.toLowerCase()) {
-            return false;
+        if (filter !== 'all') {
+            const statusMap = {
+                'completed': 'PAID',
+                'pending': 'PENDING',
+                'failed': 'DEBT'
+            };
+            const mappedStatus = statusMap[filter] || filter;
+            if (invoice.dayType.toUpperCase() !== mappedStatus.toUpperCase()) {
+                return false;
+            }
         }
-
-        // Search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             return (
@@ -227,134 +300,342 @@ const Invoices = () => {
                 invoice.paymentReference?.toLowerCase().includes(query)
             );
         }
-
         return true;
     });
 
+    const totalCount = stats.total || 0;
+    const paidPercentage = totalCount > 0 ? Math.round((stats.paid / totalCount) * 100) : 0;
+    const unpaidPercentage = totalCount > 0 ? Math.round((stats.unpaid / totalCount) * 100) : 0;
+
+    const handleFilterChange = (newFilter) => {
+        setFilter(newFilter);
+        setCurrentPage(1);
+    };
+
     return (
-        <div className="invoices-page">
-            {/* Header */}
-            <div className="page-header">
+        <div className="payments-page">
+            {portalElement && createPortal(
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {totalPages > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563' }}>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(p => p - 1)}
+                                disabled={currentPage <= 1}
+                                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage > 1 ? '#1f2937' : '#9ca3af' }}
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            <span>{currentPage}/{totalPages}</span>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                disabled={currentPage >= totalPages}
+                                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage < totalPages ? '#1f2937' : '#9ca3af' }}
+                            >
+                                <ChevronRight size={14} />
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                        onClick={() => setShowFilters(!showFilters)}
+                        id="filterToggle"
+                        style={{ border: 'none', background: 'none', padding: '8px' }}
+                    >
+                        <ListFilter size={20} />
+                    </button>
+                </div>,
+                portalElement
+            )}
+
+            <div className="page-header hidden md:flex">
                 <div>
-                    <h1>{t('invoices.title')}</h1>
+                    <h1>📄 {t('invoices.title')}</h1>
+                    <p>Historial y registro de cobros diarios por dispositivo</p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <select
                         value={selectedMonth}
-                        onChange={e => setSelectedMonth(Number(e.target.value))}
+                        onChange={e => {
+                            setSelectedMonth(Number(e.target.value));
+                            setCurrentPage(1);
+                        }}
                         className="select-control"
+                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                     >
                         {Array.from({ length: 12 }, (_, i) => (
                             <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
                             </option>
                         ))}
                     </select>
                     <select
                         value={selectedYear}
-                        onChange={e => setSelectedYear(Number(e.target.value))}
+                        onChange={e => {
+                            setSelectedYear(Number(e.target.value));
+                            setCurrentPage(1);
+                        }}
                         className="select-control"
+                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                     >
                         <option value={2025}>2025</option>
                         <option value={2026}>2026</option>
                         <option value={2027}>2027</option>
                     </select>
                     <button
-                        className="select-control refresh-btn"
+                        className="btn-primary"
+                        onClick={() => loadInvoices(currentPage)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                        <RefreshCw size={16} /> {t('payments.refresh')}
+                    </button>
+                    <button
+                        className="btn-primary"
                         onClick={handleExport}
                         disabled={downloading}
-                        title="Descargar facturas CSV"
-                        style={{ background: '#00C292', color: '#fff', border: 'none' }}
+                        style={{ background: '#00C292', display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
-                        {downloading
-                            ? <RefreshCw size={18} className="spinning" />
-                            : <Download size={18} />}
+                        {downloading ? <RefreshCw size={16} className="spinning" /> : <Download size={16} />} CSV
                     </button>
                 </div>
             </div>
 
-            {/* Stats */}
-            <div className="invoices-stats">
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#03C9D7' }}>
-                        <FileText />
+            {/* Mobile Collapsible Filter Section (Mobile only) */}
+            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
+                <div className="pt-2 pb-1">
+                    {/* Search Box */}
+                    <div className="search-box" style={{ maxWidth: 'none', marginBottom: '.5rem' }}>
+                        <Search className="search-icon" size={18} />
+                        <input
+                            type="text"
+                            placeholder={t('invoices.searchPlaceholder')}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                className="clear-search"
+                                onClick={() => setSearchQuery('')}
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
                     </div>
-                    <div className="stat-info">
-                        <div className="stat-label">Total</div>
-                        <div className="stat-number">{stats.total}</div>
+
+                    {/* Filter Badges (Horizontal scroll, compact) */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
+                        <button
+                            type="button"
+                            style={{
+                                padding: '4px 12px',
+                                borderRadius: '9999px',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                border: filter === 'all' ? '1px solid #2563eb' : '1px solid #e5e7eb',
+                                backgroundColor: filter === 'all' ? '#2563eb' : 'white',
+                                color: filter === 'all' ? 'white' : '#4b5563'
+                            }}
+                            onClick={() => handleFilterChange('all')}
+                        >
+                            {t('payments.filters.all')}
+                        </button>
+                        <button
+                            type="button"
+                            style={{
+                                padding: '4px 12px',
+                                borderRadius: '9999px',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                border: filter === 'completed' ? '1px solid #2563eb' : '1px solid #e5e7eb',
+                                backgroundColor: filter === 'completed' ? '#2563eb' : 'white',
+                                color: filter === 'completed' ? 'white' : '#4b5563'
+                            }}
+                            onClick={() => handleFilterChange('completed')}
+                        >
+                            Pagadas
+                        </button>
+                        <button
+                            type="button"
+                            style={{
+                                padding: '4px 12px',
+                                borderRadius: '9999px',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                border: filter === 'pending' ? '1px solid #2563eb' : '1px solid #e5e7eb',
+                                backgroundColor: filter === 'pending' ? '#2563eb' : 'white',
+                                color: filter === 'pending' ? 'white' : '#4b5563'
+                            }}
+                            onClick={() => handleFilterChange('pending')}
+                        >
+                            Pendientes
+                        </button>
+                        <button
+                            type="button"
+                            style={{
+                                padding: '4px 12px',
+                                borderRadius: '9999px',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                border: filter === 'failed' ? '1px solid #2563eb' : '1px solid #e5e7eb',
+                                backgroundColor: filter === 'failed' ? '#2563eb' : 'white',
+                                color: filter === 'failed' ? 'white' : '#4b5563'
+                            }}
+                            onClick={() => handleFilterChange('failed')}
+                        >
+                            Deudas
+                        </button>
                     </div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#00C292' }}>
-                        <Check />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('invoices.filterPaid')}</div>
-                        <div className="stat-number">{stats.paid}</div>
-                    </div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#EF4444' }}>
-                        <X />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('invoices.filterUnpaid')}</div>
-                        <div className="stat-number">{stats.unpaid}</div>
-                    </div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#7460EE' }}>
-                        <DollarSign />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">Total Amount</div>
-                        <div className="stat-number">{formatCurrency(stats.totalAmount)}</div>
+
+                    {/* Action Items for Mobile */}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                        <select
+                            value={selectedMonth}
+                            onChange={e => {
+                                setSelectedMonth(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="sort-select"
+                            style={{ flexGrow: 1, padding: '8px 12px' }}
+                        >
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={e => {
+                                setSelectedYear(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="sort-select"
+                            style={{ padding: '8px 12px' }}
+                        >
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                            <option value={2027}>2027</option>
+                        </select>
+                        <button className="filter-action-btn" onClick={() => loadInvoices(currentPage)} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Actualizar">
+                            <RefreshCw size={18} />
+                        </button>
+                        <button className="filter-action-btn" onClick={handleExport} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Descargar CSV">
+                            <Download size={18} />
+                        </button>
                     </div>
                 </div>
             </div>
 
+            {/* Summary Stats */}
+            <div className="payment-stats">
+                <div className="payment-stat-card">
+                    <div className="stat-icon" style={{ background: '#03C9D7' }}>
+                        <DollarSign size={20} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-label">Recaudación Total</div>
+                        <div className="stat-value-container">
+                            <span className="stat-number">
+                                <span className="desktop-only">{formatCurrency(stats.totalAmount)}</span>
+                                <span className="mobile-only">{formatCompact(stats.totalAmount)}</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div className="payment-stat-card">
+                    <div className="stat-icon" style={{ background: '#00C292' }}>
+                        <Check size={20} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-label">Pagadas</div>
+                        <div className="stat-value-container">
+                            <span className="stat-number">{stats.paid}</span>
+                            {paidPercentage > 0 && (
+                                <span className="stat-change-inline positive">
+                                    <TrendingUp size={14} />
+                                    {paidPercentage}%
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <div className="payment-stat-card">
+                    <div className="stat-icon" style={{ background: '#EF4444' }}>
+                        <X size={20} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-label">Deudas / Impagas</div>
+                        <div className="stat-value-container">
+                            <span className="stat-number">{stats.unpaid}</span>
+                            {unpaidPercentage > 0 && (
+                                <span className="stat-change-inline negative">
+                                    <TrendingDown size={14} />
+                                    {unpaidPercentage}%
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <div className="payment-stat-card">
+                    <div className="stat-icon" style={{ background: '#7460EE' }}>
+                        <FileText size={20} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-label">Total Facturas</div>
+                        <div className="stat-number">{stats.total}</div>
+                    </div>
+                </div>
+            </div>
 
-
-            {/* Filters */}
-            <div className="invoices-filters">
+            {/* Desktop Filters (Desktop only) */}
+            <div className="payment-controls hidden md:flex">
                 <button
                     className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-                    onClick={() => setFilter('all')}
+                    onClick={() => handleFilterChange('all')}
+                    style={{ border: filter === 'all' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'all' ? '#03C9D7' : 'white', color: filter === 'all' ? 'white' : '#6B7280' }}
                 >
-                    <Filter /> {t('invoices.filterAll')}
+                    <Filter size={16} /> Todos
                 </button>
                 <button
-                    className={`filter-btn ${filter === 'paid' ? 'active' : ''}`}
-                    onClick={() => setFilter('paid')}
+                    className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('completed')}
+                    style={{ border: filter === 'completed' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'completed' ? '#03C9D7' : 'white', color: filter === 'completed' ? 'white' : '#6B7280' }}
                 >
-                    {t('invoices.filterPaid')}
-                </button>
-                <button
-                    className={`filter-btn ${filter === 'unpaid' ? 'active' : ''}`}
-                    onClick={() => setFilter('unpaid')}
-                >
-                    {t('invoices.filterUnpaid')}
+                    Pagadas
                 </button>
                 <button
                     className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
-                    onClick={() => setFilter('pending')}
+                    onClick={() => handleFilterChange('pending')}
+                    style={{ border: filter === 'pending' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'pending' ? '#03C9D7' : 'white', color: filter === 'pending' ? 'white' : '#6B7280' }}
                 >
-                    {t('invoices.filterPending')}
+                    Pendientes
                 </button>
-                <div className="search-box">
-                    <Search className="search-icon" />
+                <button
+                    className={`filter-btn ${filter === 'failed' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('failed')}
+                    style={{ border: filter === 'failed' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'failed' ? '#03C9D7' : 'white', color: filter === 'failed' ? 'white' : '#6B7280' }}
+                >
+                    Deudas
+                </button>
+                <div className="search-box" style={{ marginLeft: 'auto', width: '300px' }}>
+                    <Search className="search-icon" size={18} />
                     <input
                         type="text"
-                        placeholder={t('invoices.searchPlaceholder')}
+                        placeholder="Buscar por ID, dispositivo..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ paddingLeft: '2.5rem' }}
                     />
                     {searchQuery && (
-                        <button
-                            className="clear-search"
-                            onClick={() => setSearchQuery('')}
-                        >
-                            <X />
+                        <button className="clear-search" onClick={() => setSearchQuery('')}>
+                            <X size={16} />
                         </button>
                     )}
                 </div>
@@ -369,105 +650,95 @@ const Invoices = () => {
             ) : filteredInvoices.length === 0 ? (
                 <div className="empty-state">
                     <FileText size={48} />
-                    <h3>{t('invoices.empty')}</h3>
-                    <p>
-                        {searchQuery
-                            ? `"${searchQuery}"`
-                            : t('invoices.empty')}
-                    </p>
+                    <h3>No se encontraron facturas</h3>
+                    <p>{searchQuery ? `No hay resultados para "${searchQuery}"` : 'No hay registros de facturas en este periodo.'}</p>
                 </div>
             ) : (
                 <>
-                    <div className="invoices-table">
-                        <div className="table-header">
-                            <div>ID Factura</div>
-                            <div>{t('login.deviceId')}</div>
-                            <div>Amount</div>
-                            <div>Dia Pago</div>
-                            <div>{t('common.status')}</div>
-                        </div>
-                        {filteredInvoices.map((invoice) => (
-                            <div key={invoice.invoiceId} className="table-row">
-                                <div className="invoice-id">{invoice.invoiceId}</div>
-                                <div className="device-id">{invoice.deviceIdName}</div>
-                                <div className="invoice-amount">
-                                    {formatCurrency(invoice.paidAmount)}
-                                </div>
-                                <div className="invoice-date">
-                                    <Calendar size={14} />
-                                    {formatDate(invoice.transaction?.finalized_at)}
-                                </div>
-                                <div className="invoice-status">
-                                    {/* Status badge */}
-                                    <span
-                                        className="status-badge"
-                                        style={{
-                                            background: `${getStatusColor(invoice.dayType)}20`,
-                                            color: getStatusColor(invoice.dayType)
-                                        }}
-                                    >
-                                        {invoice.dayType === 'PENDING' && (
-                                            <HandCoins size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                                        )}
-                                        {invoice.dayType}
-                                    </span>
-
-                                    {/* Adjustment icon (repair / damage / maintenance) */}
-                                    {invoice.adjustmentType && (
-                                        <span
-                                            className="adjustment-badge"
-                                            data-tooltip={
-                                                `${invoice.adjustmentType}${invoice.adjustmentComment ? ': ' + invoice.adjustmentComment : ''}`
-                                            }
-                                            style={{
-                                                color:
-                                                    invoice.adjustmentType === 'REPAIR' ? '#FB9678'
-                                                        : invoice.adjustmentType === 'DAMAGE' ? '#EF4444'
-                                                            : '#7460EE'
-                                            }}
-                                        >
-
-                                        </span>
-                                    )}
-
-                                    {/* Manual payment button — only for unpaid / PENDING / DEBT */}
-                                    {(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') && (
-                                        <button
-                                            className="manual-pay-btn"
-                                            title="Registrar pago manual"
-                                            onClick={() => openManualPayModal(invoice)}
-                                        >
-
-                                            {!invoice.adjustmentType && <PlusCircle size={18} />}
-                                            {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} />}
-                                            {invoice.adjustmentType === 'DAMAGE' && <AlertTriangle size={13} />}
-                                            {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} />}
-                                            {invoice.adjustmentType === 'WORKSHOP' && <Building2 size={13} />}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                    <div className="payments-table-container">
+                        <table className="payments-table">
+                            <thead>
+                                <tr>
+                                    <th>ID Factura</th>
+                                    <th className="desktop-only">{t('login.deviceId')}</th>
+                                    <th>Monto</th>
+                                    <th>Fecha Pago</th>
+                                    <th>{t('common.status')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredInvoices.map((invoice) => (
+                                     <tr key={invoice.invoiceId}>
+                                        <td className="payment-id">
+                                            <div style={{ lineHeight: '1.2' }}>
+                                                {(() => {
+                                                    const formatted = formatInvoiceId(invoice.invoiceId);
+                                                    const dashIndex = formatted.indexOf('-');
+                                                    if (dashIndex !== -1) {
+                                                        return (
+                                                            <>
+                                                                <div>{formatted.slice(0, dashIndex)}</div>
+                                                                <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>{formatted.slice(dashIndex + 1)}</div>
+                                                            </>
+                                                        );
+                                                    }
+                                                    return formatted;
+                                                })()}
+                                            </div>
+                                        </td>
+                                        <td className="desktop-only">{invoice.deviceIdName}</td>
+                                        <td className="amount" style={{ color: invoice.dayType === 'PAID' || invoice.dayType === 'FREE' ? '#00c292' : '#EF4444', fontWeight: 600 }}>
+                                            <span className="desktop-only">{formatCurrency(invoice.paidAmount, false)}</span>
+                                            <span className="mobile-only">{formatCurrency(invoice.paidAmount, true)}</span>
+                                        </td>
+                                        <td className="date">
+                                            <span className="desktop-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
+                                            <span className="mobile-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span
+                                                    className="status-badge"
+                                                    onClick={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? () => openManualPayModal(invoice) : undefined}
+                                                    style={{
+                                                        background: `${getStatusColor(invoice.dayType)}20`,
+                                                        color: getStatusColor(invoice.dayType),
+                                                        cursor: (invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? 'pointer' : 'default'
+                                                    }}
+                                                    title={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? "Registrar pago manual / ajuste" : undefined}
+                                                >
+                                                    {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {invoice.adjustmentType === 'DAMAGE' && <AlertTriangle size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {invoice.adjustmentType === 'WORKSHOP' && <Building2 size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
 
                     <div className="results-info">
-                        Showing {filteredInvoices.length} of {totalInvoices} invoices
+                        Mostrando {filteredInvoices.length} de {totalInvoices} facturas
                     </div>
 
                     {totalPages > 1 && (
-                        <div className="pagination-controls">
+                        <div className="pagination">
                             <button
-                                className="page-btn"
+                                className="pagination-btn"
                                 onClick={() => setCurrentPage(p => p - 1)}
                                 disabled={currentPage <= 1}
                             >
                                 ← Anterior
                             </button>
-                            <span className="page-info">
+                            <span className="pagination-info">
                                 Página {currentPage} de {totalPages}
                             </span>
                             <button
-                                className="page-btn"
+                                className="pagination-btn"
                                 onClick={() => setCurrentPage(p => p + 1)}
                                 disabled={currentPage >= totalPages}
                             >
@@ -482,7 +753,6 @@ const Invoices = () => {
             {manualPayModal.open && manualPayModal.invoice && (
                 <div className="modal-overlay" onClick={closeManualPayModal}>
                     <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                        {/* Modal header — icon changes by adjustment type */}
                         <div className="modal-header" style={
                             manualPayForm.adjustmentType
                                 ? { background: `linear-gradient(135deg, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}cc)` }
@@ -505,7 +775,6 @@ const Invoices = () => {
                             </button>
                         </div>
 
-                        {/* Invoice info */}
                         <div className="modal-invoice-info">
                             <div className="modal-info-row">
                                 <span className="modal-info-label">Factura</span>
@@ -523,10 +792,7 @@ const Invoices = () => {
                             </div>
                         </div>
 
-                        {/* Form */}
                         <form className="modal-form" onSubmit={handleManualPaySubmit}>
-
-                            {/* Adjustment type banner -- shown when a reason is selected */}
                             {manualPayForm.adjustmentType && (() => {
                                 const cfg = ADJUSTMENT_CONFIG[manualPayForm.adjustmentType];
                                 return (
@@ -540,7 +806,6 @@ const Invoices = () => {
                                 );
                             })()}
 
-                            {/* Tipo de ajuste -- dropdown */}
                             <div className="modal-field">
                                 <label>Tipo de ajuste</label>
                                 <select
@@ -567,7 +832,6 @@ const Invoices = () => {
                                 </select>
                             </div>
 
-                            {/* Monto pagado */}
                             <div className="modal-field">
                                 <label>Monto pagado {!manualPayForm.adjustmentType && <span className="required">*</span>}</label>
                                 <div className="modal-amount-input">

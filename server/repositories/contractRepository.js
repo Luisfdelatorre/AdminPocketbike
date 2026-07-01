@@ -31,7 +31,8 @@ export class ContractRepository {
             endDate,
             totalAmount,
             remainingDays,
-            status: 'ACTIVE'
+            status: 'ACTIVE',
+            cutOffTime: data.cutOffTime || null
         }
 
         const contract = await Contract.create(contractData);
@@ -173,8 +174,10 @@ export class ContractRepository {
         if (updates.freeDaysLimit !== undefined) contract.freeDaysLimit = updates.freeDaysLimit;
         if (updates.freeDayPolicy !== undefined) contract.freeDayPolicy = updates.freeDayPolicy;
         if (updates.fixedFreeDayOfWeek !== undefined) contract.fixedFreeDayOfWeek = updates.fixedFreeDayOfWeek;
+        if (updates.paymentFrequency !== undefined) contract.paymentFrequency = updates.paymentFrequency;
         if (updates.exemptFromCutOff !== undefined) contract.exemptFromCutOff = updates.exemptFromCutOff;
         if (updates.exemptFromCurfew !== undefined) contract.exemptFromCurfew = updates.exemptFromCurfew;
+        if (updates.cutOffTime !== undefined) contract.cutOffTime = updates.cutOffTime;
 
         // Handle updates that affect calculations (dailyRate, contractDays)
         let recalculate = false;

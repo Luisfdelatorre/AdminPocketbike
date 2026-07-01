@@ -14,6 +14,13 @@ class CompanyService {
         this.gpsAdapters = new Map(); // keyed by companyId
     }
 
+    clearCache(companyId) {
+        const key = String(companyId);
+        this.wompiAdapters.delete(key);
+        this.gpsAdapters.delete(key);
+        logger.debug(`[CompanyService] Cleared cached adapters for company: ${companyId}`);
+    }
+
     /**
      * Get or create a WompiAdapter instance for the specified company.
      * @param {string} companyId 

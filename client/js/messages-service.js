@@ -15,7 +15,7 @@ const MESSAGES = {
         FREE_DAY: 'Usar Día Libre',
         LOAN: 'Préstamo',
         PAY_NOW: 'Pagar Ahora',
-        MORE_OPTIONS: 'Más formas de pago',
+        MORE_OPTIONS: 'Lista de pagos',
         LOGOUT: 'Cerrar Sesión',
         LOGIN: 'Iniciar Sesión',
         PROCESSING: 'Procesando...'

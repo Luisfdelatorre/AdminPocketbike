@@ -1,7 +1,7 @@
 import axios from "axios";
 import crypto from "crypto";
 
-const WEBHOOK_URL = "https://pagos.tumotoya.online/apinode/webhooks/wompi";//"http://192.168.1.150:8084/apinode/webhooks/wompi";
+const WEBHOOK_URL = "https://admin.pocketbike.app/apinode/webhooks/wompi";//"http://192.168.1.150:8084/apinode/webhooks/wompi";
 const WOMPI_INTEGRITY_SECRET = "prod_events_TpPLiX3mc0PxEzquqhT5t2WaSZeaDzer"; // Matches config.js privateKeyEvents
 
 // JSON simulado del webhook
@@ -58,7 +58,9 @@ const payload = {
   "environment": "test"
 }
 
-const payload2 = { "event": "transaction.updated", "data": { "transaction": { "id": "1362970-1778383816-31213", "created_at": "2026-05-10T03:30:16.568Z", "finalized_at": "2026-05-10T03:35:19.407Z", "amount_in_cents": 3500000, "reference": "DRO85I-2026-05-09-H5", "customer_email": "DRO85I@PocketBike.app", "currency": "COP", "payment_method_type": "NEQUI", "payment_method": { "type": "NEQUI", "extra": { "is_three_ds": false, "transaction_id": "350-123-43568540-1778383818g2Gn", "three_ds_auth_type": null, "external_identifier": "1778383818g2Gn", "nequi_transaction_id": "350-123-43568540-1778383818g2Gn" }, "afe_decision": "FRAUD_CHECK", "phone_number": "3215834894" }, "status": "APPROVED", "status_message": null, "shipping_address": null, "redirect_url": "https://pocketbike.app/apinode/", "payment_source_id": null, "payment_link_id": null, "customer_data": { "full_name": "DRO85I PocketBike", "phone_number": "3215834894" }, "billing_data": null, "origin": null } }, "sent_at": "2026-05-10T03:35:19.978Z", "timestamp": 1778384119, "signature": { "checksum": "4425793159a13ac0b76273020486ef893731ac8b1e748df8149d96e5e718b33b", "properties": ["transaction.id", "transaction.status", "transaction.amount_in_cents"] }, "environment": "prod" }
+const payload2 = { "event": "transaction.updated", "data": { "transaction": { "id": "1133374-1778585495-15670", "created_at": "2026-05-12T11:31:35.702Z", "finalized_at": "2026-05-12T12:16:44.221Z", "amount_in_cents": 3500000, "reference": "FPY25I-2026-05-11-VT", "customer_email": "FPY25I@PocketBike.app", "currency": "COP", "payment_method_type": "NEQUI", "payment_method": { "type": "NEQUI", "extra": { "is_three_ds": false, "transaction_id": "350-123-27246383-1778585496DaVm", "three_ds_auth_type": null, "external_identifier": "1778585496DaVm", "nequi_transaction_id": "350-123-27246383-1778585496DaVm" }, "afe_decision": "FRAUD_CHECK", "phone_number": "3168505421" }, "status": "APPROVED", "status_message": null, "shipping_address": null, "redirect_url": "https://pocketbike.app/apinode/", "payment_source_id": null, "payment_link_id": null, "customer_data": { "full_name": "FPY25I PocketBike", "phone_number": "3168505421" }, "billing_data": null, "origin": null } }, "sent_at": "2026-05-12T12:16:44.728Z", "timestamp": 1778588204, "signature": { "checksum": "da9236910d28e9339bc01bb26792a39a9ac524ee61cef49619c8ad3ce0e62aba", "properties": ["transaction.id", "transaction.status", "transaction.amount_in_cents"] }, "environment": "prod" }
+
+
 
 // Calculate Signature
 function calculateSignature(payload, secret) {

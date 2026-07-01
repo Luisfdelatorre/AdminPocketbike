@@ -80,7 +80,13 @@ export const login = (deviceIdName, pin) => api.post('/apinode/auth/pin-login', 
 // Payment Data & History
 export const getPaymentStatus = () => api.get('/apinode/payments/status');
 export const getPaymentHistory = () => api.get('/apinode/payments/history');
-export const getInvoiceHistory = () => api.get('/apinode/invoices/history');
+export const getInvoiceHistory = ({ month, year } = {}) => {
+  const params = new URLSearchParams();
+  if (month) params.set('month', month);
+  if (year)  params.set('year',  year);
+  const qs = params.toString();
+  return api.get(`/apinode/invoices/history${qs ? `?${qs}` : ''}`);
+};
 
 // Transactions
 export const requestFreeDay = () => api.post('/apinode/payments/use-free-day');

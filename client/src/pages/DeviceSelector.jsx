@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power } from 'lucide-react';
+import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff } from 'lucide-react';
 import { showToast } from '../utils/toast';
-import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine } from '../services/api';
+import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
@@ -40,6 +40,9 @@ const DeviceManagement = () => {
     const [viewMode, setViewMode] = useState('technical'); // technical, financial
     const [activeMenuId, setActiveMenuId] = useState(null);
     const [pendingCommands, setPendingCommands] = useState({});
+    const [bulkOffLoading, setBulkOffLoading] = useState(false);
+    const [bulkOffModal, setBulkOffModal] = useState(false);
+
 
     const [formData, setFormData] = useState({
         _id: '',
@@ -100,7 +103,10 @@ const DeviceManagement = () => {
             if (viewMode !== 'financial') {
                 const financialData = await getStatusReport();
                 console.log(financialData);
-                result = { success: true, devices: financialData };
+                // API returns { success: true, data: [...] }
+                const deviceList = Array.isArray(financialData) ? financialData
+                    : (financialData?.data ?? financialData?.devices ?? []);
+                result = { success: true, devices: deviceList };
             } else {
                 result = await getAllDevices();
             }
@@ -253,6 +259,25 @@ const DeviceManagement = () => {
         }
     };
 
+    const handleBulkEngineOff = async () => {
+        setBulkOffModal(false);
+        setBulkOffLoading(true);
+        try {
+            const result = await cutoffDebtors();
+            if (result.success) {
+                showToast(result.message, 'success');
+            } else {
+                showToast(result.error || 'Failed to control engines', 'error');
+            }
+        } catch (err) {
+            console.error('Bulk cutoff error:', err);
+            showToast(err.message || 'Error executing bulk engine off', 'error');
+        } finally {
+            setBulkOffLoading(false);
+            loadDevices();
+        }
+    };
+
     // Filter devices based on search and filter
     const filteredDevices = devices.filter(device => {
         // Search filter
@@ -302,18 +327,21 @@ const DeviceManagement = () => {
                         <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
                     </button>
                 )}
-                <button className="btn-primary desktop-only" onClick={handleAddDevice}>
-                    <Plus /> {t('devices.addDevice')}
-                </button>
+                {user?.role !== 'viewer' && (
+                    <button className="btn-primary desktop-only" onClick={handleAddDevice}>
+                        <Plus /> {t('devices.addDevice')}
+                    </button>
+                )}
 
                 <MobileHeaderAction>
-                    <button
-                        onClick={handleAddDevice}
-                        className="btn-mobile-header-action"
-
-                    >
-                        <Plus size={24} />
-                    </button>
+                    {user?.role !== 'viewer' && (
+                        <button
+                            onClick={handleAddDevice}
+                            className="btn-mobile-header-action"
+                        >
+                            <Plus size={24} />
+                        </button>
+                    )}
                     <button onClick={user?.isSuperAdmin ? handleSync : loadDevices} className="btn-mobile-header-action">
                         <RefreshCw size={20} className={loading ? 'spin' : ''} />
                     </button>
@@ -355,6 +383,64 @@ const DeviceManagement = () => {
 
 
 
+            {/* Bulk Engine Off Confirmation Modal */}
+            {bulkOffModal && (
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+                    }}
+                    onClick={() => setBulkOffModal(false)}
+                >
+                    <div
+                        style={{
+                            background: '#fff', borderRadius: '16px', padding: '28px 24px',
+                            maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                            <div style={{
+                                background: '#FEF2F2', borderRadius: '10px', padding: '10px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <ZapOff size={22} style={{ color: '#EF4444' }} />
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111' }}>Apagar vehículos con deuda</div>
+                                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '2px' }}>
+                                    {devices.filter(d => d.id && (d.monthDebt || 0) > 0).length} moto(s) con deuda serán apagadas
+                                </div>
+                            </div>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '20px', lineHeight: 1.5 }}>
+                            Se enviará comando de <strong>corte de motor</strong> solo a dispositivos con <strong style={{ color: '#EF4444' }}>deuda pendiente</strong>. ¿Confirmar?
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setBulkOffModal(false)}
+                                style={{
+                                    flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB',
+                                    background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151'
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleBulkEngineOff}
+                                style={{
+                                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
+                                    background: '#EF4444', color: '#fff', cursor: 'pointer',
+                                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}
+                            >
+                                <ZapOff size={15} /> Apagar Todo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Filters */}
             <div className="devices-filters">
                 <button
@@ -375,9 +461,30 @@ const DeviceManagement = () => {
                 >
                     {t('devices.filterAvailable')}
                 </button>
-                {/* Search Bar */}
 
-                <div className="search-box">
+                {/* Bulk Engine Off Button 
+                <button
+                    onClick={() => setBulkOffModal(true)}
+                    disabled={bulkOffLoading || devices.filter(d => d.id && (d.monthDebt || 0) > 0).length === 0}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '6px 14px', borderRadius: '9999px',
+                        border: '1px solid #EF4444',
+                        background: bulkOffLoading ? '#FEE2E2' : '#FEF2F2',
+                        color: '#EF4444', fontWeight: 600, fontSize: '13px',
+                        cursor: 'pointer', transition: 'all 0.2s',
+                        opacity: devices.filter(d => d.id && (d.monthDebt || 0) > 0).length === 0 ? 0.4 : 1,
+                        marginLeft: 'auto'
+                    }}
+                    title="Apagar motor de vehículos con deuda"
+                >
+                    {bulkOffLoading
+                        ? <><RefreshCw size={14} className="spin" /> Apagando...</>
+                        : <><ZapOff size={14} /> Apagar Con Deuda</>}
+                </button>*/}
+
+                {/* Search Bar */}
+                <div className="search-box" style={{ marginLeft: 0 }}>
                     <Search className="search-icon" />
                     <input
                         type="text"
@@ -397,62 +504,60 @@ const DeviceManagement = () => {
 
             </div>
 
-            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100">
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* Header Row */}
-                <div className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 border-b border-gray-100">
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">{t('devices.table.contract')}</div>
+                <div className="grid grid-cols-[3fr_2fr_3.5fr_1.5fr] lg:grid-cols-7 gap-1 lg:gap-6 px-2 lg:px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center">{t('devices.table.contract')}</div>
 
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center justify-center">Pagado</div>
+                    {/* Hiding on Mobile/Tablet, visible on Desktop (lg) */}
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase hidden lg:flex items-center">Deuda</div>
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase hidden lg:flex items-center">Estado</div>
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase hidden lg:flex items-center">Dias Libres</div>
 
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center">Pagado</div>
-                    {/* Hiding SIM and Status on Mobile/Tablet, visible on Desktop (lg) */}
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Deuda</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Estado</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase hidden lg:flex items-center">Dias Libres</div>
-
-
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">Motor</div>
-                    <div className="text-xs font-semibold tracking-wide text-gray-400 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center justify-center">Motor</div>
+                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
                 </div>
 
                 {/* Body Rows */}
                 <div className="divide-y divide-gray-50">
                     {filteredDevices.map((device) => (
-                        <div key={device._id} className="grid grid-cols-4 lg:grid-cols-7 gap-6 px-2 py-2 hover:bg-gray-50/50 transition-colors items-center text-sm">
-                            <div className="font-semibold text-gray-900 flex items-center">
+                        <div key={device._id} className="grid grid-cols-[3fr_2fr_3.5fr_1.5fr] lg:grid-cols-7 gap-1 lg:gap-6 px-2 lg:px-4 py-3 hover:bg-gray-50/50 transition-colors items-center text-xs lg:text-sm">
+                            <div className="font-semibold text-gray-900 flex items-center overflow-hidden">
                                 <a
                                     href={`/p/${device.name}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-gray-900 cursor-pointer hover:text-gray-600 flex flex-col"
+                                    className="text-gray-900 cursor-pointer hover:text-gray-600 flex flex-col w-full"
                                 >
-                                    <span className="text-gray-900 font-medium">{device.name}</span>
+                                    <span className="text-gray-900 font-medium truncate">{device.name}</span>
                                     {device.contractId && (
-                                        <span className="text-[8px] text-gray-400">
+                                        <span className="text-[9px] lg:text-[10px] text-gray-400 truncate">
                                             {device.contractId}
                                         </span>
                                     )}
                                 </a>
                             </div>
-                            <div className="text-emerald-600 flex items-center font-bold">
+                            <div className="text-emerald-600 flex items-center justify-center font-bold">
                                 ${(device.monthPaid || 0).toLocaleString()}
                             </div>
-                            <div className={`flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                            <div className={`hidden lg:flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                                 ${(device.monthDebt || 0).toLocaleString()}
                             </div>
                             <div className="text-gray-500 hidden lg:flex items-center">
                                 {device.status ? (
-                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium">
+                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-[10px] lg:text-xs font-medium">
                                         {device.status}
                                     </span>
                                 ) : (
                                     <span className="contract-none text-gray-300">--</span>
                                 )}
                             </div>
-                            <div className="text-blue-600 flex items-center font-bold pl-4">
+                            <div className="text-blue-600 hidden lg:flex items-center font-bold pl-4">
                                 {device.freeDays || 0}
                             </div>
 
-                            <div className="flex items-center justify-center gap-4">
+                            <div className="flex items-center justify-center gap-1.5 lg:gap-4">
                                 {/* Motor Status */}
                                 <div className={`flex flex-col items-center justify-center ${device.cutOff === 1 ? 'text-red-500' :
                                     device.cutOff === 2 ? 'text-yellow-500' :
@@ -462,71 +567,75 @@ const DeviceManagement = () => {
                                     <MotorIcon />
                                 </div>
                                 {/* Battery Status */}
-                                <div className={`flex items-center gap-1 ${device.batteryLevel > 70 ? 'text-emerald-500' :
+                                <div className={`flex items-center ${device.batteryLevel > 70 ? 'text-emerald-500' :
                                     device.batteryLevel > 30 ? 'text-yellow-500' :
                                         'text-red-500'
                                     }`}>
                                     {device.batteryLevel > 70 ? (
-                                        <BatteryFull size={20} />
+                                        <BatteryFull size={16} className="lg:w-5 lg:h-5" />
                                     ) : device.batteryLevel > 30 ? (
-                                        <BatteryMedium size={20} />
+                                        <BatteryMedium size={16} className="lg:w-5 lg:h-5" />
                                     ) : (
-                                        <BatteryLow size={20} className="animate-pulse" />
+                                        <BatteryLow size={16} className="animate-pulse lg:w-5 lg:h-5" />
                                     )}
                                 </div>
                                 {/* Engine Toggle Slider */}
-                                <div className="flex items-center">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEngineToggle(device);
-                                        }}
-                                        disabled={pendingCommands[device.id]}
-                                        className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
-                                        title={device.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
-                                    >
-                                        <div className="slider-knob">
-                                            {pendingCommands[device.id] ? (
-                                                <RefreshCw size={12} className="spin" />
-                                            ) : (
+                                <div className="flex items-center scale-75 lg:scale-100 transform origin-left">
+                                    {user?.role !== 'viewer' ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEngineToggle(device);
+                                            }}
+                                            disabled={pendingCommands[device.id]}
+                                            className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
+                                            title={device.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
+                                        >
+                                            <div className="slider-knob">
+                                                {pendingCommands[device.id] ? (
+                                                    <RefreshCw size={12} className="spin" />
+                                                ) : (
+                                                    <Power size={12} />
+                                                )}
+                                            </div>
+                                        </button>
+                                    ) : (
+                                        <div
+                                            className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'}`}
+                                            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                                            title="Solo lectura"
+                                        >
+                                            <div className="slider-knob">
                                                 <Power size={12} />
-                                            )}
+                                            </div>
                                         </div>
-                                    </button>
+                                    )}
                                 </div>
-
-
                             </div>
 
-
-
-
-
-                            <div className="flex items-center justify-center relative action-menu-container">
+                            <div className="flex items-center justify-center gap-1 lg:gap-2">
                                 <button
-                                    className=" text-left  text-sm text-gray-700  flex items-center  transition-colors"
+                                    className="p-1.5 lg:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleShare(device);
                                         setActiveMenuId(null);
                                     }}
                                 >
-                                    <Share2 size={16} className="text-gray-500" />
-
+                                    <Share2 size={16} />
                                 </button>
-                                <button
-                                    className=" text-left px-4 py-2.5 text-sm text-gray-700  flex items-center  "
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditDevice(device);
-                                        setActiveMenuId(null);
-                                    }}
-                                >
-                                    <Edit size={16} className="text-gray-500" />
-
-                                </button>
-
-
+                                {user?.role !== 'viewer' && (
+                                    <button
+                                        className="p-1.5 lg:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditDevice(device);
+                                            setActiveMenuId(null);
+                                        }}
+                                    >
+                                        <Edit size={16} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}

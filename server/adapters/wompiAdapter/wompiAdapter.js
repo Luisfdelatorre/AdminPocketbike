@@ -272,8 +272,8 @@ class WompiAdapter {
     return {
       acceptance_token: acceptanceToken,
       amount_in_cents: amountInCents,
-      currency: currencyCode,
-      signature: this._generateSignature(reference, amountInCents, currencyCode),
+      currency: 'COP',
+      signature: this._generateSignature(reference, amountInCents, 'COP'),
       customer_email: helper.generateEmail(unpaidInvoice.deviceIdName),
       reference: reference,
       payment_method: { type: 'NEQUI', phone_number: phone },

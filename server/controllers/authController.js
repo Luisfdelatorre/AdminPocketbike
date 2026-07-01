@@ -206,11 +206,78 @@ const verifyToken = async (req, res) => {
     }
 };
 
+/**
+ * Switch active company for the current user
+ */
+const switchCompany = async (req, res) => {
+    try {
+        const { targetCompanyId } = req.body;
+        
+        if (!targetCompanyId) {
+            return res.status(400).json({ success: false, error: 'Target company ID is required' });
+        }
+
+        const user = await authService.getUserById(req.auth.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        // Check if user has access to target company
+        let hasAccess = user.isSuperAdmin;
+        
+        if (!hasAccess && user.accessibleCompanies) {
+            const accessibleStr = user.accessibleCompanies.map(id => id.toString());
+            hasAccess = accessibleStr.includes(targetCompanyId.toString());
+        }
+
+        // Also check if it's their primary company
+        if (!hasAccess && user.companyId && user.companyId.toString() === targetCompanyId.toString()) {
+            hasAccess = true;
+        }
+
+        if (!hasAccess) {
+            return res.status(403).json({ success: false, error: 'Not authorized to access this company' });
+        }
+
+        // Fetch company name
+        const { Company } = await import('../models/Company.js');
+        const company = await Company.findById(targetCompanyId);
+        if (!company || !company.isActive) {
+            return res.status(404).json({ success: false, error: 'Company not found or inactive' });
+        }
+
+        // Generate new token
+        const token = authService.generateToken({
+            userId: user.userId,
+            email: user.email,
+            role: user.role,
+            companyId: company._id,
+            companyName: company.name,
+            isSuperAdmin: user.isSuperAdmin,
+            type: 'user'
+        });
+
+        res.json({
+            success: true,
+            data: {
+                token,
+                companyId: company._id,
+                companyName: company.name
+            }
+        });
+
+    } catch (error) {
+        console.error('Switch company error:', error);
+        res.status(500).json({ success: false, error: 'Failed to switch company' });
+    }
+};
+
 export default {
     register,
     login,
     authenticateDevice,
     createDevicePin,
     getMe,
-    verifyToken
+    verifyToken,
+    switchCompany
 };

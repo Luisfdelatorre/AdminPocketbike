@@ -2,6 +2,7 @@ import paymentService from '../services/paymentService.js';
 import contractRepository from '../repositories/contractRepository.js';
 import logger from '../config/logger.js';
 import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
+import helpers from '../utils/helpers.js';
 const { PAYMENT_STATUS, TEMPORARY_RESERVATION_TIMEOUT, DEFAULT_PAYMENT_EMAIL_DOMAIN } = Transaction;
 const { M_REQUEST_SENT } = PAYMENTMESSAGES;
 const paymentController = {
@@ -114,6 +115,71 @@ const paymentController = {
         }
     },
 
+    /*Get daily reconciliation report for Wompi vs Bancolombia*/
+    async getDailyReconciliationReport(req, res) {
+        try {
+            const { month, year } = req.query;
+            const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
+            if (!month || !year) {
+                return res.status(400).json({ success: false, error: 'Month and Year are required' });
+            }
+            
+            let targetCompanyId = null;
+            if (req.auth) {
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                if (!isSystemAdmin) {
+                    targetCompanyId = companyId;
+                }
+            }
+            
+            const result = await paymentService.getDailyReconciliationReport({
+                month: Number(month),
+                year: Number(year),
+                companyId: targetCompanyId
+            });
+
+            res.json({ 
+                success: true, 
+                data: result.report, 
+                reconciledDates: result.reconciledDates 
+            });
+
+        } catch (error) {
+            logger.error('Get reconciliation report error:', error.message);
+            res.status(500).json({ success: false, error: 'Failed to get reconciliation report' });
+        }
+    },
+
+    async toggleReconciliation(req, res) {
+        try {
+            const { date, reconciled, transactionId } = req.body;
+            const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
+            if (!date) {
+                return res.status(400).json({ success: false, error: 'Date is required' });
+            }
+
+            let targetCompanyId = null;
+            if (req.auth) {
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                if (!isSystemAdmin) {
+                    targetCompanyId = companyId;
+                }
+            }
+
+            await paymentService.toggleReconciliation({
+                date,
+                reconciled: Boolean(reconciled),
+                transactionId,
+                companyId: targetCompanyId
+            });
+
+            res.json({ success: true });
+        } catch (error) {
+            logger.error('Toggle reconciliation error:', error.message);
+            res.status(500).json({ success: false, error: 'Failed to toggle reconciliation' });
+        }
+    },
+
     /*Get device online status*/
     async getDeviceStatus(req, res) {
         try {
@@ -183,10 +249,13 @@ const paymentController = {
 
             const status = await paymentService.calculatePaymentStatus(contract);
 
+            const multiplier = helpers.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
+            const amount = status.dailyRate * multiplier;
+
             res.json({
                 success: true,
                 phoneNumber: status.customerPhone,
-                amount: status.dailyRate,
+                amount,
                 freeDays: status.freeDaysAvailable
             });
 

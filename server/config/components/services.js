@@ -1,4 +1,4 @@
-const ServerApi = 'https://pocketbike.app/api';
+const ServerApi = 'https://pocketbike.app/';
 const WompiBaseUrl = 'https://sandbox.wompi.co/v1'; //'https://production.wompi.co/v1' //process.env.WOMPI_BASE_URL ||
 const WOMPI_SECRET = 'prv_test_1U9ImRNhUMsrHKsqQNe1GstIxGDbUPDy';//'prv_test_E2443SePLpRXhM2sZ3ckIlBLG0zryq0Y' //'prv_prod_LbjaEDeBegEqUXHEvKkHImhxatgraWBz' //Llave privada process.env.WOMPI_SECRET ||
 const MEGARASTREO_AUTH_TOKEN = "6810dc94-6117-443d-a47c-23e79ceabf54";

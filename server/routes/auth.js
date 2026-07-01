@@ -40,4 +40,10 @@ router.get('/me', authenticate, authController.getMe);
  */
 router.post('/verify-token', authController.verifyToken);
 
+/**
+ * POST /api/auth/switch-company
+ * Switch active company for user
+ */
+router.post('/switch-company', authenticate, authController.switchCompany);
+
 export default router;

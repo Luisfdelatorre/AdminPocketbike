@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import dayjs from '../config/dayjs.js';
 import { Transaction } from '../config/config.js';
 const { PAYMENT_STATUS } = Transaction;
 
@@ -42,12 +43,21 @@ paymentSchema.statics.totalPerDayByDevice = async function (query) {
     };
 
     if (query.date) {
-        match.invoiceDate = query.date;
+        match.finalized_at = query.date;
     }
 
+    let companyTz = 'America/Bogota';
     if (query.companyId) {
         match.companyId = new mongoose.Types.ObjectId(query.companyId);
+        try {
+            const company = await mongoose.model('Company').findById(query.companyId);
+            if (company && company.timezone) companyTz = company.timezone;
+        } catch (e) {
+            console.error('Failed to get company timezone', e);
+        }
     }
+
+    const timezoneOffsetMs = dayjs().tz(companyTz).utcOffset() * 60000;
 
     return await this.aggregate([
         {
@@ -60,8 +70,7 @@ paymentSchema.statics.totalPerDayByDevice = async function (query) {
                     date: {
                         $dateToString: {
                             format: "%Y-%m-%d",
-                            date: "$finalized_at", // Group by payment date for receipt auditing
-                            timezone: "America/Bogota" // Convert UTC to Colombia timezone
+                            date: { $add: ["$finalized_at", timezoneOffsetMs] } // Shift UTC dynamically based on company config
                         }
                     }
                 },

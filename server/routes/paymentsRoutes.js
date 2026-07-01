@@ -29,6 +29,10 @@ router.get('/all', authenticate, paymentController.getPaymentHistory);
 // Get payment summary matrix
 router.get('/allPayments', authenticate, paymentController.getPaymentSummary);
 
+// Get daily reconciliation report
+router.get('/reconciliation', authenticate, paymentController.getDailyReconciliationReport);
+router.post('/reconciliation/toggle', authenticate, paymentController.toggleReconciliation);
+
 // Export payments as CSV (month/year via query params)
 router.get('/export', authenticate, paymentController.exportCSV);
 

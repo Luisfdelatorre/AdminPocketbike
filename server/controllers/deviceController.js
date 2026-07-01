@@ -3,9 +3,11 @@ import { DeviceAccess } from '../models/DeviceAccess.js';
 import { Contract } from '../models/Contract.js';
 import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
+import { Invoice } from '../models/Invoice.js';
 import deviceServices from '../services/deviceServices.js';
 import companyService from '../services/companyService.js';
 import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
+import logger from '../utils/logger.js';
 
 const getAllDevices = async (req, res) => {
     try {
@@ -293,6 +295,35 @@ const controlEngine = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/devices/cutoff-debtors
+ * Cuts off engine for all devices that have unpaid debt (debtors).
+ * Logic runs server-side: checks each device's invoice balance.
+ */
+const cutoffDebtors = async (req, res) => {
+    try {
+        const { companyId } = req.auth;
+
+        const { results, successCount, alreadyOffCount, failedCount } = await deviceServices.cutoffDebtors(companyId);
+
+        if (results.length === 0) {
+            return res.json({ success: true, message: 'No morosos found', results: [] });
+        }
+
+        logger.info(`[CUTOFF-DEBTORS] Done: ${successCount} cut off, ${alreadyOffCount} already off, ${failedCount} failed`);
+
+        return res.json({
+            success: true,
+            message: `${successCount} moto(s) apagadas, ${alreadyOffCount} ya estaban apagadas, ${failedCount} fallaron`,
+            results
+        });
+
+    } catch (error) {
+        logger.error('[CUTOFF-DEBTORS] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 export default {
     getAllDevices,
     createDevice,
@@ -300,5 +331,6 @@ export default {
     deleteDevice,
     syncDevices,
     assignDevicesToCompany,
-    controlEngine
+    controlEngine,
+    cutoffDebtors
 };

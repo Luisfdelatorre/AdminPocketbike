@@ -1,0 +1,23 @@
+# Media files (Stops instant credit drain)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.webp
+*.ico
+*.mp4
+*.mov
+*.avi
+
+# Build and environment directories
+node_modules/
+.git/
+build/
+dist/
+.env
+
+# Logs and databases
+*.log
+*.sqlite
+*.db

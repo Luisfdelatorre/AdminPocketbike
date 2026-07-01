@@ -2,7 +2,7 @@ import dayjs from '../config/dayjs.js';
 import { nanoid } from 'nanoid';
 import { Transaction } from '../config/config.js';
 
-const { defaultCustomer } = Transaction;
+const { defaultCustomer, BILLING_MULTIPLIERS } = Transaction;
 // TIMEZONE is handled by dayjs config already
 
 // Explicit helper to ensure 'today' is always interpreted in the project timezone
@@ -82,6 +82,10 @@ function generateDeviceId(plate) {
 
     return (((((a * 10 + d5) * 10 + d4) * 36 + c) * 36 + b) * 36 + z);
 }
+function getBillingMultiplier(frequency, freeDayPolicy) {
+    const policyMap = BILLING_MULTIPLIERS[freeDayPolicy] || BILLING_MULTIPLIERS.FLEXIBLE;
+    return policyMap[frequency] ?? frequency ?? 1;
+}
 
 export default {
     getToday,
@@ -98,4 +102,5 @@ export default {
     generateInvoiceIdInitialFee,
     generateDeviceId,
     generateContractId,
+    getBillingMultiplier,
 };

@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useOutletContext } from 'react-router-dom';
+import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft } from 'lucide-react';
 import { getSettings, updateSettings, syncDevices } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import './Settings.css';
 
 const Settings = () => {
+    const { settingsTab, setSettingsTab } = useOutletContext() || {};
+    const [localActiveTab, setLocalActiveTab] = useState('branding');
+
+    const activeTab = settingsTab || localActiveTab;
+    const setActiveTab = setSettingsTab || setLocalActiveTab;
+
     const { t } = useTranslation();
     const [settings, setSettings] = useState({
         currency: 'COP',
@@ -50,7 +58,12 @@ const Settings = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
-    const [activeTab, setActiveTab] = useState('branding');
+    const [portalElement, setPortalElement] = useState(null);
+
+    useEffect(() => {
+        setPortalElement(document.getElementById('mobile-header-actions'));
+    }, []);
+
 
     const handleSyncDevices = async () => {
         setSyncState({ loading: true, result: null, error: null });
@@ -390,12 +403,31 @@ const Settings = () => {
 
     return (
         <div className="settings-page">
+            {portalElement && createPortal(
+                <button
+                    onClick={handleSave}
+                    className="btn-header-save"
+                    title={t('settings.actions.save')}
+                    style={{ border: 'none', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: '8px' }}
+                >
+                    <Save size={20} style={{ color: '#0d9488' }} />
+                </button>,
+                portalElement
+            )}
             {/* Header */}
-            <div className="page-header">
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <div>
-                    <h1>⚙️ {t('settings.title')}</h1>
-                    <p>{t('settings.subtitle')}</p>
+                    <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>⚙️ {t('settings.title')}</h1>
+                    <p style={{ margin: '4px 0 0 0', color: '#6B7280', fontSize: '14px' }} className="desktop-only">{t('settings.subtitle')}</p>
                 </div>
+                <button
+                    onClick={handleSave}
+                    className="btn-header-save"
+                    title={t('settings.actions.save')}
+                    style={{ background: '#f0fdfa', border: '1px solid #0d9488', color: '#0d9488', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                    <Save size={18} />
+                </button>
             </div>
 
             {/* Settings Sections */}
@@ -428,126 +460,108 @@ const Settings = () => {
                     </button>
                 </div>
 
-                {/* Company Branding */}
+                {/* ── BRANDING TAB ── */}
                 {activeTab === 'branding' && (
-                    <div className="settings-section">
-                        <div className="section-header">
-                            <ImageIcon size={20} />
-                            <h2>{t('settings.branding.title')}</h2>
-                            <button
-                                className={`btn-save-section ${savedSections.branding ? 'btn-saved' : ''}`}
-                                onClick={() => handleSaveSection('branding')}
-                                disabled={savingSections.branding}
-                            >
-                                {savingSections.branding ? t('settings.actions.saving') : savedSections.branding ? t('settings.actions.saveSection') : <Save size={16} />}
-                            </button>
+                    <div className="settings-card-section">
+                        <div className="card-section-header" style={{ marginBottom: '1rem' }}>
+                            <div className="card-title-group">
+                                <Building size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Configuración de Empresa</h2>
+                            </div>
+                            <i className="info-icon-mobile" title={t('settings.branding.displayNameDesc')}>i</i>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-                            <div className="setting-item" style={{ flex: 1, marginBottom: 0 }}>
-                                <label htmlFor="displayName">
+                        <div className="setting-item" style={{ marginBottom: '1rem' }}>
+                            <label htmlFor="displayName" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <ImageIcon size={16} />
-                                    {t('settings.branding.displayName')}
-                                </label>
-                                <input
-                                    id="displayName"
-                                    type="text"
-                                    value={settings.displayName}
-                                    onChange={(e) => handleChange('displayName', e.target.value)}
-                                    placeholder="PocketBike"
-                                    className="input-display-name"
-                                />
-                                <p className="setting-description">
-                                    {t('settings.branding.displayNameDesc')}
-                                </p>
-                            </div>
-                            <div className="setting-item" style={{ flex: 1, marginBottom: 0 }}>
-                                <label htmlFor="emailDomain">{t('settings.branding.emailDomain')}</label>
-                                <div className="input-group">
-                                    <span className="input-prefix" style={{ background: '#F9FAFB', border: '1px solid #D1D5DB', borderRight: 'none', padding: '0.875rem 1rem', borderRadius: '0.5rem 0 0 0.5rem', color: '#6B7280', fontSize: '1rem', display: 'flex', alignItems: 'center', height: '100%' }}>@</span>
-                                    <input
-                                        id="emailDomain"
-                                        type="text"
-                                        value={settings.contractDefaults?.emailDomain || 'pocketbike.app'}
-                                        onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
-                                        placeholder="pocketbike.app"
-                                        className="input-display-name"
-                                        style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, marginLeft: '-1rem' }}
-                                    />
-                                </div>
-                                <p className="setting-description">
-                                    {t('settings.branding.emailDomainDesc')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="setting-item">
-                            <label htmlFor="companyLogo">
-                                <ImageIcon size={16} />
-                                {t('settings.branding.logo')}
+                                    Nombre visible de la Empresa
+                                </span>
+                                <i className="info-icon-mobile" title={t('settings.branding.displayNameDesc')}>i</i>
                             </label>
-                            <div className="branding-upload-area">
-                                <div className="current-logo-container">
-                                    <img
-                                        src={settings.companyLogo}
-                                        alt={t('settings.branding.logo')}
-                                        onError={(e) => {
-                                            e.target.src = '/pocketbike_60x60.jpg';
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn-edit-logo"
-                                        onClick={() => document.getElementById('companyLogo').click()}
-                                        title={t('settings.branding.changeLogo')}
-                                    >
-                                        <Edit2 size={14} />
-                                    </button>
+                            <input
+                                id="displayName"
+                                type="text"
+                                value={settings.displayName}
+                                onChange={(e) => handleChange('displayName', e.target.value)}
+                                placeholder="PocketBike"
+                                className="input-display-name"
+                            />
+                            <div className="settings-inline-row">
+                                <div className="settings-form-group" style={{ flex: 1 }}>
+                                    <label htmlFor="emailDomain" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>Dominio de Correo por Defecto</span>
+                                        <i className="info-icon-mobile" title={t('settings.branding.emailDomainDesc')}></i>
+                                    </label>
+                                    <div className="input-group" style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div style={{ background: '#F1F5F9', border: '1px solid #D1D5DB', padding: '0.875rem 1.25rem', borderRadius: '0.5rem', color: '#6B7280', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>@</div>
+                                        <input
+                                            id="emailDomain"
+                                            type="text"
+                                            value={settings.contractDefaults?.emailDomain || 'pocketbike.app'}
+                                            onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
+                                            placeholder="pocketbike.app"
+                                            className="input-display-name"
+                                        />
+                                    </div>
                                 </div>
-
-                                <div
-                                    className="upload-dropzone"
-                                    onClick={() => document.getElementById('companyLogo').click()}
-                                >
-                                    <span className="upload-text">{t('settings.branding.uploadNew')}</span>
-                                </div>
-
-                                <input
-                                    id="companyLogo"
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleLogoUpload}
-                                    style={{ display: 'none' }}
-                                />
                             </div>
-                            <p className="upload-hint-text">
-                                {t('settings.branding.recommended')}
-                            </p>
+
+                            <div className="setting-item" style={{ marginBottom: 0 }}>
+                                <label htmlFor="companyLogo" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <ImageIcon size={16} />
+                                    LOGO DE LA EMPRESA
+                                </label>
+                                <div className="branding-upload-area" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                                    <div
+                                        className="current-logo-container"
+                                        onClick={() => document.getElementById('companyLogo').click()}
+                                        style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '12px', cursor: 'pointer' }}
+                                    >
+                                        <img
+                                            src={settings.companyLogo}
+                                            alt={t('settings.branding.logo')}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }}
+                                            onError={(e) => {
+                                                e.target.src = '/pocketbike_60x60.jpg';
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="btn-edit-logo"
+                                            onClick={(e) => { e.stopPropagation(); document.getElementById('companyLogo').click(); }}
+                                            title={t('settings.branding.changeLogo')}
+                                            style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '28px', height: '28px', borderRadius: '50%', background: '#0d9488', border: '2px solid white', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                    </div>
+
+                                    <input
+                                        id="companyLogo"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleLogoUpload}
+                                        style={{ display: 'none' }}
+                                    />
+                                </div>
+                                <p className="upload-hint-text" style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                                    RECOMENDADO: 60X60PX, PNG O JPG, MÁX 2MB
+                                </p>
+                            </div>
                         </div>
                     </div>
                 )}
-                {/* Automatic Cut-Off & Curfew Settings */}
+
+                {/* ── BUSINESS TAB ── */}
                 {activeTab === 'business' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }}>
-
-                        {/* Automatic Cut-Off Settings */}
-                        <div className="settings-section">
-                            <div className="section-header">
-                                <Clock size={20} />
-                                <h2>{t('settings.cutoff.title')}</h2>
-                                <button
-                                    className={`btn-save-section ${savedSections.cutoff ? 'btn-saved' : ''}`}
-                                    onClick={() => handleSaveSection('cutoff')}
-                                    disabled={savingSections.cutoff}
-                                >
-                                    {savingSections.cutoff ? t('settings.actions.saving') : savedSections.cutoff ? t('settings.actions.saveSection') : <Save size={16} />}
-                                </button>
-                            </div>
-
-                            <div className="setting-item toggle-item">
-                                <div className="setting-info">
-                                    <label htmlFor="automaticCutOff">{t('settings.cutoff.enable')}</label>
-
+                    <div className="settings-modern-container">
+                        {/* Automatic Cut-Off */}
+                        <div className="settings-card-section">
+                            <div className="card-section-header">
+                                <div className="card-title-group">
+                                    <Clock size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Corte Automático</h2>
                                 </div>
                                 <input
                                     id="automaticCutOff"
@@ -559,58 +573,46 @@ const Settings = () => {
                             </div>
 
                             {settings.automaticCutOff && (
-                                <div className="integration-fields">
-                                    <div className="setting-item">
-                                        <label htmlFor="cutOffTime">{t('settings.cutoff.cutOffTime')}</label>
-                                        <input
-                                            id="cutOffTime"
-                                            type="time"
-                                            value={settings.cutOffTime || '23:59'}
-                                            onChange={(e) => handleChange('cutOffTime', e.target.value)}
-                                            className="time-input"
-                                        />
-                                        <p className="setting-description">
-                                            {t('settings.cutoff.cutOffTimeDesc')}
-                                        </p>
+                                <div className="settings-card-content">
+                                    <div className="settings-card-row">
+                                        <label htmlFor="cutOffTime">Hora de Corte</label>
+                                        <div className="settings-card-input-wrapper">
+                                            <input
+                                                id="cutOffTime"
+                                                type="time"
+                                                value={settings.cutOffTime || '23:59'}
+                                                onChange={(e) => handleChange('cutOffTime', e.target.value)}
+                                                className="modern-time-input"
+                                            />
+                                            <Clock size={16} className="input-inner-icon" />
+                                            <i className="info-icon-mobile" title={t('settings.cutoff.cutOffTimeDesc')}>i</i>
+                                        </div>
                                     </div>
-                                    <div className="setting-item">
-                                        <label htmlFor="cutOffStrategy">{t('settings.cutoff.strategy')}</label>
-                                        <select
-                                            id="cutOffStrategy"
-                                            value={settings.cutOffStrategy}
-                                            onChange={(e) => handleChange('cutOffStrategy', parseInt(e.target.value))}
-                                            className="strategy-select"
-                                        >
-                                            <option value={1}>{t('settings.cutoff.strategy1')}</option>
-                                            <option value={2}>{t('settings.cutoff.strategy2')}</option>
-                                            <option value={3}>{t('settings.cutoff.strategy3')}</option>
-                                        </select>
-                                        <p className="setting-description">
-                                            {t('settings.cutoff.strategyDesc')}
-                                        </p>
+                                    <div className="settings-card-row">
+                                        <label htmlFor="cutOffStrategy">Estrategia de Corte</label>
+                                        <div className="settings-card-input-wrapper">
+                                            <select
+                                                id="cutOffStrategy"
+                                                value={settings.cutOffStrategy}
+                                                onChange={(e) => handleChange('cutOffStrategy', parseInt(e.target.value))}
+                                                className="modern-select"
+                                            >
+                                                <option value={1}>{t('settings.cutoff.strategy1')}</option>
+                                                <option value={2}>{t('settings.cutoff.strategy2')}</option>
+                                                <option value={3}>{t('settings.cutoff.strategy3')}</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* Nightly Curfew Settings */}
-                        <div className="settings-section">
-                            <div className="section-header">
-                                <Clock size={20} />
-                                <h2>{t('settings.cutoff.curfewTitle')}</h2>
-                                <button
-                                    className={`btn-save-section ${savedSections.curfew ? 'btn-saved' : ''}`}
-                                    onClick={() => handleSaveSection('curfew')}
-                                    disabled={savingSections.curfew}
-                                >
-                                    {savingSections.curfew ? t('settings.actions.saving') : savedSections.curfew ? t('settings.actions.saveSection') : <Save size={16} />}
-                                </button>
-                            </div>
-
-                            <div className="setting-item toggle-item">
-                                <div className="setting-info">
-                                    <label htmlFor="curfewEnabled">{t('settings.cutoff.curfewEnable')}</label>
-
+                        {/* Nightly Curfew */}
+                        <div className="settings-card-section">
+                            <div className="card-section-header">
+                                <div className="card-title-group">
+                                    <Clock size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Apagado Nocturno</h2>
                                 </div>
                                 <input
                                     id="curfewEnabled"
@@ -622,210 +624,185 @@ const Settings = () => {
                             </div>
 
                             {settings.curfew?.enabled && (
-                                <div className="integration-fields">
-                                    <div className="setting-item">
-                                        <label htmlFor="curfewStartTime">{t('settings.cutoff.startTime')}</label>
-                                        <input
-                                            id="curfewStartTime"
-                                            type="time"
-                                            value={settings.curfew?.startTime || '00:05'}
-                                            onChange={(e) => handleNestedChange('curfew', 'startTime', e.target.value)}
-                                            className="time-input"
-                                        />
-                                        <p className="setting-description">
-                                            {t('settings.cutoff.startTimeDesc')}
-                                        </p>
+                                <div className="settings-card-content curfew-grid">
+                                    <div className="curfew-col">
+                                        <label htmlFor="curfewStartTime" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#64748b' }}>
+                                            <Clock size={14} /> Apagado
+                                        </label>
+                                        <div className="settings-card-input-wrapper">
+                                            <input
+                                                id="curfewStartTime"
+                                                type="time"
+                                                value={settings.curfew?.startTime || '00:05'}
+                                                onChange={(e) => handleNestedChange('curfew', 'startTime', e.target.value)}
+                                                className="modern-time-input"
+                                            />
+                                            <Clock size={16} className="input-inner-icon" />
+                                        </div>
                                     </div>
-                                    <div className="setting-item">
-                                        <label htmlFor="curfewEndTime">{t('settings.cutoff.endTime')}</label>
-                                        <input
-                                            id="curfewEndTime"
-                                            type="time"
-                                            value={settings.curfew?.endTime || '04:00'}
-                                            onChange={(e) => handleNestedChange('curfew', 'endTime', e.target.value)}
-                                            className="time-input"
-                                        />
-                                        <p className="setting-description">
-                                            {t('settings.cutoff.endTimeDesc')}
-                                        </p>
+                                    <div className="curfew-col">
+                                        <label htmlFor="curfewEndTime" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#64748b' }}>
+                                            <Clock size={14} /> Encendido
+                                        </label>
+                                        <div className="settings-card-input-wrapper">
+                                            <input
+                                                id="curfewEndTime"
+                                                type="time"
+                                                value={settings.curfew?.endTime || '04:00'}
+                                                onChange={(e) => handleNestedChange('curfew', 'endTime', e.target.value)}
+                                                className="modern-time-input"
+                                            />
+                                            <Clock size={16} className="input-inner-icon" />
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
-                    </div>
-                )}
-                {/* General Settings */}
-                {activeTab === 'business' && (
-                    <div className="settings-section">
-                        <div className="section-header">
-                            <Database size={20} />
-                            <h2>{t('settings.general.title')}</h2>
-                            <button
-                                className={`btn-save-section ${savedSections.general ? 'btn-saved' : ''}`}
-                                onClick={() => handleSaveSection('general')}
-                                disabled={savingSections.general}
-                            >
-                                {savingSections.general ? t('settings.actions.saving') : savedSections.general ? t('settings.actions.saveSection') : <Save size={16} />}
-                            </button>
-                        </div>
 
-                        {/* 2-Column Grid Container */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
-
-                            <div className="setting-item">
-                                <label htmlFor="dailyRate">{t('settings.general.dailyRate')}</label>
-                                <div className="input-group">
-                                    <input
-                                        id="dailyRate"
-                                        type="number"
-                                        value={settings.contractDefaults?.dailyRate || 35000}
-                                        onChange={(e) => handleNestedChange('contractDefaults', 'dailyRate', parseInt(e.target.value))}
-                                        placeholder={formatCurrency(settings.contractDefaults?.dailyRate || '$35000')}
-                                    />
-
+                        {/* General Settings */}
+                        <div className="settings-card-section">
+                            <div className="card-section-header">
+                                <div className="card-title-group">
+                                    <Database size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Ajustes Generales</h2>
                                 </div>
-                                <p className="setting-description">
-                                    {t('settings.general.dailyRateDesc')}
-                                </p>
                             </div>
 
-                            <div className="setting-item">
-                                <label htmlFor="contractDays">{t('settings.general.contractDays')}</label>
-                                <input
-                                    id="contractDays"
-                                    type="number"
-                                    value={settings.contractDefaults?.contractDays || 500}
-                                    onChange={(e) => handleNestedChange('contractDefaults', 'contractDays', parseInt(e.target.value))}
-                                    placeholder="500"
-                                />
-                                <p className="setting-description">
-                                    {t('settings.general.contractDaysDesc')}
-                                </p>
-                            </div>
+                            <div className="settings-card-content general-form">
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="dailyRate">Tarifa Diaria base (COP)</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="dailyRate"
+                                                type="number"
+                                                value={settings.contractDefaults?.dailyRate || 35000}
+                                                onChange={(e) => handleNestedChange('contractDefaults', 'dailyRate', parseInt(e.target.value))}
+                                                placeholder="35000"
+                                            />
+                                            <i className="info-icon-mobile" title={t('settings.general.dailyRateDesc')}>i</i>
+                                        </div>
+                                    </div>
 
-                            <div className="setting-item">
-                                <label htmlFor="freeDayPolicy">{t('settings.general.freeDayPolicy')}</label>
-                                <select
-                                    id="freeDayPolicy"
-                                    value={settings.contractDefaults?.freeDayPolicy || 'FLEXIBLE'}
-                                    onChange={(e) => handleNestedChange('contractDefaults', 'freeDayPolicy', e.target.value)}
-                                >
-                                    <option value="FLEXIBLE">{t('settings.general.policyFlexible')}</option>
-                                    <option value="FIXED_WEEKDAY">{t('settings.general.policyFixed')}</option>
-                                </select>
-                                <p className="setting-description">
-                                    {t('settings.general.freeDayPolicyDesc')}
-                                </p>
-                            </div>
-
-                            {settings.contractDefaults?.freeDayPolicy !== 'FIXED_WEEKDAY' ? (
-                                <div className="setting-item" style={{ marginLeft: '1rem', borderLeft: '2px solid var(--border-color)', paddingLeft: '1rem' }}>
-                                    <label htmlFor="freeDaysLimit">{t('settings.general.freeDaysLimit')}</label>
-                                    <input
-                                        id="freeDaysLimit"
-                                        type="number"
-                                        value={settings.contractDefaults?.freeDaysLimit || 4}
-                                        onChange={(e) => handleNestedChange('contractDefaults', 'freeDaysLimit', parseInt(e.target.value))}
-                                        placeholder="4"
-                                    />
-                                    <p className="setting-description">
-                                        {t('settings.general.freeDaysLimitDesc')}
-                                    </p>
+                                    <div className="settings-form-group">
+                                        <label htmlFor="contractDays">Días de Contrato</label>
+                                        <div className="modern-input-box">
+                                            <input
+                                                id="contractDays"
+                                                type="number"
+                                                value={settings.contractDefaults?.contractDays || 500}
+                                                onChange={(e) => handleNestedChange('contractDefaults', 'contractDays', parseInt(e.target.value))}
+                                                placeholder="500"
+                                            />
+                                            <span className="suffix">días</span>
+                                            <i className="info-icon-mobile" title={t('settings.general.contractDaysDesc')}>i</i>
+                                        </div>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="setting-item" style={{ borderLeft: '2px solid var(--border-color)' }}>
-                                    <label htmlFor="fixedFreeDayOfWeek">{t('settings.general.fixedFreeDay')}</label>
+
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="freeDayPolicy">Política de Días Libres</label>
+                                        <div className="modern-input-box">
+                                            <select
+                                                id="freeDayPolicy"
+                                                value={settings.contractDefaults?.freeDayPolicy || 'FLEXIBLE'}
+                                                onChange={(e) => handleNestedChange('contractDefaults', 'freeDayPolicy', e.target.value)}
+                                            >
+                                                <option value="FLEXIBLE">{t('settings.general.policyFlexible')}</option>
+                                                <option value="FIXED_WEEKDAY">{t('settings.general.policyFixed')}</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {settings.contractDefaults?.freeDayPolicy !== 'FIXED_WEEKDAY' ? (
+                                        <div className="settings-form-group">
+                                            <label htmlFor="freeDaysLimit">Límite de Días Libres</label>
+                                            <div className="modern-input-box">
+                                                <input
+                                                    id="freeDaysLimit"
+                                                    type="number"
+                                                    value={settings.contractDefaults?.freeDaysLimit || 4}
+                                                    onChange={(e) => handleNestedChange('contractDefaults', 'freeDaysLimit', parseInt(e.target.value))}
+                                                    placeholder="4"
+                                                />
+                                                <span className="suffix">días</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="settings-form-group">
+                                            <label htmlFor="fixedFreeDayOfWeek">Día Libre Fijo</label>
+                                            <div className="modern-input-box">
+                                                <select
+                                                    id="fixedFreeDayOfWeek"
+                                                    value={settings.contractDefaults?.fixedFreeDayOfWeek || 0}
+                                                    onChange={(e) => handleNestedChange('contractDefaults', 'fixedFreeDayOfWeek', parseInt(e.target.value))}
+                                                >
+                                                    <option value={0}>{t('settings.general.days.sun')}</option>
+                                                    <option value={1}>{t('settings.general.days.mon')}</option>
+                                                    <option value={2}>{t('settings.general.days.tue')}</option>
+                                                    <option value={3}>{t('settings.general.days.wed')}</option>
+                                                    <option value={4}>{t('settings.general.days.thu')}</option>
+                                                    <option value={5}>{t('settings.general.days.fri')}</option>
+                                                    <option value={6}>{t('settings.general.days.sat')}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="settings-inline-row">
+                                    <div className="settings-form-group" style={{ flex: 1 }}>
+                                        <label htmlFor="initialFee">Cuota Inicial</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="initialFee"
+                                                type="number"
+                                                value={settings.contractDefaults?.initialFee || 0}
+                                                onChange={(e) => handleNestedChange('contractDefaults', 'initialFee', parseInt(e.target.value))}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="settings-form-group" style={{ flex: 1 }}>
+                                        <label htmlFor="currency">Moneda</label>
+                                        <select
+                                            id="currency"
+                                            value={settings.currency}
+                                            onChange={(e) => handleChange('currency', e.target.value)}
+                                            className="modern-select"
+                                        >
+                                            <option value="COP">COP</option>
+                                            <option value="USD">USD</option>
+                                            <option value="EUR">EUR</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="settings-card-row">
+                                    <label htmlFor="timezone">Zona Horaria</label>
                                     <select
-                                        id="fixedFreeDayOfWeek"
-                                        value={settings.contractDefaults?.fixedFreeDayOfWeek || 0}
-                                        onChange={(e) => handleNestedChange('contractDefaults', 'fixedFreeDayOfWeek', parseInt(e.target.value))}
+                                        id="timezone"
+                                        value={settings.timezone}
+                                        onChange={(e) => handleChange('timezone', e.target.value)}
+                                        className="modern-select"
                                     >
-                                        <option value={0}>{t('settings.general.days.sun')}</option>
-                                        <option value={1}>{t('settings.general.days.mon')}</option>
-                                        <option value={2}>{t('settings.general.days.tue')}</option>
-                                        <option value={3}>{t('settings.general.days.wed')}</option>
-                                        <option value={4}>{t('settings.general.days.thu')}</option>
-                                        <option value={5}>{t('settings.general.days.fri')}</option>
-                                        <option value={6}>{t('settings.general.days.sat')}</option>
+                                        <option value="America/Bogota">America/Bogota (UTC-5)</option>
+                                        <option value="America/New_York">America/New_York (UTC-5)</option>
+                                        <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
+                                        <option value="Europe/London">Europe/London (UTC+0)</option>
                                     </select>
-                                    <p className="setting-description">
-                                        {t('settings.general.fixedFreeDayDesc')}
-                                    </p>
                                 </div>
-                            )}
-
-                            <div className="setting-item">
-                                <label htmlFor="initialFee">{t('settings.general.initialFee')}</label>
-                                <div className="input-group">
-                                    <input
-                                        id="initialFee"
-                                        type="number"
-                                        value={settings.contractDefaults?.initialFee || 0}
-                                        onChange={(e) => handleNestedChange('contractDefaults', 'initialFee', parseInt(e.target.value))}
-                                        placeholder={formatCurrency(settings.contractDefaults?.initialFee || 0)}
-                                    />
-
-                                </div>
-                                <p className="setting-description">
-                                    {t('settings.general.initialFeeDesc')}
-                                </p>
                             </div>
-
-                            <div className="setting-item">
-                                <label htmlFor="currency">{t('settings.general.currency')}</label>
-                                <select
-                                    id="currency"
-                                    value={settings.currency}
-                                    onChange={(e) => handleChange('currency', e.target.value)}
-                                >
-                                    <option value="COP">COP (Colombian Peso)</option>
-                                    <option value="USD">USD (US Dollar)</option>
-                                    <option value="EUR">EUR (Euro)</option>
-                                </select>
-                                <p className="setting-description">
-                                    {t('settings.general.currencyDesc')}
-                                </p>
-                            </div>
-
-                            <div className="setting-item">
-                                <label htmlFor="timezone">{t('settings.general.timezone')}</label>
-                                <select
-                                    id="timezone"
-                                    value={settings.timezone}
-                                    onChange={(e) => handleChange('timezone', e.target.value)}
-                                >
-                                    <option value="America/Bogota">America/Bogota (UTC-5)</option>
-                                    <option value="America/New_York">America/New_York (UTC-5)</option>
-                                    <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
-                                    <option value="Europe/London">Europe/London (UTC+0)</option>
-                                </select>
-                                <p className="setting-description">
-                                    {t('settings.general.timezoneDesc')}
-                                </p>
-                            </div>
-
                         </div>
-
-
-
                     </div>
                 )}
 
-                {/* GPS Integration */}
+                {/* ── INTEGRATIONS TAB ── */}
                 {activeTab === 'integrations' && (
                     <div className="settings-section">
-                        <div className="section-header">
-                            <Database size={20} />
-                            <h2>{t('settings.integrations.gpsTitle')}</h2>
-                            <button
-                                className={`btn-save-section ${savedSections.gps ? 'btn-saved' : ''}`}
-                                onClick={() => handleSaveSection('gps')}
-                                disabled={savingSections.gps}
-                            >
-                                {savingSections.gps ? t('settings.actions.saving') : savedSections.gps ? t('settings.actions.saveSection') : <Save size={16} />}
-                            </button>
-                        </div>
-
                         <div className="setting-item">
                             <label htmlFor="gpsService">{t('settings.integrations.selectProvider')}</label>
                             <select
@@ -908,24 +885,7 @@ const Settings = () => {
                             </div>
                         )}
 
-                    </div>
-                )}
-
-                {/* Wompi Integration */}
-                {activeTab === 'integrations' && (
-                    <div className="settings-section">
-                        <div className="section-header">
-                            <DollarSign size={20} />
-                            <h2>{t('settings.integrations.wompiTitle')}</h2>
-                            <button
-                                className={`btn-save-section ${savedSections.wompi ? 'btn-saved' : ''}`}
-                                onClick={() => handleSaveSection('wompi')}
-                                disabled={savingSections.wompi}
-                            >
-                                {savingSections.wompi ? t('settings.actions.saving') : savedSections.wompi ? t('settings.actions.saveSection') : <Save size={16} />}
-                            </button>
-                        </div>
-
+                        {/* Wompi */}
                         <div className="setting-item">
                             <label htmlFor="wPubKey">{t('settings.integrations.publicKey')}</label>
                             <input
@@ -934,6 +894,7 @@ const Settings = () => {
                                 value={settings.wompiConfig.publicKey}
                                 onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
                                 placeholder="pub_test_..."
+                                autoComplete="off"
                             />
                         </div>
 
@@ -945,6 +906,7 @@ const Settings = () => {
                                 value={settings.wompiConfig.privateKey}
                                 onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
                                 placeholder="prv_test_..."
+                                autoComplete="new-password"
                             />
                         </div>
 
@@ -956,6 +918,7 @@ const Settings = () => {
                                 value={settings.wompiConfig.integritySecret}
                                 onChange={(e) => handleNestedChange('wompiConfig', 'integritySecret', e.target.value)}
                                 placeholder="test_integrity_..."
+                                autoComplete="new-password"
                             />
                         </div>
 
@@ -967,22 +930,15 @@ const Settings = () => {
                                 value={settings.wompiConfig.eventsSecret}
                                 onChange={(e) => handleNestedChange('wompiConfig', 'eventsSecret', e.target.value)}
                                 placeholder="test_events_..."
+                                autoComplete="new-password"
                             />
                         </div>
                     </div>
                 )}
 
-
-
-
-                {/* System Info */}
+                {/* ── SYSTEM TAB ── */}
                 {activeTab === 'system' && (
                     <div className="settings-section">
-                        <div className="section-header">
-                            <Database size={20} />
-                            <h2>{t('settings.system.title')}</h2>
-                        </div>
-
                         <div className="info-grid">
                             <div className="info-item">
                                 <div className="info-label">{t('settings.system.version')}</div>
@@ -1031,17 +987,17 @@ const Settings = () => {
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Save All Button */}
-            <div className="settings-actions">
-                <button
-                    className={`btn-save ${saved ? 'btn-saved' : ''}`}
-                    onClick={handleSave}
-                >
-                    <Save />
-                    {saved ? t('settings.actions.allSaved') : t('settings.actions.saveAll')}
-                </button>
+                {/* Save All Button */}
+                <div className="settings-actions">
+                    <button
+                        className={`btn-save ${saved ? 'btn-saved' : ''}`}
+                        onClick={handleSave}
+                    >
+                        <Save />
+                        {saved ? t('settings.actions.allSaved') : t('settings.actions.saveAll')}
+                    </button>
+                </div>
             </div>
 
             {/* Crop Modal */}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import {
     DollarSign, FileText, CreditCard, Users,
-    TrendingUp, TrendingDown
+    TrendingUp, TrendingDown, Download, ListFilter
 } from 'lucide-react';
 // Recharts import removed due to crash issues
 import {
@@ -33,10 +34,16 @@ const AdminDashboard = () => {
     const today = new Date();
     const [selectedMonth, setSelectedMonth] = useState(''); // '' = all year
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+    const [showFilters, setShowFilters] = useState(false);
+    const [portalElement, setPortalElement] = useState(null);
 
     useEffect(() => {
         fetchDashboardData();
     }, [selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        setPortalElement(document.getElementById('mobile-header-actions'));
+    }, []);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -60,23 +67,32 @@ const AdminDashboard = () => {
         }
     };
 
-    const StatCard = ({ title, value, change, icon: Icon, color }) => (
-        <div className="stat-card">
-            {change !== undefined && change !== 0 && (
-                <div className={`stat-change-corner ${change > 0 ? 'positive' : 'negative'}`}>
-                    {change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                    {Math.abs(change)}%
+    const StatCard = ({ title, value, change, icon: Icon, color, className }) => {
+        const formatChange = (val) => {
+            const num = Math.abs(val);
+            return Number.isInteger(num) ? num : num.toFixed(1);
+        };
+
+        return (
+            <div className={`stat-card ${className || ''}`}>
+                <div className="stat-icon" style={{ background: color }}>
+                    <Icon size={18} />
                 </div>
-            )}
-            <div className="stat-icon" style={{ background: color }}>
-                <Icon size={24} />
+                <div className="stat-content">
+                    <h3>{title}</h3>
+                    <div className="stat-value-container">
+                        <span className="stat-value">{value}</span>
+                        {change !== undefined && change !== 0 && (
+                            <span className={`stat-change-inline ${change > 0 ? 'positive' : 'negative'}`}>
+                                {change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                                {formatChange(change)}%
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
-            <div className="stat-content">
-                <h3>{title}</h3>
-                <div className="stat-value">{value}</div>
-            </div>
-        </div>
-    );
+        );
+    };
 
     if (loading) {
         return (
@@ -89,13 +105,79 @@ const AdminDashboard = () => {
         );
     }
 
+    const formatCompact = (value) => {
+        if (!value) return '$0';
+        if (value >= 1000000) {
+            return `$${Math.round(value / 1000000)}M`;
+        }
+        if (value >= 1000) {
+            return `$${Math.round(value / 1000)}k`;
+        }
+        return `$${value}`;
+    };
+
+    const handleDownloadReport = () => {
+        const period = selectedMonth ? `${selectedMonth}-${selectedYear}` : `${selectedYear}`;
+        const csvRows = [];
+
+        // 1. Stats Section
+        csvRows.push(['RESUMEN DEL PERIODO', period]);
+        csvRows.push(['']);
+        csvRows.push(['Metrica', 'Valor (COP/Cantidad)']);
+        csvRows.push(['Ingresos Totales', stats.totalRevenue || 0]);
+        csvRows.push(['Dispositivos Activos', stats.activeDevices || 0]);
+        csvRows.push(['Pagos Pendientes', stats.pendingPayments || 0]);
+        csvRows.push(['Facturado (ano)', stats.totalInvoiced || 0]);
+        csvRows.push(['Cartera Pendiente', stats.collectionGap || 0]);
+        csvRows.push(['']);
+
+        // 2. Recent Payments Section
+        csvRows.push(['PAGOS RECIENTES']);
+        csvRows.push(['']);
+        csvRows.push(['Dispositivo', 'Monto (COP)', 'Estado', 'Fecha']);
+
+        if (recentPayments && recentPayments.length > 0) {
+            recentPayments.forEach(p => {
+                csvRows.push([p.device, p.amount, p.status, p.date]);
+            });
+        } else {
+            csvRows.push(['No hay pagos recientes en este periodo']);
+        }
+
+        // Create CSV content (adding BOM for UTF-8 Excel compatibility)
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
+            + csvRows.map(e => e.join(",")).join("\n");
+
+        // Trigger download
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `reporte_pocketbike_${period}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="dashboard-content">
+            {portalElement && createPortal(
+                <button
+                    type="button"
+                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                    onClick={() => setShowFilters(!showFilters)}
+                    id="filterToggle"
+                >
+                    <ListFilter size={20} />
+                </button>,
+                portalElement
+            )}
+
             <div className="dashboard-header">
                 <div>
                     <h1>{t('dashboard.title')}</h1>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {/* Desktop controls */}
+                <div className="dashboard-controls hidden md:flex">
                     <select
                         value={selectedMonth}
                         onChange={e => setSelectedMonth(e.target.value)}
@@ -117,15 +199,91 @@ const AdminDashboard = () => {
                         <option value={2026}>2026</option>
                         <option value={2027}>2027</option>
                     </select>
-                    <button className="btn-download">📊 {t('dashboard.downloadReport')}</button>
+                    <button className="btn-download" onClick={handleDownloadReport} title={t('dashboard.downloadReport')}>
+                        <Download size={18} className="download-icon" /> Descargar Reporte
+                    </button>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="stats-grid">
+            {/* Mobile collapsible controls & stats */}
+            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection" >
+                <div className=" dashboard-controls">
+                    <select
+                        value={selectedMonth}
+                        onChange={e => setSelectedMonth(e.target.value)}
+                        className="select-control"
+                    >
+                        <option value="">Todo el año</option>
+                        {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        value={selectedYear}
+                        onChange={e => setSelectedYear(Number(e.target.value))}
+                        className="select-control"
+                    >
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                        <option value={2027}>2027</option>
+                    </select>
+                    <button className="btn-download" onClick={handleDownloadReport} title={t('dashboard.downloadReport')}>
+                        <Download size={18} className="download-icon" />
+                        <span className="download-text-desktop">📊 {t('dashboard.downloadReport')}</span>
+                    </button>
+                </div>
+
+                {/* Mobile Collapsible Stats Cards inside the collapsible wrapper */}
+                <div className="stats-grid-mobile-collapsible" style={{ marginTop: '0.25rem', marginBottom: '0.25rem' }}>
+                    <StatCard
+                        title={t('dashboard.stats.totalRevenue')}
+                        value={formatCompact(stats.totalRevenue)}
+                        change={stats.changes?.totalRevenue || 0}
+                        icon={DollarSign}
+                        color="#03C9D7"
+                    />
+                    <StatCard
+                        title={t('dashboard.stats.activeDevices', 'Active Devices')}
+                        value={stats.activeDevices || 0}
+                        change={stats.changes?.activeDevices || 0}
+                        icon={Users}
+                        color="#FB9678"
+                    />
+                    <StatCard
+                        title={t('dashboard.stats.pendingPayments')}
+                        value={stats.pendingPayments}
+                        change={stats.changes?.pendingPayments || 0}
+                        icon={CreditCard}
+                        color="#00C292"
+                    />
+                </div>
+            </div>
+
+            {/* Mobile Permanent Stats Cards (always visible on mobile, hidden on desktop) */}
+            <div className="stats-grid-mobile-permanent md:hidden">
+                <StatCard
+                    title="Facturado (año)"
+                    value={formatCompact(stats.totalInvoiced || 0)}
+                    change={0}
+                    icon={FileText}
+                    color="#7460EE"
+                />
+                <StatCard
+                    title="Cartera Pendiente"
+                    value={formatCompact(stats.collectionGap || 0)}
+                    change={stats.collectionRate ? -(100 - stats.collectionRate) : 0}
+                    icon={TrendingDown}
+                    color="#EF4444"
+                />
+            </div>
+
+            {/* Desktop Stats Cards (always visible on desktop, hidden on mobile) */}
+            <div className="stats-grid hidden md:grid">
                 <StatCard
                     title={t('dashboard.stats.totalRevenue')}
-                    value={`$${stats.totalRevenue.toLocaleString()}`}
+                    value={`$${(stats.totalRevenue || 0).toLocaleString()}`}
                     change={stats.changes?.totalRevenue || 0}
                     icon={DollarSign}
                     color="#03C9D7"
@@ -158,13 +316,6 @@ const AdminDashboard = () => {
                     icon={TrendingDown}
                     color="#EF4444"
                 />
-                {/*  <StatCard
-                    title={t('dashboard.stats.totalDevices')}
-                    value={stats.totalDevices}
-                    change={0}
-                    icon={Users}
-                    color="#7460EE"
-                />*/}
             </div>
             {/*
           
@@ -245,7 +396,7 @@ const AdminDashboard = () => {
                             recentPayments.map(payment => (
                                 <tr key={payment.id}>
                                     <td><strong>{payment.device}</strong></td>
-                                    <td>${payment.amount.toLocaleString()} COP</td>
+                                    <td>${payment.amount.toLocaleString()}</td>
                                     <td>
                                         <span className={`status-badge ${(payment.status || 'unknown').toLowerCase()}`}>
                                             {payment.status || 'Unknown'}

@@ -44,6 +44,7 @@ const deviceSchema = new mongoose.Schema({
     dailyRate: { type: Number, default: 0 }, // Denormalized: Current active daily rate
     exemptFromCutOff: { type: Boolean, default: false }, // Syncs from Contract — exempt from payment-based daily engine stop
     exemptFromCurfew: { type: Boolean, default: false }, // Syncs from Contract — exempt from nightly curfew (toque de queda)
+    cutOffTime: { type: String, default: null }, // Synced from active Contract
     curfewStatus: { type: Boolean, default: false }, // True if currently forced OFF by curfew
     attributes: {
         Cuota: { type: Number, default: DEFAULTAMOUNT },
@@ -54,5 +55,7 @@ const deviceSchema = new mongoose.Schema({
 }, {
     timestamps: true,
 });
+
+deviceSchema.index({ hasActiveContract: 1, cutOff: 1, cutOffTime: 1 });
 
 export const Device = mongoose.model('Device', deviceSchema);

@@ -142,7 +142,8 @@ class DeviceRepository {
                 companyName: contract.companyName,
                 dailyRate: contract.dailyRate,
                 exemptFromCutOff: contract.exemptFromCutOff,
-                exemptFromCurfew: contract.exemptFromCurfew
+                exemptFromCurfew: contract.exemptFromCurfew,
+                cutOffTime: contract.cutOffTime
             };
 
             // Remove undefined/null values to avoid overwriting with null if not provided

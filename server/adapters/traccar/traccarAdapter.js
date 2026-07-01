@@ -37,6 +37,9 @@ class MyTraccar {
         this._onFlushCallback = null;
         this.flushMap = {};
         this.flushTimer = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this._authErrLogged = false;
     }
 
     // ─────────────────────────────────────────
@@ -182,14 +185,25 @@ class MyTraccar {
     //  WebSocket
     // ─────────────────────────────────────────
     startAutoUpdate = async (devices, onFlushCallback) => {
-        console.log('startAutoUpdate', onFlushCallback);
         if (onFlushCallback) this._onFlushCallback = onFlushCallback;
         try {
             const res = await this._api.createSession();
             const cookie = res.headers['set-cookie'];
             this.JSESSIONID = Array.isArray(cookie) ? cookie.join('; ') : cookie;
+            this.reconnectAttempts = 0; // Reset count on success
+            this._authErrLogged = false;
         } catch (e) {
-            logger.error('WebSocket auth failed', e.message);
+            this.reconnectAttempts++;
+            if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+                logger.error(`[Traccar] Max connection attempts reached for user ${this.user}. GPS stream stopped.`);
+                return;
+            }
+            if (!this._authErrLogged) {
+                logger.warn(`[Traccar] WebSocket auth failed for user ${this.user}: ${e.message || e}. Retrying silently...`);
+                this._authErrLogged = true;
+            } else {
+                logger.debug(`[Traccar] WebSocket auth failed (retry): ${e.message || e}`);
+            }
             setTimeout(() => this.startAutoUpdate(), WS_RECONNECT_DELAY);
             return;
         }
@@ -208,12 +222,22 @@ class MyTraccar {
 
         const ws = new WebSocket(wsUrl, [], { headers: { Cookie: this.JSESSIONID } });
 
-        ws.on('open', () => logger.info('WebSocket connected'));
+        ws.on('open', () => {
+            logger.info('WebSocket connected');
+            this.reconnectAttempts = 0;
+            this._authErrLogged = false;
+        });
         ws.on('message', this.onMessage);
         ws.on('error', (err) => { logger.error('WebSocket error', err); ws.close(); });
         ws.on('close', async () => {
             logger.warn(`WebSocket closed — fetching positions manually before reconnect...`);
             await this._performFallbackFetch();
+
+            this.reconnectAttempts++;
+            if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+                logger.error(`[Traccar] Max connection attempts reached. GPS stream stopped.`);
+                return;
+            }
             setTimeout(() => this.startAutoUpdate(), WS_RECONNECT_DELAY);
         });
         this._ws = ws;
@@ -333,8 +357,16 @@ class MyTraccar {
 
     _sendCommand = async (id, command) => {
         const body = new CommandBody(command, id, 0);
-        const res = await this._api.sendCommand(body);
-        return res.data;
+        console.log('Sending command to Traccar:', body);
+        try {
+            console.log('Traccar API:', body);
+            const res = await this._api.sendCommand(body);
+            console.log('Traccar response:', res.data);
+            return res.data;
+        } catch (err) {
+            console.error('Traccar 400 response body:', err.response?.data);
+            throw err;
+        }
     };
 
     _checkDeviceWithRetries = async (traccarId, expectedStatus) => {

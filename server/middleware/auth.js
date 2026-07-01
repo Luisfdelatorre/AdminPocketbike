@@ -17,6 +17,13 @@ export const authenticate = async (req, res, next) => {
         const decoded = authService.verifyToken(token);
         req.auth = decoded;
 
+        // Viewer protection logic: block mutative requests
+        if (req.auth.role === 'viewer' && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+            if (!req.path.includes('/switch-company') && !req.path.includes('/login')) {
+                return res.status(403).json({ success: false, error: 'Viewers are not authorized to modify data' });
+            }
+        }
+
         next();
     } catch (error) {
         return res.status(401).json({

@@ -21,9 +21,15 @@ const {
 } = Transaction;
 
 
-const getInvoiceHistory = async (deviceIdName) => {
-    const startOfMonth = dayjs().startOf('month').toDate();
-    const endOfMonth = dayjs().endOf('month').toDate();
+const getInvoiceHistory = async (deviceIdName, month, year) => {
+    // Default to current month/year if not provided
+    const now = dayjs();
+    const targetMonth = month ? Number(month) : now.month() + 1; // dayjs month is 0-indexed
+    const targetYear  = year  ? Number(year)  : now.year();
+
+    const startOfMonth = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).startOf('month').toDate();
+    const endOfMonth   = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).endOf('month').toDate();
+
     const invoices = await Invoice.find(
         {
             deviceIdName,
@@ -38,13 +44,13 @@ const getInvoiceHistory = async (deviceIdName) => {
             "transaction.reference": 1,
             _id: 0
         }
-    ).sort({ date: -1 }).limit(50).lean();
+    ).sort({ date: -1 }).limit(62).lean();
 
     invoices.forEach(invoice => {
         invoice.status = INVOICE_DAYTYPE_TRANSLATION[invoice.dayType];
         invoice.paymentDate = invoice.transaction?.finalized_at;
     });
-    return invoices;
+    return { invoices, month: targetMonth, year: targetYear };
 };
 
 const getStatusReportData = async (isSystemAdmin, companyId) => {

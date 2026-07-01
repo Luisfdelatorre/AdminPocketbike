@@ -11,7 +11,8 @@ const userController = {
                 email,
                 password,
                 role,
-                companyId
+                companyId,
+                accessibleCompanies
             } = req.body;
 
             const { isSuperAdmin, companyId: adminCompanyId, companyName: adminCompanyName, role: adminRole } = req.auth;
@@ -65,6 +66,7 @@ const userController = {
                 role: role || 'viewer',
                 companyId: company._id,
                 companyName: company.name,
+                accessibleCompanies: (isSystemAdmin && Array.isArray(accessibleCompanies)) ? accessibleCompanies : [company._id],
                 isActive: true
             });
 
@@ -120,7 +122,7 @@ const userController = {
     updateUser: async (req, res) => {
         try {
             const { id } = req.params;
-            const { name, email, password, role, companyId } = req.body;
+            const { name, email, password, role, companyId, accessibleCompanies } = req.body;
             const { isSuperAdmin, companyId: adminCompanyId, companyName: adminCompanyName, role: adminRole } = req.auth;
             const isSystemAdmin = isSuperAdmin || (adminRole === 'admin' && adminCompanyName === 'System');
 
@@ -153,6 +155,10 @@ const userController = {
                     user.companyId = company._id;
                     user.companyName = company.name;
                 }
+            }
+
+            if (isSystemAdmin && Array.isArray(accessibleCompanies)) {
+                user.accessibleCompanies = accessibleCompanies;
             }
 
             await user.save();

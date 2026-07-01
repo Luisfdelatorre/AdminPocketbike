@@ -20,6 +20,14 @@ export const verifyToken = (req, res, next) => {
         // Attach to req.auth for generic use
         req.auth = decoded;
 
+        // Viewer protection logic: block mutative requests
+        if (req.auth.role === 'viewer' && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+            // Exclude specific endpoints like switch-company or login
+            if (!req.path.includes('/switch-company') && !req.path.includes('/login')) {
+                return res.status(403).json({ success: false, error: 'Viewers are not authorized to modify data' });
+            }
+        }
+
         // Also attach to req.paymentAuth if it's a device token, for compatibility with user snippet logic
         if (decoded.deviceIdName) {
             req.paymentAuth = {

@@ -20,6 +20,7 @@ import dashboardRouter from './routes/dashboardRouter.js';
 import deviceAccessRouter from './routes/deviceAccess.js';
 import devicesRouter from './routes/devicesRoutes.js';
 import paymentPageRouter from './routes/paymentPageRoutes.js';
+import companyBillingRouter from './routes/companyBillingRoutes.js';
 import cron from "./cron-server/cron.js";
 const { default: seedSuperAdmin } = await import('./utils/seedSuperAdmin.js');
 
@@ -64,6 +65,7 @@ app.use('/apinode/contracts', contractsRouter);
 app.use('/apinode/dashboard', dashboardRouter);
 app.use('/apinode/device-access', deviceAccessRouter);
 app.use('/apinode/devices', devicesRouter);
+app.use('/apinode/company-invoices', companyBillingRouter);
 
 
 // Serve static files from dist directory (Production Build) - PRIORITY

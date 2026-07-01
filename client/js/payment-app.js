@@ -40,7 +40,9 @@ const STATE = {
     paymentData: null,
     currentPin: '',
     fromLogin: false,
-    eventSource: null
+    eventSource: null,
+    historyMonth: null,   // null = current month
+    historyYear:  null    // null = current year
 };
 
 // ============================================================================
@@ -697,7 +699,7 @@ class PaymentManager {
             // Check device online status
             try {
                 // then in background:
-                setTimeout(() => this.loadHistory(), 0);
+                setTimeout(() => this.loadHistory(STATE.historyMonth, STATE.historyYear), 0);
 
                 // device status can also be background:
                 setTimeout(async () => {
@@ -719,17 +721,57 @@ class PaymentManager {
         }
     }
 
-    async loadHistory() {
+    async loadHistory(month = null, year = null) {
+        const historyBody = this.dom.get('tables.historyBody');
+        const prevBtn = document.getElementById('monthPrevBtn');
+        const nextBtn = document.getElementById('monthNextBtn');
+
+        // ── Guard: disable nav while loading to prevent rapid-click flooding ──
+        if (prevBtn) prevBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
+
         try {
-            //TODO:  getInvoiceHistory with token info
-            const response = await getInvoiceHistory();
-            this.renderHistory(response.data.history);
+            // Show skeleton while loading
+            if (historyBody) {
+                historyBody.innerHTML = '<tr><td colspan="4" class="history-loading"><span class="history-skeleton"></span></td></tr>';
+            }
+
+            const response = await getInvoiceHistory({ month, year });
+            const { history, month: resMonth, year: resYear } = response.data?.data || {};
+
+            // Sync STATE with server-confirmed values
+            STATE.historyMonth = resMonth;
+            STATE.historyYear  = resYear;
+
+            this._updateMonthSelector(resMonth, resYear); // also handles nextBtn.disabled
+            this.renderHistory(history);
         } catch (error) {
             console.error('Load history error:', error);
-            const historyBody = this.dom.get('tables.historyBody');
             if (historyBody) {
                 historyBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Error al cargar historial</td></tr>';
             }
+        } finally {
+            // Always re-enable prevBtn; _updateMonthSelector controls nextBtn
+            if (prevBtn) prevBtn.disabled = false;
+        }
+    }
+
+    /** Update the month selector label and enable/disable the forward button */
+    _updateMonthSelector(month, year) {
+        const label   = document.getElementById('monthLabel');
+        const nextBtn = document.getElementById('monthNextBtn');
+        if (!label) return;
+
+        const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                             'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        label.textContent = `${MONTH_NAMES[month - 1]} ${year}`;
+
+        // Disable next button if already on current month
+        if (nextBtn) {
+            const now = new Date();
+            const isCurrentMonth = (month === now.getMonth() + 1 && year === now.getFullYear());
+            nextBtn.disabled = isCurrentMonth;
+            nextBtn.classList.toggle('month-nav-disabled', isCurrentMonth);
         }
     }
 
@@ -738,7 +780,7 @@ class PaymentManager {
         if (!historyBody) return;
 
         if (!history || history.length === 0) {
-            historyBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Sin historial de pagos</td></tr>';
+            historyBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 16px; color: #9ca3af;">Sin pagos en este mes</td></tr>';
             return;
         }
 
@@ -1097,6 +1139,25 @@ class EventHandler {
 
         const more = this.dom.get('buttons.morePayment');
         if (more) more.addEventListener('click', () => this._toggleMoreOptions());
+
+        // Month navigation — buttons are in the static HTML so use direct listeners
+        const prevBtn = document.getElementById('monthPrevBtn');
+        const nextBtn = document.getElementById('monthNextBtn');
+
+        const navigateMonth = (delta) => {
+            const now = new Date();
+            let m = STATE.historyMonth || (now.getMonth() + 1);
+            let y = STATE.historyYear  || now.getFullYear();
+            m += delta;
+            if (m < 1)  { m = 12; y--; }
+            if (m > 12) { m = 1;  y++; }
+            STATE.historyMonth = m;
+            STATE.historyYear  = y;
+            this.payment.loadHistory(m, y);
+        };
+
+        if (prevBtn) prevBtn.addEventListener('click', () => navigateMonth(-1));
+        if (nextBtn) nextBtn.addEventListener('click', () => { if (!nextBtn.disabled) navigateMonth(1); });
     }
 
     _setupFullscreen() {
@@ -1185,12 +1246,19 @@ class EventHandler {
         const moreSection = this.dom.get('sections.moreOptions');
         const paymentSection = this.dom.get('sections.payment');
         const container = paymentSection?.closest('.container');
+        const monthSelector = document.getElementById('monthSelector');
 
         moreSection?.classList.toggle('expanded');
         paymentSection?.classList.toggle('compact');
         container?.classList.toggle('compact-mode');
 
         const isExpanded = moreSection?.classList.contains('expanded');
+
+        // Show/hide the inline month selector alongside the toggle
+        if (monthSelector) {
+            monthSelector.classList.toggle('month-selector-hidden', !isExpanded);
+        }
+
         this._updateReminderVisibility(isExpanded);
 
         const btn = this.dom.get('buttons.morePayment');

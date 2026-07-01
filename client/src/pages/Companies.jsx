@@ -20,7 +20,11 @@ const Companies = () => {
         phone: '',
         email: '',
         address: '',
-        automaticInvoicing: false
+        automaticInvoicing: false,
+        wompiCommission: -0.01785,
+        transactionFixedFee: 0,
+        transactionPercentage: 0,
+        ivaPercentage: 0.19
     });
     useEffect(() => {
         loadData();
@@ -49,7 +53,7 @@ const Companies = () => {
     };
 
     const resetForm = () => {
-        setCompanyForm({ name: '', nit: '', phone: '', email: '', address: '', automaticInvoicing: false });
+        setCompanyForm({ name: '', nit: '', phone: '', email: '', address: '', automaticInvoicing: false, wompiCommission: -0.01785 });
         setIsEditing(false);
         setEditCompanyId(null);
         setShowCompanyModal(false);
@@ -62,7 +66,11 @@ const Companies = () => {
             phone: company.phone || '',
             email: company.email || '',
             address: company.address || '',
-            automaticInvoicing: company.automaticInvoicing || false
+            automaticInvoicing: company.automaticInvoicing || false,
+            wompiCommission: company.wompiConfig?.wompiCommission ?? -0.01785,
+            transactionFixedFee: company.billingConfig?.transactionFixedFee ?? 0,
+            transactionPercentage: company.billingConfig?.transactionPercentage ?? 0,
+            ivaPercentage: company.billingConfig?.ivaPercentage ?? 0.19
         });
         setIsEditing(true);
         setEditCompanyId(company._id);
@@ -72,11 +80,25 @@ const Companies = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const payload = {
+                ...companyForm,
+                wompiConfig: {
+                    ...selectedCompany?.wompiConfig,
+                    wompiCommission: parseFloat(companyForm.wompiCommission)
+                },
+                billingConfig: {
+                    ...selectedCompany?.billingConfig,
+                    transactionFixedFee: parseFloat(companyForm.transactionFixedFee),
+                    transactionPercentage: parseFloat(companyForm.transactionPercentage),
+                    ivaPercentage: parseFloat(companyForm.ivaPercentage)
+                }
+            };
+            
             let res;
             if (isEditing) {
-                res = await updateCompany(editCompanyId, companyForm);
+                res = await updateCompany(editCompanyId, payload);
             } else {
-                res = await createCompany(companyForm);
+                res = await createCompany(payload);
             }
 
             if (res.success) {
@@ -263,6 +285,46 @@ const Companies = () => {
                                     type="text"
                                     value={companyForm.address}
                                     onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Wompi Commission % (e.g. -0.01785)</label>
+                                <input
+                                    type="number"
+                                    step="0.00001"
+                                    required
+                                    value={companyForm.wompiCommission}
+                                    onChange={e => setCompanyForm({ ...companyForm, wompiCommission: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Facturación: Cargo Fijo por Tx (Ej: 1500)</label>
+                                <input
+                                    type="number"
+                                    step="1"
+                                    required
+                                    value={companyForm.transactionFixedFee}
+                                    onChange={e => setCompanyForm({ ...companyForm, transactionFixedFee: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Facturación: Porcentaje por Tx (Ej: 0.015 para 1.5%)</label>
+                                <input
+                                    type="number"
+                                    step="0.0001"
+                                    required
+                                    value={companyForm.transactionPercentage}
+                                    onChange={e => setCompanyForm({ ...companyForm, transactionPercentage: e.target.value })}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Facturación: IVA (Ej: 0.19 para 19%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    required
+                                    value={companyForm.ivaPercentage}
+                                    onChange={e => setCompanyForm({ ...companyForm, ivaPercentage: e.target.value })}
                                 />
                             </div>
                             <div className="form-group checkbox-group">
