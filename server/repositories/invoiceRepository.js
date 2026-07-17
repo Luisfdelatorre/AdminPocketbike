@@ -47,7 +47,7 @@ export class InvoiceRepository {
     /**
      * Helper to create next day invoice
      */
-    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, gpsId = null, megaDeviceId = null) {
+    async createNextDayInvoice(deviceIdName, amount, deviceId, companyId, date = null, gpsId = null, megaDeviceId = null, contractId = null) {
         // Find last paid invoice to determine next date
         let nextDate;
         if (!date) {
@@ -81,7 +81,8 @@ export class InvoiceRepository {
             deviceId,
             gpsId,
             megaDeviceId,
-            companyId
+            companyId,
+            contractId
         });
         return invoice;
     }
@@ -95,7 +96,7 @@ export class InvoiceRepository {
                 const existingInvoice = await Invoice.findLastUnPaid(deviceIdName);
                 if (existingInvoice) return existingInvoice;
                 // 2️⃣ Create next day invoice
-                return await this.createNextDayInvoice(deviceIdName, contract.dailyRate, contract.deviceId, contract.companyId);
+                return await this.createNextDayInvoice(deviceIdName, contract.dailyRate, contract.deviceId, contract.companyId, null, contract.gpsId, contract.megaDeviceId, contract.contractId);
             } catch (err) {
                 // Duplicate key → another process created it → retry
                 if (err?.code === 11000) {
@@ -110,7 +111,7 @@ export class InvoiceRepository {
     }
 
     async findOrCreateInvoiceByName(contract, date) {
-        const { deviceIdName, deviceId, dailyRate: amount, companyId, gpsId = null } = contract;
+        const { deviceIdName, deviceId, dailyRate: amount, companyId, gpsId = null, contractId = null } = contract;
         try {
             let invoice = await Invoice.findByDate(deviceIdName, date);
             if (!invoice) {
@@ -120,7 +121,8 @@ export class InvoiceRepository {
                     date,
                     deviceId,
                     gpsId,
-                    companyId
+                    companyId,
+                    contractId
                 });
             }
             return invoice;
@@ -425,17 +427,22 @@ export class InvoiceRepository {
             ? multiplier
             : Contract.getBillingMultiplier(frequency, contract.freeDayPolicy);
 
-        let unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName);
+        // v2+ contracts: filter by contractId for strict isolation per contract
+        // v1 legacy contracts: no contractId on invoices — query by device only
+        const isV2 = (contract.schemaVersion ?? 1) >= 2;
+        const contractIdFilter = (isV2 && contract.contractId) ? { contractId: contract.contractId } : {};
+
+        let unpaidInvoices = await Invoice.find({ deviceIdName, paid: false, ...contractIdFilter }).sort({ date: 1 });
         let coveredDays = unpaidInvoices.length;
         if (coveredDays >= targetLimit) {
             logger.info(`[CYCLE] Already ${unpaidInvoices.length} unpaid invoices for ${deviceIdName}, skipping`);
             return unpaidInvoices.slice(0, targetLimit);
         }
-        // Start pre-creating invoices from the day after the latest paid invoice in the database
-        const latestInvoice = await Invoice.findLastPaid(deviceIdName);
-        let currentDate = latestInvoice
-            ? dayjs(latestInvoice.date).add(1, 'day')
-            : dayjs().startOf('day');
+        // Start from the day after the latest paid invoice in THIS contract, or from contract.startDate
+        const latestPaid = await Invoice.findOne({ deviceIdName, paid: true, ...contractIdFilter }).sort({ date: -1 });
+        let currentDate = latestPaid
+            ? dayjs(latestPaid.date).add(1, 'day')
+            : dayjs(contract.startDate).startOf('day');
 
         // Loop until exactly `targetLimit` calendar cycle unpaid days are pre-created
         while (coveredDays < targetLimit) {
@@ -462,7 +469,7 @@ export class InvoiceRepository {
             }
             currentDate = currentDate.add(1, 'day');
         }
-        unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName);
+        unpaidInvoices = await Invoice.find({ deviceIdName, paid: false, ...contractIdFilter }).sort({ date: 1 });
         return unpaidInvoices.slice(0, targetLimit);
     }
 

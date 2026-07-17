@@ -164,11 +164,12 @@ export class AuthService {
 
         if (isValid) {
             // Generate token for device access
-            // We include contractId in the token for context
+            // We include contractId and schemaVersion in the token for context
             const token = this.generateToken({
                 deviceId: contract.deviceId, // Numeric ID
                 deviceIdName: contract.deviceIdName,
                 contractId: contract.contractId,
+                schemaVersion: contract.schemaVersion ?? 1, // 1=legacy (no contractId on invoices), 2=new
                 companyId: contract.companyId,
                 type: 'device',
             }, '24h');

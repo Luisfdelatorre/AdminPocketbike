@@ -81,8 +81,8 @@ const Invoices = () => {
         },
         INCAPACITY: {
             label: 'Incapacidad',
-            color: '#EF4444',
-            bg: '#FEF2F2',
+            color: '#3b82f6',
+            bg: '#EFF6FF',
             description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
             autoAmount: 0,         // free day (pago 0)
             autoReference: 'INCAPACIDAD - Día ajustado automáticamente',

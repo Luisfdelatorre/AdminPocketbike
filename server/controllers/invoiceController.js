@@ -166,11 +166,11 @@ const getInvoicesByDevice = async (req, res) => {
 
 const getInvoiceHistory = async (req, res) => {
     try {
-        const { deviceIdName } = req.paymentAuth;
+        const { deviceIdName, contractId } = req.paymentAuth;
         const { month, year } = req.query;
 
-        // Delegate to service with optional month/year filtering
-        const result = await invoiceServices.getInvoiceHistory(deviceIdName, month, year);
+        // Delegate to service — schemaVersion is read from Contract DB inside the service
+        const result = await invoiceServices.getInvoiceHistory(deviceIdName, month, year, contractId);
 
         res.json({
             success: true,
