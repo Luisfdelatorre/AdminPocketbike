@@ -103,9 +103,9 @@ const Invoices = () => {
             label: 'Oficina',
             color: '#0891B2',
             bg: '#ECFEFF',
-            description: 'Ajuste / Pago manual realizado en oficina.',
-            autoAmount: null,      // full amount
-            autoReference: 'OFICINA - Pago manual en oficina',
+            description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
+            autoAmount: 0,         // free day (pago 0)
+            autoReference: 'OFICINA - Día ajustado automáticamente',
         },
         WORKSHOP: {
             label: 'Taller',
