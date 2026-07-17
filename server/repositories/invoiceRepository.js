@@ -1,10 +1,11 @@
-import { Invoice, Device } from '../models/index.js';
+import { Invoice, Device, Contract } from '../models/index.js';
 import mongoose from 'mongoose';
 import { Transaction } from '../config/config.js';
 import logger from '../utils/logger.js';
 import helpers from '../utils/helpers.js';
-const { generateInvoiceId, getToday } = helpers;
 import dayjs from '../config/dayjs.js';
+import contractRepository from './contractRepository.js';
+import paymentRepository from './paymentRepository.js';
 
 const { INVOICE_DAYTYPE, PAYMENT_TYPE } = Transaction;
 
@@ -16,7 +17,7 @@ export class InvoiceRepository {
     /**
      * Create a daily invoice for a device
      */
-    async createInvoice({ deviceIdName, date, amount, companyId, megaDeviceId }) {
+    async createInvoice({ deviceIdName, date, amount }) {
         try {
             // Need numeric deviceId for the new Invoice schema
             const device = await Device.findOne({ name: deviceIdName });
@@ -24,17 +25,13 @@ export class InvoiceRepository {
                 throw new Error(`Device not found for name: ${deviceIdName}`);
             }
 
-            // Use the new model's static method
-            // It handles _id generation (plate-date) internally
             const invoice = await Invoice.createInvoice({
                 amount,
                 date,
                 deviceIdName,
-                deviceId: device.deviceId, // Numeric ID
-                megaDeviceId: megaDeviceId ?? device.megaDeviceId,
+                deviceId: device.deviceId,
                 gpsId: device.gpsId,
-                companyId: companyId || device.companyId,
-                companyName: device.companyName
+                companyId: device.companyId
             });
 
             return invoice.toObject();
@@ -91,14 +88,14 @@ export class InvoiceRepository {
     /**
      * Find or create unpaid invoice
      */
-    async findOrCreateUnpaidInvoice(deviceIdName, contract, companyId, maxAttempts = 3) {
+    async findOrCreateUnpaidInvoice(deviceIdName, contract, maxAttempts = 3) {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 // 1️⃣ Check for existing unpaid invoice
                 const existingInvoice = await Invoice.findLastUnPaid(deviceIdName);
                 if (existingInvoice) return existingInvoice;
                 // 2️⃣ Create next day invoice
-                return await this.createNextDayInvoice(deviceIdName, contract.dailyRate, contract.deviceId, companyId);
+                return await this.createNextDayInvoice(deviceIdName, contract.dailyRate, contract.deviceId, contract.companyId);
             } catch (err) {
                 // Duplicate key → another process created it → retry
                 if (err?.code === 11000) {
@@ -112,15 +109,11 @@ export class InvoiceRepository {
         throw new Error('Create Next Day Invoice failed.');
     }
 
-    async findOrCreateInvoiceByName(deviceIdName, deviceId, amount, date, companyId, gpsId = null) {
+    async findOrCreateInvoiceByName(contract, date) {
+        const { deviceIdName, deviceId, dailyRate: amount, companyId, gpsId = null } = contract;
         try {
-
             let invoice = await Invoice.findByDate(deviceIdName, date);
             if (!invoice) {
-                if (!gpsId) {
-                    const device = await Device.findOne({ name: deviceIdName });
-                    if (device) gpsId = device.gpsId;
-                }
                 invoice = await Invoice.createInvoice({
                     deviceIdName,
                     amount,
@@ -296,23 +289,16 @@ export class InvoiceRepository {
     }
 
     /**
-     * Find last paid invoice
-     */
-    async findLastPaid(deviceIdName) {
-        return await Invoice.findOne({
-            deviceIdName,
-            paid: true
-        }).sort({ date: -1 }).lean();
-    }
-
-    /**
      * Find last unpaid invoice
      */
     async findLastUnPaid(deviceIdName) {
-        return await Invoice.findOne({
-            deviceIdName,
-            paid: false
-        }).sort({ date: -1 });
+        return await Invoice.findLastUnPaid(deviceIdName);
+    }
+    /**
+     * Find last paid invoice
+    */
+    async findLastPaid(deviceIdName) {
+        return await Invoice.findLastPaid(deviceIdName);
     }
 
     /**
@@ -429,131 +415,77 @@ export class InvoiceRepository {
     }
 
     /**
-     * Find or create unpaid invoice for today
+     * Ensure all invoices for the full payment cycle exist.
+     * Creates missing invoices up to `contract.paymentFrequency` unpaid days ahead.
+     * FREE days are created as paid invoices directly — no payment record needed at pre-generation time.
      */
-
-    async processInvoicePaymentAtomically(payment, maxAttempts = 5) {
-        const { deviceIdName, amount_in_cents, deviceId } = payment;
-        const totalAmount = amount_in_cents / 100;
-        let remainingBalance = totalAmount;
-
-        const contractRepository = (await import('./contractRepository.js')).default;
-        const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
-        if (!contract) {
-            throw new Error(`Active contract not found for device: ${deviceIdName}`);
+    async ensureCycleInvoicesExist(deviceIdName, contract, multiplier) {
+        const frequency = contract.paymentFrequency || 1;
+        let unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName);
+        let coveredDays = unpaidInvoices.length;
+        if (coveredDays >= frequency) {
+            logger.info(`[CYCLE] Already ${unpaidInvoices.length} unpaid invoices for ${deviceIdName}, skipping`);
+            return unpaidInvoices.slice(0, frequency);
         }
-        const dailyRate = contract.dailyRate;
+        // Start pre-creating invoices from the day after the latest paid invoice in the database
+        const latestInvoice = await Invoice.findLastPaid(deviceIdName);
+        let currentDate = latestInvoice
+            ? dayjs(latestInvoice.date).add(1, 'day')
+            : dayjs().startOf('day');
 
-        // 1️⃣ Pagar deudas vencidas primero (unpaid invoices sorted oldest first)
-        const unpaidInvoices = await Invoice.find({
-            deviceIdName,
-            paid: false
-        }).sort({ date: 1 });
+        // Loop until exactly `frequency` calendar cycle unpaid days are pre-created
+        while (coveredDays < frequency) {
+            const dateVal = currentDate.toDate();
+            const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
 
-        logger.info(`[PAYMENT FLOW] Processing payment of ${totalAmount} for ${deviceIdName}. Unpaid invoices found: ${unpaidInvoices.length}`);
+            const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
+                contract.fixedFreeDayOfWeek !== undefined &&
+                currentDate.day() === contract.fixedFreeDayOfWeek;
 
-        for (const invoice of unpaidInvoices) {
-            if (remainingBalance <= 0) break;
-
-            const needed = invoice.amount - invoice.paidAmount;
-            if (needed <= 0) continue;
-
-            const paymentToApply = Math.min(remainingBalance, needed);
-            
-            invoice.paidAmount += paymentToApply;
-            if (invoice.paidAmount >= invoice.amount) {
-                invoice.paid = true;
-                invoice.dayType = INVOICE_DAYTYPE.PAID;
+            if (isFixedFreeDay) {
+                // Create a $0 Payment record for fixed free day audit trail
+                const payment = await paymentRepository.createFreePayment(
+                    deviceIdName,
+                    contract,
+                    invoice,
+                    contract.companyId
+                );
+                await invoice.applyPayment(payment);
+                logger.info(`[CYCLE] Pre-created FREE invoice + payment for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
+            } else {
+                coveredDays++;
+                logger.info(`[CYCLE] Pre-created DEBT invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
             }
-            invoice.transaction.id = payment._id;
-            invoice.transaction.reference = payment.reference;
-            invoice.transaction.finalized_at = payment.finalized_at;
-            invoice.transaction.type = payment.type;
-
-            await invoice.save();
-            remainingBalance -= paymentToApply;
-            logger.info(`[PAYMENT FLOW] Applied ${paymentToApply} to invoice ${invoice._id}. Remaining balance: ${remainingBalance}`);
+            currentDate = currentDate.add(1, 'day');
         }
+        unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName);
+        return unpaidInvoices.slice(0, frequency);
+    }
 
-        // 2️⃣ Si queda saldo a favor, pre-crear facturas futuras automáticamente
-        if (remainingBalance >= dailyRate && dailyRate > 0) {
-            const daysToPrepay = Math.floor(remainingBalance / dailyRate);
-            logger.info(`[PAYMENT FLOW] Pre-paying ${daysToPrepay} future invoices.`);
+    /**
+     * Bulk-mark all pre-created cycle invoices as PAID in a single bulkWrite.
+     * Expects invoices to have been pre-created by ensureCycleInvoicesExist at checkout time.
+     */
+    async processInvoicePaymentAtomically(payment) {
+        const { deviceIdName } = payment;
 
-            // Buscar la fecha de la última factura para continuar
-            const lastInvoice = await Invoice.findOne({ deviceIdName }).sort({ date: -1 });
-            let nextDate = lastInvoice 
-                ? dayjs(lastInvoice.date).add(1, 'day')
-                : dayjs().startOf('day');
+        let contract = await contractRepository.getActiveContractByDevice(deviceIdName);;
+        let frequency = payment.paymentFrequency;
+        let multiplier = payment.billingMultiplier;
 
-            for (let i = 0; i < daysToPrepay; ) {
-                const dateVal = nextDate.toDate();
-                const invoiceId = Invoice.buildId(deviceIdName, dateVal);
-
-                // Verificar si es un domingo libre fijo
-                const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' && 
-                                       contract.fixedFreeDayOfWeek !== undefined && 
-                                       nextDate.day() === contract.fixedFreeDayOfWeek;
-
-                if (isFixedFreeDay) {
-                    // Crear factura FREE
-                    await Invoice.create({
-                        _id: invoiceId,
-                        invoiceId: invoiceId,
-                        date: dateVal,
-                        amount: 0,
-                        paidAmount: 0,
-                        paid: true,
-                        deviceIdName,
-                        deviceId,
-                        gpsId: contract.gpsId || payment.gpsId,
-                        megaDeviceId: contract.megaDeviceId || payment.megaDeviceId,
-                        companyId: contract.companyId,
-                        companyName: contract.companyName,
-                        dayType: INVOICE_DAYTYPE.FREE,
-                        transaction: {
-                            id: payment._id,
-                            reference: payment.reference,
-                            finalized_at: payment.finalized_at,
-                            type: PAYMENT_TYPE.FREE
-                        }
-                    });
-                    logger.info(`[PAYMENT FLOW] Created FREE day invoice ${invoiceId} for fixed free day: ${nextDate.format('YYYY-MM-DD')}`);
-                    // Los domingos no consumen el balance ni avanzan el contador i
-                } else {
-                    // Crear factura PAID cobrando la tarifa diaria
-                    await Invoice.create({
-                        _id: invoiceId,
-                        invoiceId: invoiceId,
-                        date: dateVal,
-                        amount: dailyRate,
-                        paidAmount: dailyRate,
-                        paid: true,
-                        deviceIdName,
-                        deviceId,
-                        gpsId: contract.gpsId || payment.gpsId,
-                        megaDeviceId: contract.megaDeviceId || payment.megaDeviceId,
-                        companyId: contract.companyId,
-                        companyName: contract.companyName,
-                        dayType: INVOICE_DAYTYPE.PAID,
-                        transaction: {
-                            id: payment._id,
-                            reference: payment.reference,
-                            finalized_at: payment.finalized_at,
-                            type: payment.type
-                        }
-                    });
-                    logger.info(`[PAYMENT FLOW] Created PAID invoice ${invoiceId} for date: ${nextDate.format('YYYY-MM-DD')}`);
-                    remainingBalance -= dailyRate;
-                    i++;
-                }
-                nextDate = nextDate.add(1, 'day');
-            }
+        if (!frequency || !multiplier) {
+            frequency = frequency || contract.paymentFrequency || 1;
+            multiplier = multiplier || Contract.getBillingMultiplier(frequency, contract.freeDayPolicy);
         }
+        const unpaidInvoicesToPay = await this.ensureCycleInvoicesExist(deviceIdName, contract);
+        await Promise.all(unpaidInvoicesToPay.map(invoice => invoice.applyPayment(payment)));
+        logger.info(`[PAYMENT FLOW] bulkWrite complete — invoices marked PAID for ${deviceIdName}.`);
 
-        // Retornar una de las facturas afectadas por la transacción para mantener compatibilidad
-        const processedInvoice = await Invoice.findOne({ 'transaction.id': payment._id }).sort({ date: -1 });
-        return processedInvoice;
+        // 5. Return both the oldest invoice (anchor) and the newest paid invoice (latestPaid)
+        return {
+            anchorInvoice: unpaidInvoicesToPay[0],
+            latestPaid: unpaidInvoicesToPay[unpaidInvoicesToPay.length - 1]
+        };
     }
 
     /**
@@ -585,6 +517,8 @@ export class InvoiceRepository {
 
         return result[0] ?? { totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0 };
     }
+
+
 }
 
 export default new InvoiceRepository();

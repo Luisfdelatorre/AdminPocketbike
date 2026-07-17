@@ -42,7 +42,8 @@ const STATE = {
     fromLogin: false,
     eventSource: null,
     historyMonth: null,   // null = current month
-    historyYear:  null    // null = current year
+    historyYear: null,    // null = current year
+    urlDeviceId: null
 };
 
 // ============================================================================
@@ -142,6 +143,21 @@ class DOMManager {
             invoice: document.getElementById('successInvoice')
         };
 
+        // Setup initial plate from SSR
+        const deviceIdInput = this.elements.inputs.deviceId;
+        const initialValue = deviceIdInput ? deviceIdInput.value : '';
+        if (initialValue && !initialValue.includes('{{') && !initialValue.includes('DEVICE_ID')) {
+            STATE.urlDeviceId = initialValue;
+        } else {
+            STATE.urlDeviceId = null;
+            // Ensure input is visible if no SSR plate was provided
+            if (deviceIdInput) {
+                deviceIdInput.disabled = false;
+                deviceIdInput.classList.remove('hidden');
+                deviceIdInput.style.display = 'block';
+            }
+        }
+
         this.isInitialized = true;
     }
 
@@ -152,14 +168,27 @@ class DOMManager {
             document.body.insertAdjacentHTML('beforeend', Templates.confirmationModal);
         }
 
+        // Read the server-side rendered company branding from the DOM
+        const loginLogo = document.getElementById('loginLogo');
+        const loginTitle = document.getElementById('loginTitle');
+        const logoUrl = loginLogo ? loginLogo.getAttribute('src') : '/pocketbike_60x60.jpg';
+        const displayName = loginTitle ? loginTitle.textContent.replace('Pago a ', '') : 'PocketBike';
+
         // Loading Screen -> Append to Body (Lazy loaded)
         if (!document.getElementById('loadingScreen')) {
-            document.body.insertAdjacentHTML('beforeend', Templates.loadingScreen);
+            const loadingHtml = Templates.loadingScreen
+                .replace(/{{COMPANY_LOGO}}/g, logoUrl)
+                .replace(/{{COMPANY_NAME}}/g, displayName);
+            document.body.insertAdjacentHTML('beforeend', loadingHtml);
         }
 
         // Success Screen -> Append to Body (Lazy loaded)
         if (!document.getElementById('successScreen')) {
-            document.body.insertAdjacentHTML('beforeend', Templates.successScreen);
+            const successHtml = Templates.successScreen
+                .replace(/{{COMPANY_LOGO}}/g, logoUrl)
+                .replace(/{{COMPANY_NAME}}/g, displayName)
+                .replace(/{{COMPANY_NAME_UPPER}}/g, displayName.toUpperCase());
+            document.body.insertAdjacentHTML('beforeend', successHtml);
         }
 
         // Components needing insertion into specific locations
@@ -620,9 +649,9 @@ class PaymentManager {
             }
             console.log(STATE.paymentData);
             // Update Amounts & Phone
-            dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.dailyRate);
+            dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
             dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
-            
+
             const totalCuotasDisplay = dom.get('displays.totalCuotas');
             if (totalCuotasDisplay && STATE.paymentData.cuotasPagadas !== undefined) {
                 totalCuotasDisplay.textContent = STATE.paymentData.cuotasPagadas;
@@ -741,7 +770,7 @@ class PaymentManager {
 
             // Sync STATE with server-confirmed values
             STATE.historyMonth = resMonth;
-            STATE.historyYear  = resYear;
+            STATE.historyYear = resYear;
 
             this._updateMonthSelector(resMonth, resYear); // also handles nextBtn.disabled
             this.renderHistory(history);
@@ -758,12 +787,12 @@ class PaymentManager {
 
     /** Update the month selector label and enable/disable the forward button */
     _updateMonthSelector(month, year) {
-        const label   = document.getElementById('monthLabel');
+        const label = document.getElementById('monthLabel');
         const nextBtn = document.getElementById('monthNextBtn');
         if (!label) return;
 
         const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-                             'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         label.textContent = `${MONTH_NAMES[month - 1]} ${year}`;
 
         // Disable next button if already on current month
@@ -805,7 +834,7 @@ class PaymentManager {
         // Reset inputs
         const deviceIdInput = this.dom.get('inputs.deviceId');
         const deviceIdDisplay = this.dom.get('displays.deviceId');
-        const urlDeviceId = this._getDeviceIdFromUrl();
+        const urlDeviceId = STATE.urlDeviceId;
 
         if (!urlDeviceId) {
             // Keep the previously typed deviceId, do not clear it
@@ -824,16 +853,6 @@ class PaymentManager {
         const loginError = this.dom.get('displays.loginError');
         if (loginError) loginError.textContent = '';
         this.screen.switchScreen(this.dom.get('screens.login'), 'back');
-    }
-
-    _getDeviceIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const id = urlParams.get('id');
-        if (id) return id;
-
-        const path = window.location.pathname;
-        const match = path.match(/\/pagos\/([^\/]+)/);
-        return match ? match[1] : null;
     }
 
     _updatePendingProgress(createdAt) {
@@ -1147,12 +1166,12 @@ class EventHandler {
         const navigateMonth = (delta) => {
             const now = new Date();
             let m = STATE.historyMonth || (now.getMonth() + 1);
-            let y = STATE.historyYear  || now.getFullYear();
+            let y = STATE.historyYear || now.getFullYear();
             m += delta;
-            if (m < 1)  { m = 12; y--; }
-            if (m > 12) { m = 1;  y++; }
+            if (m < 1) { m = 12; y--; }
+            if (m > 12) { m = 1; y++; }
             STATE.historyMonth = m;
-            STATE.historyYear  = y;
+            STATE.historyYear = y;
             this.payment.loadHistory(m, y);
         };
 
@@ -1308,15 +1327,7 @@ class EventHandler {
         }
     }
 
-    _getDeviceIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const id = urlParams.get('id');
-        if (id) return id;
 
-        const path = window.location.pathname;
-        const match = path.match(/\/pagos\/([^\/]+)/);
-        return match ? match[1] : null;
-    }
 }
 
 // ============================================================================
@@ -1325,6 +1336,7 @@ class EventHandler {
 async function initPaymentApp() {
     const dom = new DOMManager();
     dom.initialize();
+
 
     const pinManager = new PINManager(dom);
     const screen = new ScreenManager(dom);

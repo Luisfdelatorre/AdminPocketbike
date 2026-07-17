@@ -144,7 +144,11 @@ const resources = {
                     savingBtn: 'Saving...',
                     successUpdate: 'Contract updated successfully!',
                     successCreate: 'Contract created successfully!',
-                    errorSave: 'Error saving contract'
+                    errorSave: 'Error saving contract',
+                    deviceSection: 'Device & Access',
+                    customerSection: 'Customer Details',
+                    financialSection: 'Financial Terms',
+                    advancedSection: 'Advanced Settings'
                 }
             },
             dashboard: {
@@ -532,7 +536,11 @@ const resources = {
                     savingBtn: 'Guardando...',
                     successUpdate: '¡Contrato actualizado exitosamente!',
                     successCreate: '¡Contrato creado exitosamente!',
-                    errorSave: 'Error al guardar contrato'
+                    errorSave: 'Error al guardar contrato',
+                    deviceSection: 'Dispositivo y Acceso',
+                    customerSection: 'Datos del Cliente',
+                    financialSection: 'Términos Financieros',
+                    advancedSection: 'Configuración Avanzada'
                 }
             },
             dashboard: {

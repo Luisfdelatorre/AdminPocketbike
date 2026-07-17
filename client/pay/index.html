@@ -5,11 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pago a PocketBike</title>
+    <title>Pago a {{COMPANY_NAME}}</title>
     <link rel="preload" href="../css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript>
-        <link rel="stylesheet" href="../css/main.css">
-    </noscript>
+
     <style>
         :root {
             --color-primary: #333;
@@ -61,8 +59,6 @@
             position: relative;
         }
 
-        /* ... existing styles ... */
-
         .logout-icon {
             position: absolute;
             top: var(--spacing-md);
@@ -100,22 +96,10 @@
             display: block
         }
 
-        .keypad-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center
-        }
-
-        .app-title,
         .form-group input[type=text] {
             color: var(--color-primary);
             font-size: 24px;
             text-align: center
-        }
-
-        .app-title {
-            font-weight: 600;
-            margin-bottom: var(--spacing-xl)
         }
 
         .form-group label {
@@ -360,6 +344,7 @@
         }
 
         .app-title {
+            color: var(--color-primary);
             font-size: 28px;
             font-weight: 700;
             margin-bottom: 5px;
@@ -489,7 +474,6 @@
 
         .payment-amount .currency {
             font-size: 32px;
-            transition: var(--transition-slow);
         }
 
         .payment-amount .currency-code {
@@ -515,8 +499,6 @@
         }
 
         .device-id {
-            font-size: 20px;
-            font-weight: 600;
             font-size: 24px;
             font-weight: 700;
             color: var(--color-primary);
@@ -614,8 +596,6 @@
             line-height: 1;
         }
 
-
-
         .nequi-divider {
             width: 1px;
             height: 40px;
@@ -662,8 +642,6 @@
             color: #212529;
             font-size: 16px;
         }
-
-
 
         /* Options & History */
         .more-options {
@@ -724,7 +702,7 @@
             gap: 8px;
         }
 
-        .more-options-row > a {
+        .more-options-row>a {
             white-space: nowrap;
             flex-shrink: 0;
         }
@@ -799,17 +777,15 @@
         }
 
         @keyframes shimmer {
-            0%   { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
         }
     </style>
-    <script>
-        function _getDeviceIdFromUrl() {
-            const path = window.location.pathname;
-            const match = path.match(/\/p\/([^\/]+)/);
-            return match ? match[1] : null;
-        }
-
     </script>
     <!-- Scripts -->
 
@@ -819,70 +795,14 @@
     <!-- Screen Containers (populated dynamically by component loader) -->
     <div id="loginScreen" class="screen">
         <div class="container">
-            <h2 class="app-title" id="loginTitle">Pago a PocketBike</h2>
+            <h2 class="app-title" id="loginTitle">Pago a {{COMPANY_NAME}}</h2>
             <div class="login-form">
                 <div class="deviceIdGroup" id="deviceIdGroup">
-                    <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" id="loginLogo"
-                        style="background: #f3f4f6; width: 60px; height: 60px; display: block;">
-                    <script>
-                        (function () {
-                            // Use server-injected branding or fallback to API/localStorage
-                            const branding = window.__COMPANY_BRANDING__;
-                            const loginTitle = document.getElementById('loginTitle');
-                            const loginLogo = document.getElementById('loginLogo');
+                    <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" fetchpriority="high"
+                        decoding="async" style="background: #f3f4f6; width: 60px; height: 60px; display: block;">
+                    <input type="text" id="deviceId" placeholder="Placa" class="name-input hidden" value="{{DEVICE_ID}}" disabled style="display: none;" required>
+                    <div id="deviceIdDisplay" class="device-id" style="display: block;">{{DEVICE_ID}}</div>
 
-                            if (branding) {
-                                if (loginTitle) loginTitle.textContent = `Pago a ${branding.displayName}`;
-                                if (loginLogo) loginLogo.src = branding.logo;
-                                // Save to localStorage for offline access
-                                localStorage.setItem('companyLogo', branding.logo);
-                                localStorage.setItem('displayName', branding.displayName);
-                            } else {
-                                // Fallback to API
-                                (async function () {
-                                    try {
-                                        const response = await fetch('/apinode/companies/branding');
-                                        const data = await response.json();
-                                        if (data.success) {
-                                            if (loginTitle) loginTitle.textContent = `Pago a ${data.data.displayName}`;
-                                            if (loginLogo) loginLogo.src = data.data.logo;
-                                            localStorage.setItem('companyLogo', data.data.logo);
-                                            localStorage.setItem('displayName', data.data.displayName);
-                                        }
-                                    } catch (error) {
-                                        console.error('Error loading branding:', error);
-                                        const companyLogo = localStorage.getItem('companyLogo');
-                                        const displayName = localStorage.getItem('displayName');
-                                        if (displayName && loginTitle) loginTitle.textContent = `Pago a ${displayName}`;
-                                        if (companyLogo && loginLogo) loginLogo.src = companyLogo;
-                                    }
-                                })();
-                            }
-                        })();
-                    </script>
-                    <input type="text" id="deviceId" placeholder="Placa" class="name-input hidden" required>
-                    <div id="deviceIdDisplay" class="device-id "></div>
-                    <script>
-                        (function () {
-                            const urlDeviceId = _getDeviceIdFromUrl();
-                            const deviceIdDisplay = document.getElementById('deviceIdDisplay');
-                            const deviceIdInput = document.getElementById('deviceId');
-                            deviceIdInput.value = urlDeviceId;
-                            deviceIdInput.disabled = true;
-                            deviceIdInput.style.display = 'none';
-
-                            if (deviceIdDisplay && urlDeviceId) {
-                                deviceIdDisplay.textContent = urlDeviceId;
-                                deviceIdDisplay.style.display = 'block';
-                            } else {
-                                deviceIdInput.disabled = false;
-                                deviceIdInput.classList.remove('hidden');
-                                deviceIdInput.style.display = 'block';
-                            }
-                        })();
-
-
-                    </script>
                 </div>
 
                 <div class="form-group pin-container">
@@ -937,48 +857,17 @@
     <div id="paymentScreen" class="screen ">
         <div class="container">
             <div id="paymentSection" class="payment-section">
-                <h2 class="app-title" id="paymentTitle">Pago a PocketBike</h2>
+                <h2 class="app-title" id="paymentTitle">Pago a {{COMPANY_NAME}}</h2>
                 <button id="logoutBtn" class="logout-icon" title="Cerrar Sesión">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 0 0 1 2-2h4"></path>
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                         <polyline points="16 17 21 12 16 7"></polyline>
                         <line x1="21" y1="12" x2="9" y2="12"></line>
                     </svg>
                 </button>
                 <div class="device-header">
                     <div class="device-logo-container">
-                        <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="img-sm" id="paymentLogo">
-                        <script>
-                            (function () {
-                                // Use server-injected branding or fallback to API/localStorage
-                                const branding = window.__COMPANY_BRANDING__;
-                                const paymentTitle = document.getElementById('paymentTitle');
-                                const paymentLogo = document.getElementById('paymentLogo');
-
-                                if (branding) {
-                                    if (paymentTitle) paymentTitle.textContent = `Pago a ${branding.displayName}`;
-                                    if (paymentLogo) paymentLogo.src = branding.logo;
-                                } else {
-                                    // Fallback to API
-                                    (async function () {
-                                        try {
-                                            const response = await fetch('/apinode/companies/branding');
-                                            const data = await response.json();
-                                            if (data.success) {
-                                                if (paymentTitle) paymentTitle.textContent = `Pago a ${data.data.displayName}`;
-                                                if (paymentLogo) paymentLogo.src = data.data.logo;
-                                            }
-                                        } catch (error) {
-                                            console.error('Error loading branding:', error);
-                                            const companyLogo = localStorage.getItem('companyLogo');
-                                            const displayName = localStorage.getItem('displayName');
-                                            if (displayName && paymentTitle) paymentTitle.textContent = `Pago a ${displayName}`;
-                                            if (companyLogo && paymentLogo) paymentLogo.src = companyLogo;
-                                        }
-                                    })();
-                                }
-                            })();
-                        </script>
+                        <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo">
                         <div class="status-ring" id="deviceStatusRing"></div>
                         <div class="status-icons-container">
                             <div class="status-icon ">
@@ -1000,22 +889,10 @@
 
                         </div>
                     </div>
-                    <span class="device-id" id="deviceDisplay">AAA00X</span>
+                    <span class="device-id" id="deviceDisplay" style="display: block;">{{DEVICE_ID}}</span>
                     <span id="paymentDueDate" class="text-muted payment-date-style">- ---</span>
                 </div>
-                <script>
-                    (function () {
-                        const urlDeviceId = _getDeviceIdFromUrl();
-                        const deviceIdDisplay = document.getElementById('deviceDisplay');
 
-                        if (deviceIdDisplay && urlDeviceId) {
-                            deviceIdDisplay.textContent = urlDeviceId;
-                            deviceIdDisplay.style.display = 'block';
-                        }
-                    })();
-
-
-                </script>
                 <div class="payment-amount">
                     <span class="currency">$</span><span id="paymentAmount">35.000</span><span
                         class="currency-code">COP</span>
@@ -1027,7 +904,7 @@
                 </div>
                 <button id="nequiPayBtn" class="nequi-payment-card">
                     <div class="nequi-icon-box">
-                        <img src="/nequi.png" alt="Nequi" class="img-sm">
+                        <img src="/nequi.png" alt="Nequi" class="img-sm" decoding="async">
                     </div>
                     <div class="nequi-divider"></div>
                     <div class="nequi-text">Pagar con tu cuenta Nequi</div>
@@ -1036,9 +913,11 @@
             <div class="more-options more-options-row">
                 <a href="#" id="morePaymentOptions">Lista de pagos ▼</a>
                 <div class="month-selector month-selector-hidden" id="monthSelector">
-                    <button class="month-nav-btn" id="monthPrevBtn" title="Mes anterior" aria-label="Mes anterior">&#8249;</button>
+                    <button class="month-nav-btn" id="monthPrevBtn" title="Mes anterior"
+                        aria-label="Mes anterior">&#8249;</button>
                     <span class="month-label" id="monthLabel">---</span>
-                    <button class="month-nav-btn" id="monthNextBtn" title="Mes siguiente" aria-label="Mes siguiente" disabled>&#8250;</button>
+                    <button class="month-nav-btn" id="monthNextBtn" title="Mes siguiente" aria-label="Mes siguiente"
+                        disabled>&#8250;</button>
                 </div>
             </div>
 
@@ -1053,15 +932,16 @@
 
 
             <div class="WompiSafe">
-                PAGOS SEGUROS POR <img alt="Wompi" src="/wompi.svg">
+                PAGOS SEGUROS POR <img alt="Wompi" src="/wompi.svg" loading="lazy" decoding="async">
             </div>
         </div>
     </div>
 
     <script>
         (function () {
+
             try {
-                const token = sessionStorage.getItem('paymentAuthToken');
+                const token = localStorage.getItem('paymentAuthToken');
                 const paymentScreen = document.getElementById('paymentScreen');
                 const loginScreen = document.getElementById('loginScreen');
                 if (token) {
@@ -1088,11 +968,16 @@
                 const loginScreen = document.getElementById('loginScreen');
                 if (loginScreen) loginScreen.classList.add('active');
             }
+
+            // Delay loading the main app module until after the initial screen has painted
+            setTimeout(() => {
+                const script = document.createElement('script');
+                script.type = 'module';
+                script.src = '../js/payment-app.js';
+                document.body.appendChild(script);
+            }, 0);
         })();
     </script>
-    <script type="module" src="../js/payment-app.js"></script>
-    <script type="module" src="../js/api.js"></script>
-    <script type="module" src="../js/messages-service.js"></script>
 
 
 

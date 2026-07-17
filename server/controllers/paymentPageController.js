@@ -16,7 +16,7 @@ export async function servePaymentPage(req, res) {
         const htmlPath = brandingService.getPaymentPagePath();
 
         // Inject branding into HTML
-        const html = await brandingService.injectBrandingIntoHTML(htmlPath, branding);
+        const html = await brandingService.injectBrandingIntoHTML(htmlPath, branding, deviceName);
 
         res.send(html);
     } catch (error) {

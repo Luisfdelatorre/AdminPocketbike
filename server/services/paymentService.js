@@ -2,16 +2,17 @@ import invoiceRepository from '../repositories/invoiceRepository.js';
 import paymentRepository from '../repositories/paymentRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
+import invoiceServices from './invoiceServices.js';
 import wompiService from './wompiService.js';
-import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINE_COMMANDS } from '../config/config.js';
+import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINE_COMMANDS, DEFAULT_CUTOFF_TIME } from '../config/config.js';
 import dayjs from '../config/dayjs.js';
 import logger from '../config/logger.js';
 import { Invoice } from '../models/Invoice.js';
 import { Device } from '../models/Device.js';
-import { Payment, Reconciliation } from '../models/index.js';
+import { Payment, Reconciliation, Contract } from '../models/index.js';
 import { Company } from '../models/Company.js';
 import companyService from './companyService.js';
-import helpers from '../utils/helpers.js';
+import GpsService from './gpsServices.js';
 import mongoose from 'mongoose';
 
 
@@ -41,25 +42,42 @@ export class PaymentService {
      */
     async calculatePaymentStatus(contract) {
         const deviceIdName = contract.deviceIdName;
-        const { monthlyFreeDaysAvailable } = await invoiceRepository.getFreeDaysStatus(deviceIdName, contract.freeDaysLimit);
-        const { isOverdue } = await invoiceRepository.getOverdueStatus(deviceIdName);
-        const oldestUnpaidInvoice = await invoiceRepository.findLastUnPaid(deviceIdName);
-        const pendingPayment = await paymentRepository.findPendingPayment(deviceIdName, MAX_NEQUI_PAYMENT_TIMEOUT);
+
+        // Run independent database queries in parallel to drastically reduce TTFB/latency
+        const [
+            company,
+            latestPaid,
+            oldestUnpaidInvoice,
+            pendingPayment
+        ] = await Promise.all([
+            companyService.getCompanyById(contract.companyId),
+            invoiceRepository.findLastPaid(deviceIdName),
+            invoiceRepository.findLastUnPaid(deviceIdName),
+            paymentRepository.findPendingPayment(deviceIdName, MAX_NEQUI_PAYMENT_TIMEOUT)
+        ]);
+
+        const now = dayjs();
+        const isUpToDate = companyService.isDeviceUpToDate(company, latestPaid, now);
+        const isOverdue = !isUpToDate;
 
         let policy = contract.freeDayPolicy;
-        if (!policy && contract.companyId) {
-            const company = await Company.findById(contract.companyId).select('contractDefaults.freeDayPolicy').lean();
-            if (company?.contractDefaults?.freeDayPolicy) {
+        if (!policy && contract.companyId && company) {
+            if (company.contractDefaults?.freeDayPolicy) {
                 policy = company.contractDefaults.freeDayPolicy;
             }
         }
 
+        const multiplier = Contract.getBillingMultiplier(contract.paymentFrequency, policy);
+        const amount = contract.dailyRate * multiplier;
+
         return {
             deviceIdName,
             customerPhone: contract.customerPhone,
-            dailyRate: contract.dailyRate,
+            dailyRate: amount, // Keep user's mapped value
+            amount,
+            multiplier,
             pendingInvoiceDate: oldestUnpaidInvoice?.date,
-            freeDaysAvailable: monthlyFreeDaysAvailable,
+            // freeDaysAvailable: monthlyFreeDaysAvailable,
             freeDayPolicy: policy, // Ultimate fallback 
             isOverdue,
             pendingPayment: pendingPayment ? pendingPayment.getPendingFormat() : null
@@ -97,13 +115,13 @@ export class PaymentService {
 
         if (targetInvoice && targetInvoice.paid && targetInvoice.dayType === 'PAID') {
             logger.info(`[FREE DAY] Today's invoice ${targetInvoice._id} is prepaid. Converting to FREE and extending prepaid period.`);
-            
+
             const originalTx = targetInvoice.transaction || {};
             const payment = await paymentRepository.createFreePayment(deviceIdName, contract, targetInvoice, companyId);
             paidInvoice = await targetInvoice.applyPayment(payment);
 
             const lastInvoice = await Invoice.findOne({ deviceIdName }).sort({ date: -1 });
-            let nextPrepaidDate = lastInvoice 
+            let nextPrepaidDate = lastInvoice
                 ? dayjs(lastInvoice.date).add(1, 'day')
                 : dayjs().startOf('day');
 
@@ -112,9 +130,9 @@ export class PaymentService {
                 const dateVal = nextPrepaidDate.toDate();
                 const invoiceId = Invoice.buildId(deviceIdName, dateVal);
 
-                const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' && 
-                                       contract.fixedFreeDayOfWeek !== undefined && 
-                                       nextPrepaidDate.day() === contract.fixedFreeDayOfWeek;
+                const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
+                    contract.fixedFreeDayOfWeek !== undefined &&
+                    nextPrepaidDate.day() === contract.fixedFreeDayOfWeek;
 
                 if (isFixedFreeDay) {
                     await Invoice.create({
@@ -166,7 +184,7 @@ export class PaymentService {
                 }
                 nextPrepaidDate = nextPrepaidDate.add(1, 'day');
             }
-            
+
             isPrepaidConversion = true;
         } else {
             const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
@@ -324,7 +342,7 @@ export class PaymentService {
                 online: dayjs().diff(dayjs(details.lastUpdate), 'second') < Transaction.DEVICE_ONLINE_TIMEOUT,
                 cutOff: details.cutOff,
                 ignition: details.ignition,
-                batteryLevel: details.batteryLevel || helpers.calculateBatteryLevel(details.lastUpdate),
+                batteryLevel: details.batteryLevel || GpsService.calculateBatteryLevel(details.lastUpdate),
                 lastUpdate: details.lastUpdate
             };
         } catch (error) {
@@ -336,32 +354,11 @@ export class PaymentService {
         this.validatePaymentInput(deviceIdName, phone);
         await this.checkDuplicatePayment(deviceIdName);
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
-        let unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
-
-        if (
-            contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
-            contract.fixedFreeDayOfWeek !== undefined &&
-            unpaidInvoice?.paid === false &&
-            dayjs(unpaidInvoice.date).day() === contract.fixedFreeDayOfWeek
-        ) {
-            logger.info(`[PAYMENT] Free day fallback — auto-applying free day for ${deviceIdName} before Wompi.`);
-            await this.applyFreeDayAutomatic(deviceIdName, companyId, unpaidInvoice);
-            // Get the next unpaid invoice (next day) to proceed with payment
-            unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
-        }
-        console.log("****unpaidInvoice", unpaidInvoice);
-
+        // Pre-generar facturas del ciclo (idempotente) en lugar de crear una sola factura al vuelo
+        await invoiceRepository.ensureCycleInvoicesExist(deviceIdName, contract, companyId);
+        const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract);
         const wompiAdapter = await companyService.getWompiAdapter(companyId);
-        const acceptanceToken = await wompiAdapter.getMerchantData();
-
-        const multiplier = helpers.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
-        const targetAmount = contract.dailyRate * multiplier;
-
-        const invoicePayload = unpaidInvoice.toObject ? unpaidInvoice.toObject() : { ...unpaidInvoice };
-        invoicePayload.amount = targetAmount;
-
-        const paymentData = await wompiAdapter.createTransactionRequest(phone, invoicePayload, acceptanceToken, companyId);
-
+        const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, contract);
 
         console.log('paymentData', paymentData);
         const payment = await paymentRepository.upsertPayment(paymentData);
@@ -465,13 +462,16 @@ export class PaymentService {
         activePolls.set(reference, { promise, listeners, intervalId });
         return promise;
     };
+
+
+
     async processApprovedPayment(paymentData, onUpdate) {
         const { reference } = paymentData;
         try {
             let payment = await paymentRepository.claimPaymentForProcessing(paymentData);
             console.log('Payment locked for processing:', payment);
 
-            if (!payment) {
+            /*if (!payment) {
                 // Distinguish: truly not found (webhook for untracked payment) vs already used
                 const existing = await Payment.findById(paymentData._id).lean();
                 if (existing) {
@@ -494,76 +494,34 @@ export class PaymentService {
                     logger.warn(`[PAYMENT] Hydrated payment ${reference} could not be claimed. Skipping.`);
                     return { success: false, reason: 'Hydrated payment claim failed' };
                 }
-            }
+            }*/
 
             logger.info(`----[PAYMENT] Payment locked for processing: ${payment.deviceIdName}`, { reference });
             notifyStateChange(onUpdate, PS.S_PROCESSING, PM.M_PROCESSING, { reference });
-            const invoice = await invoiceRepository.processInvoicePaymentAtomically(payment);
-            if (!invoice) {
+            const { anchorInvoice, latestPaid } = await invoiceRepository.processInvoicePaymentAtomically(payment);
+            if (!anchorInvoice) {
                 throw new Error('Invoice not found or could not be processed');
             }
-            await payment.markAsUsed(invoice);
+            await payment.markAsUsed(anchorInvoice);
 
             try {
-                const contract = await contractRepository.getActiveContractByDevice(payment.deviceIdName);
-                if (contract) {
-                    const amountPaid = payment.amount_in_cents ? payment.amount_in_cents / 100 : payment.amount;
-                    const daysPaid = contract.dailyRate > 0 ? amountPaid / contract.dailyRate : 0;
-                    await contractRepository.updateContractProgress(contract.contractId, amountPaid, daysPaid);
-                    logger.info(`[CONTRACT] Updated progress for ${contract.contractId}: +${amountPaid} (${daysPaid.toFixed(2)} days)`);
-                    if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && contract.fixedFreeDayOfWeek !== undefined) {
-                        const nextDayOfWeek = dayjs(invoice.date).add(1, 'day').day();
-                        if (nextDayOfWeek === contract.fixedFreeDayOfWeek) {
-                            logger.info(`[PAYMENT] Tomorrow is Fixed Free Day (${contract.fixedFreeDayOfWeek}) for ${payment.deviceIdName}.`);
-
-                            // Check if a FREE invoice already exists for the target free day (free invoices are paid by default)
-                            const freeDayDate = dayjs(invoice.date).add(1, 'day').startOf('day').toDate();
-                            const existingFreeInvoice = await invoiceRepository.findOne({
-                                deviceIdName: payment.deviceIdName,
-                                dayType: 'FREE',
-                                invoiceDate: freeDayDate
-                            });
-                            if (existingFreeInvoice) {
-                                logger.info(`[FREE DAY] Existing FREE invoice (${existingFreeInvoice._id}) found – skipping creation.`);
-                            } else {
-                                await this.applyFreeDay(payment.deviceIdName, contract.contractId, payment.companyId, true);
-                                logger.info(`[FREE DAY] Applied preventive free day for ${payment.deviceIdName}.`);
-                            }
-                        }
-                    }
-
-                } else {
-                    logger.warn(`[CONTRACT] No active contract found for device ${payment.deviceIdName} during payment processing.`);
-                }
+                await contractRepository.updateContractProgress(payment);
             } catch (err) {
                 logger.error(`[CONTRACT] Failed to update contract progress: ${err.message}`);
             }
 
             notifyStateChange(onUpdate, PS.S_INVOICE_UPDATED, PM.M_INVOICE_UPDATED, {
                 reference,
-                invoiceId: invoice.id
+                invoiceId: anchorInvoice.id
             });
 
-            const yesterday = dayjs().add(-1, 'day').startOf('day');
-            const invoiceDate = dayjs(invoice.date).startOf('day');
+            const company = await companyService.getCompanyById(payment.companyId);
+            const now = dayjs();
+            const isUpToDate = companyService.isDeviceUpToDate(company, latestPaid, now);
 
-            if (invoiceDate.isSameOrAfter(yesterday)) {
-                // --- Curfew check: skip activation if we are in the night curfew window ---
-                const company = await Company.findById(payment.companyId).select('curfew').lean();
+            if (isUpToDate) {
                 const curfew = company?.curfew;
-                const start = curfew.startTime.split(':');
-                const end = curfew.endTime.split(':');
-                let inCurfew = false;
-                if (curfew?.enabled && curfew.startTime && curfew.endTime) {
-                    const now = dayjs();
-                    const base = now.startOf('day');
-                    const curfewStart = base.add(parseInt(start[0]), 'hour').add(parseInt(start[1]), 'minute');
-                    const curfewEnd = base.add(parseInt(end[0]), 'hour').add(parseInt(end[1]), 'minute');
-                    // Handle overnight ranges (e.g. 00:05 → 04:00)
-                    inCurfew = curfewStart.isBefore(curfewEnd)
-                        ? now.isSameOrAfter(curfewStart) && now.isBefore(curfewEnd)
-                        : now.isSameOrAfter(curfewStart) || now.isBefore(curfewEnd);
-                }
+                const inCurfew = companyService.isCurfewActive(curfew, now);
 
                 if (inCurfew) {
                     logger.info(`[DEVICE] Activation skipped - curfew active (${curfew.startTime}–${curfew.endTime}) for device: ${payment.megaDeviceId}`);
@@ -573,7 +531,11 @@ export class PaymentService {
                     await this.activateDevice(payment.gpsId, reference, onUpdate, payment.companyId);
                 }
             } else {
-                logger.info(`[DEVICE] Activation skipped - invoice date out of range (not yesterday/today): ${invoice.date}`);
+                const strategy = company?.cutOffStrategy || 1;
+                const cutOffTimeStr = company?.cutOffTime || DEFAULT_CUTOFF_TIME;
+                const targetDate = companyService.getCutOffTargetDate(strategy, cutOffTimeStr, now);
+                const latestPaidStr = latestPaid ? dayjs(latestPaid.date).format('YYYY-MM-DD') : 'None';
+                logger.info(`[DEVICE] Activation skipped - device is not up-to-date (strategy: ${strategy}, cutoff: ${cutOffTimeStr}, latest paid: ${latestPaidStr}, target date: ${targetDate ? dayjs(targetDate).format('YYYY-MM-DD') : 'None'})`);
             }
 
             const simplePayment = payment.getSimple();
@@ -667,9 +629,9 @@ export class PaymentService {
             if (isConfirmed) {
                 logger.info(`[DEVICE] Activation confirmed for ${gpsId}`);
                 try {
-                    // Use deviceId (Traccar ID) for repository update
-                    await deviceRepository.updateCutOffStatus(gpsId, 0); // 0 = Active/No CutOff
-                    logger.info(`[DEVICE] CutOff flag updated to 0 for device: ${gpsId}`);
+                    // Use gpsId for repository update to avoid CastError if gpsId is string
+                    await deviceRepository.updateCutOffByGpsId(gpsId, 0); // 0 = Active/No CutOff
+                    logger.info(`[DEVICE] CutOff flag updated to 0 for device gpsId: ${gpsId}`);
 
                     if (onUpdate) onUpdate({ status: PS.S_DEVICE_ACTIVE, message: PM.M_DEVICE_ACTIVE });
                 } catch (dbError) {

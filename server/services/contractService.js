@@ -15,8 +15,7 @@ class ContractService {
      */
     async createContract(data) {
         // 1. Validate device
-        console.log('Device ID:', data);
-        const device = await deviceRepository.getDeviceById(data.deviceId * 1);
+        const device = await deviceRepository.getDeviceById(Number(data.deviceId));
         if (!device) {
             throw new Error('Device not found');
         }

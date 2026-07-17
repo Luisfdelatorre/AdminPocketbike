@@ -1,5 +1,5 @@
 export const MongoDB = {
-    URI: 'mongodb://127.0.0.1:27017/payments-wompi',//-pocketbike',
+    URI: 'mongodb://127.0.0.1:27018/payments-wompi',//-pocketbike',
 };
 //payments-wompi   yu motoya
 
@@ -118,13 +118,20 @@ export const Transaction = {
     MAX_POLL_TIMEOUT: 1 * 300 * 1000, // 5 minutos
     POLL_INTERVAL: 5 * 1000,
     googlesheetActive: true,
+    ALLOWED_PAYMENT_FREQUENCIES: [1, 6, 7, 12, 14],
     BILLING_MULTIPLIERS: {
         FIXED_WEEKDAY: {
+            1: 1,
+            6: 6,
             7: 6,
+            12: 12,
             14: 12,
         },
         FLEXIBLE: {
+            1: 1,
+            6: 6,
             7: 7,
+            12: 12,
             14: 14,
         }
     },

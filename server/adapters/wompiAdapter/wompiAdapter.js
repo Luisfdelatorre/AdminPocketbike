@@ -27,9 +27,14 @@ class WompiAdapter {
 
   //requests
 
-  async createTransactionRequest(phone, unpaidInvoice, acceptanceToken, companyId) {
+  async createTransactionRequest(phone, unpaidInvoice, contract) {
+    const daysToPrepay = helper.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
+    const targetAmount = contract.dailyRate * daysToPrepay;
+    const invoicePayload = unpaidInvoice.toObject();
+    invoicePayload.amount = targetAmount;
+    const acceptanceToken = await this.getMerchantData();
     const reference = helper.generateReference(unpaidInvoice._id);
-    const body = this.buildTransactionBody(phone, unpaidInvoice, reference, acceptanceToken);
+    const body = this.buildTransactionBody(phone, invoicePayload, reference, acceptanceToken);
     let transactionData;
     try {
       const response = await this.api.createTransaction(body);
@@ -46,7 +51,9 @@ class WompiAdapter {
       deviceId: unpaidInvoice.deviceId,
       gpsId: unpaidInvoice.gpsId,
       invoiceDate: unpaidInvoice.date,
-      companyId: companyId,
+      companyId: contract.companyId || unpaidInvoice.companyId,
+      paymentFrequency: contract.paymentFrequency,
+      billingMultiplier: daysToPrepay,
       type: PAYMENT_TYPE.WOMPI,
       amount: transactionData.amount_in_cents / 100,
     });
@@ -266,21 +273,21 @@ class WompiAdapter {
     return crypto.createHash('sha256').update(dataString).digest('hex');
   }
 
-  buildTransactionBody(phone, unpaidInvoice, reference, acceptanceToken) {
+  buildTransactionBody(phone, invoicePayload, reference, acceptanceToken) {
     const now = Date.now();
-    const amountInCents = unpaidInvoice.amount * 100; // Corrected: Use actual amount
+    const amountInCents = invoicePayload.amount * 100; // Corrected: Use actual amount
     return {
       acceptance_token: acceptanceToken,
       amount_in_cents: amountInCents,
       currency: 'COP',
       signature: this._generateSignature(reference, amountInCents, 'COP'),
-      customer_email: helper.generateEmail(unpaidInvoice.deviceIdName),
+      customer_email: helper.generateEmail(invoicePayload.deviceIdName),
       reference: reference,
       payment_method: { type: 'NEQUI', phone_number: phone },
       redirect_url: Url.redirectUrl,
       customer_data: {
         phone_number: phone,
-        full_name: `${unpaidInvoice.deviceIdName} ${defaultCustomer.nameSuffix}`
+        full_name: `${invoicePayload.deviceIdName} ${defaultCustomer.nameSuffix}`
       },
 
     };

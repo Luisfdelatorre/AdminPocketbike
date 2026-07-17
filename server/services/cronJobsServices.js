@@ -25,7 +25,7 @@ import deviceServices from "./deviceServices.js";
 const generateDailyInvoices = async () => {
   try {
     // Use today's date, normalized to start of day
-    const today = dayjs().startOf('day').toDate();
+    const today = dayjs().startOf('day').toDate();//subtract a day dayjs().subtract(1, 'day').startOf('day').toDate();
     logger.info("🚀 Starting global daily invoice generation for:", today);
 
     // 1. Find companies with automatic invoicing enabled
@@ -59,17 +59,8 @@ const generateDailyInvoices = async () => {
           continue;
         }
 
-        // Use denormalized dailyRate directly from the device record for efficiency
-        const amount = device.dailyRate || 0;
-
-        if (amount > 0) {
-          const invoice = await invoiceRepository.findOrCreateInvoiceByName(
-            device.name,           // deviceIdName
-            device.deviceId,       // deviceId
-            amount,                // amount / dailyRate
-            today,                 // date  ← must be before companyId
-            device.companyId       // companyId
-          );
+        if (device.dailyRate > 0) {
+          const invoice = await invoiceRepository.findOrCreateInvoiceByName(contract, today);
           // Check for FIXED_WEEKDAY automatic free day policy
           if (contract.freeDayPolicy === 'FIXED_WEEKDAY' && today.getDay() === contract.fixedFreeDayOfWeek) {
             if (invoice && invoice.paid === false) {

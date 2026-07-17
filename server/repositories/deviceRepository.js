@@ -170,6 +170,18 @@ class DeviceRepository {
             throw error;
         }
     }
+    async updateCutOffByGpsId(gpsId, cutOff) {
+        try {
+            return await Device.findOneAndUpdate(
+                { gpsId: gpsId },
+                { cutOff: cutOff },
+                { new: true }
+            );
+        } catch (error) {
+            logger.error(`Error updating cutOff status by gpsId ${gpsId}:`, error);
+            throw error;
+        }
+    }
     async updateDeviceCutOff(objectId, cutOff) {
         try {
             return await Device.updateOne(

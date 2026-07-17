@@ -277,22 +277,7 @@ const getExpiringContracts = async (req, res) => {
 const updateContract = async (req, res) => {
     try {
         const { contractId } = req.params;
-        const {
-            customerName,
-            customerEmail,
-            customerPhone,
-            customerDocument,
-            dailyRate,
-            contractDays, // Added contractDays
-            notes,
-            devicePin,
-            freeDaysLimit, // Added freeDaysLimit
-            freeDayPolicy,
-            fixedFreeDayOfWeek,
-            exemptFromCutOff,
-            exemptFromCurfew,
-            cutOffTime
-        } = req.body;
+        const { exemptFromCutOff, exemptFromCurfew } = req.body;
 
         const contract = await contractRepository.getContractById(contractId);
 
@@ -303,22 +288,7 @@ const updateContract = async (req, res) => {
             });
         }
 
-        const updatedContract = await contractRepository.updateContract(contractId, {
-            customerName,
-            customerEmail,
-            customerPhone,
-            customerDocument,
-            dailyRate,
-            contractDays, // Added contractDays
-            notes,
-            devicePin,
-            freeDaysLimit, // Added freeDaysLimit
-            freeDayPolicy,
-            fixedFreeDayOfWeek,
-            exemptFromCutOff,
-            exemptFromCurfew,
-            cutOffTime
-        });
+        const updatedContract = await contractRepository.updateContract(contractId, req.body);
         console.log('Update contract:', updatedContract);
         const result = await deviceRepository.updateContractStatus(contract.deviceId, contractId, true);
 

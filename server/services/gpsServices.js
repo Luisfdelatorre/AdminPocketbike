@@ -3,6 +3,7 @@ import { Login, Url, ENGINE_COMMANDS, Transaction, GPS_SERVICES } from '../confi
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
 import { Company } from '../models/Company.js';
+import dayjs from '../config/dayjs.js';
 
 import companyService from './companyService.js';
 import MyTraccar from '../adapters/traccar/traccarAdapter.js';
@@ -14,6 +15,12 @@ const NAMESPACE = "/position";
 const URL = `https://${HOST}:${PORT}${NAMESPACE}`;
 
 class GpsService {
+    static calculateBatteryLevel(lastUpdate, maxBatteryLevel = 600) {
+        const diffSeconds = dayjs().diff(dayjs(lastUpdate), 'second');
+        if (diffSeconds > 600) return 0;
+        return Math.max(0, ((maxBatteryLevel - diffSeconds) / maxBatteryLevel) * 100);
+    }
+
     constructor(company) {
         this.flushMap = {};
         this.flushTimer = null;

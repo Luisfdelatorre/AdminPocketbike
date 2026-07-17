@@ -1,9 +1,6 @@
 import mongoose from 'mongoose';
 import dayjs from '../config/dayjs.js';
 import { Transaction } from '../config/config.js';
-import helpers from '../utils/helpers.js';
-
-const { generateInvoiceId, getToday } = helpers;
 
 
 const { INVOICE_DAYTYPE, PAYMENT_TYPE, TEMPORARY_RESERVATION_TIMEOUT } = Transaction;
@@ -30,7 +27,7 @@ const InvoiceSchema = new mongoose.Schema(
         deviceIdName: { type: String, required: true },//this is device name
         deviceId: { type: String, required: true },//this is device id
         megaDeviceId: { type: String },              // GPS provider device ID (megarastreo)
-        gpsId: { type: String },
+        gpsId: { type: String },  // Denormalized from Device for fast GPS activation on payment
         companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
         companyName: { type: String },
         dayType: {
@@ -60,8 +57,20 @@ InvoiceSchema.index({ companyId: 1, date: 1 });
 // ════════════════════════════════════════════
 // statics
 // ════════════════════════════════════════════
+InvoiceSchema.statics.generateInvoiceId = function (name, day) {
+    const today = dayjs(day).startOf('day');
+    const formatted = today.format('YYYY-MM-DD');
+    return `${name}-${formatted}`;
+};
+
+InvoiceSchema.statics.generateInvoiceIdInitialFee = function (name, day) {
+    const today = dayjs(day).startOf('day');
+    const formatted = today.format('YYYY-MM-DD');
+    return `IF-${name}-${formatted}`;
+};
+
 InvoiceSchema.statics.buildId = function (name, date) {
-    return generateInvoiceId(name, date);
+    return this.generateInvoiceId(name, date);
 };
 
 InvoiceSchema.statics.findLastPaid = function (deviceIdName) {
@@ -76,9 +85,29 @@ InvoiceSchema.statics.findLastUnPaid = function (deviceIdName) {
     return this.findOne({ deviceIdName, paid: false }).sort({ date: 1 });
 };
 
+// Returns all unpaid non-FREE invoices (oldest first) — used to count available paid slots in a cycle
+InvoiceSchema.statics.findUnpaidCycleInvoices = function (deviceIdName) {
+    return this.find({
+        deviceIdName,
+        paid: false,
+    }).sort({ date: 1 });
+};
+
+InvoiceSchema.statics.getPaymentUpdatePayload = function (payment) {
+    return {
+        paid: true,
+        dayType: INVOICE_DAYTYPE.PAID,
+        'transaction.id': payment._id,
+        'transaction.reference': payment.reference,
+        'transaction.finalized_at': payment.finalized_at,
+        'transaction.type': payment.type
+    };
+};
+
 InvoiceSchema.statics.countFreeDaysUsedThisMonth = function (deviceId) {
-    const startOfMonth = getToday().startOf('month').toDate();
-    const endOfMonth = getToday().endOf('month').toDate();
+    const today = dayjs();
+    const startOfMonth = today.startOf('month').toDate();
+    const endOfMonth = today.endOf('month').toDate();
 
     return this.countDocuments({
         deviceIdName: deviceId,
@@ -93,7 +122,6 @@ InvoiceSchema.statics.createInvoice = async function ({
     date,
     deviceIdName,
     deviceId,
-    megaDeviceId,
     gpsId,
     companyId,
     companyName
@@ -106,10 +134,8 @@ InvoiceSchema.statics.createInvoice = async function ({
         amount,
         deviceIdName,
         deviceId,
-        megaDeviceId,
         gpsId,
         companyId,
-        companyName,
         paid: false,
         dayType: INVOICE_DAYTYPE.DEBT,
     });
@@ -174,7 +200,7 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;
             this.adjustmentType = payment.adjustmentType || payment.adjustmentReason || null;
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
-            
+
             // For free adjustments (REPAIR, MAINTENANCE, WORKSHOP), the amount is $0
             if (['REPAIR', 'MAINTENANCE', 'WORKSHOP'].includes(this.adjustmentType)) {
                 this.amount = 0;
@@ -182,7 +208,7 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             } else {
                 this.paidAmount = payment.amount;
             }
-            
+
             this.transaction.id = payment._id;
             this.transaction.reference = payment.reference;
             this.transaction.finalized_at = payment.finalized_at;

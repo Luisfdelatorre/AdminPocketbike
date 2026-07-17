@@ -3,7 +3,6 @@ import { Invoice } from '../models/Invoice.js';
 import { Transaction, PAYMENTMESSAGES as PM } from '../config/config.js';
 import { Device } from '../models/Device.js';
 import mongoose from 'mongoose';
-import helpers from '../utils/helpers.js';
 
 // Centralized Day.js
 import dayjs from '../config/dayjs.js';
@@ -25,10 +24,10 @@ const getInvoiceHistory = async (deviceIdName, month, year) => {
     // Default to current month/year if not provided
     const now = dayjs();
     const targetMonth = month ? Number(month) : now.month() + 1; // dayjs month is 0-indexed
-    const targetYear  = year  ? Number(year)  : now.year();
+    const targetYear = year ? Number(year) : now.year();
 
     const startOfMonth = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).startOf('month').toDate();
-    const endOfMonth   = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).endOf('month').toDate();
+    const endOfMonth = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).endOf('month').toDate();
 
     const invoices = await Invoice.find(
         {
@@ -71,7 +70,7 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
     devices.forEach(d => {
         deviceMap[d.name] = {
             ...d,
-            batteryLevel: d.batteryLevel,//helpers.calculateBatteryLevel(d.lastUpdate, maxBatteryLevel),
+            batteryLevel: d.batteryLevel,
             monthPaid: 0,
             monthDebt: 0,
             freeDays: 0,
@@ -130,6 +129,7 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
 
     return report;
 };
+
 
 export default {
     getInvoiceHistory,

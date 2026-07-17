@@ -3,6 +3,7 @@ import contractRepository from '../repositories/contractRepository.js';
 import logger from '../config/logger.js';
 import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
 import helpers from '../utils/helpers.js';
+import { Contract } from '../models/Contract.js';
 const { PAYMENT_STATUS, TEMPORARY_RESERVATION_TIMEOUT, DEFAULT_PAYMENT_EMAIL_DOMAIN } = Transaction;
 const { M_REQUEST_SENT } = PAYMENTMESSAGES;
 const paymentController = {
@@ -249,13 +250,10 @@ const paymentController = {
 
             const status = await paymentService.calculatePaymentStatus(contract);
 
-            const multiplier = helpers.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
-            const amount = status.dailyRate * multiplier;
-
             res.json({
                 success: true,
                 phoneNumber: status.customerPhone,
-                amount,
+                amount: status.amount,
                 freeDays: status.freeDaysAvailable
             });
 

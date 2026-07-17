@@ -122,7 +122,7 @@ async function startServer() {
         await seedSuperAdmin();
         await cron.init();
         //execute cron jobs
-        //  await cron.execute('dailyInvoicesCreation');
+        // await cron.execute('dailyInvoicesCreation');
 
         // Start Express server
         app.listen(config.server.port, async () => {

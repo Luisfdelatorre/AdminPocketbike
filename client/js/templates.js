@@ -60,10 +60,10 @@ export const Templates = {
 <div id="loadingScreen" class="screen">
     <div class="container">
         <div class="loading-content">
-            <h2 class="app-title">Pago a PocketBike</h2>
+            <h2 class="app-title">Pago a {{COMPANY_NAME}}</h2>
             <p class="loading-message" id="loadingMessage">MTJ17H - Mensajería</p>
             <p class="text-center">
-                <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="img-lg">
+                <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-lg">
             </p>
             <div class="amount-display">
                 <div class="amount-value" id="loadingAmount"><span class="text-black">COP</span></div>
@@ -105,8 +105,8 @@ export const Templates = {
     <div class="container">
         <div class="success-card">
             <div class="receipt-header">
-                <img alt="PocketBike Logo" src="/pocketbike_60x60.jpg" class="receipt-logo">
-                <h3 class="receipt-title">POCKETBIKE</h3>
+                <img alt="Logo" src="{{COMPANY_LOGO}}" class="receipt-logo">
+                <h3 class="receipt-title">{{COMPANY_NAME}}</h3>
                 <p class="text-muted receipt-subtitle">Comprobante de Pago</p>
             </div>
 

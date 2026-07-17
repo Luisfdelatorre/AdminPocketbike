@@ -30,6 +30,8 @@ const paymentSchema = new mongoose.Schema({
     invoiceId: { type: String, default: null }, // ID de la factura asociada
     unpaidInvoiceId: { type: String, default: null }, // ID de la posible factura no pagada asociada
     used: { type: Boolean, default: false }, // Indica si el pago ya fue aplicado
+    paymentFrequency: { type: Number },
+    billingMultiplier: { type: Number },
 
 
 

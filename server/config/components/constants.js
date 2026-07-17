@@ -95,4 +95,4 @@ export const GPS_SERVICES = {
     TRACCAR: 'traccar',
     // XXXXX:    'xxxxx', // <-- espacio para futuros proveedores
 };
-
+export const DEFAULT_CUTOFF_TIME = '23:59';

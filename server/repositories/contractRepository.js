@@ -1,5 +1,4 @@
 import { Contract } from '../models/Contract.js';
-import helpers from '../utils/helpers.js';
 import daysjs from 'dayjs';
 
 export class ContractRepository {
@@ -8,8 +7,8 @@ export class ContractRepository {
      */
     async createContract(data, device) {
 
-        ;        // User requested format: CI + DeviceName + 2 nanoid (e.g. CIBIKE001AB)
-        const contractId = helpers.generateContractId(device.name);
+        // User requested format: CI + DeviceName + 2 nanoid (e.g. CIBIKE001AB)
+        const contractId = Contract.generateContractId(device.name);
 
         // Calculate end date
         const start = daysjs(data.startDate);
@@ -25,6 +24,7 @@ export class ContractRepository {
             contractId,
             deviceId: device.deviceId,     // webdeviceid
             deviceIdName: device.name, // Human readable name
+            gpsId: device.gpsId,
             companyId: device.companyId,
             companyName: device.companyName,
             startDate: start.toDate(),
@@ -79,12 +79,18 @@ export class ContractRepository {
     /**
      * Update contract payment progress
      */
-    async updateContractProgress(contractId, paidAmount, paidDays) {
-        const contract = await Contract.findOne({ contractId });
+    async updateContractProgress(payment) {
+        const contract = await Contract.findOne({
+            deviceIdName: payment.deviceIdName,
+            status: 'ACTIVE'
+        });
 
         if (!contract) {
-            throw new Error('Contract not found');
+            throw new Error(`Active contract not found for device: ${payment.deviceIdName}`);
         }
+
+        const paidAmount = payment.amount_in_cents ? payment.amount_in_cents / 100 : payment.amount;
+        const paidDays = contract.paymentFrequency || 1;
 
         contract.paidAmount += paidAmount;
         contract.paidDays += paidDays;

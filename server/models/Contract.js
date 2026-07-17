@@ -1,5 +1,8 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { nanoid } from 'nanoid';
+import { Transaction } from '../config/config.js';
+const { ALLOWED_PAYMENT_FREQUENCIES, BILLING_MULTIPLIERS } = Transaction;
 
 const contractSchema = new mongoose.Schema({
     contractId: {
@@ -18,6 +21,7 @@ const contractSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
+    gpsId: { type: mongoose.Schema.Types.Mixed, default: null }, // Denormalized from Device for fast GPS activation on payment
     // Company association
     companyId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -116,8 +120,8 @@ const contractSchema = new mongoose.Schema({
     },
     paymentFrequency: {
         type: Number,
-        enum: [1, 7, 14],
-        default: 1, // 1 = Daily, 7 = Weekly, 14 = Biweekly
+        enum: ALLOWED_PAYMENT_FREQUENCIES,
+        default: 1, // 1 = Daily, 6 = Weekly, 12 = Biweekly (paid days)
     },
     reactivationRule: {
         type: String,
@@ -164,5 +168,15 @@ contractSchema.virtual('completionPercentage').get(function () {
 // Compound index for device + date range
 contractSchema.index({ deviceIdName: 1, startDate: 1 });
 contractSchema.index({ status: 1, endDate: 1 });
+
+contractSchema.statics.generateContractId = function (deviceIdName) {
+    const sanitizedName = deviceIdName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+    return `CI${sanitizedName}${nanoid(2).toUpperCase()}`;
+};
+
+contractSchema.statics.getBillingMultiplier = function (frequency, freeDayPolicy) {
+    const policyMap = BILLING_MULTIPLIERS[freeDayPolicy] || BILLING_MULTIPLIERS.FLEXIBLE;
+    return policyMap[frequency] ?? frequency ?? 1;
+};
 
 export const Contract = mongoose.model('Contract', contractSchema);

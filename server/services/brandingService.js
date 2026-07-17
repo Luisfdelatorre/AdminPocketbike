@@ -7,12 +7,20 @@ import fs from 'fs/promises';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const brandingCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Get company branding information based on device name
  * @param {string} deviceName - The device identifier
  * @returns {Promise<{displayName: string, logo: string}>}
  */
 export async function getCompanyBranding(deviceName) {
+    const cached = brandingCache.get(deviceName);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return cached.data;
+    }
+
     try {
         // Find device by name
         const device = await Device.findOne({ name: deviceName }).lean();
@@ -32,7 +40,9 @@ export async function getCompanyBranding(deviceName) {
             }
         }
 
-        return { displayName, logo };
+        const data = { displayName, logo };
+        brandingCache.set(deviceName, { data, timestamp: Date.now() });
+        return data;
     } catch (error) {
         console.error('Error fetching company branding:', error);
         // Return default branding on error
@@ -43,29 +53,27 @@ export async function getCompanyBranding(deviceName) {
     }
 }
 
-/**
- * Inject branding data into HTML template
- * @param {string} htmlPath - Path to the HTML file
- * @param {Object} branding - Branding data {displayName, logo}
- * @returns {Promise<string>} - HTML with injected branding
- */
-export async function injectBrandingIntoHTML(htmlPath, branding) {
+let cachedTemplate = null;
+
+export async function injectBrandingIntoHTML(htmlPath, branding, deviceName = '') {
     try {
-        // Read HTML file
-        let html = await fs.readFile(htmlPath, 'utf-8');
+        // Read HTML file from disk only once, then keep it in memory
+        if (!cachedTemplate) {
+            cachedTemplate = await fs.readFile(htmlPath, 'utf-8');
+        }
+        let html = cachedTemplate;
 
-        // Create branding script
-        const brandingScript = `
-            <script>
-                window.__COMPANY_BRANDING__ = {
-                    displayName: ${JSON.stringify(branding.displayName)},
-                    logo: ${JSON.stringify(branding.logo)}
-                };
-            </script>
-        `;
+        // Replace all instances of device ID placeholder
+        html = html.replace(/{{DEVICE_ID}}/g, deviceName);
 
-        // Inject before closing </head> tag
-        html = html.replace('</head>', `${brandingScript}</head>`);
+        // Resolve branding details or fallbacks
+        const displayName = branding?.displayName || 'PocketBike';
+        const logo = branding?.logo || '/pocketbike_60x60.jpg';
+
+        // Replace all instances of company title placeholder
+        html = html.replace(/{{COMPANY_NAME}}/g, displayName);
+        // Replace all instances of company logo placeholder
+        html = html.replace(/{{COMPANY_LOGO}}/g, logo);
 
         return html;
     } catch (error) {

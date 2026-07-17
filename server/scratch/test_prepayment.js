@@ -78,11 +78,11 @@ async function runTest() {
             freeDaysLimit: 4,
             freeDayPolicy: 'FIXED_WEEKDAY',
             fixedFreeDayOfWeek: 0, // Sunday
-            paymentFrequency: 14, // 14-day cycle
+            paymentFrequency: 12, // 12 paid days cycle
             devicePin: '1234'
         }, device);
 
-        const mult1 = helpers.getBillingMultiplier(contract1.paymentFrequency, contract1.freeDayPolicy);
+        const mult1 = Contract.getBillingMultiplier(contract1.paymentFrequency, contract1.freeDayPolicy);
         const amount1 = contract1.dailyRate * mult1;
         console.log(`ℹ️ paymentFrequency: ${contract1.paymentFrequency}, Policy: ${contract1.freeDayPolicy}`);
         console.log(`ℹ️ Multiplier: ${mult1} (Expected: 12) | Amount: ${amount1} COP (Expected: 360000)`);
@@ -135,14 +135,14 @@ async function runTest() {
             dailyRate: 30000,
             freeDaysLimit: 4,
             freeDayPolicy: 'FLEXIBLE', // Flexible
-            paymentFrequency: 14, // 14-day cycle
+            paymentFrequency: 12, // 12 paid days cycle
             devicePin: '1234'
         }, device);
 
-        const mult2 = helpers.getBillingMultiplier(contract2.paymentFrequency, contract2.freeDayPolicy);
+        const mult2 = Contract.getBillingMultiplier(contract2.paymentFrequency, contract2.freeDayPolicy);
         const amount2 = contract2.dailyRate * mult2;
         console.log(`ℹ️ paymentFrequency: ${contract2.paymentFrequency}, Policy: ${contract2.freeDayPolicy}`);
-        console.log(`ℹ️ Multiplier: ${mult2} (Expected: 14) | Amount: ${amount2} COP (Expected: 420000)`);
+        console.log(`ℹ️ Multiplier: ${mult2} (Expected: 12) | Amount: ${amount2} COP (Expected: 360000)`);
 
         const paymentData2 = {
             _id: `PAY-TEST2-${Date.now()}`,

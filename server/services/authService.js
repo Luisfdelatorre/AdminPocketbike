@@ -175,12 +175,12 @@ export class AuthService {
 
             let paymentData = null;
 
-            paymentData = await paymentService.calculatePaymentStatus(contract);
+            // paymentData = await paymentService.calculatePaymentStatus(contract);
 
             return {
                 success: true,
                 token,
-                paymentData
+                // paymentData
             };
         }
 
