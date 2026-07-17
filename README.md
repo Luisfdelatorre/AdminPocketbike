@@ -15,41 +15,72 @@ A full-stack payment processing system integrated with Wompi (Colombia) for mana
 
 ## 📋 Requirements
 
-- Node.js >= 18.x
-- MongoDB >= 6.0 (local or MongoDB Atlas)
-- Wompi account with API keys
+- Node.js `20.18.1` or newer (the lockfile resolves Cheerio 1.2, which requires this version).
+- SSH access to `root@198.74.54.252` with the assigned password or SSH key.
+- Wompi sandbox credentials for testing payments.
+- Optional: access to the configured Traccar or MegaRastreo GPS service for device synchronization.
 
 ## 🛠️ Installation
 
-1. **Clone and install dependencies:**
+1. **Install dependencies:**
 ```bash
-npm install
+npm ci
 ```
 
-2. **Configure environment variables:**
+2. **Create local environment variables:**
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your Wompi credentials:
+At minimum, set your own secrets in `.env`:
 ```bash
-WOMPI_PUBLIC_KEY=pub_test_your_public_key_here
-WOMPI_PRIVATE_KEY=prv_test_your_private_key_here
-WOMPI_EVENTS_SECRET=your_events_secret_here
-MONGODB_URI=mongodb://localhost:27017/payments-wompi
+NODE_ENV=development
+JWT_SECRET=replace-with-a-long-random-secret
+ENCRYPTION_KEY=replace-with-a-local-encryption-key
+FRONTEND_URL=http://localhost:5173
 ```
 
-3. **Initialize database:**
+The main server connects to `127.0.0.1:27018`. The SSH tunnel below forwards that local port to the team MongoDB server, so no local MongoDB or Docker container is needed. `MONGODB_URI` in `.env` is used by some utility scripts but does not override the main server connection. Wompi and some GPS credentials are also currently defined in `server/config/components/services.js`.
+
+3. **Open the database tunnel in a dedicated terminal:**
 ```bash
-npm run init-db
+npm run dev:db-tunnel
 ```
 
-4. **Start the server:**
+The command asks for the SSH password when no key is configured and remains running while the tunnel is open. Keep this terminal open.
+
+Do not run `npm run init-db` against this tunnel: it creates sample records in the shared database. That command is only for an isolated local database.
+
+4. **Start the backend in a second terminal:**
+```bash
+npm run dev:api
+```
+
+5. **Start the Vite frontend in a third terminal:**
 ```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+Open `http://localhost:5173`. Vite proxies `/apinode` and `/p` to the backend on port `8084`.
+
+For a production-style local run, build first and then start the server:
+```bash
+npm run build
+PORT=7083 npm start
+```
+The built application is then served at `http://localhost:7083`.
+
+### Local database alternative
+
+When a team database tunnel is not available, start an isolated MongoDB instance on the same port:
+```bash
+docker run --rm --name pocketbike-mongo -p 27018:27017 mongo:7
+```
+
+Only with this isolated database may you run:
+```bash
+npm run init-db
+```
 
 ## 📁 Project Structure
 
@@ -94,25 +125,27 @@ webApp2026/
 
 ## 🔐 API Endpoints
 
+All backend routes use the `/apinode` prefix.
+
 ### Payments
-- `POST /api/payments/create-intent` - Create payment for oldest unpaid invoice
-- `GET /api/payments/status/:reference` - Get payment status
-- `GET /api/payments/unpaid/:deviceId` - Get unpaid invoices
-- `GET /api/payments/history/:deviceId` - Get payment history
-- `POST /api/payments/verify/:reference` - Manually verify transaction
+- `POST /apinode/payments/create-intent` - Create payment for oldest unpaid invoice
+- `GET /apinode/payments/status/:reference` - Get payment status
+- `GET /apinode/payments/unpaid/:deviceId` - Get unpaid invoices
+- `GET /apinode/payments/history/:deviceId` - Get payment history
+- `POST /apinode/payments/verify/:reference` - Manually verify transaction
 
 ### Webhooks
-- `POST /api/webhooks/wompi` - Receive Wompi webhook events
-- `POST /api/webhooks/recover-pending` - Recover stale pending payments
+- `POST /apinode/webhooks/wompi` - Receive Wompi webhook events
+- `POST /apinode/webhooks/recover-pending` - Recover stale pending payments
 
 ### Invoices
-- `POST /api/invoices/create` - Create daily invoice
-- `GET /api/invoices/:deviceId` - Get all invoices
-- `GET /api/invoices/:deviceId/unpaid` - Get unpaid invoices
+- `POST /apinode/invoices/create` - Create daily invoice
+- `GET /apinode/invoices/:deviceId` - Get all invoices
+- `GET /apinode/invoices/:deviceId/unpaid` - Get unpaid invoices
 
 ### Real-Time
-- `GET /api/sse/subscribe` - Subscribe to real-time updates
-- `GET /api/sse/status` - Get SSE connection status
+- `GET /apinode/sse/subscribe` - Subscribe to real-time updates
+- `GET /apinode/sse/status` - Get SSE connection status
 
 ## 💳 Payment Flow
 
@@ -149,7 +182,7 @@ Webhooks are processed idempotently to prevent duplicate updates:
 
 ### Create Sample Invoice
 ```bash
-curl -X POST http://localhost:3000/api/invoices/create \
+curl -X POST http://localhost:8084/apinode/invoices/create \
   -H "Content-Type: application/json" \
   -d '{
     "deviceId": "BIKE001",
@@ -160,12 +193,12 @@ curl -X POST http://localhost:3000/api/invoices/create \
 
 ### Manual Transaction Verification
 ```bash
-curl -X POST http://localhost:3000/api/payments/verify/REF-xxxxxxxxxxxx
+curl -X POST http://localhost:8084/apinode/payments/verify/REF-xxxxxxxxxxxx
 ```
 
 ### Trigger Pending Recovery
 ```bash
-curl -X POST http://localhost:3000/api/webhooks/recover-pending \
+curl -X POST http://localhost:8084/apinode/webhooks/recover-pending \
   -H "Content-Type: application/json" \
   -d '{"olderThanMinutes": 30}'
 ```
@@ -183,7 +216,8 @@ curl -X POST http://localhost:3000/api/webhooks/recover-pending \
 ## 🔧 Configuration
 
 ### MongoDB Atlas (Production)
-Update `.env`:
+
+The main connection is currently hardcoded to the local URI in `server/config/components/core.js`. To use Atlas, update that configuration (or externalize it before deployment) and provide the Atlas connection string:
 ```bash
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/payments-wompi
 ```
@@ -194,6 +228,8 @@ WOMPI_PUBLIC_KEY=pub_prod_xxxxx
 WOMPI_PRIVATE_KEY=prv_prod_xxxxx
 WOMPI_API_URL=https://production.wompi.co/v1
 ```
+
+These variables are documented for the intended deployment model, but the current Wompi service still uses values defined in `server/config/components/services.js`; move those values to environment variables before production use.
 
 ## 📊 Database Schema
 
@@ -227,7 +263,7 @@ WOMPI_API_URL=https://production.wompi.co/v1
 ## 🐛 Troubleshooting
 
 **Issue**: Webhooks not processing
-- Verify `WOMPI_EVENTS_SECRET` is correct
+- Verify the Wompi events secret configured by the backend is correct
 - Check webhook signature validation
 - Review webhook logs in database
 
@@ -237,8 +273,8 @@ WOMPI_API_URL=https://production.wompi.co/v1
 - Verify CORS headers are set
 
 **Issue**: Payments stuck in PENDING
-- Run recovery: `POST /api/webhooks/recover-pending`
-- Manually verify: `POST /api/payments/verify/:reference`
+- Run recovery: `POST /apinode/webhooks/recover-pending`
+- Manually verify: `POST /apinode/payments/verify/:reference`
 
 ## 📝 License
 
