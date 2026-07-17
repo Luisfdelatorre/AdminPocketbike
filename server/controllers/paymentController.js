@@ -373,7 +373,7 @@ const paymentController = {
             if (!invoiceId || !adjustmentType) {
                 return res.status(400).json({ success: false, error: 'invoiceId and adjustmentReason are required' });
             }
-            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP'];
+            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA'];
             if (!VALID_REASONS.includes(adjustmentType)) {
                 return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${VALID_REASONS.join(', ')}` });
             }
