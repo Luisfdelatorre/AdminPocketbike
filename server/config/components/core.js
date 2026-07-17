@@ -1,5 +1,5 @@
 export const MongoDB = {
-    URI: 'mongodb://127.0.0.1:27018/payments-wompi',//-pocketbike',
+    URI: 'mongodb://127.0.0.1:27018/payments-wompi-pocketbike',
 };
 //payments-wompi   yu motoya
 

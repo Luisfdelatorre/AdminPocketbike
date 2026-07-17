@@ -47,7 +47,9 @@ const Contracts = () => {
         loadAvailableDevices();
         loadCompanySettings();
         setPortalElement(document.getElementById('mobile-header-actions'));
+    }, [filter]);
 
+    useEffect(() => {
         const handleClickOutside = (event) => {
             if (activeMenu && !event.target.closest('.action-menu-container')) {
                 setActiveMenu(null);
@@ -58,7 +60,7 @@ const Contracts = () => {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [filter, activeMenu]);
+    }, [activeMenu]);
 
     useEffect(() => {
         let lastScrollY = window.scrollY;

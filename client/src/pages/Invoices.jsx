@@ -99,13 +99,22 @@ const Invoices = () => {
             autoAmount: 0,         // free day
             autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
         },
-        WORKSHOP: {
-            label: 'Taller',
+        OFFICE: {
+            label: 'Oficina',
             color: '#0891B2',
             bg: '#ECFEFF',
+            description: 'Ajuste / Pago manual realizado en oficina.',
+            autoAmount: null,      // full amount
+            autoReference: 'OFICINA - Pago manual en oficina',
+        },
+        WORKSHOP: {
+            label: 'Taller',
+            color: '#A3A3A3',
+            bg: '#F5F5F5',
             description: 'Dispositivo en taller — día sin cobro al cliente.',
             autoAmount: 0,         // free day
             autoReference: 'TALLER - Día ajustado automáticamente',
+            hidden: true,
         },
     };
 
@@ -710,8 +719,14 @@ const Invoices = () => {
                                                     {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
                                                     {invoice.adjustmentType === 'DAMAGE' && <AlertTriangle size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
                                                     {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {invoice.adjustmentType === 'WORKSHOP' && <Building2 size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType}
+                                                    {(invoice.adjustmentType === 'WORKSHOP' || invoice.adjustmentType === 'OFFICE' || invoice.adjustmentType === 'OFICINA') && <Building2 size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {(() => {
+                                                        const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : invoice.adjustmentType;
+                                                        if (adjType && ADJUSTMENT_CONFIG[adjType]) {
+                                                            return ADJUSTMENT_CONFIG[adjType].label.toUpperCase();
+                                                        }
+                                                        return invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType;
+                                                    })()}
                                                 </span>
                                             </div>
                                         </td>
@@ -763,7 +778,7 @@ const Invoices = () => {
                                 {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={20} />}
                                 {manualPayForm.adjustmentType === 'DAMAGE' && <AlertTriangle size={20} />}
                                 {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={20} />}
-                                {manualPayForm.adjustmentType === 'WORKSHOP' && <Building2 size={20} />}
+                                {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={20} />}
                                 <span>
                                     {manualPayForm.adjustmentType
                                         ? ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].label
@@ -800,7 +815,7 @@ const Invoices = () => {
                                         {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={14} />}
                                         {manualPayForm.adjustmentType === 'DAMAGE' && <AlertTriangle size={14} />}
                                         {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={14} />}
-                                        {manualPayForm.adjustmentType === 'WORKSHOP' && <Building2 size={14} />}
+                                        {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={14} />}
                                         <span>{cfg.description}</span>
                                     </div>
                                 );
@@ -826,7 +841,7 @@ const Invoices = () => {
                                     style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}
                                 >
                                     <option value="" style={{ color: '#1a1a2e', background: '#fff' }}>-- Pago normal --</option>
-                                    {Object.entries(ADJUSTMENT_CONFIG).map(([key, cfg]) => (
+                                    {Object.entries(ADJUSTMENT_CONFIG).filter(([_, cfg]) => !cfg.hidden).map(([key, cfg]) => (
                                         <option key={key} value={key} style={{ color: cfg.color, background: cfg.bg, fontWeight: 600 }}>{cfg.label}</option>
                                     ))}
                                 </select>
