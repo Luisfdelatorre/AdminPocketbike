@@ -39,7 +39,7 @@ const InvoiceSchema = new mongoose.Schema(
         cutOff: { type: Boolean, default: false }, // Device turned off due to non-payment
         adjustmentType: {
             type: String,
-            enum: ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', null],
+            enum: ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', null],
             default: null
         }, // Reason why this day was altered
         adjustmentReference: { type: String, default: '' }, // Admin reference / note for the adjustment

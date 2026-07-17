@@ -421,11 +421,15 @@ export class InvoiceRepository {
      */
     async ensureCycleInvoicesExist(deviceIdName, contract, multiplier) {
         const frequency = contract.paymentFrequency || 1;
+        const targetLimit = typeof multiplier === 'number'
+            ? multiplier
+            : Contract.getBillingMultiplier(frequency, contract.freeDayPolicy);
+
         let unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName);
         let coveredDays = unpaidInvoices.length;
-        if (coveredDays >= frequency) {
+        if (coveredDays >= targetLimit) {
             logger.info(`[CYCLE] Already ${unpaidInvoices.length} unpaid invoices for ${deviceIdName}, skipping`);
-            return unpaidInvoices.slice(0, frequency);
+            return unpaidInvoices.slice(0, targetLimit);
         }
         // Start pre-creating invoices from the day after the latest paid invoice in the database
         const latestInvoice = await Invoice.findLastPaid(deviceIdName);
@@ -433,8 +437,8 @@ export class InvoiceRepository {
             ? dayjs(latestInvoice.date).add(1, 'day')
             : dayjs().startOf('day');
 
-        // Loop until exactly `frequency` calendar cycle unpaid days are pre-created
-        while (coveredDays < frequency) {
+        // Loop until exactly `targetLimit` calendar cycle unpaid days are pre-created
+        while (coveredDays < targetLimit) {
             const dateVal = currentDate.toDate();
             const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
 
@@ -459,7 +463,7 @@ export class InvoiceRepository {
             currentDate = currentDate.add(1, 'day');
         }
         unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName);
-        return unpaidInvoices.slice(0, frequency);
+        return unpaidInvoices.slice(0, targetLimit);
     }
 
     /**

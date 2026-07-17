@@ -90,6 +90,15 @@ const Invoices = () => {
             description: 'Cobro completo por daño — el cliente es responsable.',
             autoAmount: null,      // full invoice amount
             autoReference: 'DAÑO - Cobro completo por responsabilidad del cliente',
+            hidden: true,
+        },
+        INCAPACITY: {
+            label: 'Incapacidad',
+            color: '#EF4444',
+            bg: '#FEF2F2',
+            description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
+            autoAmount: 0,         // free day (pago 0)
+            autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
         },
         MAINTENANCE: {
             label: 'Mantenimiento',
@@ -717,11 +726,11 @@ const Invoices = () => {
                                                     title={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? "Registrar pago manual / ajuste" : undefined}
                                                 >
                                                     {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {invoice.adjustmentType === 'DAMAGE' && <AlertTriangle size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {(invoice.adjustmentType === 'DAMAGE' || invoice.adjustmentType === 'INCAPACITY' || invoice.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
                                                     {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
                                                     {(invoice.adjustmentType === 'WORKSHOP' || invoice.adjustmentType === 'OFFICE' || invoice.adjustmentType === 'OFICINA') && <Building2 size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
                                                     {(() => {
-                                                        const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : invoice.adjustmentType;
+                                                        const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
                                                         if (adjType && ADJUSTMENT_CONFIG[adjType]) {
                                                             return ADJUSTMENT_CONFIG[adjType].label.toUpperCase();
                                                         }
@@ -776,7 +785,7 @@ const Invoices = () => {
                             <div className="modal-header-left">
                                 {!manualPayForm.adjustmentType && <HandCoins size={20} />}
                                 {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={20} />}
-                                {manualPayForm.adjustmentType === 'DAMAGE' && <AlertTriangle size={20} />}
+                                {(manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={20} />}
                                 {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={20} />}
                                 {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={20} />}
                                 <span>
@@ -813,7 +822,7 @@ const Invoices = () => {
                                 return (
                                     <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: cfg.color + '50', color: cfg.color }}>
                                         {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={14} />}
-                                        {manualPayForm.adjustmentType === 'DAMAGE' && <AlertTriangle size={14} />}
+                                        {(manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={14} />}
                                         {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={14} />}
                                         {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={14} />}
                                         <span>{cfg.description}</span>

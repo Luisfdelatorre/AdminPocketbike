@@ -4,6 +4,7 @@ import wompiApi, { getWompiApi } from './wompiApi.js';
 import helper from '../../utils/helpers.js';
 import { Transaction, Login, Url } from '../../config/config.js';
 import dayjs from '../../config/dayjs.js';
+import { Contract } from '../../models/Contract.js';
 
 const { PAYMENT_TYPE, currencyCode, defaultCustomer } = Transaction;
 
@@ -28,7 +29,7 @@ class WompiAdapter {
   //requests
 
   async createTransactionRequest(phone, unpaidInvoice, contract) {
-    const daysToPrepay = helper.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
+    const daysToPrepay = Contract.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
     const targetAmount = contract.dailyRate * daysToPrepay;
     const invoicePayload = unpaidInvoice.toObject();
     invoicePayload.amount = targetAmount;

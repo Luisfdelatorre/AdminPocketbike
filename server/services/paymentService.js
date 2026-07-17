@@ -354,8 +354,9 @@ export class PaymentService {
         this.validatePaymentInput(deviceIdName, phone);
         await this.checkDuplicatePayment(deviceIdName);
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
+        const multiplier = Contract.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
         // Pre-generar facturas del ciclo (idempotente) en lugar de crear una sola factura al vuelo
-        await invoiceRepository.ensureCycleInvoicesExist(deviceIdName, contract, companyId);
+        await invoiceRepository.ensureCycleInvoicesExist(deviceIdName, contract, multiplier);
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract);
         const wompiAdapter = await companyService.getWompiAdapter(companyId);
         const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, contract);
