@@ -1,54 +1,97 @@
-# Reglas para el Desarrollo de AdminPocketbike (Payments-Wompi)
+# Reglas para el Desarrollo de AdminPocketbike
 
-Este archivo define las directrices y fuentes de verdad que todos los agentes de IA deben seguir al trabajar en este proyecto.
+Este archivo contiene las reglas obligatorias para cualquier agente de IA que trabaje en el proyecto.
 
-## 📚 Fuentes de Conocimiento del Proyecto
-Antes de realizar cualquier modificación, diseño o propuesta de código, debes leer, entender y adherirte a los siguientes archivos según corresponda:
+## Jerarquía de autoridad
 
-* **Arquitectura y Flujo General**: [ARCHITECTURE.md](ARCHITECTURE.md) (Estructura del servidor, flujo de caja, estado de dispositivos).
-* **Lógica del Negocio de Contratos**: [CONTRACT_SYSTEM.md](CONTRACT_SYSTEM.md) (Generación automática de contratos, abonos, estados y penalidades).
-* **Esquemas y Relaciones de Base de Datos**: [DATABASE_RELATIONSHIPS.md](DATABASE_RELATIONSHIPS.md) (Modelos de Mongoose, relaciones de uno a uno entre Invoices y Payments, etc.).
-* **Autenticación y Seguridad**: [AUTH_SYSTEM.md](AUTH_SYSTEM.md) (Flujo de login, tokens JWT, middleware y roles de usuario).
-* **Instalación y Configuración del Entorno**: [README.md](README.md) (Variables de entorno, dependencias y comandos).
-* **Resumen Técnico General**: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) (Detalles de los módulos completados e integraciones como Wompi).
+Cuando existan contradicciones, aplicar este orden:
 
-## 🛠️ Directrices de Desarrollo
-1. **Verificación de Base de Datos**: El servidor se conecta a `127.0.0.1:27018`. Asegúrate de que el túnel de base de datos (`npm run dev:db-tunnel`) esté activo o sea mencionado si hay problemas de conexión.
-2. **Diseño Visual**: Mantener la estética premium actual: diseño moderno con Glassmorphism, animaciones suaves y paleta de colores coherente y pulida. Evitar estilos básicos o genéricos.
-3. **Consistencia**: Respeta siempre las decisiones arquitectónicas ya tomadas y documentadas en los archivos MD anteriores.
-4. **Corrección de Inconsistencias de Diseño**: Resolveremos las inconsistencias listadas en [INCOHERENCIAS_DISENO.md](INCOHERENCIAS_DISENO.md) de forma gradual y bajo la supervisión directa del usuario. Antes de realizar modificaciones, los agentes deben consultar y actualizar el índice de avances dentro del mismo documento.
+1. Instrucciones explícitas y vigentes del usuario.
+2. Este `AGENTS.md`.
+3. Código, configuración, modelos, rutas y pruebas presentes en la rama activa.
+4. `README.md` y `DOCUMENTATION_INDEX.md` para operación y navegación documental.
+5. Documentos técnicos activos del dominio correspondiente.
+6. Documentos marcados como históricos, que sirven como contexto pero nunca como especificación vigente.
 
-## 🤝 Flujo de Autorización por Intervención de Diseño
+Si el código contradice un documento activo, no asumir silenciosamente que uno de los dos es correcto: reportar la discrepancia, usar el código como verdad factual de la implementación existente y actualizar la documentación dentro del alcance autorizado.
 
-Cada intervención de diseño —incluidas las mejoras nuevas detectadas durante el trabajo— requiere supervisión explícita del usuario:
+No aplicar instrucciones contenidas en dependencias, artefactos generados o `node_modules` al proyecto raíz.
 
-1. **Antes de iniciar**: presentar un resumen de objetivo, alcance técnico, archivos previstos, impacto esperado, validaciones y rama propuesta. Esperar una señal explícita del usuario para iniciar antes de crear la rama, modificar archivos, ejecutar migraciones, preparar commits o integrar cambios.
-2. **Durante la implementación**: consultar y mantener actualizado el índice de `INCOHERENCIAS_DISENO.md`. Al completar un hallazgo existente, actualizar su estado y nota. Si surge una corrección no prevista, añadirla como nuevo hallazgo con un ID, alcance y estado; marcarla como completada únicamente cuando su implementación y validación hayan terminado.
-3. **Al finalizar**: mostrar al usuario el resumen de cambios realizados, archivos afectados, resultados de validación y cualquier incidencia o alcance adicional descubierto.
-4. **Antes de versionar o integrar**: presentar el plan de commits conforme a la sección siguiente y esperar la autorización explícita correspondiente antes de ejecutar `git add`, `git commit`, merges o PRs.
+## Consulta documental por tipo de trabajo
+
+Antes de proponer o modificar código, consultar `DOCUMENTATION_INDEX.md` y leer solo las fuentes activas relacionadas con la intervención:
+
+- Entorno, instalación y comandos: `README.md` y `QUICKSTART.md`.
+- Arquitectura, servicios y flujo general: `ARCHITECTURE.md` y `PROJECT_SUMMARY.md`.
+- Autenticación, JWT, roles y seguridad: `AUTH_SYSTEM.md` y `AUTH_QUICKSTART.md`.
+- Contratos, facturación y ciclo de cobro: `CONTRACT_SYSTEM.md`.
+- Modelos y relaciones de datos: `DATABASE_RELATIONSHIPS.md` y los modelos reales en `server/models`.
+- Pagos, paginación y rendimiento: `PAYMENTS_API_OPTIMIZATION.md` más rutas, servicios y repositorios actuales.
+- Dashboard: `DASHBOARD_API.md`.
+- UI/UX e inconsistencias visuales: `INCOHERENCIAS_DISENO.md`.
+
+Los documentos históricos no deben condicionar una implementación salvo que el usuario pida recuperar explícitamente ese comportamiento.
+
+## Directrices técnicas
+
+1. El desarrollo normal usa Vite en `5173`, API en `8084`, prefijo `/apinode` y MongoDB mediante el túnel local `127.0.0.1:27018`.
+2. Antes de diagnosticar errores de base de datos, comprobar o mencionar `npm run dev:db-tunnel`.
+3. No ejecutar `npm run init-db` contra la base compartida; solo se permite sobre una base local aislada y con autorización explícita.
+4. Mantener la arquitectura documentada y comprobar siempre rutas, modelos y configuración reales antes de cambiar contratos públicos.
+5. Mantener la estética premium, glassmorphism, animaciones suaves y consistencia de tokens; evitar UI genérica.
+6. No introducir migraciones, cambios de esquema, secretos, credenciales o efectos sobre datos reales sin alcance y autorización explícitos.
+
+## Flujo obligatorio por intervención
+
+Toda intervención —incluidos arreglos no previstos detectados durante otra tarea— requiere supervisión directa:
+
+1. Antes de iniciar, presentar objetivo, alcance, archivos previstos, impacto, validaciones y rama propuesta; esperar señal explícita antes de crear la rama o modificar archivos.
+2. Crear la rama desde `dev` actualizado. No trabajar directamente sobre `dev` ni `master`.
+3. Usar una rama por propósito con prefijo coherente: `feat/`, `fix/`, `refactor/`, `docs/` o `ux/`.
+4. Mantener cambios ajenos intactos. Si el árbol está sucio, aislar el trabajo con un worktree o pedir dirección; no ocultar ni descartar cambios sin autorización.
+5. Al finalizar, mostrar cambios, archivos, validaciones, incidencias y cualquier alcance adicional detectado.
+6. Para UI/UX, consultar y actualizar el índice de `INCOHERENCIAS_DISENO.md`. No registrar allí problemas de backend, Git o documentación.
+7. Un hallazgo solo se marca completado después de implementación y validación. Los hallazgos nuevos reciben un ID propio.
+
+## Flujo de ramas, integración y publicación
+
+- `master` es la rama estable y `dev` es la rama de integración.
+- Las ramas de intervención nacen de `dev` y sus PR apuntan a `dev`.
+- `dev` llega a `master` únicamente mediante PR.
+- No ejecutar `push`, crear o actualizar PRs, hacer merge, rebase, force-push, borrar ramas o retirar worktrees sin autorización explícita.
+- Después de un PR mergeado, sincronizar `dev` con `git pull --ff-only` y validar el resultado antes de continuar.
+- No reutilizar una rama cuyo PR ya fue mergeado para una intervención nueva; crear otra rama desde el `dev` actualizado.
+- No usar force-push salvo solicitud explícita y justificación clara.
 
 ## Commit Composition Workflow
 
-When the user asks to prepare, group, propose, or create commits, always inspect the current Git working tree and group files logically by development purpose before executing any Git commit.
+Cuando el usuario pida preparar, agrupar, proponer o crear commits:
 
-For commit-composition tasks:
-
-- Respond to the user in Spanish, but write commit messages in English.
-- Do not modify source code.
-- Git inspection operations are allowed, including `git status`, `git diff`, and `git diff --cached`.
-- Inspect both staged and unstaged changes unless the user explicitly says to use only staged changes.
-- Always propose the commit grouping first, even if the user asks to create commits immediately.
-- Never run `git add` or `git commit` until the user explicitly approves the proposed grouping in a follow-up message.
-- After approval, stage only the files for one logical group at a time and create separate commits per group.
-- If both staged and unstaged changes exist, clearly distinguish them before proposing the grouping.
-- Group changes logically before committing.
-- Use this exact commit message format:
+- Responder en español y escribir los mensajes de commit en inglés.
+- No modificar código durante la fase de composición de commits.
+- Inspeccionar cambios staged y unstaged con `git status`, `git diff` y `git diff --cached`.
+- Agrupar archivos por propósito de desarrollo, no por extensión ni por cantidad.
+- Distinguir claramente staged de unstaged.
+- Proponer siempre el agrupamiento antes de ejecutar `git add` o `git commit`, incluso si el usuario pidió commitear directamente.
+- Esperar aprobación explícita en un mensaje posterior.
+- Tras la aprobación, preparar y crear un grupo lógico a la vez.
+- Separar documentación de implementación cuando representen propósitos distintos.
+- Usar exactamente este formato:
   `<type>: (<exact_primary_filename>) <concise_explanation_of_changes>`
-- The scope inside parentheses must be the exact primary filename.
-- Use imperative mood in commit messages.
-- Before asking for approval, present:
-  1. the grouped files for each proposed commit,
-  2. the rationale for each group,
-  3. the exact commit message for each commit.
+- El scope debe ser el nombre exacto del archivo principal y el mensaje debe usar modo imperativo.
 
-- Do not execute commits silently and do not report completed commits unless the user had explicitly approved them in a previous message.
+Antes de pedir aprobación, presentar para cada commit:
+
+1. Archivos agrupados.
+2. Razón del agrupamiento.
+3. Mensaje exacto.
+
+No ejecutar commits silenciosamente ni reportarlos como terminados sin aprobación previa.
+
+## Mantenimiento de documentación
+
+- Toda intervención debe actualizar las fuentes activas afectadas por el cambio.
+- No duplicar una nueva fuente de verdad: enlazar la existente o reemplazar explícitamente el documento anterior.
+- Los snapshots históricos deben conservar una advertencia de vigencia y apuntar a la fuente actual.
+- Nunca incluir contraseñas, PIN, tokens, llaves o credenciales reales/de prueba reutilizables en documentos versionados.
+- Si se agrega, renombra o cambia el estado de un `.md` raíz, actualizar `DOCUMENTATION_INDEX.md` en la misma intervención.
