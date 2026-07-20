@@ -21,6 +21,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **4.1** | Navegación y Bloqueo de Scroll en Modal de Contratos | ✅ Completado | El modal bloquea el documento, crea una entrada de historial al abrirse y el botón Atrás lo cierra con transición de navegación móvil. |
 | **4.2** | Estructura Header–Contenido–Footer en Modal de Contratos | ✅ Completado | El formulario es el único contenido desplazable; el footer de acciones es su hermano y las opciones responsive ya no generan desbordamiento horizontal. |
 | **4.3** | Icono de Cierre del Modal de Contratos | ✅ Completado | El botón de cierre usa el componente `X` de Lucide, consistente con el sistema de iconos existente. |
+| **4.4** | Tamaño Compacto de Acciones en Modal de Contratos | 🔄 En progreso | Se ajustarán únicamente las acciones del footer del modal a una proporción visual compacta, conservando el área táctil móvil. |
 | **5** | Estandarización de Botones (`.btn-primary` redundante) | ⏳ Pendiente | Extraer `.btn-primary` a clase global en `index.css`. |
 | **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ⏳ Pendiente | Añadir fallback `env(safe-area-inset-bottom, 0px)` en `Contracts.css` y centralizar variables. |
 | **7** | Reestructuración DOM: Layout Flex Column en Móvil | ⏳ Pendiente | Cambiar fixed por flex-direction vertical con scroll interno en `.admin-content`. |

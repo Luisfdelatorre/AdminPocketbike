@@ -1009,7 +1009,7 @@ const Contracts = () => {
                                 />
                             </div>
                         </form>
-                        <div className="form-actions">
+                        <div className="form-actions contract-modal-actions">
                             <button type="button" className="btn-secondary" onClick={closeContractModal}>
                                 {t('contracts.modal.cancelBtn')}
                             </button>
