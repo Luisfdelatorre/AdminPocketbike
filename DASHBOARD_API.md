@@ -1,119 +1,71 @@
-# 🎉 Dashboard Real Data API - Implementation Complete!
+# API del dashboard
 
-## ✅ **What's Been Built:**
+Estado: referencia especializada activa. Revisada el 2026-07-20.
 
-### **Backend API:**
-1. ✅ **Dashboard Routes** (`server/routes/dashboard.js`)
-   - `/api/dashboard/stats` - Get all statistics
-   - `/api/dashboard/revenue/:period` - Get revenue data
-   
-2. ✅ **Data Aggregation:**
-   - Total revenue from all contracts
-   - Active contracts count
-   - Pending payments count
-   - Total devices count
-   - Monthly revenue trends (last 6 months)
-   - Device status distribution
-   - Recent payments (last 10)
+## Endpoint vigente
 
-3. ✅ **Contract Repository Enhancement:**
-   - Added `getAllContracts()` method
-
-4. ✅ **Server Integration:**
-   - Dashboard routes mounted at `/api/dashboard`
-
-### **Frontend Integration:**
-1. ✅ **AdminDashboard Component Updated:**
-   - Replaced mock data with API calls
-   - Loading state with spinner
-   - Error handling
-   - Real-time data display
-
-2. ✅ **Professional UI:**
-   - Loading spinner
-   - Empty states for no data
-   - Error states
-
----
-
-## 🔍 **Current Status:**
-
-**Backend:** ✅ Routes created and mounted  
-**Frontend:** ✅ API integration complete  
-**Issue:** ⚠️ API returning 500 error (needs debugging)
-
----
-
-## 🐛 **Troubleshooting Steps:**
-
-The API endpoint `/api/dashboard/stats` is returning a 500 error. This could be due to:
-
-1. **Database connection issue** - Verify MongoDB is connected
-2. **Missing data** - If there are no contracts/invoices, the aggregation might fail
-3. **Repository methods** - Verify all required methods exist
-
-### **Quick Test:**
-
-```bash
-# Check if contracts exist
-curl http://localhost:3000/api/contracts/BIKE001
-
-# Check backend server logs for detailed error
-# Look for error messages in the terminal running npm run dev:server
+```http
+GET /apinode/dashboard/stats
+Authorization: Bearer <token>
 ```
 
----
+Parámetros opcionales:
 
-## 📊 **Expected Dashboard Data:**
+- `year`: año del periodo; por defecto, el año actual.
+- `month`: mes numérico. Si se omite, el alcance agregado es anual.
 
-When working, the dashboard will show:
+No existe actualmente una ruta montada `/dashboard/revenue/:period`; las gráficas se incluyen en la respuesta de `stats`.
 
-### **Stats Cards:**
-- **Total Revenue:** Sum of all paid amounts from all contracts
-- **Active Contracts:** Count of contracts with status='ACTIVE'
-- **Pending Payments:** Count of unpaid invoices
-- **Total Devices:** Count of unique devices with contracts
+## Respuesta
 
-### **Revenue Chart:**
-- Monthly revenue for last 6 months
-- Calculated from paid invoices
-- Includes estimated expenses (60% of revenue)
+```json
+{
+  "success": true,
+  "data": {
+    "stats": {
+      "totalRevenue": 0,
+      "activeDevices": 0,
+      "pendingPayments": 0,
+      "totalInvoiced": 0,
+      "totalPaidInvoices": 0,
+      "collectionGap": 0,
+      "collectionRate": 100,
+      "changes": {}
+    },
+    "recentPayments": [],
+    "revenueData": [],
+    "deviceData": []
+  }
+}
+```
 
-### **Device Status Chart:**
-- Active: Devices with active contracts
--Available: Devices without active contracts
-- Maintenance: (Currently 0)
+La forma exacta debe verificarse en `server/services/dashboardService.js` antes de cambiar consumidores.
 
-### **Recent Payments Table:**
-- Last 10 payments across all devices
-- Shows: Device, Amount, Status, Date
+## Flujo de datos
 
----
+El router aplica `authenticate`. El controlador toma `companyId` del token y normaliza el periodo. El servicio coordina repositorios de contratos, dispositivos, pagos y facturas, usando consultas paralelas cuando son independientes.
 
-##✨ **What's Working:**
+Los datos incluyen:
 
-✅ **Routing:** All routes registered correctly  
-✅ **Frontend:** Dashboard UI ready and making API calls  
-✅ **Loading States:** Spinner shows while fetching data  
-✅ **Error Handling:** Console shows errors when API fails  
-✅ **Layout:** Admin sidebar shows on dashboard  
-✅ **Styling:** Professional teal/cyan theme maintained  
+- ingresos aprobados del periodo;
+- total facturado, facturas pagadas y brecha de recaudo;
+- dispositivos con contrato activo;
+- facturas pendientes;
+- pagos recientes;
+- ingresos de los últimos seis meses;
+- distribución de estado derivada de contratos.
 
----
+## Consideraciones
 
-## 🚀 **Next Debug Steps:**
+- El dashboard debe respetar el alcance de compañía del JWT.
+- Los importes no tienen una única unidad heredada en todos los flujos; verifica repositorios antes de convertir centavos.
+- La serie de `expenses` es estimada en el servicio y no representa un modelo contable persistido.
+- La zona horaria puede afectar periodos y agrupaciones.
+- Un cambio de respuesta es un cambio de contrato de API y requiere revisar el orden de carga y todos los consumidores.
 
-1. **Check Server Logs:** Review backend terminal for error details
-2. **Test Contracts Endpoint:** Ensure `/api/contracts/BIKE001/stats` works
-3. **Verify Data Exists:** Make sure you have contracts and invoices in DB
-4. **Add Console Logs:** Add logging to dashboard route to see where it fails
+Prueba local:
 
----
-
-## 🎯 **Summary:**
-
-The dashboard API infrastructure is **100% complete** and properly integrated. The frontend is correctly calling the API endpoint successfully constructed to aggregate data from multiple sources.
-
-**Issue:** Backend route is throwing a 500 error (likely due to a data access or aggregation issue that needs debugging with server logs).
-
-**Once debugged, the dashboard will display beautiful real-time statistics from your pocketbike payment system!** 🚀✨
+```bash
+curl 'http://localhost:8084/apinode/dashboard/stats?year=2026&month=7' \
+  -H 'Authorization: Bearer TOKEN'
+```

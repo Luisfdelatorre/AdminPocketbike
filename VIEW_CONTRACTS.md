@@ -1,159 +1,52 @@
-# Where to See Contracts & Stats
+# Vista de contratos
 
-## 🌐 **Option 1: Web Browser (React UI)**
+Estado: referencia especializada activa. Revisada el 2026-07-20.
 
-**Open your app:** http://localhost:5173/
+## Ubicación
 
-1. **Select a device** (e.g., Pocketbike #001)
-2. **View the Contract Progress card** - Shows:
-   - ✅ Progress bar (% completed)
-   - ✅ Days paid / Total days
-   - ✅ Financial summary (paid vs remaining)
-   - ✅ Contract dates
-   - ✅ Contract status
+- Estructura y comportamiento: `client/src/pages/Contracts.jsx`.
+- Estilos: `client/src/pages/Contracts.css`.
+- Servicios consumidos: `client/src/services/api.js`.
 
-The contract stats appear **automatically** on each device's payment page!
+La ruta del panel es `/#/contracts` dentro de `AdminLayout`.
 
----
+## Responsabilidades
 
-## 🔌 **Option 2: Direct API Calls**
+La pantalla carga contratos, dispositivos disponibles y valores predeterminados de compañía. Permite buscar, filtrar, crear, editar y cambiar estados.
 
-### Get Contract Info:
-```bash
-curl http://localhost:3000/api/contracts/BIKE001
+El modal de contrato se representa mediante portal y se controla con el parámetro `?modal=contract`. Esa entrada en el historial permite que el botón Atrás cierre el modal como una navegación.
+
+## Estructura del modal
+
+En `Contracts.jsx`, la composición vigente es:
+
+```text
+modal-overlay
+└─ modal-content
+   ├─ modal-header
+   ├─ form#contract-form.contract-form
+   └─ form-actions
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "contractId": "CONTRACT-BIKE001-8oebpveg",
-    "deviceId": "BIKE001",
-    "dailyRate": 3000000,
-    "contractDays": 500,
-    "totalAmount": 1500000000,
-    "paidDays": 0,
-    "paidAmount": 0,
-    "remainingDays": 500,
-    "startDate": "2026-01-05",
-    "endDate": "2027-05-20",
-    "status": "ACTIVE"
-  }
-}
-```
+`form-actions` es hermano del formulario, no hijo. El botón principal conserva asociación semántica mediante `form="contract-form"`. Esto permite un layout Header–Contenido–Footer sin que las acciones formen parte del área desplazable.
 
-### Get Detailed Statistics:
-```bash
-curl http://localhost:3000/api/contracts/BIKE001/stats
-```
+En móvil el modal ocupa la pantalla disponible; en escritorio conserva límites máximos definidos por CSS. El cuerpo de la página queda bloqueado mientras el modal está montado y la salida mantiene una transición breve antes de desmontarlo.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "contractId": "CONTRACT-BIKE001-8oebpveg",
-    "deviceId": "BIKE001",
-    "totalDays": 500,
-    "paidDays": 0,
-    "remainingDays": 500,
-    "dailyRate": 3000000,
-    "totalAmount": 1500000000,
-    "paidAmount": 0,
-    "remainingAmount": 1500000000,
-    "completionPercentage": "0.00",
-    "startDate": "2026-01-05",
-    "endDate": "2027-05-20",
-    "status": "ACTIVE"
-  }
-}
-```
+## Carga y rendimiento
 
-### Get All Contracts (History):
-```bash
-curl http://localhost:3000/api/contracts/BIKE001/all
-```
+Al montar o cambiar el filtro se solicitan contratos, dispositivos y configuración. Antes de alterar este orden:
 
-Returns all contracts (active, completed, cancelled).
+- comprueba si las lecturas pueden ejecutarse en paralelo sin dependencias;
+- evita duplicar peticiones al abrir el modal;
+- conserva valores predeterminados ya obtenidos de compañía;
+- mide cualquier cambio que pretenda optimizar carga.
 
----
+## Reglas de mantenimiento
 
-## 📊 **Contract Stats Visualization**
+- Mantener foco visible, etiquetas, cierre por controles accesibles y comportamiento del botón Atrás.
+- Mantener el footer fuera del scroll del formulario.
+- Evitar scroll horizontal interno; revisar anchos, grids y `min-width`.
+- Mantener bloqueo y restauración del scroll global incluso durante la transición de salida.
+- Verificar escritorio y móvil antes de cerrar la intervención.
 
-The React component displays:
-
-### **📈 Progress Bar**
-- Visual progress indicator
-- Percentage completed
-- Days paid / Total days
-
-### **💰 Financial Summary**
-- Daily Rate: 30,000 COP
-- Total Contract: 15,000,000 COP
-- Paid Amount: (updates as payments are made)
-- Remaining: (decreases with each payment)
-
-### **📅 Contract Dates**
-- Start Date
-- End Date
-
-### **🏷️ Status Badge**
-- ACTIVE (green)
-- COMPLETED (blue)
-- SUSPENDED (yellow)
-- CANCELLED (red)
-
----
-
-## 🧪 **Test the UI Now**
-
-1. **Open**: http://localhost:5173/
-2. **Click**: "Pocketbike #001"
-3. **See**: Contract Progress card with all stats!
-
----
-
-## 📱 **What It Looks Like**
-
-```
-┌─────────────────────────────────────────┐
-│ 📋 Contract Progress          [ACTIVE] │
-├─────────────────────────────────────────┤
-│                                         │
-│  Progress: [████████░░░░░░] 0.00%     │
-│  0 / 500 days paid    500 remaining    │
-│                                         │
-│  Daily Rate:        30,000 COP          │
-│  Total Contract:    15,000,000 COP      │
-│  Paid Amount:       0 COP               │
-│  Remaining:         15,000,000 COP      │
-│                                         │
-│  📅 Start: 2026-01-05                  │
-│  🏁 End: 2027-05-20                    │
-│                                         │
-│  Contract ID: CONTRACT-BIKE001-8oebpveg │
-└─────────────────────────────────────────┘
-```
-
----
-
-## 🔄 **Auto-Update**
-
-The contract stats will automatically update when:
-- ✅ Payments are completed
-- ✅ Status changes
-- ✅ Page refreshes
-
----
-
-## 🚀 **Quick Access**
-
-| View | URL |
-|------|-----|
-| **UI** | http://localhost:5173/#/Id/BIKE001 |
-| **API Stats** | http://localhost:3000/api/contracts/BIKE001/stats |
-| **API Contract** | http://localhost:3000/api/contracts/BIKE001 |
-| **All Contracts** | http://localhost:3000/api/contracts/BIKE001/all |
-
-**Go check it out now!** 🎉
+El progreso visual se registra en [INCOHERENCIAS_DISENO.md](INCOHERENCIAS_DISENO.md).
