@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, ListFilter } from 'lucide-react';
@@ -8,17 +9,21 @@ import './Contracts.css';
 
 const Contracts = () => {
     const { t } = useTranslation();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [contracts, setContracts] = useState([]);
     const [availableDevices, setAvailableDevices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
     const [searchQuery, setSearchQuery] = useState('');
-    const [showModal, setShowModal] = useState(false);
     const [editingContract, setEditingContract] = useState(null);
     const [activeMenu, setActiveMenu] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     const [portalElement, setPortalElement] = useState(null);
     const [fabPortalElement, setFabPortalElement] = useState(null);
+    const isContractModalOpen = new URLSearchParams(location.search).get('modal') === 'contract';
+    const [isModalMounted, setIsModalMounted] = useState(isContractModalOpen);
+    const [isModalClosing, setIsModalClosing] = useState(false);
     // Estructura base inicial (Los defaults reales de la BD se aplican en handleNewContract)
     const [formData, setFormData] = useState({
         deviceId: '',
@@ -42,6 +47,46 @@ const Contracts = () => {
     });
 
     const [companySettings, setCompanySettings] = useState(null);
+
+    useEffect(() => {
+        if (isContractModalOpen) {
+            setIsModalMounted(true);
+            setIsModalClosing(false);
+            return undefined;
+        }
+
+        if (!isModalMounted) {
+            return undefined;
+        }
+
+        setIsModalClosing(true);
+        const closeTimer = window.setTimeout(() => {
+            setIsModalMounted(false);
+            setIsModalClosing(false);
+        }, 220);
+
+        return () => window.clearTimeout(closeTimer);
+    }, [isContractModalOpen, isModalMounted]);
+
+    useEffect(() => {
+        if (!isModalMounted) {
+            return undefined;
+        }
+
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousDocumentOverflow = document.documentElement.style.overflow;
+        const previousBodyOverscroll = document.body.style.overscrollBehavior;
+
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overscrollBehavior = 'none';
+
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.documentElement.style.overflow = previousDocumentOverflow;
+            document.body.style.overscrollBehavior = previousBodyOverscroll;
+        };
+    }, [isModalMounted]);
 
     useEffect(() => {
         loadContracts();
@@ -134,6 +179,29 @@ const Contracts = () => {
         }
     };
 
+    const openContractModal = () => {
+        const params = new URLSearchParams(location.search);
+        params.set('modal', 'contract');
+        navigate(
+            { pathname: location.pathname, search: `?${params.toString()}` },
+            { state: { modalNavigation: true } }
+        );
+    };
+
+    const closeContractModal = () => {
+        if (location.state?.modalNavigation) {
+            navigate(-1);
+            return;
+        }
+
+        const params = new URLSearchParams(location.search);
+        params.delete('modal');
+        navigate(
+            { pathname: location.pathname, search: params.toString() ? `?${params.toString()}` : '' },
+            { replace: true }
+        );
+    };
+
     const handleNewContract = () => {
         setEditingContract(null);
         const defaults = companySettings?.contractDefaults || {};
@@ -157,7 +225,7 @@ const Contracts = () => {
             exemptFromCurfew: false,
             cutOffTime: companySettings?.cutOffTime || '23:59'
         });
-        setShowModal(true);
+        openContractModal();
     };
 
     const handleEdit = (contract) => {
@@ -181,7 +249,7 @@ const Contracts = () => {
             exemptFromCurfew: contract.exemptFromCurfew || false,
             cutOffTime: contract.cutOffTime || companySettings?.cutOffTime || '23:59'
         });
-        setShowModal(true);
+        openContractModal();
     };
 
     const handleSubmit = async (e) => {
@@ -194,7 +262,7 @@ const Contracts = () => {
                 : await createContract(formData);
 
             if (result.success) {
-                setShowModal(false);
+                closeContractModal();
                 loadContracts();
                 showToast(editingContract ? t('contracts.modal.successUpdate') : t('contracts.modal.successCreate'), 'success');
             } else {
@@ -639,7 +707,7 @@ const Contracts = () => {
             </div>
 
             {/* Floating Action Button (FAB) for Mobile */}
-            {fabPortalElement && !showModal && createPortal(
+            {fabPortalElement && !isModalMounted && createPortal(
                 <button
                     type="button"
                     className="contracts-add-fab primary-blue"
@@ -652,12 +720,12 @@ const Contracts = () => {
             )}
 
             {/* Contract Form Modal */}
-            {showModal && (
-                <div className="modal-overlay">
+            {isModalMounted && (
+                <div className={`modal-overlay ${isModalClosing ? 'modal-overlay--closing' : 'modal-overlay--opening'}`}>
                     <div className="modal-content modal-surface--contract" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
-                            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+                            <button className="modal-close" onClick={closeContractModal}>×</button>
                         </div>
                         <form onSubmit={handleSubmit} className="contract-form">
                             <div className="form-grid">
@@ -939,7 +1007,7 @@ const Contracts = () => {
                                 />
                             </div>
                             <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                                <button type="button" className="btn-secondary" onClick={closeContractModal}>
                                     {t('contracts.modal.cancelBtn')}
                                 </button>
                                 <button type="submit" className="btn-primary" disabled={loading}>
