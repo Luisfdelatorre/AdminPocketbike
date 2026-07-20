@@ -10,7 +10,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 
 | ID | Hallazgo / Mejora | Estado | Notas |
 |:---:|---|:---:|---|
-| **1** | Conflictos de Capas (Z-Index) y Modales Tapados | ⏳ Pendiente | Requiere ajustar `z-index` de modales a `1300` para que no los tape la Sidebar. |
+| **1** | Conflictos de Capas (Z-Index) y Modales Tapados | ✅ Completado | Los overlays de los modales administrativos usan `z-index: 1300`, por encima de sidebar, header y navegación móvil. |
 | **2** | Redundancia de Estilos en Modales (`.modal-content` vs `.modal-card`) | ⏳ Pendiente | Centralizar estilos de modales en `index.css` eliminando redundancias en cada página. |
 | **3** | Unificación en Diseño de Tarjetas (Cards) | ⏳ Pendiente | Definir bordes (1px solid `#E5E7EB`) y paddings (`1rem`) estándar para todas las tarjetas. |
 | **4** | Variables CSS para Colores de Marca (Teal `#03C9D7`) | ⏳ Pendiente | Centralizar colores primarios en `:root` para evitar códigos hardcodeados. |
