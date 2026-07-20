@@ -42,6 +42,34 @@
     box-shadow: 0 4px 12px rgba(3, 201, 215, 0.3);
 }
 
+.contracts-add-fab {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .contracts-add-fab {
+        position: fixed;
+        right: 1.5rem;
+        bottom: calc(3rem + env(safe-area-inset-bottom));
+        z-index: 1100;
+        display: flex;
+        width: 3.5rem;
+        height: 3.5rem;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 9999px;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+
+    .contracts-add-fab:active {
+        transform: scale(0.95);
+    }
+}
+
 /* Stats Cards */
 .contracts-stats {
     display: grid;

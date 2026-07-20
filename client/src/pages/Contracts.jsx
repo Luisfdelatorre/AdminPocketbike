@@ -18,6 +18,7 @@ const Contracts = () => {
     const [activeMenu, setActiveMenu] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     const [portalElement, setPortalElement] = useState(null);
+    const [fabPortalElement, setFabPortalElement] = useState(null);
     // Estructura base inicial (Los defaults reales de la BD se aplican en handleNewContract)
     const [formData, setFormData] = useState({
         deviceId: '',
@@ -47,6 +48,7 @@ const Contracts = () => {
         loadAvailableDevices();
         loadCompanySettings();
         setPortalElement(document.getElementById('mobile-header-actions'));
+        setFabPortalElement(document.body);
     }, [filter]);
 
     useEffect(() => {
@@ -637,14 +639,17 @@ const Contracts = () => {
             </div>
 
             {/* Floating Action Button (FAB) for Mobile */}
-            <button
-                type="button"
-                className="fixed bottom-6 right-6 w-14 h-14 primary-blue text-white rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95 z-20 md:hidden"
-                onClick={handleNewContract}
-                aria-label="Add Contract"
-            >
-                <Plus size={32} />
-            </button>
+            {fabPortalElement && !showModal && createPortal(
+                <button
+                    type="button"
+                    className="contracts-add-fab primary-blue"
+                    onClick={handleNewContract}
+                    aria-label="Add Contract"
+                >
+                    <Plus size={32} />
+                </button>,
+                fabPortalElement
+            )}
 
             {/* Contract Form Modal */}
             {showModal && (
