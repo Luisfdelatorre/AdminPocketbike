@@ -262,13 +262,9 @@
 }
 
 .stat-card {
-    background: white;
-    border-radius: 0.75rem;
-    padding: 1rem;
     display: flex;
     gap: 1rem;
     align-items: flex-start;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
     position: relative;
 }
