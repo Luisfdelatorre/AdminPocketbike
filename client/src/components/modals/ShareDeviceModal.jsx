@@ -53,7 +53,7 @@ const ShareDeviceModal = ({ isOpen, onClose, shareUrl, onCopy }) => {
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
-                            color: '#03C9D7',
+                            color: 'var(--brand-teal)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.25rem'

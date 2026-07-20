@@ -970,7 +970,7 @@ const Settings = () => {
                                     onClick={handleSyncDevices}
                                     disabled={syncState.loading}
                                     title="Fetch devices from GPS provider"
-                                    style={{ padding: '0.75rem 1.5rem', background: '#03C9D7', color: 'white', border: 'none', borderRadius: '0.5rem' }}
+                                    style={{ padding: '0.75rem 1.5rem', background: 'var(--brand-teal)', color: 'white', border: 'none', borderRadius: '0.5rem' }}
                                 >
                                     <RefreshCw size={15} className={syncState.loading ? 'spin' : ''} />
                                     {syncState.loading ? t('settings.system.syncing') : t('settings.system.syncNow')}

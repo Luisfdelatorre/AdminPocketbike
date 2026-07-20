@@ -76,8 +76,8 @@
 .form-group input:focus {
     outline: none;
     background: white;
-    border-color: #03C9D7;
-    box-shadow: 0 0 0 4px rgba(3, 201, 215, 0.1);
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 4px rgba(var(--brand-teal-rgb), 0.1);
 }
 
 .form-group input::placeholder {
@@ -90,17 +90,17 @@
     font-size: 1rem;
     font-weight: 600;
     border-radius: 0.5rem;
-    background: linear-gradient(135deg, #03C9D7 0%, #0394A3 100%);
+    background: linear-gradient(135deg, var(--brand-teal) 0%, var(--brand-teal-dark) 100%);
     color: white;
     border: none;
     cursor: pointer;
-    box-shadow: 0 4px 6px rgba(3, 201, 215, 0.25);
+    box-shadow: 0 4px 6px rgba(var(--brand-teal-rgb), 0.25);
     transition: transform 0.1s;
 }
 
 .btn-block:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(3, 201, 215, 0.3);
+    box-shadow: 0 6px 12px rgba(var(--brand-teal-rgb), 0.3);
 }
 
 .btn-block:active {
@@ -126,14 +126,14 @@
 }
 
 .login-footer a {
-    color: #03C9D7;
+    color: var(--brand-teal);
     text-decoration: none;
     font-weight: 600;
     transition: color 0.2s ease;
 }
 
 .login-footer a:hover {
-    color: #0394A3;
+    color: var(--brand-teal-dark);
     text-decoration: underline;
 }
 

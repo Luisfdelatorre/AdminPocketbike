@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+    --brand-teal: #03C9D7;
+    --brand-teal-dark: #0394A3;
+    --brand-teal-gradient: #00A8B5;
+    --brand-teal-rgb: 3, 201, 215;
     --modal-overlay: rgba(15, 23, 42, 0.55);
     --modal-surface: #ffffff;
     --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);

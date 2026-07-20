@@ -107,12 +107,12 @@
 .language-option.active {
     background-color: #F0FDFA;
     /* Light teal bg */
-    color: #03C9D7;
+    color: var(--brand-teal);
 }
 
 .check-icon {
     margin-left: auto;
-    color: #03C9D7;
+    color: var(--brand-teal);
 }
 
 .dropdown-overlay {

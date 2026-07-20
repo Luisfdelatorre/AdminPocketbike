@@ -554,7 +554,7 @@ const Invoices = () => {
             {/* Summary Stats */}
             <div className="payment-stats">
                 <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#03C9D7' }}>
+                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
                         <DollarSign size={20} />
                     </div>
                     <div className="stat-info">
@@ -617,28 +617,28 @@ const Invoices = () => {
                 <button
                     className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                     onClick={() => handleFilterChange('all')}
-                    style={{ border: filter === 'all' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'all' ? '#03C9D7' : 'white', color: filter === 'all' ? 'white' : '#6B7280' }}
+                    style={{ border: filter === 'all' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'all' ? 'var(--brand-teal)' : 'white', color: filter === 'all' ? 'white' : '#6B7280' }}
                 >
                     <Filter size={16} /> Todos
                 </button>
                 <button
                     className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
                     onClick={() => handleFilterChange('completed')}
-                    style={{ border: filter === 'completed' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'completed' ? '#03C9D7' : 'white', color: filter === 'completed' ? 'white' : '#6B7280' }}
+                    style={{ border: filter === 'completed' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'completed' ? 'var(--brand-teal)' : 'white', color: filter === 'completed' ? 'white' : '#6B7280' }}
                 >
                     Pagadas
                 </button>
                 <button
                     className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
                     onClick={() => handleFilterChange('pending')}
-                    style={{ border: filter === 'pending' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'pending' ? '#03C9D7' : 'white', color: filter === 'pending' ? 'white' : '#6B7280' }}
+                    style={{ border: filter === 'pending' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'pending' ? 'var(--brand-teal)' : 'white', color: filter === 'pending' ? 'white' : '#6B7280' }}
                 >
                     Pendientes
                 </button>
                 <button
                     className={`filter-btn ${filter === 'failed' ? 'active' : ''}`}
                     onClick={() => handleFilterChange('failed')}
-                    style={{ border: filter === 'failed' ? '1px solid #03C9D7' : '1px solid #E5E7EB', background: filter === 'failed' ? '#03C9D7' : 'white', color: filter === 'failed' ? 'white' : '#6B7280' }}
+                    style={{ border: filter === 'failed' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'failed' ? 'var(--brand-teal)' : 'white', color: filter === 'failed' ? 'white' : '#6B7280' }}
                 >
                     Deudas
                 </button>

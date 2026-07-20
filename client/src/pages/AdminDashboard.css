@@ -16,7 +16,7 @@
     width: 40px;
     height: 40px;
     border: 3px solid #E5E7EB;
-    border-top-color: #03C9D7;
+    border-top-color: var(--brand-teal);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin-bottom: 1rem;
@@ -137,7 +137,7 @@
 
 .nav-item.active {
     background: #EFF6FF;
-    color: #03C9D7;
+    color: var(--brand-teal);
     font-weight: 600;
 }
 
@@ -173,7 +173,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #03C9D7, #0394A3);
+    background: linear-gradient(135deg, var(--brand-teal), var(--brand-teal-dark));
     color: white;
     display: flex;
     align-items: center;
@@ -233,7 +233,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: #03C9D7;
+    background: var(--brand-teal);
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -244,9 +244,9 @@
 }
 
 .btn-download:hover {
-    background: #0394A3;
+    background: var(--brand-teal-dark);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(3, 201, 215, 0.3);
+    box-shadow: 0 4px 12px rgba(var(--brand-teal-rgb), 0.3);
 }
 
 .download-icon-mobile {
@@ -455,14 +455,14 @@
 }
 
 .view-all {
-    color: #03C9D7;
+    color: var(--brand-teal);
     text-decoration: none;
     font-weight: 600;
     font-size: 0.875rem;
 }
 
 .view-all:hover {
-    color: #0394A3;
+    color: var(--brand-teal-dark);
 }
 
 .payments-table {

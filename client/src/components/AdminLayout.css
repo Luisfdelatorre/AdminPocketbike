@@ -102,6 +102,6 @@
     }
 
     .mobile-bottom-nav .nav-btn.active {
-        color: #03C9D7;
+        color: var(--brand-teal);
     }
-}
+}
