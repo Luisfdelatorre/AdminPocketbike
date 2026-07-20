@@ -725,7 +725,9 @@ const Contracts = () => {
                     <div className="modal-content modal-surface--contract" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
-                            <button type="button" className="modal-close" onClick={closeContractModal}>×</button>
+                            <button type="button" className="modal-close" onClick={closeContractModal}>
+                                <X size={20} />
+                            </button>
                         </div>
                         <form id="contract-form" onSubmit={handleSubmit} className="contract-form">
                             <div className="form-grid">
