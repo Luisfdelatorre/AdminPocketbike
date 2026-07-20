@@ -2,6 +2,10 @@
 
 Este documento recopila las inconsistencias visuales, de maquetación y de estructuración de hojas de estilo (CSS) encontradas en el proyecto. Su objetivo es servir como hoja de ruta para unificar el sistema de diseño y corregir problemas de interfaz (UI/UX).
 
+Estado: especificación incremental activa. Revisada el 2026-07-20.
+
+El **Índice de Avances y Control de Mejoras** es la fuente vigente del estado. Las secciones descriptivas inferiores conservan el diagnóstico original y pueden mencionar valores anteriores ya corregidos; sirven como contexto y no sustituyen la inspección del código actual. Los hallazgos de documentación, backend, seguridad o Git se registran en sus fuentes correspondientes, no en este backlog visual.
+
 ---
 
 ## 📋 Índice de Avances y Control de Mejoras
@@ -29,10 +33,10 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 Existe un conflicto de superposición entre los componentes principales de navegación (Sidebar, Mobile Header) y las pantallas emergentes (Modales) de la administración.
 
 ### El Problema
-* El menú lateral (`.admin-sidebar`) tiene un `z-index: 1200` en [AdminSidebar.css](file:///Users/donny/Development/AdminPocketbike/client/src/components/AdminSidebar.css).
-* La cabecera móvil (`.mobile-header`) tiene un `z-index: 1100` en [AdminSidebar.css](file:///Users/donny/Development/AdminPocketbike/client/src/components/AdminSidebar.css).
-* El overlay de la sidebar móvil (`.sidebar-overlay`) tiene un `z-index: 1150` en [AdminSidebar.css](file:///Users/donny/Development/AdminPocketbike/client/src/components/AdminSidebar.css).
-* Sin embargo, **todos** los overlays de modales (`.modal-overlay`) en las distintas páginas de administración tienen configurado un `z-index: 1000` (por ejemplo, en [DeviceSelector.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/DeviceSelector.css), [Contracts.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Contracts.css) e [Invoices.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Invoices.css)).
+* El menú lateral (`.admin-sidebar`) tenía un `z-index: 1200` en [AdminSidebar.css](client/src/components/AdminSidebar.css).
+* La cabecera móvil (`.mobile-header`) tenía un `z-index: 1100` en [AdminSidebar.css](client/src/components/AdminSidebar.css).
+* El overlay de la sidebar móvil (`.sidebar-overlay`) tenía un `z-index: 1150` en [AdminSidebar.css](client/src/components/AdminSidebar.css).
+* El diagnóstico encontró overlays de modales con `z-index: 1000` en [DeviceSelector.css](client/src/pages/DeviceSelector.css), [Contracts.css](client/src/pages/Contracts.css) e [Invoices.css](client/src/pages/Invoices.css).
 
 ### Consecuencia
 Cuando se abre un modal en la administración (por ejemplo, al configurar un PIN o editar un dispositivo):
@@ -55,8 +59,8 @@ Elevar el `z-index` de los modales en la administración para que estén por enc
 Cada página del proyecto redefine de forma independiente las clases y animaciones de los modales en su propio archivo CSS, generando inconsistencias en colores, espaciados y animaciones:
 
 * **Nombres de Clases Inconsistentes:**
-  * En [DeviceSelector.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/DeviceSelector.css) y [Contracts.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Contracts.css) se usa `.modal-content`.
-  * En [Invoices.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Invoices.css) se usa `.modal-card`.
+  * En [DeviceSelector.css](client/src/pages/DeviceSelector.css) y [Contracts.css](client/src/pages/Contracts.css) se usa `.modal-content`.
+  * En [Invoices.css](client/src/pages/Invoices.css) se usa `.modal-card`.
 * **Fondo de Overlay y Efectos Difuminados:**
   * En `DeviceSelector.css` y `Contracts.css`: `background: rgba(0, 0, 0, 0.5)` sin difuminado.
   * En `Invoices.css`: `background: rgba(15, 23, 42, 0.55)` (azul grisáceo) con `backdrop-filter: blur(3px)`.
@@ -87,7 +91,7 @@ Las tarjetas utilizadas para mostrar información (dispositivos, contratos, esta
 ## 4. Hardcoding de Colores de Marca y Hojas de Estilo Aisladas 🎨
 
 * **Color Primario Teal (`#03C9D7` y `#0394A3`):**
-  * En lugar de consumir variables CSS globales (como `--color-accent` o `--color-primary-teal`), el color turquesa/teal está escrito manualmente como código hexadecimal en más de 10 reglas CSS repartidas en [AdminDashboard.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/AdminDashboard.css), [Contracts.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Contracts.css) y [DeviceSelector.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/DeviceSelector.css).
+  * En el diagnóstico original, el color turquesa/teal estaba escrito manualmente en reglas de [AdminDashboard.css](client/src/pages/AdminDashboard.css), [Contracts.css](client/src/pages/Contracts.css) y [DeviceSelector.css](client/src/pages/DeviceSelector.css).
   * Si en el futuro se desea cambiar el color de la marca, se deben editar múltiples archivos de forma manual.
 * **Inconsistencias en Colores de Estado:**
   * Los estados de pago (aprobado, pendiente, rechazado) usan combinaciones de color ligeramente distintas entre los badges de las tablas y el texto informativo de los listados móviles.
@@ -98,7 +102,7 @@ Las tarjetas utilizadas para mostrar información (dispositivos, contratos, esta
 
 El botón principal de la administración (`.btn-primary`) se define repetidamente con las mismas propiedades en múltiples archivos CSS en lugar de heredar de una clase global:
 
-* Se encuentra duplicado de forma idéntica en [Contracts.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Contracts.css#L25-L44) y [DeviceSelector.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/DeviceSelector.css#L26-L45):
+* El diagnóstico localizó definiciones equivalentes en [Contracts.css](client/src/pages/Contracts.css) y [DeviceSelector.css](client/src/pages/DeviceSelector.css):
 ```css
 .btn-primary {
     background: #03C9D7;
@@ -127,7 +131,7 @@ El botón principal de la administración (`.btn-primary`) se define repetidamen
 Para solucionar estas incoherencias y mejorar la mantenibilidad del proyecto, se sugiere:
 
 1. **Unificar Variables en `:root`:**
-   Mover los colores hexadecimales teal (`#03C9D7` y `#0394A3`) a variables en `:root` en [main.css](file:///Users/donny/Development/AdminPocketbike/client/css/main.css) o [index.css](file:///Users/donny/Development/AdminPocketbike/client/src/index.css), por ejemplo:
+   Mover los colores hexadecimales teal (`#03C9D7` y `#0394A3`) a variables en `:root` en [main.css](client/css/main.css) o [index.css](client/src/index.css), por ejemplo:
    ```css
    :root {
        --brand-teal: #03C9D7;
@@ -145,7 +149,7 @@ Para solucionar estas incoherencias y mejorar la mantenibilidad del proyecto, se
 ## 7. Estructura de Layout Móvil y Área de Respeto (Safe Area) 📱
 
 ### A. Fallo en el Área de Respeto (Safe Area Inset)
-En [Contracts.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Contracts.css#L53) se intentó usar el área de respeto para ubicar el botón flotante (FAB) en dispositivos móviles:
+En [Contracts.css](client/src/pages/Contracts.css) se intentó usar el área de respeto para ubicar el botón flotante (FAB) en dispositivos móviles:
 ```css
 bottom: calc(3rem + env(safe-area-inset-bottom));
 ```
@@ -164,15 +168,15 @@ bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
 
 ### B. Estructura del DOM: Header/Footer Móviles Fixed vs. Flex Vertical
 
-Actualmente, el layout móvil del sistema de administración en [AdminLayout.css](file:///Users/donny/Development/AdminPocketbike/client/src/components/AdminLayout.css) mantiene una estructura de flex horizontal propia de escritorio (`flex-direction: row` por defecto), donde la barra de navegación lateral y el contenido principal se alinean a los lados.
+En el diagnóstico original, el layout móvil de [AdminLayout.css](client/src/components/AdminLayout.css) mantenía una estructura flex horizontal propia de escritorio (`flex-direction: row` por defecto), donde la barra de navegación lateral y el contenido principal se alineaban a los lados.
 
 Para adaptarlo a móvil:
 1. La cabecera móvil (`.mobile-header`) y la barra de navegación inferior (`.mobile-bottom-nav`) se configuran con `position: fixed`.
 2. Esto obliga a realizar **parches manuales de padding** en cada página independiente para evitar que el contenido sea tapado por estos elementos flotantes. Por ejemplo:
-   * En [PaymentSummary.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/PaymentSummary.css#L348) se agrega un parche de `padding: 60px 4px 4px 4px;` en móvil.
-   * En [Reports.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Reports.css#L90) se agrega `padding: 60px 12px 12px 12px;` en móvil.
-   * En [Contracts.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/Contracts.css#L664) **se oculta por completo el header de la página** (`.page-header { display: none !important; }`) para evitar lidiar con la superposición.
-   * En [DeviceSelector.css](file:///Users/donny/Development/AdminPocketbike/client/src/pages/DeviceSelector.css) no se especifica padding superior, por lo que los títulos pueden quedar tapados por la cabecera en algunos viewports.
+   * En [PaymentSummary.css](client/src/pages/PaymentSummary.css) se observó un parche de `padding: 60px 4px 4px 4px;` en móvil.
+   * En [Reports.css](client/src/pages/Reports.css) se observó `padding: 60px 12px 12px 12px;` en móvil.
+   * En [Contracts.css](client/src/pages/Contracts.css) se ocultaba el header de la página (`.page-header { display: none !important; }`) para evitar la superposición.
+   * En [DeviceSelector.css](client/src/pages/DeviceSelector.css) no se especificaba padding superior, por lo que los títulos podían quedar tapados por la cabecera en algunos viewports.
 
 ---
 
