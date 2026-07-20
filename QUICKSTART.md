@@ -1,211 +1,65 @@
-# Quick Start Guide - Payments Wompi
+# Inicio rápido de desarrollo
 
-## Step 1: Start MongoDB
+Estado: guía activa. Revisada el 2026-07-20.
 
-### Option A: Local MongoDB (Recommended for development)
-```bash
-# Windows
-net start MongoDB
-
-# If MongoDB service doesn't exist, download from:
-# https://www.mongodb.com/try/download/community
-```
-
-### Option B: MongoDB Atlas (Cloud - Free tier available)
-1. Go to https://cloud.mongodb.com/
-2. Create free cluster
-3. Get connection string
-4. Update `.env` → `MONGODB_URI=your-connection-string`
-
-## Step 2: Get Wompi API Keys
-
-1. Go to https://comercios.wompi.co/
-2. Register/Login to your account
-3. Go to **Developers** section
-4. Copy your keys:
-   - Public Key
-   - Private Key
-   - Events Secret
-
-### For Testing (Sandbox Keys)
-Wompi provides test credentials. You can also use these test keys initially:
-```
-WOMPI_PUBLIC_KEY=pub_test_XXX
-WOMPI_PRIVATE_KEY=prv_test_XXX
-WOMPI_EVENTS_SECRET=test_XXX
-```
-
-## Step 3: Configure Environment
-
-The `.env` file should already exist. Update it with your Wompi keys:
+## 1. Preparar el repositorio
 
 ```bash
-# Open .env file and update these lines:
-WOMPI_PUBLIC_KEY=pub_test_your_actual_key_here
-WOMPI_PRIVATE_KEY=prv_test_your_actual_key_here
-WOMPI_EVENTS_SECRET=your_actual_secret_here
+npm ci
 ```
 
-## Step 4: Initialize Database
+Usa Node.js `>= 20.18.1`. Las credenciales y variables privadas deben obtenerse por el canal seguro del proyecto; no se copian desde documentos ni se agregan a Git.
+
+## 2. Iniciar el entorno completo
 
 ```bash
-npm run init-db
+npm run dev:all
 ```
 
-This will:
-- ✅ Connect to MongoDB
-- ✅ Create collections with indexes
-- ✅ Insert sample devices (BIKE001, BIKE002)
+Abre `http://localhost:5173`. El comando conserva en la misma terminal el túnel MongoDB, la API en `8084` y Vite en `5173`; `Ctrl+C` detiene los tres procesos.
 
-## Step 5: Generate Sample Invoices
+Si necesitas controlar cada proceso:
 
 ```bash
-npm run generate-invoices
-```
-
-This creates invoices for the last 7 days for testing.
-
-## Step 6: Start the Server
-
-```bash
+npm run dev:db-tunnel
+npm run dev:api
 npm run dev
 ```
 
-You should see:
-```
-🚀 Payments-Wompi Server Started
-================================
-📍 Server: http://localhost:3000
-🌍 Environment: development
-💳 Wompi API: https://sandbox.wompi.co/v1
-================================
-```
+Ejecuta cada comando en una terminal distinta. La conexión esperada por el servidor es `mongodb://127.0.0.1:27018/payments-wompi-pocketbike`.
 
-## Step 7: Open Application
-
-Visit: **http://localhost:3000**
-
-### What You'll See:
-1. **Device Selector** - Click on "Pocketbike #001"
-2. **Unpaid Invoices** - List of pending invoices
-3. **Payment Button** - "Pay Now" button
-4. **Connection Status** - Green "Connected" indicator (SSE)
-
-## Step 8: Test a Payment
-
-1. Click **"Pocketbike #001"**
-2. See unpaid invoices load
-3. Click **"Pay Now"** button
-4. New window opens with Wompi checkout
-5. Use test card: **4242 4242 4242 4242**
-6. Complete payment
-7. Watch the UI update in real-time! ✨
-
-## Troubleshooting
-
-### MongoDB Connection Error
-```
-❌ MongoDB connection failed: connect ECONNREFUSED
-```
-**Solution**: Start MongoDB service or use MongoDB Atlas
-
-### Wompi API Error
-```
-❌ Wompi API error: Invalid authorization header
-```
-**Solution**: Check your API keys in `.env` file
-
-### No Invoices Showing
-```
-Run: npm run generate-invoices
-```
-
-### SSE Not Connecting
-```
-Check browser console for errors
-Ensure server is running on port 3000
-```
-
-## Testing Checklist
-
-- [ ] MongoDB is running
-- [ ] Dependencies installed (`npm install`)
-- [ ] `.env` configured with Wompi keys
-- [ ] Database initialized (`npm run init-db`)
-- [ ] Sample invoices created (`npm run generate-invoices`)
-- [ ] Server started (`npm run dev`)
-- [ ] Application opened (http://localhost:3000)
-- [ ] Device selected
-- [ ] Invoices loaded
-- [ ] Payment tested
-
-## Useful Commands
+## 3. Comprobar disponibilidad
 
 ```bash
-# View MongoDB data (if using local MongoDB)
-mongosh
-> use payments-wompi
-> db.invoices.find().pretty()
-> db.payments.find().pretty()
-
-# Create a new invoice manually
-curl -X POST http://localhost:3000/api/invoices/create \
-  -H "Content-Type: application/json" \
-  -d '{"deviceId":"BIKE001","date":"2026-01-05","amount":7000000}'
-
-# Check payment status
-curl http://localhost:3000/api/payments/status/REF-xxxxxxxxxxxx
-
-# Trigger pending recovery
-curl -X POST http://localhost:3000/api/webhooks/recover-pending \
-  -H "Content-Type: application/json" \
-  -d '{"olderThanMinutes":30}'
+curl http://localhost:8084/apinode/health
 ```
 
-## What to Test
+Desde el frontend, las solicitudes deben usar rutas relativas bajo `/apinode`; Vite las envía a `8084`.
 
-1. **Device Selection** - Click different devices
-2. **Invoice Display** - Check unpaid invoices list
-3. **Payment Flow** - Complete a test payment
-4. **Real-Time Updates** - Watch SSE update the UI
-5. **Payment History** - View completed payments
-6. **Refresh Button** - Reload data manually
+## 4. Autenticación local
 
-## Expected Behavior
+Para crear un administrador usa el flujo interactivo:
 
-### Before Payment:
-- Invoice status: **UNPAID**
-- Payment count badge shows number
-- "Pay Now" button is enabled
+```bash
+npm run create-admin
+```
 
-### During Payment:
-- Status shows **"⏳ Payment Pending"**
-- New tab opens with Wompi checkout
+No hay credenciales predeterminadas documentadas. El acceso administrativo está en `http://localhost:5173/#/admin/login`.
 
-### After Payment:
-- SSE receives update
-- Toast notification: **"✅ Payment Approved"**
-- Invoice status: **PAID**
-- Invoice count decreases
-- History updates automatically
+## 5. Validar cambios
 
-## Next Steps
+```bash
+npm test
+npm run build
+```
 
-Once everything works:
+Para reglas de ramas, autorización y commits, consulta [AGENTS.md](AGENTS.md). Para navegación documental, consulta [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md).
 
-1. **Get Real Wompi Keys** - Switch from test to production
-2. **Configure Webhooks** - Add webhook URL in Wompi dashboard
-3. **Deploy to Production** - Use MongoDB Atlas + hosting platform
-4. **Add Your Devices** - Replace sample bikes with real data
-5. **Customize Amounts** - Adjust pricing in invoice generation
+## Diagnóstico rápido
 
----
+- Error de MongoDB: verifica que el túnel escuche en `127.0.0.1:27018`.
+- `5173` ocupado: detén el proceso anterior; `dev:all` usa `--strictPort` para evitar abrir otra instancia silenciosamente.
+- Error `401`: confirma que la solicitud lleve `Authorization: Bearer <token>` y que el token no haya vencido.
+- Error de proxy: comprueba primero `http://localhost:8084/apinode/health`.
 
-**Need Help?**
-- Check `README.md` for full documentation
-- Review `PROJECT_SUMMARY.md` for architecture details
-- Check server logs for errors
-- Verify MongoDB connection
-- Ensure Wompi keys are correct
-
-**Happy Testing! 🚀**
+No ejecutes scripts de inicialización, restauración o migración sobre la base compartida sin revisar su alcance y obtener autorización explícita.
