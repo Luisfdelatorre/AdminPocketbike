@@ -1,288 +1,73 @@
-# 🔐 Hybrid Authentication System - Implementation Summary
+# Sistema de autenticación y autorización
 
-## ✅ **What's Been Implemented (Backend)**
+Estado: documento activo. Revisado el 2026-07-20.
 
-### **1. Dependencies Installed**
-```bash
-✅ bcryptjs - Password hashing
-✅ jsonwebtoken - JWT tokens
-```
+## Mecanismos vigentes
 
-### **2. Database Models**
+La aplicación usa JWT con dos contextos principales:
 
-**User Model** (`server/models/User.js`)
-- Admin user management
-- Password hashing (bcrypt)
-- Roles: admin, manager, viewer
-- Permissions system
-- Secure password comparison
+- usuario administrativo: identidad, rol, permisos, compañía activa y acceso multiempresa;
+- dispositivo: identificadores de dispositivo, contrato activo y compañía.
 
-**DeviceAccess Model** (`server/models/DeviceAccess.js`)
-- Device PIN management
-- PIN hashing (bcrypt)
-- Expiration dates
-- Usage limits
-- Access validation
+Las contraseñas de `User` y el `devicePin` de `Contract` se almacenan con bcrypt. `DeviceAccess` ofrece además accesos por PIN con expiración y límite de usos.
 
-### **3. Authentication Service** (`server/services/authService.js`)
-- ✅ Admin registration
-- ✅ Admin login
-- ✅ Device PIN creation
-- ✅ Device PIN verification
-- ✅ JWT token generation
-- ✅ Token verification
-- ✅ Permission checking
+## Flujo administrativo
 
-### **4. Auth Middleware** (`server/middleware/auth.js`)
-- ✅ `authenticate` - Verify JWT token
-- ✅ `requireAdmin` - Admin-only access
-- ✅ `requireDeviceAccess` - Device-specific access
-- ✅ `requirePermission` - Permission-based access
+1. `POST /apinode/auth/login` recibe `email` y `password`.
+2. El servicio verifica el usuario local activo y compara el hash.
+3. Se emite un JWT y se devuelven usuario y compañías accesibles.
+4. `AuthProvider` guarda sesión en `localStorage` o `sessionStorage`.
+5. El interceptor Axios agrega `Authorization: Bearer <token>`.
+6. `AdminLayout` redirige a `/#/admin/login` cuando no hay sesión.
 
-### **5. Auth Routes** (`server/routes/auth.js`)
-```
-POST /api/auth/register          - Register admin (admin only)
-POST /api/auth/login             - Admin login
-POST /api/auth/device-pin        - Device PIN verification
-POST /api/auth/create-device-pin - Create device PIN (admin only)
-GET  /api/auth/me                - Get current user
-POST /api/auth/verify-token      - Verify token validity
-```
+`POST /apinode/auth/switch-company` valida el acceso y emite un token nuevo con la compañía seleccionada.
 
-### **6. Configuration**
-- JWT secret added to config
-- Token expiration: 7 days (admin), 24h (device)
+## Flujo de dispositivo
 
----
+El backend vigente expone `POST /apinode/auth/pin-login` con:
 
-## 🚀 **Next Steps (What's Still Needed)**
-
-### **Backend:**
-1. ✅ Mount auth routes in server.js
-2. ✅ Protect existing routes with middleware
-3. ✅ Create admin initialization script
-
-### **Frontend:**
-1. ⏳ Create AuthContext (React)
-2. ⏳ Login page (admin)
-3. ⏳ PIN entry page (device)
-4. ⏳ Protected routes
-5. ⏳ Token storage
-6. ⏳ Logout functionality
-
----
-
-## 📋 **How It Works**
-
-### **Admin Flow:**
-```
-1. Admin navigates to /admin/login
-2. Enters email + password
-3. Backend verifies credentials
-4. Returns JWT token (valid 7 days)
-5. Token stored in localStorage
-6. Admin can access all devices and management features
-```
-
-### **Customer/Device Flow:**
-```
-1. Customer receives device link: /#/device/BIKE001
-2. Enters 4-6 digit PIN
-3. Backend verifies PIN for that device
-4. Returns JWT token (valid 24h)
-5. Token stored in localStorage
-6. Customer can ONLY access their device's payments
-```
-
----
-
-## 🔧 **Testing the System**
-
-### **1. Create First Admin User**
-
-This will be done via initialization script:
-
-```bash
-npm run create-admin
-```
-
-This creates:
-- Email: admin@pocketbike.com
-- Password: (you'll set this)
-- Role: admin
-- Full permissions
-
-### **2. Test Admin Login**
-
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@pocketbike.com",
-    "password": "your-password"
-  }'
-```
-
-**Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "user": { ... },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
+  "deviceIdName": "IDENTIFICADOR_DEL_DISPOSITIVO",
+  "pin": "PIN_SUMINISTRADO_DE_FORMA_SEGURA"
 }
 ```
 
-### **3. Create Device PIN (as Admin)**
+Busca el contrato activo, compara su PIN y emite un token de dispositivo. No se deben incluir PIN reales en ejemplos, fixtures compartidos o logs.
 
-```bash
-curl -X POST http://localhost:3000/api/auth/create-device-pin \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
-  -d '{
-    "deviceId": "BIKE001",
-    "pin": "1234",
-    "accessType": "temporary",
-    "expiresIn": 30
-  }'
-```
+## Endpoints de autenticación
 
-### **4. Test Device PIN Login**
+- `POST /apinode/auth/register`: requiere JWT y administrador.
+- `POST /apinode/auth/login`: público.
+- `POST /apinode/auth/pin-login`: público; valida contrato y PIN.
+- `POST /apinode/auth/create-device-pin`: requiere JWT y administrador.
+- `GET /apinode/auth/me`: requiere JWT.
+- `POST /apinode/auth/verify-token`: recibe el token en el cuerpo.
+- `POST /apinode/auth/switch-company`: requiere JWT.
 
-```bash
-curl -X POST http://localhost:3000/api/auth/device-pin \
-  -H "Content-Type: application/json" \
-  -d '{
-    "deviceId": "BIKE001",
-    "pin": "1234"
-  }'
-```
+## Roles y permisos
 
----
+Los roles persistidos son `admin`, `manager` y `viewer`. El middleware impide mutaciones del rol `viewer`, salvo excepciones explícitas. `requireAdmin` y `requirePermission` agregan controles más estrictos cuando una ruta los aplica.
 
-## 🛡️ **Security Features**
+No debe asumirse que todas las rutas administrativas están protegidas de la misma forma. Actualmente conviven `authenticate` y `verifyToken`; cada router debe auditarse al modificar autorización.
 
-### **Password Security:**
-- ✅ Bcrypt hashing (10 rounds)
-- ✅ Never stored in plain text
-- ✅ Never sent in responses
+## Inconsistencias vigentes que requieren intervención separada
 
-### **PIN Security:**
-- ✅ Bcrypt hashing
-- ✅ Expiration dates
-- ✅ Usage limits
-- ✅ Can be revoked
+- El cliente de `verifyDevicePin` apunta a `/auth/device-pin`, mientras el servidor monta `/auth/pin-login`.
+- El contexto frontend envía nombres de campos y espera una forma de respuesta diferentes a las implementadas por el controlador de dispositivo.
+- El tipo del token administrativo se genera como `user`, pero algunos controles antiguos comparan con `admin`.
+- Conviven dos middlewares JWT con estructuras de compatibilidad distintas.
+- Hay rutas de otros dominios sin un patrón de protección uniforme.
 
-### **JWT Tokens:**
-- ✅ Signed with secret key
-- ✅ Expiration timestamps
-- ✅ Role/type embedded
-- ✅ Stateless verification
+Estas observaciones son hallazgos, no correcciones realizadas. Deben resolverse bajo una intervención autorizada, con pruebas de login, persistencia, expiración, cambio de compañía y acceso por dispositivo.
 
-### **Access Control:**
-- ✅ Role-based (admin/manager/viewer)
-- ✅ Permission-based (granular)
-- ✅ Device-scoped (customers)
-- ✅ Middleware protection
+## Reglas de seguridad
 
----
+- No registrar tokens, contraseñas, PIN ni secretos.
+- No usar valores predeterminados inseguros en producción.
+- Rotar cualquier secreto que haya sido incorporado al historial o al código.
+- Validar compañía además de autenticación en consultas multiempresa.
+- Invalidar la sesión local cuando el servidor rechace el token de forma definitiva.
+- No documentar credenciales de prueba reutilizables.
 
-## 🔒 **Protected Routes**
-
-After frontend implementation, routes will be protected:
-
-**Public (No Auth Required):**
-- `/api/webhooks/wompi` - Wompi needs access
-- `/api/auth/login` - Login endpoint
-- `/api/auth/device-pin` - PIN verification
-
-**Admin Only:**
-- `/api/auth/register` - Create new admins
-- `/api/auth/create-device-pin` - Create PINs
-- `/api/contracts/*` - Contract management
-- `/api/invoices/create` - Create invoices
-
-**Admin OR Device Access:**
-- `/api/payments/unpaid/:deviceId` - View invoices
-- `/api/payments/history/:deviceId` - View history
-- `/api/contracts/:deviceId/stats` - View contract
-
-**Admin OR Specific Device:**
-- `/api/payments/create-intent` - Create payment
-- (Device token must match deviceId)
-
----
-
-## 📝 **Environment Variables to Add**
-
-Add to `.env`:
-
-```bash
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRES_IN=7d
-
-# Admin User (for initialization)
-ADMIN_EMAIL=admin@pocketbike.com
-ADMIN_PASSWORD=ChangeThisPassword123!
-ADMIN_NAME=System Administrator
-```
-
----
-
-## ⚙️ **User Roles & Permissions**
-
-### **Admin**
-- Full access to everything
-- Can create/manage users
-- Can create device PINs
-- Can view all devices
-- Permission: `['all']`
-
-### **Manager**
-- Can view payments
-- Can create contracts
-- Can manage devices
-- Cannot create users
-- Permissions: `['view_payments', 'create_contracts', 'manage_devices']`
-
-### **Viewer**
-- Read-only access
-- Can view payments/reports
-- Cannot modify anything
-- Permissions: `['view_payments', 'view_reports']`
-
-### **Device Access (Customer)**
-- Access specific device only
-- Can view invoices
-- Can make payments
-- Cannot modify contracts
-- Time-limited (24h token)
-
----
-
-## 🎯 **Status**
-
-**✅ Backend: 90% Complete**
-- Models: ✅
-- Services: ✅
-- Middleware: ✅
-- Routes: ✅
-- Need: Mount routes, protect existing endpoints
-
-**⏳ Frontend: 0% Complete**
-- Auth context
-- Login pages
-- Protected routes
-- Token management
-
----
-
-**Ready to continue with:**
-1. Mounting auth routes
-2. Protecting existing routes
-3. Creating admin initialization script
-4. Building React auth UI
-
-Let me know when you're ready for the next phase!
+Para ejecutar el flujo local sin credenciales predefinidas consulta [AUTH_QUICKSTART.md](AUTH_QUICKSTART.md).
