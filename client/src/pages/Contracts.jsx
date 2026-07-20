@@ -725,9 +725,9 @@ const Contracts = () => {
                     <div className="modal-content modal-surface--contract" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
-                            <button className="modal-close" onClick={closeContractModal}>×</button>
+                            <button type="button" className="modal-close" onClick={closeContractModal}>×</button>
                         </div>
-                        <form onSubmit={handleSubmit} className="contract-form">
+                        <form id="contract-form" onSubmit={handleSubmit} className="contract-form">
                             <div className="form-grid">
                                 {/* SECCIÓN 1: Dispositivo y Acceso */}
                                 <div className="form-section-title" style={{ gridColumn: '1 / -1', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '0.5rem', marginTop: '0.5rem', fontWeight: 'bold', color: '#374151' }}>
@@ -969,8 +969,8 @@ const Contracts = () => {
                                 </div>
                                 <div className="form-group" style={{ visibility: 'hidden' }}></div>
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                        <div className="phone-pin-checkbox" style={{ minWidth: '100px', marginTop: '0.5rem', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color, #e5e7eb)' }}>
+                                    <div className="contract-exemption-options">
+                                        <div className="phone-pin-checkbox contract-exemption-option">
                                             <input
                                                 type="checkbox"
                                                 id="exemptFromCutOff"
@@ -982,7 +982,7 @@ const Contracts = () => {
                                                 {t('contracts.modal.exemptCutoff')}
                                             </label>
                                         </div>
-                                        <div className="phone-pin-checkbox" style={{ minWidth: '180px', marginTop: '0.5rem', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color, #e5e7eb)' }}>
+                                        <div className="phone-pin-checkbox contract-exemption-option">
                                             <input
                                                 type="checkbox"
                                                 id="exemptFromCurfew"
@@ -1006,15 +1006,15 @@ const Contracts = () => {
                                     placeholder={t('contracts.modal.notesPlaceholder')}
                                 />
                             </div>
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={closeContractModal}>
-                                    {t('contracts.modal.cancelBtn')}
-                                </button>
-                                <button type="submit" className="btn-primary" disabled={loading}>
-                                    {loading ? t('contracts.modal.savingBtn') : editingContract ? t('contracts.modal.updateBtn') : t('contracts.modal.createBtn')}
-                                </button>
-                            </div>
                         </form>
+                        <div className="form-actions">
+                            <button type="button" className="btn-secondary" onClick={closeContractModal}>
+                                {t('contracts.modal.cancelBtn')}
+                            </button>
+                            <button type="submit" form="contract-form" className="btn-primary" disabled={loading}>
+                                {loading ? t('contracts.modal.savingBtn') : editingContract ? t('contracts.modal.updateBtn') : t('contracts.modal.createBtn')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
