@@ -654,7 +654,7 @@ const Contracts = () => {
             {/* Contract Form Modal */}
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-content modal-surface--contract" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>

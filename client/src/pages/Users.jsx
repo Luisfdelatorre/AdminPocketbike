@@ -203,7 +203,7 @@ const Users = () => {
             {/* Add User Modal */}
             {showUserModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
+                    <div className="modal-content modal-surface--user">
                         <div className="modal-header">
                             <h2>{isEditing ? 'Edit User' : 'Add New User'}</h2>
                             <button className="modal-close" onClick={resetForm}><X /></button>
