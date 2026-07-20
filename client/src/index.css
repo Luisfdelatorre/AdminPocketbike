@@ -76,6 +76,11 @@
     to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes modal-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
 @media (max-width: 768px) {
     .modal-overlay {
         padding: 0;
@@ -116,6 +121,36 @@
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+    }
+
+    .modal-overlay--opening .modal-surface--contract {
+        animation: modal-page-enter 0.22s ease-out both;
+    }
+
+    .modal-overlay--closing {
+        animation: modal-fade-out 0.22s ease-in both;
+    }
+
+    .modal-overlay--closing .modal-surface--contract {
+        animation: modal-page-exit 0.22s ease-in both;
+    }
+
+    @keyframes modal-page-enter {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+
+    @keyframes modal-page-exit {
+        from { transform: translateX(0); }
+        to { transform: translateX(100%); }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-overlay,
+    .modal-content,
+    .modal-card {
+        animation: none !important;
     }
 }
 
