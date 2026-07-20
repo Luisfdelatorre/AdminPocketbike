@@ -329,7 +329,7 @@ const Contracts = () => {
     const getStatusColor = (status) => {
         const colors = {
             'ACTIVE': '#00C292',
-            'COMPLETED': '#03C9D7',
+            'COMPLETED': 'var(--brand-teal)',
             'CANCELLED': '#EF4444',
             'SUSPENDED': '#FB9678'
         };
@@ -524,7 +524,7 @@ const Contracts = () => {
                     title={t('contracts.stats.total')}
                     value={contracts.length}
                     icon={FileText}
-                    color="#03C9D7"
+                    color="var(--brand-teal)"
                 />
                 <StatCard
                     title={t('contracts.stats.active')}

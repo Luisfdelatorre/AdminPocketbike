@@ -352,7 +352,7 @@ const DeviceManagement = () => {
             {/* Stats Cards */}
             <div className="devices-stats desktop-only">
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#03C9D7' }}>
+                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
                         <Users />
                     </div>
                     <div className="stat-info">

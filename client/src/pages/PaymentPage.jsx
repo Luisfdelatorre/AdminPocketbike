@@ -234,7 +234,7 @@ const PaymentPage = () => {
                             style={{
                                 width: '100%',
                                 padding: '0.75rem',
-                                background: authenticating || pin.length !== 4 ? '#9CA3AF' : '#03C9D7',
+                                background: authenticating || pin.length !== 4 ? '#9CA3AF' : 'var(--brand-teal)',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '0.5rem',

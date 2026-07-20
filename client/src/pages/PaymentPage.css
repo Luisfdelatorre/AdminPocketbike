@@ -34,7 +34,7 @@
 .payment-info {
     background: #F9FAFB !important;
     border: 1px solid #E5E7EB !important;
-    border-left: 3px solid #03C9D7 !important;
+    border-left: 3px solid var(--brand-teal) !important;
 }
 
 .info-text {
@@ -60,7 +60,7 @@
 .invoice-item:hover,
 .history-item:hover {
     background: white !important;
-    border-color: #03C9D7 !important;
+    border-color: var(--brand-teal) !important;
 }
 
 .invoice-date,

@@ -319,7 +319,7 @@ const CompanyInvoices = () => {
                     </div>
                 </div>
                 <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#03C9D7' }}>
+                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
                         <Check size={20} />
                     </div>
                     <div className="stat-info">
