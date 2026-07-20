@@ -13,7 +13,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **1** | Conflictos de Capas (Z-Index) y Modales Tapados | ✅ Completado | Los overlays de los modales administrativos usan `z-index: 1300`, por encima de sidebar, header y navegación móvil. |
 | **2** | Redundancia de Estilos en Modales (`.modal-content` vs `.modal-card`) | ✅ Completado | Overlay, animación y comportamiento responsive se centralizaron en `index.css`; cada contexto conserva su máximo de escritorio y usa pantalla completa en móvil. |
 | **3** | Unificación en Diseño de Tarjetas (Cards) | ✅ Completado | Las tarjetas administrativas comparten borde `#E5E7EB`, radio `0.75rem`, padding `1rem` y sombra base; los formatos compactos de móvil se mantienen como excepción responsive. |
-| **4** | Variables CSS para Colores de Marca (Teal `#03C9D7`) | ⏳ Pendiente | Centralizar colores primarios en `:root` para evitar códigos hardcodeados. |
+| **4** | Variables CSS para Colores de Marca (Teal `#03C9D7`) | ✅ Completado | Los tonos teal, sus gradientes y transparencias se centralizaron como variables globales y reemplazaron las referencias directas del cliente. |
 | **4.1** | Navegación y Bloqueo de Scroll en Modal de Contratos | ✅ Completado | El modal bloquea el documento, crea una entrada de historial al abrirse y el botón Atrás lo cierra con transición de navegación móvil. |
 | **5** | Estandarización de Botones (`.btn-primary` redundante) | ⏳ Pendiente | Extraer `.btn-primary` a clase global en `index.css`. |
 | **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ⏳ Pendiente | Añadir fallback `env(safe-area-inset-bottom, 0px)` en `Contracts.css` y centralizar variables. |
