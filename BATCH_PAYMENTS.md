@@ -1,150 +1,27 @@
-# Batch Payment - Sequential Processing
+# Propuesta histórica: pagos agrupados
 
-## How to Pay 3 Invoices Sequentially
+Estado: histórico y no implementado como contrato vigente. Revisado el 2026-07-20.
 
-### API Endpoint
-```
-POST /api/payments/create-batch-intent
-```
+Este documento describía una propuesta para pagar varias facturas mediante una sola transacción. El cliente todavía exporta una función hacia `/payments/create-batch-intent`, pero el router actual no monta ese endpoint.
 
-### Request Body
-```json
-{
-  "deviceId": "BIKE001",
-  "count": 3,
-  "customerEmail": "customer@example.com"
-}
-```
+## Qué pretendía resolver
 
-### Response
-```json
-{
-  "success": true,
-  "data": {
-    "results": [
-      {
-        "success": true,
-        "invoice": { "invoiceId": "INV-BIKE001-20260104-xxx", "amount": 5000000 },
-        "payment": { "paymentReference": "REF-xxx", "status": "PENDING" },
-        "checkoutUrl": "https://checkout.wompi.co/l/xxx"
-      },
-      {
-        "success": true,
-        "invoice": { "invoiceId": "INV-BIKE001-20260103-xxx", "amount": 4500000 },
-        "payment": { "paymentReference": "REF-yyy", "status": "PENDING" },
-        "checkoutUrl": "https://checkout.wompi.co/l/yyy"
-      },
-      {
-        "success": true,
-        "invoice": { "invoiceId": "INV-BIKE001-20260102-xxx", "amount": 6000000 },
-        "payment": { "paymentReference": "REF-zzz", "status": "PENDING" },
-        "checkoutUrl": "https://checkout.wompi.co/l/zzz"
-      }
-    ],
-    "errors": [],
-    "totalProcessed": 3,
-    "successCount": 3,
-    "errorCount": 0
-  }
-}
-```
+- seleccionar varias facturas pendientes;
+- calcular un total único;
+- generar una referencia de lote;
+- aplicar el pago aprobado a todas las facturas seleccionadas;
+- evitar cobros parciales o dobles.
 
-## Test with cURL
+## Estado real
 
-```bash
-curl -X POST http://localhost:3000/api/payments/create-batch-intent \
-  -H "Content-Type: application/json" \
-  -d '{
-    "deviceId": "BIKE001",
-    "count": 3,
-    "customerEmail": "test@example.com"
-  }'
-```
+No debe asumirse que el flujo está disponible. Implementarlo requiere una intervención nueva que defina:
 
-## How It Works (Sequentially)
+- idempotencia y reserva de facturas;
+- cardinalidad entre `Payment` e `Invoice`;
+- rollback ante aplicación parcial;
+- firma y verificación Wompi;
+- compatibilidad con pagos existentes;
+- autorización por dispositivo y compañía;
+- pruebas concurrentes y de reintentos.
 
-```javascript
-// Processing happens ONE BY ONE, not in parallel:
-
-// Step 1: Process Invoice #1
-console.log("1/3 Processing invoice: INV-BIKE001-20260104-xxx");
-await createWompiTransaction(invoice1);  // Wait for this to finish
-console.log("✅ Payment created for INV-BIKE001-20260104-xxx");
-
-// Step 2: Process Invoice #2 (after #1 completes)
-console.log("2/3 Processing invoice: INV-BIKE001-20260103-xxx");
-await createWompiTransaction(invoice2);  // Wait for this to finish
-console.log("✅ Payment created for INV-BIKE001-20260103-xxx");
-
-// Step 3: Process Invoice #3 (after #2 completes)
-console.log("3/3 Processing invoice: INV-BIKE001-20260102-xxx");
-await createWompiTransaction(invoice3);  // Wait for this to finish
-console.log("✅ Payment created for INV-BIKE001-20260102-xxx");
-
-console.log("📦 Batch payment complete: 3 successful, 0 failed");
-```
-
-## Key Features
-
-✅ **Sequential Processing** - Invoices processed one at a time (not in parallel)
-✅ **Error Handling** - If one invoice fails, the others continue
-✅ **Skip Paid Invoices** - Already paid invoices are automatically skipped
-✅ **Oldest First** - Processes invoices from oldest to newest
-✅ **Configurable Count** - Pay 1-10 invoices at once
-✅ **Multiple Checkout URLs** - Returns array of checkout URLs for each payment
-
-## Server Logs Example
-
-```
-📦 Creating batch payment for 3 invoices sequentially...
-  1/3 Processing invoice: INV-BIKE001-20260104-abc123
-  ✅ Payment created for INV-BIKE001-20260104-abc123: REF-xxx
-  2/3 Processing invoice: INV-BIKE001-20260103-def456
-  ✅ Payment created for INV-BIKE001-20260103-def456: REF-yyy
-  3/3 Processing invoice: INV-BIKE001-20260102-ghi789
-  ✅ Payment created for INV-BIKE001-20260102-ghi789: REF-zzz
-📦 Batch payment complete: 3 successful, 0 failed
-```
-
-## Frontend Usage
-
-You can open all checkout URLs in separate tabs:
-
-```javascript
-const response = await fetch('/api/payments/create-batch-intent', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    deviceId: 'BIKE001',
-    count: 3,
-    customerEmail: 'customer@example.com'
-  })
-});
-
-const { data } = await response.json();
-
-// Open each checkout URL in a new tab
-data.results.forEach((result, index) => {
-  if (result.success) {
-    setTimeout(() => {
-      window.open(result.checkoutUrl, `_blank_${index}`);
-    }, index * 1000); // Stagger by 1 second
-  }
-});
-```
-
-## Why Sequential?
-
-**Sequential processing ensures:**
-1. ✅ No race conditions
-2. ✅ Wompi API not overwhelmed
-3. ✅ Database constraints properly enforced
-4. ✅ Clear audit trail
-5. ✅ Easier debugging
-6. ✅ Better error recovery
-
-## Limitations
-
-- **Max 10 invoices** per batch (safety limit)
-- **Takes longer** than parallel (but more reliable)
-- **Each payment is independent** (each has its own checkout URL)
+La relación actual no es estrictamente uno-a-uno para todos los flujos, pero tampoco existe un modelo formal de lote. Consulta [DATABASE_RELATIONSHIPS.md](DATABASE_RELATIONSHIPS.md) y los servicios actuales antes de diseñarlo.
