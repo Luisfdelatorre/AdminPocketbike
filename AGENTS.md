@@ -18,6 +18,15 @@ Antes de realizar cualquier modificación, diseño o propuesta de código, debes
 3. **Consistencia**: Respeta siempre las decisiones arquitectónicas ya tomadas y documentadas en los archivos MD anteriores.
 4. **Corrección de Inconsistencias de Diseño**: Resolveremos las inconsistencias listadas en [INCOHERENCIAS_DISENO.md](INCOHERENCIAS_DISENO.md) de forma gradual y bajo la supervisión directa del usuario. Antes de realizar modificaciones, los agentes deben consultar y actualizar el índice de avances dentro del mismo documento.
 
+## 🤝 Flujo de Autorización por Intervención de Diseño
+
+Cada intervención de diseño —incluidas las mejoras nuevas detectadas durante el trabajo— requiere supervisión explícita del usuario:
+
+1. **Antes de iniciar**: presentar un resumen de objetivo, alcance técnico, archivos previstos, impacto esperado, validaciones y rama propuesta. Esperar una señal explícita del usuario para iniciar antes de crear la rama, modificar archivos, ejecutar migraciones, preparar commits o integrar cambios.
+2. **Durante la implementación**: consultar y mantener actualizado el índice de `INCOHERENCIAS_DISENO.md`. Al completar un hallazgo existente, actualizar su estado y nota. Si surge una corrección no prevista, añadirla como nuevo hallazgo con un ID, alcance y estado; marcarla como completada únicamente cuando su implementación y validación hayan terminado.
+3. **Al finalizar**: mostrar al usuario el resumen de cambios realizados, archivos afectados, resultados de validación y cualquier incidencia o alcance adicional descubierto.
+4. **Antes de versionar o integrar**: presentar el plan de commits conforme a la sección siguiente y esperar la autorización explícita correspondiente antes de ejecutar `git add`, `git commit`, merges o PRs.
+
 ## Commit Composition Workflow
 
 When the user asks to prepare, group, propose, or create commits, always inspect the current Git working tree and group files logically by development purpose before executing any Git commit.
