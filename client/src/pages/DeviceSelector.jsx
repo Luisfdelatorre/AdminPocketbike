@@ -504,7 +504,7 @@ const DeviceManagement = () => {
 
             </div>
 
-            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="admin-card admin-card--flush w-full overflow-hidden">
                 {/* Header Row */}
                 <div className="grid grid-cols-[3fr_2fr_3.5fr_1.5fr] lg:grid-cols-7 gap-1 lg:gap-6 px-2 lg:px-4 py-3 border-b border-gray-100 bg-gray-50/50">
                     <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center">{t('devices.table.contract')}</div>

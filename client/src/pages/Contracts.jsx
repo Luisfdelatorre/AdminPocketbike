@@ -500,7 +500,7 @@ const Contracts = () => {
                     filteredContracts.map(contract => (
                         <div
                             key={contract.contractId}
-                            className="bg-white rounded-2xl border border-gray-200 shadow-sm max-w-[380px] w-full flex flex-col p-2 cursor-pointer hover:shadow-md transition-shadow relative"
+                            className="admin-card shadow-sm max-w-[380px] w-full flex flex-col cursor-pointer hover:shadow-md transition-shadow relative"
                             onClick={(e) => {
                                 handleEdit(contract);
                                 setActiveMenu(null);
