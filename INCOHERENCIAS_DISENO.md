@@ -23,7 +23,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **4.3** | Icono de Cierre del Modal de Contratos | ✅ Completado | El botón de cierre usa el componente `X` de Lucide, consistente con el sistema de iconos existente. |
 | **4.4** | Tamaño Compacto de Acciones en Modal de Contratos | ✅ Completado | Las acciones del footer usan proporciones compactas; en móvil conservan un área táctil mínima de `44px`. |
 | **5** | Estandarización de Botones (`.btn-primary` redundante) | ⏸️ Aplazado | Pendiente de definición del product owner sobre la variante primaria de Usuarios y Compañías. |
-| **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ⏳ Pendiente | Añadir fallback `env(safe-area-inset-bottom, 0px)` en `Contracts.css` y centralizar variables. |
+| **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ✅ Completado | El FAB de contratos usa `env(safe-area-inset-bottom, 0px)` y conserva un offset válido sin safe area. |
 | **7** | Reestructuración DOM: Layout Flex Column en Móvil | ⏳ Pendiente | Cambiar fixed por flex-direction vertical con scroll interno en `.admin-content`. |
 
 ---

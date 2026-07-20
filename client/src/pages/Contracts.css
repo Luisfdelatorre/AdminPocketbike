@@ -51,7 +51,7 @@
     .contracts-add-fab {
         position: fixed;
         right: 1.5rem;
-        bottom: calc(3rem + env(safe-area-inset-bottom));
+        bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
         z-index: 1100;
         display: flex;
         width: 3.5rem;
