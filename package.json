@@ -6,6 +6,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
+        "dev:all": "bash scripts/dev-all.sh",
         "dev:db-tunnel": "ssh -N -o ExitOnForwardFailure=yes -L 27018:127.0.0.1:27017 root@198.74.54.252",
         "dev:api": "PORT=8084 node --watch server/server.js",
         "dev:server": "node --watch server/server.js",

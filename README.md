@@ -42,7 +42,16 @@ FRONTEND_URL=http://localhost:5173
 
 The main server connects to `127.0.0.1:27018`. The SSH tunnel below forwards that local port to the team MongoDB server, so no local MongoDB or Docker container is needed. `MONGODB_URI` in `.env` is used by some utility scripts but does not override the main server connection. Wompi and some GPS credentials are also currently defined in `server/config/components/services.js`.
 
-3. **Open the database tunnel in a dedicated terminal:**
+3. **Start database access, backend, and frontend together:**
+```bash
+npm run dev:all
+```
+
+This command opens the shared MongoDB tunnel, starts the backend on port `8084`, and starts Vite on port `5173`. The project does not start a local MongoDB instance: the tunnel is the database connection used in development. Press `Ctrl+C` to stop all three processes. The tunnel may ask for the SSH password if no key is configured. If the tunnel, API, or frontend stops, the script reports which service failed and closes the remaining processes.
+
+Alternatively, you can start each service in a separate terminal:
+
+4. **Open the database tunnel in a dedicated terminal:**
 ```bash
 npm run dev:db-tunnel
 ```
@@ -51,12 +60,12 @@ The command asks for the SSH password when no key is configured and remains runn
 
 Do not run `npm run init-db` against this tunnel: it creates sample records in the shared database. That command is only for an isolated local database.
 
-4. **Start the backend in a second terminal:**
+5. **Start the backend in a second terminal:**
 ```bash
 npm run dev:api
 ```
 
-5. **Start the Vite frontend in a third terminal:**
+6. **Start the Vite frontend in a third terminal:**
 ```bash
 npm run dev
 ```
