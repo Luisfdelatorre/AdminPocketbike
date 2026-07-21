@@ -5,6 +5,8 @@ import { getAllContracts, getDevicesWithContracts, createContract, updateContrac
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, ListFilter } from 'lucide-react';
 import { showToast } from '../utils/toast';
+import useAdminScrollLock from '../hooks/useAdminScrollLock';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import './Contracts.css';
 
 const Contracts = () => {
@@ -68,25 +70,7 @@ const Contracts = () => {
         return () => window.clearTimeout(closeTimer);
     }, [isContractModalOpen, isModalMounted]);
 
-    useEffect(() => {
-        if (!isModalMounted) {
-            return undefined;
-        }
-
-        const previousBodyOverflow = document.body.style.overflow;
-        const previousDocumentOverflow = document.documentElement.style.overflow;
-        const previousBodyOverscroll = document.body.style.overscrollBehavior;
-
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overscrollBehavior = 'none';
-
-        return () => {
-            document.body.style.overflow = previousBodyOverflow;
-            document.documentElement.style.overflow = previousDocumentOverflow;
-            document.body.style.overscrollBehavior = previousBodyOverscroll;
-        };
-    }, [isModalMounted]);
+    useAdminScrollLock(isModalMounted);
 
     useEffect(() => {
         loadContracts();
@@ -109,34 +93,7 @@ const Contracts = () => {
         };
     }, [activeMenu]);
 
-    useEffect(() => {
-        let lastScrollY = window.scrollY;
-
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-            const diff = currentScrollY - lastScrollY;
-
-            // If scrolling down, hide the filter panel
-            if (diff > 10) {
-                if (showFilters) {
-                    setShowFilters(false);
-                }
-            }
-            // If scrolling up (swipe down), show the filter panel
-            else if (diff < -15) {
-                if (!showFilters) {
-                    setShowFilters(true);
-                }
-            }
-
-            lastScrollY = currentScrollY;
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, [showFilters]);
+    useFilterVisibilityOnScroll(setShowFilters);
 
     const loadCompanySettings = async () => {
         try {
