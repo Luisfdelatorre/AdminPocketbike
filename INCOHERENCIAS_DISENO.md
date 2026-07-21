@@ -24,7 +24,8 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **4.4** | Tamaño Compacto de Acciones en Modal de Contratos | ✅ Completado | Las acciones del footer usan proporciones compactas; en móvil conservan un área táctil mínima de `44px`. |
 | **5** | Estandarización de Botones (`.btn-primary` redundante) | ⏸️ Aplazado | Pendiente de definición del product owner sobre la variante primaria de Usuarios y Compañías. |
 | **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ✅ Completado | El FAB de contratos usa `env(safe-area-inset-bottom, 0px)` y conserva un offset válido sin safe area. |
-| **7** | Reestructuración DOM: Layout Flex Column en Móvil | ⏳ Pendiente | Cambiar fixed por flex-direction vertical con scroll interno en `.admin-content`. |
+| **7** | Reestructuración DOM: Layout Flex Column en Móvil | 🧪 En validación | El shell móvil ya usa Header–Content–Footer en flujo vertical, safe areas centralizadas y scroll interno en `.admin-content`; build y arranque local correctos, pendiente aprobación visual del usuario. |
+| **7.1** | Vistas Por Moto y Matriz en Resumen de Pagos | 🧪 En validación | Desktop permite alternar mediante un control segmentado entre tarjetas con scroll independiente por moto y la matriz comparativa; sólo se filtran celdas realmente vacías posteriores a hoy. |
 
 ---
 
@@ -187,14 +188,14 @@ Si reestructuramos el DOM para móviles usando una jerarquía Flex limpia:
 
 ```
 ┌──────────────────────────────────────────────┐  ▲
-│  HEADER (Sticky / Relative)                  │  │ Altura fija (60px)
+│  HEADER (Flex child / Relative)              │  │ 60px + safe area superior
 ├──────────────────────────────────────────────┤  ▼
 │                                              │  ▲
 │  CONTENT (Flex: 1 | Overflow-Y: Auto)        │  │ Alto dinámico con scroll independiente
 │                                              │  │ (No afecta al header ni al footer)
 │                                              │  ▼
 ├──────────────────────────────────────────────┤  ▲
-│  FOOTER / NAV (Sticky / Relative)            │  │ Altura fija (60px)
+│  FOOTER / NAV (Flex child / Relative)         │  │ 60px + safe area inferior
 └──────────────────────────────────────────────┘  ▼
 ```
 
@@ -222,32 +223,45 @@ Si reestructuramos el DOM para móviles usando una jerarquía Flex limpia:
 @media (max-width: 768px) {
     .admin-layout {
         flex-direction: column;
-        height: 100vh;
+        height: 100vh;  /* fallback */
+        height: 100dvh;
         overflow: hidden; /* Evita scroll en el body completo */
     }
 
     .admin-content {
         flex: 1;
+        min-height: 0;
         overflow-y: auto; /* El scroll ahora ocurre dentro del contenedor de contenido */
-        padding: 1rem !important;
-        /* Se eliminan los paddings manuales de 60px y 75px de cada página individual */
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
+        overflow-x: hidden;
     }
 
     .mobile-header {
         position: relative; /* Ya no flota encima del contenido */
-        height: 60px;
-        flex-shrink: 0;
+        height: calc(60px + env(safe-area-inset-top, 0px));
+        flex: 0 0 calc(60px + env(safe-area-inset-top, 0px));
     }
 
     .mobile-bottom-nav {
         position: relative; /* Ya no flota encima del contenido */
-        height: 60px;
-        flex-shrink: 0;
+        height: calc(60px + env(safe-area-inset-bottom, 0px));
+        flex: 0 0 calc(60px + env(safe-area-inset-bottom, 0px));
     }
 }
 ```
+
+#### Implementación de la intervención 7
+
+La implementación mueve la cabecera móvil desde `AdminSidebar` hacia `AdminLayout`, por lo que cabecera, contenido y navegación inferior participan directamente en el shell vertical. El identificador `mobile-header-actions` se conserva para no cambiar los portales de acciones existentes.
+
+Como `.admin-content` pasa a ser el propietario del scroll móvil, también se adaptaron los comportamientos dependientes de desplazamiento en Contratos, Pagos, Facturas y Facturación de empresas. Los bloqueos existentes de los modales de Contratos y Dispositivos ahora inmovilizan tanto el documento como el contenedor administrativo y restauran sus estilos al cerrar.
+
+Se eliminaron las compensaciones superiores de Contratos, Pagos, Facturas, Facturación de empresas, `PaymentSummary`, `Reports` y `Settings`, además del padding inferior global que reservaba espacio para la navegación `fixed`. En Equipos se retiró el header móvil vacío y sus reglas antiguas para pantallas menores de `370px`; las acciones permanecen en el portal del header principal. El margen superior del filtro expandido quedó limitado al Dashboard para que no se filtre hacia Contratos u otros listados. `PaymentSummary` usa ahora la altura disponible del contenido en lugar de forzar otro viewport completo, mantiene su filtro visible con `sticky` durante el scroll móvil y usa `bike-summary`, `bike-summary-day` y `empty-day` en sus vistas móvil y web. La vista por moto conserva días registrados y vacíos hasta la fecha actual, pero oculta los vacíos posteriores a hoy; cualquier día futuro con datos permanece visible. Los períodos pasados abarcan el mes completo, el período actual llega como mínimo hasta hoy y los períodos futuros sólo se extienden hasta días registrados. La matriz conserva todas las celdas de ese rango para mantener las columnas alineadas y solo marca `empty-day` cuando una fecha posterior a hoy no tiene datos. El día actual del período vigente se resalta en la vista por moto.
+
+#### Implementación de la intervención 7.1
+
+El resumen de pagos reutiliza `BikePaymentSummary` en móvil y escritorio para evitar mantener dos representaciones por moto. En escritorio, un control segmentado con iconos permite alternar entre `Por moto` y `Matriz`; la primera es la opción inicial y la selección queda guardada localmente sin producir otra consulta a la API. Cada moto conserva su desplazamiento horizontal independiente, mantiene visibles los vacíos hasta hoy y filtra únicamente vacíos futuros.
+
+La matriz continúa ofreciendo comparación transversal y totales por día, pero ahora controla su desplazamiento vertical y horizontal dentro del alto disponible. Su encabezado completo permanece visible durante el scroll y las columnas de dispositivo y deuda continúan fijas a la izquierda. En móvil no se muestra el selector y el breakpoint de React coincide con la media query de `768px`.
 
 #### Beneficios de la corrección:
 1. **Eliminación de código redundante:** Se eliminan los parches de `padding-top: 60px` y `padding-bottom: 75px` repetidos de forma manual en múltiples páginas CSS.

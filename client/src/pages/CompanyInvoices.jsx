@@ -4,6 +4,7 @@ import { getCompanyInvoices, generateCompanyInvoice, getAllCompanies } from '../
 import { Building, Plus, FileText, Printer, FileSpreadsheet, Search, X, Check, RefreshCw, ListFilter, TrendingDown, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CompanyInvoiceTemplate from '../components/CompanyInvoiceTemplate';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import './Payments.css';
 import './Users.css';
 
@@ -35,21 +36,7 @@ const CompanyInvoices = () => {
         loadData();
     }, []);
 
-    useEffect(() => {
-        let lastScrollY = window.scrollY;
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-            const diff = currentScrollY - lastScrollY;
-            if (diff > 10) {
-                if (showFilters) setShowFilters(false);
-            } else if (diff < -15) {
-                if (!showFilters) setShowFilters(true);
-            }
-            lastScrollY = currentScrollY;
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [showFilters]);
+    useFilterVisibilityOnScroll(setShowFilters);
 
     const loadData = async () => {
         setLoading(true);

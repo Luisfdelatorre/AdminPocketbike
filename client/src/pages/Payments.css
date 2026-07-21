@@ -314,10 +314,6 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-    .payments-page {
-        padding-top: 50px;
-    }
-
     .payment-controls {
         display: none !important;
     }

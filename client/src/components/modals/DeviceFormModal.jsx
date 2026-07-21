@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
+import useAdminScrollLock from '../../hooks/useAdminScrollLock';
 
 const DeviceFormModal = ({
     isOpen,
@@ -10,15 +11,7 @@ const DeviceFormModal = ({
     isEditing
 }) => {
     const { t } = useTranslation();
-
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        }
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
-    }, [isOpen]);
+    useAdminScrollLock(isOpen);
 
     if (!isOpen) return null;
 

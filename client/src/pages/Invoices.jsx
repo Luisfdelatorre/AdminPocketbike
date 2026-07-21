@@ -9,6 +9,7 @@ import {
 import './Payments.css';
 import './Invoices.css';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 
 const Invoices = () => {
     const { t } = useTranslation();
@@ -33,21 +34,7 @@ const Invoices = () => {
         setPortalElement(document.getElementById('mobile-header-actions'));
     }, []);
 
-    useEffect(() => {
-        let lastScrollY = window.scrollY;
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-            const diff = currentScrollY - lastScrollY;
-            if (diff > 10) {
-                if (showFilters) setShowFilters(false);
-            } else if (diff < -15) {
-                if (!showFilters) setShowFilters(true);
-            }
-            lastScrollY = currentScrollY;
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [showFilters]);
+    useFilterVisibilityOnScroll(setShowFilters);
 
     const handleExport = async () => {
         setDownloading(true);

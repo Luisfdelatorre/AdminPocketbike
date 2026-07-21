@@ -691,14 +691,14 @@
 }
 
 /* Collapsible Mobile Filters */
-.collapsible-content {
+.dashboard-content .collapsible-content {
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
     opacity: 0;
 }
 
-.collapsible-content.expanded {
+.dashboard-content .collapsible-content.expanded {
     max-height: 500px;
     opacity: 1;
     margin-top: 1rem;
