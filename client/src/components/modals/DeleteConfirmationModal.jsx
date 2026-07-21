@@ -23,8 +23,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, deviceId }) => {
                         {t('common.cancel')}
                     </button>
                     <button
-                        className="btn-primary"
-                        style={{ background: '#EF4444' }}
+                        className="btn-danger"
                         onClick={onConfirm}
                     >
                         {t('common.delete')}

@@ -186,10 +186,10 @@ const CompanyInvoices = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button onClick={loadData} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button onClick={loadData} className="btn-secondary">
                         <RefreshCw size={16} /> Actualizar
                     </button>
-                    <button onClick={() => setShowGenerateModal(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#2563eb' }}>
+                    <button onClick={() => setShowGenerateModal(true)} className="btn-primary">
                         <Plus size={16} /> Generar Factura Mensual
                     </button>
                 </div>
@@ -281,7 +281,7 @@ const CompanyInvoices = () => {
                         <button className="filter-action-btn" onClick={loadData} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Actualizar">
                             <RefreshCw size={18} />
                         </button>
-                        <button className="filter-action-btn" onClick={() => setShowGenerateModal(true)} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2563eb', color: 'white' }} title="Generar Factura">
+                        <button className="filter-action-btn filter-action-btn--primary" onClick={() => setShowGenerateModal(true)} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Generar Factura">
                             <Plus size={18} />
                         </button>
                     </div>
@@ -570,7 +570,7 @@ const CompanyInvoices = () => {
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                                 <button type="button" onClick={() => setShowGenerateModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', background: 'white', color: '#4B5563', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Cancelar</button>
-                                <button type="submit" style={{ padding: '8px 16px', border: 'none', background: '#2563eb', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>Generar</button>
+                                <button type="submit" className="btn-primary">Generar</button>
                             </div>
                         </form>
                     </div>

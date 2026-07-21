@@ -403,17 +403,15 @@ const Invoices = () => {
                         <option value={2027}>2027</option>
                     </select>
                     <button
-                        className="btn-primary"
+                        className="btn-secondary"
                         onClick={() => loadInvoices(currentPage)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                         <RefreshCw size={16} /> {t('payments.refresh')}
                     </button>
                     <button
-                        className="btn-primary"
+                        className="btn-secondary"
                         onClick={handleExport}
                         disabled={downloading}
-                        style={{ background: '#00C292', display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                         {downloading ? <RefreshCw size={16} className="spinning" /> : <Download size={16} />} CSV
                     </button>
