@@ -32,6 +32,66 @@
     padding: 0;
 }
 
+/* Shared administration button system. Contexts can only adjust layout or size. */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    min-height: 2.5rem;
+    padding: 0.625rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--brand-teal);
+    color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--brand-teal-dark);
+}
+
+.btn-secondary {
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+    color: #374151;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #E5E7EB;
+}
+
+.btn-danger {
+    background: #EF4444;
+    color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #DC2626;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible {
+    outline: 2px solid var(--brand-teal);
+    outline-offset: 2px;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 /* Shared administration modal foundation. Page modifiers only set their desktop width. */
 .modal-overlay {
     position: fixed;

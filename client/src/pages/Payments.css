@@ -503,3 +503,15 @@
     border-color: var(--brand-teal);
     color: var(--brand-teal);
 }
+
+.filter-action-btn--primary {
+    background: var(--brand-teal);
+    border-color: var(--brand-teal);
+    color: #ffffff;
+}
+
+.filter-action-btn--primary:hover {
+    background: var(--brand-teal-dark);
+    border-color: var(--brand-teal-dark);
+    color: #ffffff;
+}
