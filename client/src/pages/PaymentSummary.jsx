@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Download, ZapOff, Power } from 'lucide-react';
+import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2 } from 'lucide-react';
 
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
-import MobilePaymentSummary from '../components/MobilePaymentSummary';
+import BikePaymentSummary from '../components/BikePaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 
 // Helper to format currency
@@ -18,6 +18,16 @@ const formatCurrency = (amount) => {
     return `$${amount}`;
 };
 
+const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
+
+const getInitialDesktopView = () => {
+    try {
+        return window.localStorage.getItem(DESKTOP_VIEW_STORAGE_KEY) === 'matrix' ? 'matrix' : 'bike';
+    } catch {
+        return 'bike';
+    }
+};
+
 const PaymentSummary = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
@@ -28,12 +38,24 @@ const PaymentSummary = () => {
     const [deviceStatuses, setDeviceStatuses] = useState([]);
     const [pendingCommands, setPendingCommands] = useState({});
     const tableContainerRef = useRef(null);
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+    const [desktopView, setDesktopView] = useState(getInitialDesktopView);
+
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
+        const handleBreakpointChange = (event) => setIsMobile(event.matches);
+        mobileMediaQuery.addEventListener('change', handleBreakpointChange);
+        return () => mobileMediaQuery.removeEventListener('change', handleBreakpointChange);
     }, []);
+
+    const handleDesktopViewChange = (view) => {
+        setDesktopView(view);
+        try {
+            window.localStorage.setItem(DESKTOP_VIEW_STORAGE_KEY, view);
+        } catch {
+            // The selected view still works for the current session when storage is unavailable.
+        }
+    };
 
     // Default to current month/year
     const today = new Date();
@@ -42,16 +64,29 @@ const PaymentSummary = () => {
 
     // Generate days 1..31 based on month
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const isCurrentPeriod = selectedMonth === today.getMonth() + 1 && selectedYear === today.getFullYear();
+    const currentDay = isCurrentPeriod ? today.getDate() : null;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const isFutureSummaryDay = (day) => new Date(selectedYear, selectedMonth - 1, day) > todayStart;
 
     // Find maximum day with data
-    const maxDay = summaryData.length > 0
+    const maxRecordedDay = summaryData.length > 0
         ? Math.max(...summaryData.map(item => {
             const days = Object.keys(item.days).map(Number);
             return days.length > 0 ? Math.max(...days) : 0;
         }))
-        : daysInMonth; // Fallback to full month if no data or initial load
+        : 0;
 
-    const daysArray = Array.from({ length: maxDay }, (_, i) => i + 1);
+    const selectedPeriodStart = new Date(selectedYear, selectedMonth - 1, 1);
+    const currentPeriodStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const isPastPeriod = selectedPeriodStart < currentPeriodStart;
+    const lastVisibleDay = isPastPeriod
+        ? daysInMonth
+        : isCurrentPeriod
+            ? Math.max(currentDay, maxRecordedDay)
+            : maxRecordedDay;
+
+    const daysArray = Array.from({ length: lastVisibleDay }, (_, i) => i + 1);
 
 
     // Vertical sum of totalPaid per day across all devices
@@ -147,10 +182,10 @@ const PaymentSummary = () => {
     }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
-        if (!loading && summaryData.length > 0 && tableContainerRef.current) {
+        if (!isMobile && desktopView === 'matrix' && !loading && summaryData.length > 0 && tableContainerRef.current) {
             tableContainerRef.current.scrollLeft = tableContainerRef.current.scrollWidth;
         }
-    }, [loading, summaryData]);
+    }, [desktopView, isMobile, loading, summaryData]);
 
     const morososCount = summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
 
@@ -279,7 +314,32 @@ const PaymentSummary = () => {
             )}
 
             <div className="summary-header">
-                <h1>Estatus de Pagos</h1>
+                <div className="summary-heading">
+                    <h1>Estatus de Pagos</h1>
+
+                    {!isMobile && (
+                        <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
+                            <button
+                                type="button"
+                                className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
+                                onClick={() => handleDesktopViewChange('bike')}
+                                aria-pressed={desktopView === 'bike'}
+                            >
+                                <LayoutList size={16} aria-hidden="true" />
+                                <span>Por moto</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
+                                onClick={() => handleDesktopViewChange('matrix')}
+                                aria-pressed={desktopView === 'matrix'}
+                            >
+                                <Table2 size={16} aria-hidden="true" />
+                                <span>Matriz</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
 
                 <div className="controls">
                     <select
@@ -337,11 +397,12 @@ const PaymentSummary = () => {
                 </div>
             </div>
 
-            {isMobile ? (
-                <MobilePaymentSummary
+            {isMobile || desktopView === 'bike' ? (
+                <BikePaymentSummary
                     summaryData={summaryData}
                     daysArray={daysArray}
-                    dailyTotals={dailyTotals}
+                    currentDay={currentDay}
+                    isFutureSummaryDay={isFutureSummaryDay}
                     loading={loading}
                     user={user}
                     handleEngineToggle={handleEngineToggle}
@@ -377,7 +438,7 @@ const PaymentSummary = () => {
                                 <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
                             ) : (
                                 summaryData.map((item) => (
-                                    <tr key={item.device.deviceId}>
+                                    <tr key={item.device.deviceId} className="bike-summary">
                                         <td>
                                             <div className="device-cell">
                                                 <span className="device-name">{item.device.name}</span>
@@ -394,9 +455,11 @@ const PaymentSummary = () => {
                                             </div>
                                         </td>
                                         {daysArray.map(day => {
-                                            const { cellClass, content } = renderDayCell(item.days[day]);
+                                            const dayData = item.days[day];
+                                            const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
+                                            const { cellClass, content } = renderDayCell(dayData);
                                             return (
-                                                <td key={day}>
+                                                <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
                                                     <div className={cellClass}>
                                                         {content}
                                                     </div>
