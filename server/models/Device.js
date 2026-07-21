@@ -17,6 +17,29 @@ function generateDeviceId(plate) {
     return (((((a * 10 + d5) * 10 + d4) * 36 + c) * 36 + b) * 36 + z);
 }
 
+/*function generateDeviceId(plate) {
+    const p = String(plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!p) return null;
+
+    // Pad to 6 chars so charCodeAt never returns NaN on short plates
+    const r = p.padEnd(6, '0').split("").reverse().join(""); // e.g. ABC123 → 321CBA
+
+    const LETTER = 'A'.charCodeAt(0) - 10; // 55 — converts letter charCode to base36 digit (A→10, B→11 … Z→35)
+    const DIGIT  = '0'.charCodeAt(0);       // 48 — converts digit  charCode to base10 value  (0→0,  9→9)
+
+    // Math.max(0, …) guards against a digit landing in a letter slot (would go negative)
+    const a  = Math.max(0, r.charCodeAt(0) - LETTER); // base36
+    const d5 = Math.max(0, r.charCodeAt(1) - DIGIT);  // base10
+    const d4 = Math.max(0, r.charCodeAt(2) - DIGIT);  // base10
+    const c  = Math.max(0, r.charCodeAt(3) - LETTER); // base36
+    const b  = Math.max(0, r.charCodeAt(4) - LETTER); // base36
+    const z  = Math.max(0, r.charCodeAt(5) - LETTER); // base36
+
+    const id = (((((a * 10 + d5) * 10 + d4) * 36 + c) * 36 + b) * 36 + z);
+    return Number.isFinite(id) ? id : null;
+}*/
+
+
 const deviceSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.Mixed, required: true, default: function () { return (this && this.name) ? generateDeviceId(this.name) : new mongoose.Types.ObjectId(); } }, // Custom ID based on name or ObjectId
     name: { type: String, unique: true }, //plate
@@ -71,4 +94,23 @@ const deviceSchema = new mongoose.Schema({
 
 deviceSchema.index({ hasActiveContract: 1, cutOff: 1, cutOffTime: 1 });
 
+/**
+ * Static helper: prepares raw GPS docs for bulkWrite.
+ * Generates the deterministic numeric _id from the plate name and
+ * strips empty objects that GPS APIs sometimes return.
+ * Called in the repository because bulkWrite bypasses Mongoose middleware and defaults.
+ */
+deviceSchema.statics.prepareForBulkWrite = function (docs) {
+    return docs.map(doc => {
+        const id = generateDeviceId(doc.name);
+        return Object.fromEntries(
+            Object.entries({ ...doc, _id: id, id })
+                .filter(([, v]) =>
+                    !(v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)
+                )
+        );
+    });
+};
+
 export const Device = mongoose.model('Device', deviceSchema);
+export { generateDeviceId };
