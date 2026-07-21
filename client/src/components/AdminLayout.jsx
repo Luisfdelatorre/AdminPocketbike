@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { Home, Users, FileText, CreditCard, DollarSign, Image as ImageIcon, Settings as SettingsIcon, Database, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Home, Users, FileText, CreditCard, DollarSign, Image as ImageIcon, Settings as SettingsIcon, Database, RefreshCw, ArrowLeft, Menu } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useTranslation();
+    const contentRef = useRef(null);
     const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
     const [settingsTab, setSettingsTab] = useState('branding');
 
@@ -23,6 +26,10 @@ const AdminLayout = () => {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [location.pathname]);
     
     const { isAuthenticated, authType, user } = useAuth();
 
@@ -46,18 +53,46 @@ const AdminLayout = () => {
 
     const isSettingsPage = location.pathname.startsWith('/settings');
 
+    const getPageTitle = () => {
+        const path = location.pathname;
+        if (path === '/') return t('sidebar.dashboard');
+        if (path.startsWith('/devices')) return t('sidebar.devices');
+        if (path.startsWith('/contracts')) return t('sidebar.contracts');
+        if (path.startsWith('/payments')) return t('sidebar.payments');
+        if (path.startsWith('/invoices')) return t('sidebar.invoices');
+        if (path.startsWith('/settings')) return t('sidebar.settings');
+        if (path.startsWith('/reports')) return t('sidebar.reports');
+        return 'PocketBike';
+    };
+
     // Only admins can access this layout
     return (
         <div className="admin-layout">
+            <header className="mobile-header">
+                {isSettingsPage ? (
+                    <button className="toggle-btn" onClick={() => navigate(-1)} aria-label="Volver">
+                        <ArrowLeft size={24} />
+                    </button>
+                ) : (
+                    <button className="toggle-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Abrir menú">
+                        <Menu size={24} />
+                    </button>
+                )}
+                <div className="logo-container">
+                    <h2>{getPageTitle()}</h2>
+                </div>
+                <div id="mobile-header-actions" className="mobile-header-actions" />
+            </header>
+
             <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
-            <main className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+            <main ref={contentRef} className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
                 <Outlet context={{ settingsTab, setSettingsTab }} />
             </main>
 
             {/* Bottom Navigation Bar for Mobile viewports */}
             {isSettingsPage ? (
-                <div className="mobile-bottom-nav">
+                <nav className="mobile-bottom-nav" aria-label="Navegación de configuración">
                     <button 
                         onClick={() => setSettingsTab('branding')} 
                         className={`nav-btn ${settingsTab === 'branding' ? 'active' : ''}`}
@@ -94,9 +129,9 @@ const AdminLayout = () => {
                         <ArrowLeft size={20} />
                         <span>Volver</span>
                     </button>
-                </div>
+                </nav>
             ) : (
-                <div className="mobile-bottom-nav">
+                <nav className="mobile-bottom-nav" aria-label="Navegación principal">
                     <button 
                         onClick={() => navigate('/')} 
                         className={`nav-btn ${isTabActive('/') ? 'active' : ''}`}
@@ -132,11 +167,10 @@ const AdminLayout = () => {
                         <DollarSign size={20} />
                         <span>Facturas</span>
                     </button>
-                </div>
+                </nav>
             )}
         </div>
     );
 };
 
 export default AdminLayout;
-

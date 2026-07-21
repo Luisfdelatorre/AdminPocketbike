@@ -861,10 +861,6 @@
 }
 
 @media (max-width: 768px) {
-    .contracts-page {
-        padding-top: 55px;
-    }
-
     .contracts-list {
         display: flex;
         flex-direction: column;

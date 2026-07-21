@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
     Home, Users, CreditCard, DollarSign, FileText,
-    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, ArrowLeft
+    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown
 } from 'lucide-react';
 import { switchCompany } from '../services/api';
 import './AdminSidebar.css';
@@ -62,38 +62,8 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
     // Strict path matching
     const isActive = (path) => location.pathname === path;
 
-    // Get title based on current path
-    const getPageTitle = () => {
-        const path = location.pathname;
-        if (path === '/') return t('sidebar.dashboard');
-        if (path.startsWith('/devices')) return t('sidebar.devices');
-        if (path.startsWith('/contracts')) return t('sidebar.contracts');
-        if (path.startsWith('/payments')) return t('sidebar.payments');
-        if (path.startsWith('/invoices')) return t('sidebar.invoices');
-        if (path.startsWith('/settings')) return t('sidebar.settings');
-        if (path.startsWith('/reports')) return t('sidebar.reports');
-        return 'PocketBike';
-    };
-
     return (
         <>
-            {/* Mobile Header (Replaces floating button) */}
-            <div className="mobile-header">
-                {location.pathname.startsWith('/settings') ? (
-                    <button className="toggle-btn" onClick={() => navigate(-1)}>
-                        <ArrowLeft size={24} />
-                    </button>
-                ) : (
-                    <button className="toggle-btn" onClick={onToggle}>
-                        <Menu size={24} />
-                    </button>
-                )}
-                <div className="logo-container">
-                    <h2>{getPageTitle()}</h2>
-                </div>
-                <div id="mobile-header-actions" style={{ minWidth: 40, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}></div>{/* Action Portal Target */}
-            </div>
-
             {/* Overlay for mobile */}
             <div
                 className={`sidebar-overlay ${isOpen ? 'active' : ''}`}
