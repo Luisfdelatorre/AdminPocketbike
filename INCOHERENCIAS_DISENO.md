@@ -22,7 +22,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **4.2** | Estructura Header–Contenido–Footer en Modal de Contratos | ✅ Completado | El formulario es el único contenido desplazable; el footer de acciones es su hermano y las opciones responsive ya no generan desbordamiento horizontal. |
 | **4.3** | Icono de Cierre del Modal de Contratos | ✅ Completado | El botón de cierre usa el componente `X` de Lucide, consistente con el sistema de iconos existente. |
 | **4.4** | Tamaño Compacto de Acciones en Modal de Contratos | ✅ Completado | Las acciones del footer usan proporciones compactas; en móvil conservan un área táctil mínima de `44px`. |
-| **5** | Estandarización de Botones (`.btn-primary` redundante) | ⏸️ Aplazado | Pendiente de definición del product owner sobre la variante primaria de Usuarios y Compañías. |
+| **5** | Estandarización de Botones (`.btn-primary` redundante) | 🧪 En validación | Los botones de acción administrativos comparten una base global: primario teal, secundario neutro y peligro rojo; las excepciones son sólo de tamaño o distribución. |
 | **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ✅ Completado | El FAB de contratos usa `env(safe-area-inset-bottom, 0px)` y conserva un offset válido sin safe area. |
 | **7** | Reestructuración DOM: Layout Flex Column en Móvil | ⏳ Pendiente | Cambiar fixed por flex-direction vertical con scroll interno en `.admin-content`. |
 
@@ -124,6 +124,12 @@ El botón principal de la administración (`.btn-primary`) se define repetidamen
     box-shadow: 0 4px 12px rgba(3, 201, 215, 0.3);
 }
 ```
+
+#### Implementación de la intervención 5
+
+La base de botones administrativos vive en `index.css`: `btn-primary` usa el teal de marca, `btn-secondary` conserva acciones auxiliares en neutro y `btn-danger` identifica acciones destructivas. Los botones primarios no añaden sombra. Se retiraron las definiciones de página que cambiaban color, espaciado o peso de forma global; los contextos que requieren acciones compactas sólo ajustan tamaño y distribución.
+
+Las acciones de refrescar y exportar ya no se presentan como primarias, mientras que generar facturas conserva el primario teal. El botón de eliminación usa `btn-danger` en lugar de sobrescribir un primario mediante estilos inline.
 
 ---
 
