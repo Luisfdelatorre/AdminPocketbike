@@ -81,13 +81,13 @@
 }
 
 .filter-btn:hover {
-    border-color: #03C9D7;
-    color: #03C9D7;
+    border-color: var(--brand-teal);
+    color: var(--brand-teal);
 }
 
 .filter-btn.active {
-    background: #03C9D7;
-    border-color: #03C9D7;
+    background: var(--brand-teal);
+    border-color: var(--brand-teal);
     color: white;
 }
 
@@ -121,8 +121,8 @@
 
 .search-box input:focus {
     outline: none;
-    border-color: #03C9D7;
-    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1);
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
 }
 
 .search-box input::placeholder {
@@ -162,13 +162,13 @@
 }
 
 .sort-select:hover {
-    border-color: #03C9D7;
+    border-color: var(--brand-teal);
 }
 
 .sort-select:focus {
     outline: none;
-    border-color: #03C9D7;
-    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1);
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
 }
 
 /* Table Container */
@@ -298,8 +298,8 @@
 
 .pagination-btn:hover:not(:disabled) {
     background: #F9FAFB;
-    border-color: #03C9D7;
-    color: #03C9D7;
+    border-color: var(--brand-teal);
+    color: var(--brand-teal);
 }
 
 .pagination-btn:disabled {
@@ -314,10 +314,6 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-    .payments-page {
-        padding-top: 50px;
-    }
-
     .payment-controls {
         display: none !important;
     }
@@ -504,6 +500,18 @@
 }
 
 .filter-action-btn:hover {
-    border-color: #03C9D7;
-    color: #03C9D7;
+    border-color: var(--brand-teal);
+    color: var(--brand-teal);
+}
+
+.filter-action-btn--primary {
+    background: var(--brand-teal);
+    border-color: var(--brand-teal);
+    color: #ffffff;
+}
+
+.filter-action-btn--primary:hover {
+    background: var(--brand-teal-dark);
+    border-color: var(--brand-teal-dark);
+    color: #ffffff;
 }

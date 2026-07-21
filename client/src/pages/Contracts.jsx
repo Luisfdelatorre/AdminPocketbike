@@ -1,23 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, ListFilter } from 'lucide-react';
 import { showToast } from '../utils/toast';
+import useAdminScrollLock from '../hooks/useAdminScrollLock';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import './Contracts.css';
 
 const Contracts = () => {
     const { t } = useTranslation();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [contracts, setContracts] = useState([]);
     const [availableDevices, setAvailableDevices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
     const [searchQuery, setSearchQuery] = useState('');
-    const [showModal, setShowModal] = useState(false);
     const [editingContract, setEditingContract] = useState(null);
     const [activeMenu, setActiveMenu] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     const [portalElement, setPortalElement] = useState(null);
+    const [fabPortalElement, setFabPortalElement] = useState(null);
+    const isContractModalOpen = new URLSearchParams(location.search).get('modal') === 'contract';
+    const [isModalMounted, setIsModalMounted] = useState(isContractModalOpen);
+    const [isModalClosing, setIsModalClosing] = useState(false);
     // Estructura base inicial (Los defaults reales de la BD se aplican en handleNewContract)
     const [formData, setFormData] = useState({
         deviceId: '',
@@ -43,10 +51,33 @@ const Contracts = () => {
     const [companySettings, setCompanySettings] = useState(null);
 
     useEffect(() => {
+        if (isContractModalOpen) {
+            setIsModalMounted(true);
+            setIsModalClosing(false);
+            return undefined;
+        }
+
+        if (!isModalMounted) {
+            return undefined;
+        }
+
+        setIsModalClosing(true);
+        const closeTimer = window.setTimeout(() => {
+            setIsModalMounted(false);
+            setIsModalClosing(false);
+        }, 220);
+
+        return () => window.clearTimeout(closeTimer);
+    }, [isContractModalOpen, isModalMounted]);
+
+    useAdminScrollLock(isModalMounted);
+
+    useEffect(() => {
         loadContracts();
         loadAvailableDevices();
         loadCompanySettings();
         setPortalElement(document.getElementById('mobile-header-actions'));
+        setFabPortalElement(document.body);
     }, [filter]);
 
     useEffect(() => {
@@ -62,34 +93,7 @@ const Contracts = () => {
         };
     }, [activeMenu]);
 
-    useEffect(() => {
-        let lastScrollY = window.scrollY;
-
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-            const diff = currentScrollY - lastScrollY;
-
-            // If scrolling down, hide the filter panel
-            if (diff > 10) {
-                if (showFilters) {
-                    setShowFilters(false);
-                }
-            }
-            // If scrolling up (swipe down), show the filter panel
-            else if (diff < -15) {
-                if (!showFilters) {
-                    setShowFilters(true);
-                }
-            }
-
-            lastScrollY = currentScrollY;
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, [showFilters]);
+    useFilterVisibilityOnScroll(setShowFilters);
 
     const loadCompanySettings = async () => {
         try {
@@ -132,6 +136,29 @@ const Contracts = () => {
         }
     };
 
+    const openContractModal = () => {
+        const params = new URLSearchParams(location.search);
+        params.set('modal', 'contract');
+        navigate(
+            { pathname: location.pathname, search: `?${params.toString()}` },
+            { state: { modalNavigation: true } }
+        );
+    };
+
+    const closeContractModal = () => {
+        if (location.state?.modalNavigation) {
+            navigate(-1);
+            return;
+        }
+
+        const params = new URLSearchParams(location.search);
+        params.delete('modal');
+        navigate(
+            { pathname: location.pathname, search: params.toString() ? `?${params.toString()}` : '' },
+            { replace: true }
+        );
+    };
+
     const handleNewContract = () => {
         setEditingContract(null);
         const defaults = companySettings?.contractDefaults || {};
@@ -155,7 +182,7 @@ const Contracts = () => {
             exemptFromCurfew: false,
             cutOffTime: companySettings?.cutOffTime || '23:59'
         });
-        setShowModal(true);
+        openContractModal();
     };
 
     const handleEdit = (contract) => {
@@ -179,7 +206,7 @@ const Contracts = () => {
             exemptFromCurfew: contract.exemptFromCurfew || false,
             cutOffTime: contract.cutOffTime || companySettings?.cutOffTime || '23:59'
         });
-        setShowModal(true);
+        openContractModal();
     };
 
     const handleSubmit = async (e) => {
@@ -192,7 +219,7 @@ const Contracts = () => {
                 : await createContract(formData);
 
             if (result.success) {
-                setShowModal(false);
+                closeContractModal();
                 loadContracts();
                 showToast(editingContract ? t('contracts.modal.successUpdate') : t('contracts.modal.successCreate'), 'success');
             } else {
@@ -259,7 +286,7 @@ const Contracts = () => {
     const getStatusColor = (status) => {
         const colors = {
             'ACTIVE': '#00C292',
-            'COMPLETED': '#03C9D7',
+            'COMPLETED': 'var(--brand-teal)',
             'CANCELLED': '#EF4444',
             'SUSPENDED': '#FB9678'
         };
@@ -454,7 +481,7 @@ const Contracts = () => {
                     title={t('contracts.stats.total')}
                     value={contracts.length}
                     icon={FileText}
-                    color="#03C9D7"
+                    color="var(--brand-teal)"
                 />
                 <StatCard
                     title={t('contracts.stats.active')}
@@ -498,7 +525,7 @@ const Contracts = () => {
                     filteredContracts.map(contract => (
                         <div
                             key={contract.contractId}
-                            className="bg-white rounded-2xl border border-gray-200 shadow-sm max-w-[380px] w-full flex flex-col p-2 cursor-pointer hover:shadow-md transition-shadow relative"
+                            className="admin-card shadow-sm max-w-[380px] w-full flex flex-col cursor-pointer hover:shadow-md transition-shadow relative"
                             onClick={(e) => {
                                 handleEdit(contract);
                                 setActiveMenu(null);
@@ -637,24 +664,29 @@ const Contracts = () => {
             </div>
 
             {/* Floating Action Button (FAB) for Mobile */}
-            <button
-                type="button"
-                className="fixed bottom-6 right-6 w-14 h-14 primary-blue text-white rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95 z-20 md:hidden"
-                onClick={handleNewContract}
-                aria-label="Add Contract"
-            >
-                <Plus size={32} />
-            </button>
+            {fabPortalElement && !isModalMounted && createPortal(
+                <button
+                    type="button"
+                    className="contracts-add-fab primary-blue"
+                    onClick={handleNewContract}
+                    aria-label="Add Contract"
+                >
+                    <Plus size={32} />
+                </button>,
+                fabPortalElement
+            )}
 
             {/* Contract Form Modal */}
-            {showModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            {isModalMounted && (
+                <div className={`modal-overlay ${isModalClosing ? 'modal-overlay--closing' : 'modal-overlay--opening'}`}>
+                    <div className="modal-content modal-surface--contract" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
-                            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+                            <button type="button" className="modal-close" onClick={closeContractModal}>
+                                <X size={20} />
+                            </button>
                         </div>
-                        <form onSubmit={handleSubmit} className="contract-form">
+                        <form id="contract-form" onSubmit={handleSubmit} className="contract-form">
                             <div className="form-grid">
                                 {/* SECCIÓN 1: Dispositivo y Acceso */}
                                 <div className="form-section-title" style={{ gridColumn: '1 / -1', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '0.5rem', marginTop: '0.5rem', fontWeight: 'bold', color: '#374151' }}>
@@ -896,8 +928,8 @@ const Contracts = () => {
                                 </div>
                                 <div className="form-group" style={{ visibility: 'hidden' }}></div>
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                        <div className="phone-pin-checkbox" style={{ minWidth: '100px', marginTop: '0.5rem', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color, #e5e7eb)' }}>
+                                    <div className="contract-exemption-options">
+                                        <div className="phone-pin-checkbox contract-exemption-option">
                                             <input
                                                 type="checkbox"
                                                 id="exemptFromCutOff"
@@ -909,7 +941,7 @@ const Contracts = () => {
                                                 {t('contracts.modal.exemptCutoff')}
                                             </label>
                                         </div>
-                                        <div className="phone-pin-checkbox" style={{ minWidth: '180px', marginTop: '0.5rem', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color, #e5e7eb)' }}>
+                                        <div className="phone-pin-checkbox contract-exemption-option">
                                             <input
                                                 type="checkbox"
                                                 id="exemptFromCurfew"
@@ -933,15 +965,15 @@ const Contracts = () => {
                                     placeholder={t('contracts.modal.notesPlaceholder')}
                                 />
                             </div>
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                                    {t('contracts.modal.cancelBtn')}
-                                </button>
-                                <button type="submit" className="btn-primary" disabled={loading}>
-                                    {loading ? t('contracts.modal.savingBtn') : editingContract ? t('contracts.modal.updateBtn') : t('contracts.modal.createBtn')}
-                                </button>
-                            </div>
                         </form>
+                        <div className="form-actions contract-modal-actions">
+                            <button type="button" className="btn-secondary" onClick={closeContractModal}>
+                                {t('contracts.modal.cancelBtn')}
+                            </button>
+                            <button type="submit" form="contract-form" className="btn-primary" disabled={loading}>
+                                {loading ? t('contracts.modal.savingBtn') : editingContract ? t('contracts.modal.updateBtn') : t('contracts.modal.createBtn')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

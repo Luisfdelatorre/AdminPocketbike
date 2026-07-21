@@ -9,8 +9,9 @@ const formatCurrency = (amount) => {
   return `$${amount}`;
 };
 
-const PillContainer = ({ daysArray, item, renderDayCell }) => {
+const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, renderDayCell }) => {
   const containerRef = useRef(null);
+  const visibleDays = daysArray.filter((day) => Boolean(item.days[day]) || !isFutureSummaryDay(day));
 
   // Auto‑scroll to the last pill after render
   useEffect(() => {
@@ -20,11 +21,16 @@ const PillContainer = ({ daysArray, item, renderDayCell }) => {
   }, [daysArray, item]);
 
   return (
-    <div className="pill-container" ref={containerRef} style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
-      {daysArray.map((day) => {
-        const { cellClass, content } = renderDayCell(item.days[day]);
+    <div className="pill-container" ref={containerRef}>
+      {visibleDays.map((day) => {
+        const dayData = item.days[day];
+        const { cellClass, content } = renderDayCell(dayData);
         return (
-          <div key={day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+          <div
+            key={day}
+            className={`bike-summary-day${day === currentDay ? ' border p-1 rounded bg-indigo-50/50 border-gray-300' : ''}`}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', flexShrink: 0 }}
+          >
             <span style={{ fontSize: '9px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>{String(day).padStart(2, '0')}</span>
             <div className={cellClass} style={{ width: '36px', height: '28px', fontSize: '9px' }}>{content}</div>
           </div>
@@ -34,25 +40,19 @@ const PillContainer = ({ daysArray, item, renderDayCell }) => {
   );
 };
 
-const MobilePaymentSummary = ({ summaryData, daysArray, loading, user, handleEngineToggle, pendingCommands, getDeviceStatus, renderDayCell }) => {
+const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, pendingCommands, getDeviceStatus, renderDayCell }) => {
   if (loading) {
     return <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Cargando...</div>;
   }
 
   return (
-    <section style={{ padding: '4px 4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <section className="bike-summary-list">
       {summaryData.map((item) => {
         const hasDebt = (item.device.unpaidTotal || 0) > 0;
         return (
           <div
             key={item.device.deviceId}
-            style={{
-              background: '#fff',
-              border: '1px solid rgba(0,0,0,0.06)',
-              borderRadius: '12px',
-              padding: '6px',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-            }}
+            className="bike-summary bike-summary-card"
           >
             {/* Card header: device name + debt badge */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
@@ -107,7 +107,13 @@ const MobilePaymentSummary = ({ summaryData, daysArray, loading, user, handleEng
             </div>
 
             {/* Daily status pills — horizontal scroll */}
-            <PillContainer daysArray={daysArray} item={item} renderDayCell={renderDayCell} />
+            <PillContainer
+              daysArray={daysArray}
+              currentDay={currentDay}
+              item={item}
+              isFutureSummaryDay={isFutureSummaryDay}
+              renderDayCell={renderDayCell}
+            />
           </div>
         );
       })}
@@ -115,4 +121,4 @@ const MobilePaymentSummary = ({ summaryData, daysArray, loading, user, handleEng
   );
 };
 
-export default MobilePaymentSummary;
+export default BikePaymentSummary;

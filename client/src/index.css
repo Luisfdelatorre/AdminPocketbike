@@ -2,6 +2,226 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --brand-teal: #03C9D7;
+    --brand-teal-dark: #0394A3;
+    --brand-teal-gradient: #00A8B5;
+    --brand-teal-rgb: 3, 201, 215;
+    --modal-overlay: rgba(15, 23, 42, 0.55);
+    --modal-surface: #ffffff;
+    --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    --card-border: #E5E7EB;
+    --card-radius: 0.75rem;
+    --card-padding: 1rem;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.admin-card,
+.stat-card,
+.contract-card,
+.device-card,
+.contract-stat-card {
+    background: #ffffff;
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
+    box-shadow: var(--card-shadow);
+}
+
+.admin-card--flush {
+    padding: 0;
+}
+
+/* Shared administration button system. Contexts can only adjust layout or size. */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    min-height: 2.5rem;
+    padding: 0.625rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--brand-teal);
+    color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--brand-teal-dark);
+}
+
+.btn-secondary {
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+    color: #374151;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #E5E7EB;
+}
+
+.btn-danger {
+    background: #EF4444;
+    color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #DC2626;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible {
+    outline: 2px solid var(--brand-teal);
+    outline-offset: 2px;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Shared administration modal foundation. Page modifiers only set their desktop width. */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--modal-overlay);
+    backdrop-filter: blur(3px);
+    animation: modal-fade-in 0.18s ease;
+}
+
+.modal-content,
+.modal-card {
+    --modal-max-width: 600px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--modal-max-width);
+    max-height: 90dvh;
+    overflow-y: auto;
+    padding: 2rem;
+    background: var(--modal-surface);
+    border-radius: 0.75rem;
+    box-shadow: var(--modal-shadow);
+    animation: modal-slide-up 0.2s ease;
+}
+
+.modal-surface--contract {
+    --modal-max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.modal-surface--user { --modal-max-width: 500px; }
+.modal-surface--invoice { --modal-max-width: 420px; }
+
+.modal-surface--contract,
+.modal-surface--invoice {
+    padding: 0;
+}
+
+@keyframes modal-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modal-slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes modal-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@media (max-width: 768px) {
+    .modal-overlay {
+        padding: 0;
+    }
+
+    .modal-content,
+    .modal-card {
+        width: 100%;
+        max-width: none;
+        height: 100dvh;
+        max-height: 100dvh;
+        padding: 1rem;
+        border-radius: 0;
+    }
+
+    .modal-surface--contract,
+    .modal-surface--invoice {
+        padding: 0;
+    }
+
+    .modal-surface--contract,
+    .modal-surface--invoice,
+    .modal-surface--user {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .modal-surface--contract .modal-header,
+    .modal-surface--invoice .modal-header,
+    .modal-surface--user .modal-header {
+        flex-shrink: 0;
+    }
+
+    .modal-surface--invoice .modal-form,
+    .modal-surface--user > form {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .modal-overlay--opening .modal-surface--contract {
+        animation: modal-page-enter 0.22s ease-out both;
+    }
+
+    .modal-overlay--closing {
+        animation: modal-fade-out 0.22s ease-in both;
+    }
+
+    .modal-overlay--closing .modal-surface--contract {
+        animation: modal-page-exit 0.22s ease-in both;
+    }
+
+    @keyframes modal-page-enter {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+
+    @keyframes modal-page-exit {
+        from { transform: translateX(0); }
+        to { transform: translateX(100%); }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-overlay,
+    .modal-content,
+    .modal-card {
+        animation: none !important;
+    }
+}
+
 .force-text-dark {
     color: #111827 !important;
 }

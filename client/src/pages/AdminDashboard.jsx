@@ -242,7 +242,7 @@ const AdminDashboard = () => {
                         value={formatCompact(stats.totalRevenue)}
                         change={stats.changes?.totalRevenue || 0}
                         icon={DollarSign}
-                        color="#03C9D7"
+                        color="var(--brand-teal)"
                     />
                     <StatCard
                         title={t('dashboard.stats.activeDevices', 'Active Devices')}
@@ -286,7 +286,7 @@ const AdminDashboard = () => {
                     value={`$${(stats.totalRevenue || 0).toLocaleString()}`}
                     change={stats.changes?.totalRevenue || 0}
                     icon={DollarSign}
-                    color="#03C9D7"
+                    color="var(--brand-teal)"
                 />
                 <StatCard
                     title={t('dashboard.stats.activeDevices', 'Active Devices')}
@@ -334,15 +334,15 @@ const AdminDashboard = () => {
                             <AreaChart data={revenueData}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#03C9D7" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#03C9D7" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="var(--brand-teal)" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="var(--brand-teal)" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                                 <XAxis dataKey="month" stroke="#666" />
                                 <YAxis stroke="#666" />
                                 <Tooltip />
-                                <Area type="monotone" dataKey="revenue" stroke="#03C9D7"
+                                <Area type="monotone" dataKey="revenue" stroke="var(--brand-teal)"
                                     fillOpacity={1} fill="url(#colorRevenue)" />
                             </AreaChart>
                         </ResponsiveContainer>

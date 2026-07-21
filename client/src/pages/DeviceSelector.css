@@ -23,26 +23,6 @@
     margin: 0;
 }
 
-.btn-primary {
-    background: #03C9D7;
-    color: white;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
-}
-
-.btn-primary:hover {
-    background: #0394A3;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(3, 201, 215, 0.3);
-}
-
 /* Stats Cards */
 .devices-stats {
     display: grid;
@@ -52,13 +32,9 @@
 }
 
 .stat-card {
-    background: white;
-    border-radius: 0.75rem;
-    padding: .5rem;
     display: flex;
     align-items: center;
     gap: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .stat-icon {
@@ -121,8 +97,8 @@
 
 .search-box input:focus {
     outline: none;
-    border-color: #03C9D7;
-    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1);
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
 }
 
 .search-box input::placeholder {
@@ -169,13 +145,13 @@
 }
 
 .filter-btn:hover {
-    border-color: #03C9D7;
-    color: #03C9D7;
+    border-color: var(--brand-teal);
+    color: var(--brand-teal);
 }
 
 .filter-btn.active {
-    background: #03C9D7;
-    border-color: #03C9D7;
+    background: var(--brand-teal);
+    border-color: var(--brand-teal);
     color: white;
 }
 
@@ -315,58 +291,12 @@
 
 .btn-icon:hover {
     background: #E5E7EB;
-    color: #03C9D7;
+    color: var(--brand-teal);
 }
 
 .btn-icon.btn-delete:hover {
     background: rgba(239, 68, 68, 0.1);
     color: #EF4444;
-}
-
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: fadeIn 0.2s;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
-.modal-content {
-    background: white;
-    border-radius: 0.75rem;
-    padding: 2rem;
-    max-width: 600px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    animation: slideUp 0.3s;
-}
-
-@keyframes slideUp {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
 }
 
 .modal-content h2 {
@@ -411,8 +341,8 @@
 .form-group textarea:focus,
 .form-group select:focus {
     outline: none;
-    border-color: #03C9D7;
-    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1);
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
 }
 
 .form-group input:disabled {
@@ -438,21 +368,6 @@
     justify-content: flex-end;
     gap: 0.75rem;
     margin-top: 1.5rem;
-}
-
-.btn-secondary {
-    padding: 0.75rem 1.5rem;
-    background: #F3F4F6;
-    color: #374151;
-    border: none;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-    background: #E5E7EB;
 }
 
 /* PIN Modal */
@@ -484,8 +399,8 @@
 
 .pin-instructions {
     text-align: left;
-    background: rgba(3, 201, 215, 0.05);
-    border-left: 3px solid #03C9D7;
+    background: rgba(var(--brand-teal-rgb), 0.05);
+    border-left: 3px solid var(--brand-teal);
     padding: 1rem;
     border-radius: 0.5rem;
     margin-bottom: 1.5rem;
@@ -517,7 +432,7 @@
     height: 40px;
     margin: 0 auto 1rem;
     border: 3px solid #E5E7EB;
-    border-top-color: #03C9D7;
+    border-top-color: var(--brand-teal);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -547,11 +462,6 @@
 }
 
 .device-card {
-    background: white;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid #E5E7EB;
 }
 
 .card-header {
@@ -654,7 +564,7 @@
 .btn-text {
     background: none;
     border: none;
-    color: #03C9D7;
+    color: var(--brand-teal);
     font-weight: 600;
     font-size: 0.875rem;
 }
@@ -671,6 +581,10 @@
 }
 
 @media (max-width: 768px) {
+    .devices-page > .page-header {
+        display: none;
+    }
+
     .desktop-only {
         display: none !important;
     }
@@ -687,73 +601,6 @@
     }
 }
 
-/* Tiny Mobile Screens (<370px) */
-@media (max-width: 370px) {
-    .page-header {
-        position: relative;
-        padding-top: 3rem;
-        /* Make space for buttons */
-        display: block;
-    }
-
-    .page-header>div:first-child {
-        width: 100%;
-    }
-
-    /* Position buttons top-right */
-    /* Position buttons top-right */
-    /* Sync button stays top-right */
-    .page-header .btn-secondary {
-        position: absolute;
-        top: 0;
-        right: 0;
-        /* Now it can take the corner spot */
-        padding: 0.5rem;
-        width: 36px;
-        height: 36px;
-        min-width: unset;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0;
-        z-index: 50 !important;
-        background-color: #E5E7EB !important;
-        color: #374151 !important;
-        margin-right: 0 !important;
-    }
-
-    /* Add Device Button becomes FAB (Floating Action Button) */
-    .page-header .btn-primary {
-        position: fixed !important;
-        bottom: 20px;
-        right: 20px;
-        top: auto !important;
-        width: 56px !important;
-        height: 56px !important;
-        border-radius: 50% !important;
-        min-width: unset;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0;
-        z-index: 100 !important;
-        background-color: #03C9D7 !important;
-        color: white !important;
-        box-shadow: 0 4px 12px rgba(3, 201, 215, 0.4) !important;
-        padding: 0;
-    }
-
-    .page-header .btn-primary svg {
-        width: 28px !important;
-        height: 28px !important;
-        stroke-width: 2.5px;
-    }
-
-    .page-header h1 {
-        font-size: 1.5rem;
-    }
-}
-
 @media (max-width: 768px) {
     .desktop-only {
         display: none !important;
@@ -763,7 +610,7 @@
 .btn-mobile-header-action {
     background: none;
     border: none;
-    color: #03C9D7;
+    color: var(--brand-teal);
     padding: 0.5rem;
     display: flex;
     align-items: center;

@@ -7,6 +7,7 @@ import Amount from '../components/Amount';
 import DateDisplay from '../components/DateDisplay';
 import StatusBadge from '../components/StatusBadge';
 import { getAllPayments } from '../services/api';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 
 const Payments = () => {
     const { t } = useTranslation();
@@ -31,34 +32,7 @@ const Payments = () => {
         setPortalElement(document.getElementById('mobile-header-actions'));
     }, []);
 
-    useEffect(() => {
-        let lastScrollY = window.scrollY;
-
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-            const diff = currentScrollY - lastScrollY;
-
-            // If scrolling down, hide the filter panel
-            if (diff > 10) {
-                if (showFilters) {
-                    setShowFilters(false);
-                }
-            }
-            // If scrolling up (swipe down), show the filter panel
-            else if (diff < -15) {
-                if (!showFilters) {
-                    setShowFilters(true);
-                }
-            }
-
-            lastScrollY = currentScrollY;
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, [showFilters]);
+    useFilterVisibilityOnScroll(setShowFilters);
 
     useEffect(() => {
         loadPayments();
@@ -245,10 +219,10 @@ const Payments = () => {
                     <p>{t('payments.subtitle')}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-primary" onClick={loadPayments} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button className="btn-secondary" onClick={loadPayments}>
                         <RefreshCw size={16} /> {t('payments.refresh')}
                     </button>
-                    <button className="btn-primary" onClick={downloadCSV} style={{ background: '#00C292' }}>
+                    <button className="btn-secondary" onClick={downloadCSV}>
                         <Download size={16} style={{ marginRight: 4 }} /> CSV
                     </button>
                 </div>
@@ -386,7 +360,7 @@ const Payments = () => {
             {/* Summary Stats */}
             <div className="payment-stats">
                 <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#03C9D7' }}>
+                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
                         <DollarSign size={20} />
                     </div>
                     <div className="stat-info">

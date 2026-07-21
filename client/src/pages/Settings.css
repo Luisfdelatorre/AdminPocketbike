@@ -57,8 +57,8 @@
 }
 
 .tab-button.active {
-    color: #03C9D7;
-    border-bottom-color: #03C9D7;
+    color: var(--brand-teal);
+    border-bottom-color: var(--brand-teal);
 }
 
 /* Settings Section */
@@ -79,7 +79,7 @@
 }
 
 .section-header svg {
-    color: #03C9D7;
+    color: var(--brand-teal);
 }
 
 .section-header h2 {
@@ -142,8 +142,8 @@
 .setting-item input[type="time"]:focus,
 .setting-item select:focus {
     outline: none;
-    border-color: #03C9D7;
-    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1);
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
 }
 
 .input-hint {
@@ -174,7 +174,7 @@
         align-items: center;
         justify-content: center;
         margin-left: 6px;
-        color: #03C9D7;
+        color: var(--brand-teal);
         font-size: 11px;
         font-weight: bold;
         font-style: normal;
@@ -183,7 +183,7 @@
         border-radius: 50%;
         width: 16px;
         height: 16px;
-        border: 1px solid #03C9D7;
+        border: 1px solid var(--brand-teal);
         vertical-align: middle;
         box-sizing: border-box;
     }
@@ -229,8 +229,8 @@
 .btn-save-section {
     margin-left: auto;
     background: transparent;
-    color: #03C9D7;
-    border: 1px solid #03C9D7;
+    color: var(--brand-teal);
+    border: 1px solid var(--brand-teal);
     padding: 0.4rem 1rem;
     border-radius: 0.5rem;
     font-size: 0.813rem;
@@ -243,7 +243,7 @@
 }
 
 .btn-save-section:hover {
-    background: #03C9D7;
+    background: var(--brand-teal);
     color: white;
 }
 
@@ -269,7 +269,7 @@
 }
 
 .btn-save {
-    background: #03C9D7;
+    background: var(--brand-teal);
     color: white;
     border: none;
     padding: 0.75rem 2rem;
@@ -284,9 +284,9 @@
 }
 
 .btn-save:hover {
-    background: #0394A3;
+    background: var(--brand-teal-dark);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(3, 201, 215, 0.3);
+    box-shadow: 0 4px 12px rgba(var(--brand-teal-rgb), 0.3);
 }
 
 .btn-save:active {
@@ -576,7 +576,7 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background-color: #03C9D7;
+    background-color: var(--brand-teal);
     border: 2px solid white;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     color: white;
@@ -590,7 +590,7 @@
 }
 
 .btn-edit-logo:hover {
-    background-color: #0394A3;
+    background-color: var(--brand-teal-dark);
     transform: scale(1.1);
 }
 
@@ -610,7 +610,7 @@
 }
 
 .upload-dropzone:hover {
-    border-color: #03C9D7;
+    border-color: var(--brand-teal);
     background-color: #F0FDFA;
     /* Light teal bg */
 }
@@ -649,8 +649,8 @@
 
 .input-display-name:focus {
     background-color: white !important;
-    border-color: #03C9D7 !important;
-    box-shadow: 0 0 0 3px rgba(3, 201, 215, 0.1) !important;
+    border-color: var(--brand-teal) !important;
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1) !important;
     outline: none;
 }
 
@@ -706,7 +706,7 @@
 }
 
 .toggle-checkbox:checked {
-    background: #03C9D7;
+    background: var(--brand-teal);
 }
 
 .toggle-checkbox::before {
@@ -761,8 +761,8 @@
     gap: 0.4rem;
     padding: 0.45rem 1rem;
     background: transparent;
-    color: #03C9D7;
-    border: 1px solid #03C9D7;
+    color: var(--brand-teal);
+    border: 1px solid var(--brand-teal);
     border-radius: 0.5rem;
     font-size: 0.875rem;
     font-weight: 600;
@@ -772,7 +772,7 @@
 }
 
 .btn-sync-devices:hover:not(:disabled) {
-    background: #03C9D7;
+    background: var(--brand-teal);
     color: white;
 }
 
@@ -1150,7 +1150,6 @@
 
 @media (max-width: 768px) {
     .settings-page {
-        margin-top: 65px;
         padding: 0 0.25rem;
     }
 
