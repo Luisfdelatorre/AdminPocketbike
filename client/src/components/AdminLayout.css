@@ -45,10 +45,11 @@
 
     .mobile-header {
         display: flex;
-        position: relative;
+        position: sticky;
+        top: 0;
         width: 100%;
-        height: calc(var(--mobile-header-height) + env(safe-area-inset-top, 0px));
-        flex: 0 0 calc(var(--mobile-header-height) + env(safe-area-inset-top, 0px));
+        min-height: calc(var(--mobile-header-height) + env(safe-area-inset-top, 0px));
+        flex: 0 0 auto;
         align-items: center;
         justify-content: space-between;
         padding: env(safe-area-inset-top, 0px) 1rem 0;
