@@ -12,8 +12,8 @@
     --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
     --card-border: #E5E7EB;
     --card-radius: 0.75rem;
-    --card-padding: 1rem;
-    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --card-padding: 0.5rem;
+    --card-shadow: rgba(0, 0, 0, 0.1) 0px 1px 3px;
 }
 
 .admin-card,
@@ -127,8 +127,14 @@
     flex-direction: column;
     overflow: hidden;
 }
-.modal-surface--user { --modal-max-width: 500px; }
-.modal-surface--invoice { --modal-max-width: 420px; }
+
+.modal-surface--user {
+    --modal-max-width: 500px;
+}
+
+.modal-surface--invoice {
+    --modal-max-width: 420px;
+}
 
 .modal-surface--contract,
 .modal-surface--invoice {
@@ -136,18 +142,35 @@
 }
 
 @keyframes modal-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes modal-slide-up {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 @keyframes modal-fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; }
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
 }
 
 @media (max-width: 768px) {
@@ -185,7 +208,7 @@
     }
 
     .modal-surface--invoice .modal-form,
-    .modal-surface--user > form {
+    .modal-surface--user>form {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
@@ -204,17 +227,28 @@
     }
 
     @keyframes modal-page-enter {
-        from { transform: translateX(100%); }
-        to { transform: translateX(0); }
+        from {
+            transform: translateX(100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
     }
 
     @keyframes modal-page-exit {
-        from { transform: translateX(0); }
-        to { transform: translateX(100%); }
+        from {
+            transform: translateX(0);
+        }
+
+        to {
+            transform: translateX(100%);
+        }
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .modal-overlay,
     .modal-content,
     .modal-card {
