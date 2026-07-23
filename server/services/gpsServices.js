@@ -89,7 +89,7 @@ class GpsService {
             onProgress = null,
             onDeviceConfirmed = null, // Callback para streaming the status to DB early
         } = options;
-        //const commandType = command === 0 ? ENGINESTOP : ENGINERESUME;
+        const commandType = command === ENGINE_COMMANDS.STOP ? 'STOP' : 'RESUME';
         if (!deviceIds || deviceIds.length === 0) return {};
 
         const adapter = this.adapter;
