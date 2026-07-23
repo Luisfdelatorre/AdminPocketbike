@@ -25,7 +25,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **5** | Estandarización de Botones (`.btn-primary` redundante) | 🧪 En validación | Los botones de acción administrativos comparten una base global: primario teal, secundario neutro y peligro rojo; las excepciones son sólo de tamaño o distribución. |
 | **6** | Fallo en Área de Respeto (Safe Area sin fallback) | ✅ Completado | El FAB de contratos usa `env(safe-area-inset-bottom, 0px)` y conserva un offset válido sin safe area. |
 | **7** | Reestructuración DOM: Layout Flex Column en Móvil | 🧪 En validación | El shell móvil ya usa Header–Content–Footer en flujo vertical, safe areas centralizadas y scroll interno en `.admin-content`; build y arranque local correctos, pendiente aprobación visual del usuario. |
-| **7.1** | Vistas Por Moto y Matriz en Resumen de Pagos | 🧪 En validación | Desktop permite alternar mediante un control segmentado entre tarjetas con scroll independiente por moto y la matriz comparativa; sólo se filtran celdas realmente vacías posteriores a hoy. |
+| **7.1** | Vistas Por Moto y Matriz en Resumen de Pagos | 🧪 En validación | Desktop permite alternar mediante un control segmentado entre tarjetas por moto y una matriz comparativa con scroll vertical de página, desplazamiento horizontal propio y encabezado de días sticky. |
 | **7.2** | Altura Natural del Header Móvil | 🧪 En validación | El header móvil es sticky y usa altura natural como hijo flex, por lo que reserva el espacio real de títulos y acciones sin padding compensatorio en las páginas. |
 
 ---
@@ -268,7 +268,7 @@ Se eliminaron las compensaciones superiores de Contratos, Pagos, Facturas, Factu
 
 El resumen de pagos reutiliza `BikePaymentSummary` en móvil y escritorio para evitar mantener dos representaciones por moto. En escritorio, un control segmentado con iconos permite alternar entre `Por moto` y `Matriz`; la primera es la opción inicial y la selección queda guardada localmente sin producir otra consulta a la API. Cada moto conserva su desplazamiento horizontal independiente, mantiene visibles los vacíos hasta hoy y filtra únicamente vacíos futuros.
 
-La matriz continúa ofreciendo comparación transversal y totales por día, pero ahora controla su desplazamiento vertical y horizontal dentro del alto disponible. Su encabezado completo permanece visible durante el scroll y las columnas de dispositivo y deuda continúan fijas a la izquierda. En móvil no se muestra el selector y el breakpoint de React coincide con la media query de `768px`.
+La matriz continúa ofreciendo comparación transversal y totales por día. En escritorio, el documento conserva el desplazamiento vertical, la matriz limita su propio desplazamiento al eje horizontal y una copia visual del encabezado se mantiene sticky debajo de los controles; sus columnas se sincronizan con la tabla y los encabezados semánticos permanecen disponibles para tecnologías asistivas. Cuando el Summary header queda adherido, elimina temporalmente su radio para no revelar la tabla detrás de las esquinas curvas. Las columnas de dispositivo y deuda continúan fijas a la izquierda. En móvil no se muestra el selector y el breakpoint de React coincide con la media query de `768px`.
 
 #### Implementación de la intervención 7.2
 
