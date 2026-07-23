@@ -433,7 +433,7 @@
 
 @media (max-width: 768px) {
     .mobile-only {
-        display: inline !important;
+        display: grid !important;
     }
 
     .desktop-only {
