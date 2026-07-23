@@ -1,5 +1,6 @@
 import invoiceRepository from '../repositories/invoiceRepository.js';
 import { Invoice } from '../models/Invoice.js';
+import { Contract } from '../models/Contract.js';
 import { Transaction, PAYMENTMESSAGES as PM } from '../config/config.js';
 import { Device } from '../models/Device.js';
 import mongoose from 'mongoose';
@@ -20,7 +21,7 @@ const {
 } = Transaction;
 
 
-const getInvoiceHistory = async (deviceIdName, month, year) => {
+const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) => {
     // Default to current month/year if not provided
     const now = dayjs();
     const targetMonth = month ? Number(month) : now.month() + 1; // dayjs month is 0-indexed
@@ -29,11 +30,26 @@ const getInvoiceHistory = async (deviceIdName, month, year) => {
     const startOfMonth = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).startOf('month').toDate();
     const endOfMonth = dayjs(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`).endOf('month').toDate();
 
+    const query = {
+        deviceIdName,
+        date: { $gte: startOfMonth, $lte: endOfMonth }
+    };
+
+    if (contractId) {
+        // Read schemaVersion directly from the Contract in DB — the source of truth.
+        // This works correctly even if a company has a mix of v1 and v2 contracts.
+        const contract = await Contract.findOne({ contractId }, { schemaVersion: 1 }).lean();
+        const schemaVersion = contract?.schemaVersion ?? 1;
+
+        if (schemaVersion >= 2) {
+            // v2+ contracts: invoices carry contractId — filter strictly by it
+            query.contractId = contractId;
+        }
+        // v1 legacy: skip contractId filter, query by device+date only
+    }
+
     const invoices = await Invoice.find(
-        {
-            deviceIdName,
-            date: { $gte: startOfMonth, $lte: endOfMonth }
-        },
+        query,
         {
             date: 1,
             amount: 1,

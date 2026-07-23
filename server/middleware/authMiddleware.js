@@ -33,6 +33,7 @@ export const verifyToken = (req, res, next) => {
             req.paymentAuth = {
                 deviceIdName: decoded.deviceIdName,
                 contractId: decoded.contractId,
+                schemaVersion: decoded.schemaVersion ?? 1,
                 deviceId: decoded.deviceId,
                 companyId: decoded.companyId,
             };

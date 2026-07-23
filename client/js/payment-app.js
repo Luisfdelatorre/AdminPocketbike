@@ -22,6 +22,7 @@ const STATUS_CLASS_MAP = {
     'PAID': 'status-paid',
     'FREE': 'status-free',
     'FREEPASS': 'status-free',
+    'ADJUSTMENT': 'status-free',
     'VERIFYING': 'status-verifying',
     'CONFIRMING': 'status-verifying',
     'PENDING': 'status-pending',

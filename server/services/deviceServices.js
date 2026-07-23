@@ -27,18 +27,8 @@ const deviceStateCache = new Map();
 
 
 const bulkWriteDevices = async (gpsDevices) => {
-    // Prepare clean docs: generate _id from name + strip empty objects
-    const safeDocs = gpsDevices.map(d => {
-        const id = helper.generateDeviceId(d.name);
-        const withId = { ...d, _id: id, id: id };
-        return Object.fromEntries(
-            Object.entries(withId).filter(([, v]) =>
-                !(v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)
-            )
-        );
-    });
-
-    return deviceRepository.insertDevicesBatch(safeDocs);
+    // ID generation and doc cleanup is handled inside deviceRepository.insertDevicesBatch
+    return deviceRepository.insertDevicesBatch(gpsDevices);
 }
 
 

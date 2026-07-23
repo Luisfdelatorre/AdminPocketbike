@@ -63,6 +63,13 @@ const contractSchema = new mongoose.Schema({
         default: 'ACTIVE',
         index: true,
     },
+    /**
+     * Schema version — controls invoice linkage strategy:
+     *   1 = legacy contracts (invoices have no contractId, query by device+date)
+     *   2 = new contracts   (invoices carry contractId, filter directly by it)
+     * Old contracts without this field are treated as v1.
+     */
+    schemaVersion: { type: Number, default: 2 },
     // Tracking
     totalAmount: {
         type: Number, // Total contract value (dailyRate * contractDays) in COP

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2 } from 'lucide-react';
+import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X } from 'lucide-react';
 
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +46,8 @@ const PaymentSummary = () => {
     const [summaryHeaderHeight, setSummaryHeaderHeight] = useState(0);
     const [isSummaryHeaderStuck, setIsSummaryHeaderStuck] = useState(false);
     const [matrixGeometry, setMatrixGeometry] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
 
     useEffect(() => {
         const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
@@ -319,6 +321,25 @@ const PaymentSummary = () => {
 
     const morososCount = summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
 
+    // ── Frontend filter (no extra API call) ─────────────────────────────────
+    const filteredSummaryData = summaryData.filter(item => {
+        // Text search: device name or driver name
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            const nameMatch = item.device.name?.toLowerCase().includes(q);
+            const driverMatch = item.device.driverName?.toLowerCase().includes(q);
+            if (!nameMatch && !driverMatch) return false;
+        }
+        // Status pill filter
+        if (statusFilter === 'debt')   return (item.device.unpaidTotal || 0) > 0;
+        if (statusFilter === 'ok')     return (item.device.unpaidTotal || 0) === 0;
+        if (statusFilter === 'cutoff') {
+            const status = getDeviceStatus(item.device.deviceId || item.device.name);
+            return status?.cutOff === 1;
+        }
+        return true;
+    });
+
     const renderEngineButton = (device) => {
         const status = getDeviceStatus(device.deviceId || device.name);
         if (!status) return <span style={{ color: '#D1D5DB', fontSize: '0.7rem' }}>--</span>;
@@ -533,9 +554,61 @@ const PaymentSummary = () => {
                 </div>
             </div>
 
+            {/* ── Filter bar (mirrors Contracts page) ───────────────────────── */}
+            <div className="contracts-filters" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <button
+                    type="button"
+                    className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setStatusFilter('all')}
+                >
+                    Todos
+                </button>
+                <button
+                    type="button"
+                    className={`filter-btn ${statusFilter === 'debt' ? 'active' : ''}`}
+                    onClick={() => setStatusFilter('debt')}
+                >
+                    Con deuda
+                </button>
+                <button
+                    type="button"
+                    className={`filter-btn ${statusFilter === 'ok' ? 'active' : ''}`}
+                    onClick={() => setStatusFilter('ok')}
+                >
+                    Al día
+                </button>
+                <button
+                    type="button"
+                    className={`filter-btn ${statusFilter === 'cutoff' ? 'active' : ''}`}
+                    onClick={() => setStatusFilter('cutoff')}
+                >
+                    Apagados
+                </button>
+
+                <div className="search-box" style={{ marginLeft: 'auto' }}>
+                    <Search className="search-icon" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Buscar moto o conductor…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button
+                            type="button"
+                            className="clear-search"
+                            onClick={() => setSearchQuery('')}
+                            aria-label="Limpiar búsqueda"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {isMobile || desktopView === 'bike' ? (
                 <BikePaymentSummary
-                    summaryData={summaryData}
+                    summaryData={filteredSummaryData}
                     daysArray={daysArray}
                     currentDay={currentDay}
                     isFutureSummaryDay={isFutureSummaryDay}

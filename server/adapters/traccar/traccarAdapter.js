@@ -141,9 +141,10 @@ class MyTraccar {
             const res = await this._api.getPositions({ deviceId });
             if (!res.data?.length) return 1;
             const pos = res.data[res.data.length - 1];
+            console.log(pos)
 
             const status = pos?.attributes?.status || null;
-            const result = pos?.attributes?.result || null;
+            const result = (pos?.attributes?.result || '').trim().toLowerCase();
             let data = {
                 status: pos.attributes?.status,
                 ignition: pos.attributes?.ignition ?? false,
@@ -153,8 +154,14 @@ class MyTraccar {
             if (status != undefined) {
                 data.cutOff = ((status <= 255 && (status & 128) !== 0) || (status > 255 && ((status >> 27) & 1) == 0));
             }
-            if (result == "Cut off the fuel supply: Success!") {
+            if (result.includes('cut off') && result.includes('success')) {
                 data.cutOff = true;
+            } else if (result.includes('cut off') && result.includes('already')) {
+                data.cutOff = true;   // device was already in cut-off state
+            } else if (result.includes('restore') && result.includes('success')) {
+                data.cutOff = false;
+            } else if (result.includes('resume') && result.includes('already')) {
+                data.cutOff = false;  // device was already running
             }
 
             return data;
@@ -275,7 +282,7 @@ class MyTraccar {
         for (const p of positions) {
             if (!p?.deviceId) continue;
             const status = p?.attributes?.status || null;
-            const result = p?.attributes?.result || null;
+            const result = (p?.attributes?.result || '').trim().toLowerCase();
             let updateData = {
                 filter: { gpsId: p.deviceId },
                 ignition: p.attributes?.ignition ?? false,
@@ -285,8 +292,10 @@ class MyTraccar {
             if (status != undefined) {
                 updateData.cutOff = ((status <= 255 && (status & 128) !== 0) || (status > 255 && ((status >> 27) & 1) == 0));
             }
-            if (result == "Cut off the fuel supply: Success!") {
+            if (result.includes('cut off') && (result.includes('success') || result.includes('already'))) {
                 updateData.cutOff = true;
+            } else if ((result.includes('restore') || result.includes('resume')) && (result.includes('success') || result.includes('already'))) {
+                updateData.cutOff = false;
             }
 
             standardBatch.push(updateData);
@@ -316,7 +325,9 @@ class MyTraccar {
     };
 
     _simulateWsMessage = (data) => {
-        this._processWsData(data);
+        if (data.positions) {
+            this.updatePositions(data.positions);
+        }
     };
 
     // Register a callback for incoming position events (used by GpsService.startAutoUpdate)

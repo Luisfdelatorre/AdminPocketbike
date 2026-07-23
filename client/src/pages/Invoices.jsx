@@ -81,8 +81,8 @@ const Invoices = () => {
         },
         INCAPACITY: {
             label: 'Incapacidad',
-            color: '#EF4444',
-            bg: '#FEF2F2',
+            color: '#3b82f6',
+            bg: '#EFF6FF',
             description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
             autoAmount: 0,         // free day (pago 0)
             autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
@@ -671,7 +671,7 @@ const Invoices = () => {
                             </thead>
                             <tbody>
                                 {filteredInvoices.map((invoice) => (
-                                     <tr key={invoice.invoiceId}>
+                                    <tr key={invoice.invoiceId}>
                                         <td className="payment-id">
                                             <div style={{ lineHeight: '1.2' }}>
                                                 {(() => {
@@ -711,9 +711,9 @@ const Invoices = () => {
                                                     title={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? "Registrar pago manual / ajuste" : undefined}
                                                 >
                                                     {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {(invoice.adjustmentType === 'DAMAGE' || invoice.adjustmentType === 'INCAPACITY' || invoice.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {(invoice.adjustmentType === 'DAMAGE' || invoice.adjustmentType === 'INCAPACITY' || invoice.adjustmentType === 'INCAPACIDAD')}
                                                     {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {(invoice.adjustmentType === 'WORKSHOP' || invoice.adjustmentType === 'OFFICE' || invoice.adjustmentType === 'OFICINA') && <Building2 size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {(invoice.adjustmentType === 'WORKSHOP' || invoice.adjustmentType === 'OFFICE' || invoice.adjustmentType === 'OFICINA')}
                                                     {(() => {
                                                         const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
                                                         if (adjType && ADJUSTMENT_CONFIG[adjType]) {

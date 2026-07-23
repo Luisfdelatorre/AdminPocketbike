@@ -26,6 +26,7 @@ const InvoiceSchema = new mongoose.Schema(
         paid: { type: Boolean, default: false },
         deviceIdName: { type: String, required: true },//this is device name
         deviceId: { type: String, required: true },//this is device id
+        contractId: { type: String, index: true }, // Denormalized contract ID link
         megaDeviceId: { type: String },              // GPS provider device ID (megarastreo)
         gpsId: { type: String },  // Denormalized from Device for fast GPS activation on payment
         companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
@@ -124,7 +125,8 @@ InvoiceSchema.statics.createInvoice = async function ({
     deviceId,
     gpsId,
     companyId,
-    companyName
+    companyName,
+    contractId
 }) {
     const id = this.buildId(deviceIdName, date);
     const invoice = await this.create({
@@ -136,6 +138,7 @@ InvoiceSchema.statics.createInvoice = async function ({
         deviceId,
         gpsId,
         companyId,
+        contractId,
         paid: false,
         dayType: INVOICE_DAYTYPE.DEBT,
     });
@@ -201,8 +204,8 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.adjustmentType = payment.adjustmentType || payment.adjustmentReason || null;
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
 
-            // For free adjustments (REPAIR, MAINTENANCE, WORKSHOP), the amount is $0
-            if (['REPAIR', 'MAINTENANCE', 'WORKSHOP'].includes(this.adjustmentType)) {
+            // For free adjustments (REPAIR, MAINTENANCE, WORKSHOP, OFFICE, INCAPACITY), the amount is $0
+            if (['REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(this.adjustmentType)) {
                 this.amount = 0;
                 this.paidAmount = 0;
             } else {

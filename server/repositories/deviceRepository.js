@@ -6,7 +6,11 @@ class DeviceRepository {
         try {
             if (!docs || docs.length === 0) return { created: 0, updated: 0, errors: 0 };
 
-            const bulkOps = docs.map(doc => ({
+            // Delegate ID generation + cleanup to the model static
+            // (bulkWrite bypasses Mongoose middleware/defaults, so we do it explicitly here)
+            const preparedDocs = Device.prepareForBulkWrite(docs);
+
+            const bulkOps = preparedDocs.map(doc => ({
                 updateOne: {
                     filter: { _id: doc._id },
                     update: [{ $set: doc }],   // pipeline stage — allows computed fields

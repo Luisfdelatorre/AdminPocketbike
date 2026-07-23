@@ -148,6 +148,7 @@ export class PaymentService {
                         megaDeviceId: contract.megaDeviceId,
                         companyId: contract.companyId,
                         companyName: contract.companyName,
+                        contractId: contract.contractId,
                         dayType: 'FREE',
                         transaction: {
                             id: payment._id,
@@ -171,6 +172,7 @@ export class PaymentService {
                         megaDeviceId: contract.megaDeviceId,
                         companyId: contract.companyId,
                         companyName: contract.companyName,
+                        contractId: contract.contractId,
                         dayType: 'PAID',
                         transaction: {
                             id: originalTx.id || `EXT-${Date.now()}`,
@@ -236,8 +238,8 @@ export class PaymentService {
             throw new Error('Active contract not found for this device');
         }
 
-        // REPAIR/MAINTENANCE/WORKSHOP → $0 (free day for customer), DAMAGE → full invoice amount
-        const isFreeAdjustment = ['REPAIR', 'MAINTENANCE', 'WORKSHOP'].includes(adjustmentType);
+        // REPAIR/MAINTENANCE/WORKSHOP/OFFICE/INCAPACITY → $0 (free day for customer), DAMAGE → full invoice amount
+        const isFreeAdjustment = ['REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
         const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
 
         const payment = await paymentRepository.createManualPayment({
