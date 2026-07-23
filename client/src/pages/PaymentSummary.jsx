@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2 } from 'lucide-react';
 
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
@@ -37,9 +37,15 @@ const PaymentSummary = () => {
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [deviceStatuses, setDeviceStatuses] = useState([]);
     const [pendingCommands, setPendingCommands] = useState({});
+    const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
+    const matrixTableRef = useRef(null);
+    const matrixHeaderViewportRef = useRef(null);
     const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
     const [desktopView, setDesktopView] = useState(getInitialDesktopView);
+    const [summaryHeaderHeight, setSummaryHeaderHeight] = useState(0);
+    const [isSummaryHeaderStuck, setIsSummaryHeaderStuck] = useState(false);
+    const [matrixGeometry, setMatrixGeometry] = useState(null);
 
     useEffect(() => {
         const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
@@ -94,6 +100,122 @@ const PaymentSummary = () => {
         acc[day] = summaryData.reduce((sum, item) => sum + (item.days[day]?.totalPaid || 0), 0);
         return acc;
     }, {});
+
+    const renderMatrixHeader = (className = '') => (
+        <thead className={className}>
+            <tr>
+                <th>DISPOSITIVO</th>
+                <th>Deuda</th>
+                {daysArray.map(day => (
+                    <th key={day}>{String(day).padStart(2, '0')}</th>
+                ))}
+                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
+            </tr>
+            <tr className="daily-totals-row">
+                <th className="totals-label">Total día</th>
+                <th></th>
+                {daysArray.map(day => (
+                    <th key={day} className="daily-total-cell">
+                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
+                    </th>
+                ))}
+                <th></th>
+            </tr>
+        </thead>
+    );
+
+    const syncMatrixHeaderScroll = (scrollLeft) => {
+        if (matrixHeaderViewportRef.current) {
+            matrixHeaderViewportRef.current.scrollLeft = scrollLeft;
+        }
+    };
+
+    const handleMatrixScroll = (event) => {
+        syncMatrixHeaderScroll(event.currentTarget.scrollLeft);
+    };
+
+    useLayoutEffect(() => {
+        const header = summaryHeaderRef.current;
+        if (!header) return undefined;
+
+        const updateHeaderHeight = () => {
+            setSummaryHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+        };
+
+        updateHeaderHeight();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateHeaderHeight);
+            return () => window.removeEventListener('resize', updateHeaderHeight);
+        }
+
+        const observer = new ResizeObserver(updateHeaderHeight);
+        observer.observe(header);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        const updateStickyState = () => {
+            const headerTop = summaryHeaderRef.current?.getBoundingClientRect().top;
+            const nextIsStuck = typeof headerTop === 'number' && headerTop <= -3;
+
+            setIsSummaryHeaderStuck((previous) => (
+                previous === nextIsStuck ? previous : nextIsStuck
+            ));
+        };
+
+        updateStickyState();
+        window.addEventListener('scroll', updateStickyState, { capture: true, passive: true });
+        window.addEventListener('resize', updateStickyState);
+
+        return () => {
+            window.removeEventListener('scroll', updateStickyState, true);
+            window.removeEventListener('resize', updateStickyState);
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (isMobile || desktopView !== 'matrix') {
+            setMatrixGeometry(null);
+            return undefined;
+        }
+
+        const table = matrixTableRef.current;
+        const container = tableContainerRef.current;
+        if (!table || !container) return undefined;
+
+        const updateMatrixGeometry = () => {
+            const cells = Array.from(table.querySelectorAll('tbody tr:first-child > td'));
+            const expectedColumnCount = daysArray.length + 3;
+
+            if (cells.length !== expectedColumnCount) return;
+
+            const widths = cells.map((cell) => Math.round(cell.getBoundingClientRect().width));
+            const width = Math.round(table.getBoundingClientRect().width);
+
+            if (!width || widths.some((columnWidth) => !columnWidth)) return;
+
+            setMatrixGeometry((previous) => {
+                const isUnchanged = previous?.width === width
+                    && previous.widths.length === widths.length
+                    && previous.widths.every((columnWidth, index) => columnWidth === widths[index]);
+
+                return isUnchanged ? previous : { width, widths };
+            });
+        };
+
+        updateMatrixGeometry();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateMatrixGeometry);
+            return () => window.removeEventListener('resize', updateMatrixGeometry);
+        }
+
+        const observer = new ResizeObserver(updateMatrixGeometry);
+        observer.observe(table);
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -183,9 +305,17 @@ const PaymentSummary = () => {
 
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && summaryData.length > 0 && tableContainerRef.current) {
-            tableContainerRef.current.scrollLeft = tableContainerRef.current.scrollWidth;
+            const { scrollWidth } = tableContainerRef.current;
+            tableContainerRef.current.scrollLeft = scrollWidth;
+            syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
         }
     }, [desktopView, isMobile, loading, summaryData]);
+
+    useEffect(() => {
+        if (matrixGeometry && tableContainerRef.current) {
+            syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
+        }
+    }, [matrixGeometry]);
 
     const morososCount = summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
 
@@ -254,7 +384,10 @@ const PaymentSummary = () => {
     };
 
     return (
-        <div className="payment-summary-container">
+        <div
+            className="payment-summary-container"
+            style={{ '--summary-header-height': `${summaryHeaderHeight}px` }}
+        >
 
             {bulkOffModal && (
                 <div
@@ -313,7 +446,10 @@ const PaymentSummary = () => {
                 </div>
             )}
 
-            <div className="summary-header">
+            <div
+                ref={summaryHeaderRef}
+                className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
+            >
                 <div className="summary-heading">
                     <h1>Estatus de Pagos</h1>
 
@@ -411,28 +547,28 @@ const PaymentSummary = () => {
                     renderDayCell={renderDayCell}
                 />
             ) : (
-                <div className="matrix-container" ref={tableContainerRef}>
-                    <table className="summary-table">
-                        <thead>
-                            <tr>
-                                <th>DISPOSITIVO</th>
-                                <th>Deuda</th>
-                                {daysArray.map(day => (
-                                    <th key={day}>{String(day).padStart(2, '0')}</th>
-                                ))}
-                                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
-                            </tr>
-                            <tr className="daily-totals-row">
-                                <th className="totals-label">Total día</th>
-                                <th></th>
-                                {daysArray.map(day => (
-                                    <th key={day} className="daily-total-cell">
-                                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
-                                    </th>
-                                ))}
-                                <th></th>
-                            </tr>
-                        </thead>
+                <div className="matrix-shell">
+                    <div className="matrix-sticky-header">
+                        <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
+                            <table
+                                className="summary-table summary-table--sticky-header"
+                                style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
+                            >
+                                {matrixGeometry && (
+                                    <colgroup>
+                                        {matrixGeometry.widths.map((width, index) => (
+                                            <col key={index} style={{ width: `${width}px` }} />
+                                        ))}
+                                    </colgroup>
+                                )}
+                                {renderMatrixHeader('matrix-visual-thead')}
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
+                    <table ref={matrixTableRef} className="summary-table">
+                        {renderMatrixHeader('matrix-semantic-thead')}
                         <tbody>
                             {loading ? (
                                 <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
@@ -475,6 +611,7 @@ const PaymentSummary = () => {
                             }
                         </tbody>
                     </table>
+                    </div>
                 </div>
             )}
 
