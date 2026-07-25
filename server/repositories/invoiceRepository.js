@@ -273,7 +273,7 @@ export class InvoiceRepository {
     async findInvoicesForSummary(query) {
         try {
             return await Invoice.find(query)
-                .select('date deviceIdName dayType amount paidAmount cutOff')
+                .select('date deviceIdName dayType amount paidAmount paid companyId cutOff')
                 .lean();
         } catch (error) {
             logger.error('Error finding invoices for summary:', error);
