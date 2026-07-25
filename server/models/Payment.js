@@ -77,7 +77,8 @@ paymentSchema.statics.totalPerDayByDevice = async function (query) {
                     }
                 },
                 totalPaid: { $sum: "$amount" },
-                count: { $sum: 1 }
+                count: { $sum: 1 },
+                latestPaymentAt: { $max: "$finalized_at" }
             }
         },
         {
@@ -88,7 +89,8 @@ paymentSchema.statics.totalPerDayByDevice = async function (query) {
                         k: "$_id.date",
                         v: {
                             totalPaid: "$totalPaid",
-                            count: "$count"
+                            count: "$count",
+                            latestPaymentAt: "$latestPaymentAt"
                         }
                     }
                 }

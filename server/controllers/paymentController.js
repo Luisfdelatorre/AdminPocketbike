@@ -1,5 +1,7 @@
 import paymentService from '../services/paymentService.js';
+import deviceRepository from '../repositories/deviceRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
+import { sseService } from '../utils/sseService.js';
 import logger from '../config/logger.js';
 import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
 import helpers from '../utils/helpers.js';
@@ -174,23 +176,12 @@ const paymentController = {
                 companyId: targetCompanyId
             });
 
+            sseService.broadcast('reconciliation_update', { companyId: targetCompanyId, date });
+
             res.json({ success: true });
         } catch (error) {
             logger.error('Toggle reconciliation error:', error.message);
             res.status(500).json({ success: false, error: 'Failed to toggle reconciliation' });
-        }
-    },
-
-    /*Get device online status*/
-    async getDeviceStatus(req, res) {
-        try {
-            const { deviceIdName } = req.paymentAuth;
-            const status = await paymentService.getDataStatus(deviceIdName);
-
-            res.json(status);
-        } catch (error) {
-            logger.error(`Error in getDeviceStatus for ${req.paymentAuth?.deviceIdName}:`, error.message);
-            res.status(500).json({ error: 'Failed to get device status' });
         }
     },
 

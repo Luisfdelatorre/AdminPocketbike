@@ -28,6 +28,12 @@ router.post('/sync', deviceController.syncDevices);
 router.post('/assign-to-company', deviceController.assignDevicesToCompany);
 
 /**
+ * GET /api/devices/status
+ * Get device online/cutoff status for authenticated device/user
+ */
+router.get('/status', deviceController.getDeviceStatus);
+
+/**
  * POST /api/devices/cutoff-debtors
  * Cut off engines of all devices with unpaid debt
  */
