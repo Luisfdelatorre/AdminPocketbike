@@ -393,8 +393,12 @@
 }
 
 .payment-date-style {
-    font-weight: 700;
-    margin-left: 8px;
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #2563eb;
+    margin-top: 2px;
+    margin-left: 0;
 }
 
 /* Compact */
@@ -641,6 +645,10 @@
 
 .container.compact-mode :is(.payment-section, .more-options, .WompiSafe) {
     flex-shrink: 0;
+}
+
+.container.compact-mode .cuotas-pill-badge {
+    display: none !important;
 }
 
 .container.compact-mode .more-options-section.expanded,

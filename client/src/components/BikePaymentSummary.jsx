@@ -66,11 +66,12 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                 {(() => {
                   const status = getDeviceStatus ? getDeviceStatus(item.device.deviceId || item.device.name) : null;
                   if (!status) return null;
+                  const isCutOff = Boolean(status.cutOff);
 
                   if (user?.role === 'viewer') {
                     return (
                       <div
-                        className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'}`}
+                        className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'}`}
                         style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
                       >
                         <div className="slider-knob"><Power size={10} /></div>
@@ -83,8 +84,8 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                     <button
                       onClick={() => handleEngineToggle && handleEngineToggle(item.device)}
                       disabled={isPending}
-                      className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
-                      title={status.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
+                      className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
+                      title={isCutOff ? 'Activar Moto' : 'Desactivar Moto'}
                       style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
                     >
                       <div className="slider-knob">

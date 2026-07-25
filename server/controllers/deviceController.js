@@ -324,6 +324,18 @@ const cutoffDebtors = async (req, res) => {
     }
 };
 
+const getDeviceStatus = async (req, res) => {
+    try {
+        const { deviceIdName } = req.paymentAuth;
+        const status = await deviceServices.getDeviceStatusByName(deviceIdName);
+
+        res.json(status);
+    } catch (error) {
+        logger.error(`Error in getDeviceStatus:`, error.message);
+        res.status(500).json({ error: 'Failed to get device status' });
+    }
+};
+
 export default {
     getAllDevices,
     createDevice,
@@ -332,5 +344,6 @@ export default {
     syncDevices,
     assignDevicesToCompany,
     controlEngine,
-    cutoffDebtors
+    cutoffDebtors,
+    getDeviceStatus
 };

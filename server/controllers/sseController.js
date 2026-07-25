@@ -6,8 +6,13 @@ import { nanoid } from 'nanoid';
  */
 const subscribe = (req, res) => {
     const clientId = req.query.clientId || `client-${nanoid(8)}`;
+    const metadata = {
+        companyId: req.auth?.companyId || req.query.companyId || null,
+        companyIds: req.auth?.companies || (req.auth?.companyId ? [req.auth.companyId] : []),
+        userId: req.auth?.userId || req.auth?.id || null
+    };
 
-    sseService.addClient(clientId, res);
+    sseService.addClient(clientId, res, metadata);
 
     // Handle client disconnect
     req.on('close', () => {

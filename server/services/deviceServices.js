@@ -7,6 +7,7 @@ import GpsService from '../services/gpsServices.js';
 import companyService from '../services/companyService.js';
 import helper from '../utils/helpers.js';
 import logger from '../utils/logger.js';
+import { sseService } from '../utils/sseService.js';
 
 // Centralized Day.js
 import dayjs from '../config/dayjs.js';
@@ -38,9 +39,12 @@ const initializeGpsUpdates = async () => {
     const companies = await Company.find({}).lean();
 
     // 2. Pre-populate in-memory cache to avoid DB storm
-    const allDevices = await Device.find({}, 'gpsId imei ignition lastUpdate cutOff batteryLevel').lean();
+    const allDevices = await Device.find({}, '_id name gpsId imei ignition lastUpdate cutOff batteryLevel companyId').lean();
     for (const d of allDevices) {
         const entry = {
+            _id: d._id,
+            name: d.name,
+            companyId: d.companyId,
             ignition: d.ignition,
             lastUpdate: d.lastUpdate,
             cutOff: d.cutOff,
@@ -61,19 +65,32 @@ const initializeGpsUpdates = async () => {
             const mem = deviceStateCache.get(update.filter.gpsId);
             if (!mem) continue;
 
+            const normCutOff = update.cutOff !== undefined ? Boolean(update.cutOff === 1 || update.cutOff === true || update.cutOff === '1') : undefined;
             const changed =
                 mem.ignition !== update.ignition ||
                 mem.lastUpdate !== update.lastUpdate ||
-                (update.cutOff !== undefined && mem.cutOff !== update.cutOff) ||
+                (normCutOff !== undefined && mem.cutOff !== normCutOff) ||
                 (update.batteryLevel !== null && mem.batteryLevel !== update.batteryLevel);
 
             if (changed) {
                 mem.ignition = update.ignition;
                 mem.lastUpdate = update.lastUpdate;
-                if (update.cutOff !== undefined) mem.cutOff = update.cutOff;
+                if (normCutOff !== undefined) mem.cutOff = normCutOff;
                 if (update.batteryLevel !== null) mem.batteryLevel = update.batteryLevel;
                 mem._dirty = true;
                 deviceStateCache.set(update.filter.gpsId, mem);
+
+                // Broadcast real-time SSE update to connected clients
+                sseService.broadcast('device_update', {
+                    gpsId: update.filter.gpsId,
+                    _id: mem._id,
+                    name: mem.name,
+                    companyId: mem.companyId,
+                    ignition: mem.ignition,
+                    lastUpdate: mem.lastUpdate,
+                    cutOff: mem.cutOff,
+                    batteryLevel: mem.batteryLevel
+                });
             }
         }
 
@@ -118,16 +135,14 @@ const initializeGpsUpdates = async () => {
     for (const c of companies) {
         const gpsAdapter = await companyService.getGpsAdapter(c._id);
 
+        const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
+        if (isMegaRastreo) {
+            logger.info(`[GPS] MegaRastreo auto-update disabled for company ${c.name || c._id}`);
+            continue;
+        }
+
         if (gpsAdapter && typeof gpsAdapter.startAutoUpdate === 'function') {
-            let imeis = [];
-            const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
-
-            if (isMegaRastreo) {
-                const devices = await deviceRepository.getDevicesByCompanyId(c._id);
-                imeis = devices.map(d => d.imei).filter(Boolean);
-            }
-
-            await gpsAdapter.startAutoUpdate(imeis, onFlush);
+            await gpsAdapter.startAutoUpdate([], onFlush);
         }
     }
 };
@@ -172,7 +187,7 @@ const controlEngine = async (id, command, companyId) => {
         }
 
         // 4. Update the local DB state bypassing strict schema validations on unrelated fields
-        const newCutOffState = !command; // 0 = stop (true), 1 = resume (false)
+        const newCutOffState = (command === 0 || command === '0' || command === false); // 0 = stop (true), 1 = resume (false)
         await deviceRepository.updateDeviceCutOff(device._id, newCutOffState);
 
         return {
@@ -350,11 +365,16 @@ const cutoffDebtors = async (companyId) => {
     };
 };
 
+const getDeviceStatusByName = async (deviceIdName) => {
+    return deviceRepository.getDeviceStatusByName(deviceIdName);
+};
+
 export default {
     bulkWriteDevices,
     syncFromGps,
     initializeGpsUpdates,
     controlEngine,
+    getDeviceStatusByName,
     getCompanyDevicesPaymentStatus,
     cutoffDebtors
 };

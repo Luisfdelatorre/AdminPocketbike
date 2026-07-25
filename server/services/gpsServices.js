@@ -1,5 +1,5 @@
 // megaRastreoService.lite.js
-import { Login, Url, ENGINE_COMMANDS, Transaction, GPS_SERVICES } from '../config/config.js';
+import { Login, Url, ENGINE_COMMANDS, ENGINESTOP, ENGINERESUME, Transaction, GPS_SERVICES } from '../config/config.js';
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
 import { Company } from '../models/Company.js';
@@ -89,18 +89,19 @@ class GpsService {
             onProgress = null,
             onDeviceConfirmed = null, // Callback para streaming the status to DB early
         } = options;
-        const commandType = command === ENGINE_COMMANDS.STOP ? 'STOP' : 'RESUME';
+        const isStopCommand = command === ENGINE_COMMANDS.STOP || command === ENGINESTOP || command === 0 || command === '0' || command === 'engineStop';
+        const isResumeCommand = command === ENGINE_COMMANDS.RESUME || command === ENGINERESUME || command === 1 || command === '1' || command === 'engineResume';
+        const commandType = isStopCommand ? 'STOP' : (isResumeCommand ? 'RESUME' : 'UNKNOWN');
         if (!deviceIds || deviceIds.length === 0) return {};
 
         const adapter = this.adapter;
         let responseIds = [];
 
         try {
-            if (command === ENGINE_COMMANDS.STOP) {
+            if (isStopCommand) {
                 responseIds = await adapter.stopDevices(deviceIds);
-            } else if (command === ENGINE_COMMANDS.RESUME) {
+            } else if (isResumeCommand) {
                 // Not strictly needed in bulk yet, but for symmetry we can implement it
-                // responseIds = await adapter.resumeDevices(deviceIds);
                 throw new Error(`Bulk resume not implemented yet`);
             } else {
                 throw new Error(`Invalid command type: ${command}`);

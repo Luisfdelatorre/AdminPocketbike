@@ -3,6 +3,7 @@ import paymentRepository from '../repositories/paymentRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import invoiceServices from './invoiceServices.js';
+import deviceServices from './deviceServices.js';
 import wompiService from './wompiService.js';
 import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINE_COMMANDS, DEFAULT_CUTOFF_TIME } from '../config/config.js';
 import dayjs from '../config/dayjs.js';
@@ -48,12 +49,14 @@ export class PaymentService {
             company,
             latestPaid,
             oldestUnpaidInvoice,
-            pendingPayment
+            pendingPayment,
+            paidInvoicesCount
         ] = await Promise.all([
             companyService.getCompanyById(contract.companyId),
             invoiceRepository.findLastPaid(deviceIdName),
             invoiceRepository.findLastUnPaid(deviceIdName),
-            paymentRepository.findPendingPayment(deviceIdName, MAX_NEQUI_PAYMENT_TIMEOUT)
+            paymentRepository.findPendingPayment(deviceIdName, MAX_NEQUI_PAYMENT_TIMEOUT),
+            Invoice.countDocuments({ deviceIdName, paid: true })
         ]);
 
         const now = dayjs();
@@ -80,6 +83,8 @@ export class PaymentService {
             // freeDaysAvailable: monthlyFreeDaysAvailable,
             freeDayPolicy: policy, // Ultimate fallback 
             isOverdue,
+            cuotasPagadas: paidInvoicesCount,
+            cuotasTotal: contract.contractDays || 500,
             pendingPayment: pendingPayment ? pendingPayment.getPendingFormat() : null
         };
     }
@@ -311,7 +316,7 @@ export class PaymentService {
         }
 
         // Return status
-        const deviceStatus = await this.getDataStatus(deviceIdName);
+        const deviceStatus = await deviceRepository.getDeviceStatusByName(deviceIdName);
         return {
             success: true,
             message: 'Loan applied successfully',
@@ -329,29 +334,6 @@ export class PaymentService {
         }
         return { success: false, message: 'No unpaid invoice found to mark as cutoff' };
     }
-    async getDataStatus(deviceIdName) {
-        try {
-            const device = await deviceRepository.getDeviceByName(deviceIdName);
-            if (!device) {
-                logger.warn(`[DEVICE STATUS] Device not found for name: ${deviceIdName}`);
-                return { deviceIdName, engineOn: null, cutOff: null };
-            }
-            const { companyId, gpsId } = device;
-            const gpsAdapter = await companyService.getGpsAdapter(companyId);
-            const details = await gpsAdapter.checkDeviceStatus(gpsId);
-
-            return {
-                online: dayjs().diff(dayjs(details.lastUpdate), 'second') < Transaction.DEVICE_ONLINE_TIMEOUT,
-                cutOff: details.cutOff,
-                ignition: details.ignition,
-                batteryLevel: details.batteryLevel || GpsService.calculateBatteryLevel(details.lastUpdate),
-                lastUpdate: details.lastUpdate
-            };
-        } catch (error) {
-            logger.error('[DEVICE STATUS] Error checking status:', error);
-            throw error;
-        }
-    };
     async initiateWompiPaymentTransaction(deviceIdName, phone, companyId) {
         this.validatePaymentInput(deviceIdName, phone);
         await this.checkDuplicatePayment(deviceIdName);
@@ -633,8 +615,8 @@ export class PaymentService {
                 logger.info(`[DEVICE] Activation confirmed for ${gpsId}`);
                 try {
                     // Use gpsId for repository update to avoid CastError if gpsId is string
-                    await deviceRepository.updateCutOffByGpsId(gpsId, 0); // 0 = Active/No CutOff
-                    logger.info(`[DEVICE] CutOff flag updated to 0 for device gpsId: ${gpsId}`);
+                    await deviceRepository.updateCutOffByGpsId(gpsId, false); // false = Active/No CutOff
+                    logger.info(`[DEVICE] CutOff flag updated to false for device gpsId: ${gpsId}`);
 
                     if (onUpdate) onUpdate({ status: PS.S_DEVICE_ACTIVE, message: PM.M_DEVICE_ACTIVE });
                 } catch (dbError) {
@@ -698,15 +680,14 @@ export class PaymentService {
             const deviceQuery = { date: { $gte: startDate, $lte: endDate } };
             if (companyId) deviceQuery.companyId = companyId;
 
-            // Build query to fetch device info (driverName, deviceId) in parallel
+            // Fetch invoices, payments, device info, and company cutoff settings in parallel
             const deviceInfoQuery = companyId ? { companyId } : {};
-
-            // Fetch invoices, payments and device info in parallel (single round-trip each)
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs] = await Promise.all([
+            const [invoices, payments, deviceDocs, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
-                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1 }).lean()
+                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1 }).lean(),
+                Company.find({}, { _id: 1, cutOffTime: 1, cutOffStrategy: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
 
@@ -714,6 +695,12 @@ export class PaymentService {
             const deviceInfoMap = {};
             deviceDocs.forEach(d => {
                 if (d.name) deviceInfoMap[d.name] = { driverName: d.driverName || null, deviceId: d._id };
+            });
+
+            // Build company config map keyed by companyId string for isInvoiceDue lookup
+            const companyCutoffMap = {};
+            companyDocs.forEach(c => {
+                companyCutoffMap[c._id.toString()] = c;
             });
 
             const paymentsObj = payments.length > 0 ? payments[0] : {};
@@ -738,14 +725,21 @@ export class PaymentService {
                     };
                 }
 
-                const totalPaid = paymentsObj[devName]?.[dateKey]?.totalPaid || 0;
+                const paymentData = paymentsObj[devName]?.[dateKey];
+                const totalPaid = typeof paymentData === 'object' ? (paymentData.totalPaid || 0) : (paymentData || 0);
+                const latestPaymentAt = typeof paymentData === 'object' ? (paymentData.latestPaymentAt || null) : null;
 
-                const isFuture = invoiceDay.startOf('day').isAfter(todayStart);
-                const isBeforeToday = invoiceDay.startOf('day').isBefore(todayStart);
-                if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && isBeforeToday) {
-                    deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
+                // Centralised debt rule: delegate to companyService.isInvoiceDue()
+                const company = companyCutoffMap[invoice.companyId?.toString()];
+                const isDue = companyService.isInvoiceDue(company, invoice.date);
+
+                if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && isDue) {
+                    if (!invoice.paid) {
+                        const debtForInvoice = Math.max(0, invoice.amount - (invoice.paidAmount || 0));
+                        deviceMap[devName].device.unpaidTotal += debtForInvoice;
+                    }
                 }
-                deviceMap[devName].days[day] = { ...invoice, totalPaid };
+                deviceMap[devName].days[day] = { ...invoice, totalPaid, latestPaymentAt };
             });
             logger.info(`[SUMMARY TIMING] JS loop: ${Date.now() - t2}ms | total: ${Date.now() - t0}ms`);
 

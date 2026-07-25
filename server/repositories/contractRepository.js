@@ -1,5 +1,6 @@
 import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
+import deviceRepository from './deviceRepository.js';
 
 export class ContractRepository {
     /**
@@ -97,12 +98,21 @@ export class ContractRepository {
         contract.remainingDays = contract.contractDays - contract.paidDays;
 
         // Check if contract is completed
-        if (contract.paidDays >= contract.contractDays) {
+        const isCompleted = contract.paidDays >= contract.contractDays;
+        if (isCompleted) {
             contract.status = 'COMPLETED';
             contract.remainingDays = 0;
         }
 
         await contract.save();
+
+        if (isCompleted) {
+            const deviceTarget = contract.deviceIdName || contract.deviceId;
+            if (deviceTarget) {
+                await deviceRepository.updateContractStatus(deviceTarget, null, false);
+            }
+        }
+
         return contract.toObject();
     }
 
@@ -110,11 +120,22 @@ export class ContractRepository {
      * Update contract status
      */
     async updateContractStatus(contractId, status) {
-        return await Contract.findOneAndUpdate(
+        const contract = await Contract.findOneAndUpdate(
             { contractId },
             { status },
             { new: true }
-        ).lean();
+        );
+
+        if (contract) {
+            const hasActiveContract = status === 'ACTIVE';
+            const activeContractId = hasActiveContract ? contractId : null;
+            const deviceTarget = contract.deviceIdName || contract.deviceId;
+            if (deviceTarget) {
+                await deviceRepository.updateContractStatus(deviceTarget, activeContractId, hasActiveContract);
+            }
+            return contract.toObject();
+        }
+        return null;
     }
 
     /**
@@ -226,6 +247,13 @@ export class ContractRepository {
         }
 
         await contract.save();
+
+        const hasActiveContract = contract.status === 'ACTIVE';
+        const deviceTarget = contract.deviceIdName || contract.deviceId;
+        if (deviceTarget) {
+            await deviceRepository.updateContractStatus(deviceTarget, hasActiveContract ? contract.contractId : null, hasActiveContract);
+        }
+
         return contract.toObject();
     }
 

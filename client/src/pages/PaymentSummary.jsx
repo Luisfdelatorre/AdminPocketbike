@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X } from 'lucide-react';
 
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
@@ -37,9 +37,15 @@ const PaymentSummary = () => {
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [deviceStatuses, setDeviceStatuses] = useState([]);
     const [pendingCommands, setPendingCommands] = useState({});
+    const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
+    const matrixTableRef = useRef(null);
+    const matrixHeaderViewportRef = useRef(null);
     const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
     const [desktopView, setDesktopView] = useState(getInitialDesktopView);
+    const [summaryHeaderHeight, setSummaryHeaderHeight] = useState(0);
+    const [isSummaryHeaderStuck, setIsSummaryHeaderStuck] = useState(false);
+    const [matrixGeometry, setMatrixGeometry] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
 
@@ -97,6 +103,122 @@ const PaymentSummary = () => {
         return acc;
     }, {});
 
+    const renderMatrixHeader = (className = '') => (
+        <thead className={className}>
+            <tr>
+                <th>DISPOSITIVO</th>
+                <th>Deuda</th>
+                {daysArray.map(day => (
+                    <th key={day}>{String(day).padStart(2, '0')}</th>
+                ))}
+                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
+            </tr>
+            <tr className="daily-totals-row">
+                <th className="totals-label">Total día</th>
+                <th></th>
+                {daysArray.map(day => (
+                    <th key={day} className="daily-total-cell">
+                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
+                    </th>
+                ))}
+                <th></th>
+            </tr>
+        </thead>
+    );
+
+    const syncMatrixHeaderScroll = (scrollLeft) => {
+        if (matrixHeaderViewportRef.current) {
+            matrixHeaderViewportRef.current.scrollLeft = scrollLeft;
+        }
+    };
+
+    const handleMatrixScroll = (event) => {
+        syncMatrixHeaderScroll(event.currentTarget.scrollLeft);
+    };
+
+    useLayoutEffect(() => {
+        const header = summaryHeaderRef.current;
+        if (!header) return undefined;
+
+        const updateHeaderHeight = () => {
+            setSummaryHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
+        };
+
+        updateHeaderHeight();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateHeaderHeight);
+            return () => window.removeEventListener('resize', updateHeaderHeight);
+        }
+
+        const observer = new ResizeObserver(updateHeaderHeight);
+        observer.observe(header);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        const updateStickyState = () => {
+            const headerTop = summaryHeaderRef.current?.getBoundingClientRect().top;
+            const nextIsStuck = typeof headerTop === 'number' && headerTop <= -3;
+
+            setIsSummaryHeaderStuck((previous) => (
+                previous === nextIsStuck ? previous : nextIsStuck
+            ));
+        };
+
+        updateStickyState();
+        window.addEventListener('scroll', updateStickyState, { capture: true, passive: true });
+        window.addEventListener('resize', updateStickyState);
+
+        return () => {
+            window.removeEventListener('scroll', updateStickyState, true);
+            window.removeEventListener('resize', updateStickyState);
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (isMobile || desktopView !== 'matrix') {
+            setMatrixGeometry(null);
+            return undefined;
+        }
+
+        const table = matrixTableRef.current;
+        const container = tableContainerRef.current;
+        if (!table || !container) return undefined;
+
+        const updateMatrixGeometry = () => {
+            const cells = Array.from(table.querySelectorAll('tbody tr:first-child > td'));
+            const expectedColumnCount = daysArray.length + 3;
+
+            if (cells.length !== expectedColumnCount) return;
+
+            const widths = cells.map((cell) => Math.round(cell.getBoundingClientRect().width));
+            const width = Math.round(table.getBoundingClientRect().width);
+
+            if (!width || widths.some((columnWidth) => !columnWidth)) return;
+
+            setMatrixGeometry((previous) => {
+                const isUnchanged = previous?.width === width
+                    && previous.widths.length === widths.length
+                    && previous.widths.every((columnWidth, index) => columnWidth === widths[index]);
+
+                return isUnchanged ? previous : { width, widths };
+            });
+        };
+
+        updateMatrixGeometry();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateMatrixGeometry);
+            return () => window.removeEventListener('resize', updateMatrixGeometry);
+        }
+
+        const observer = new ResizeObserver(updateMatrixGeometry);
+        observer.observe(table);
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -146,7 +268,8 @@ const PaymentSummary = () => {
         const status = getDeviceStatus(device.deviceId || device.name);
         if (!status) return;
         const id = status.id;
-        const command = status.cutOff === 1 ? 1 : 0;
+        const isCutOff = Boolean(status.cutOff);
+        const command = isCutOff ? 1 : 0;
         setPendingCommands(prev => ({ ...prev, [id]: true }));
         try {
             const result = await controlEngine(id, command);
@@ -183,11 +306,91 @@ const PaymentSummary = () => {
         loadDeviceStatuses();
     }, [selectedMonth, selectedYear]);
 
+    // Real-time SSE listening for device status updates in summary view
+    useEffect(() => {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
+        if (!token) return;
+
+        const activeCompanyId = user?.companyId || '';
+        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
+
+        let eventSource;
+        try {
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('device_update', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (!data) return;
+
+                    setDeviceStatuses((prevList) => {
+                        let matchFound = false;
+                        const updatedList = prevList.map((d) => {
+                            const isMatch = (
+                                (data.name && (d.name === data.name || d.deviceIdName === data.name)) ||
+                                (data.deviceIdName && (d.name === data.deviceIdName || d.deviceIdName === data.deviceIdName)) ||
+                                (data.gpsId && (d.gpsId === data.gpsId || d.id === data.gpsId || d.deviceId === data.gpsId)) ||
+                                (data._id && (d._id === data._id || d.id === data._id))
+                            );
+
+                            if (isMatch) {
+                                matchFound = true;
+                                return {
+                                    ...d,
+                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
+                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
+                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
+                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
+                                };
+                            }
+                            return d;
+                        });
+
+                        return matchFound ? updatedList : prevList;
+                    });
+                } catch (err) {
+                    console.error('Error parsing SSE device_update in PaymentSummary:', err);
+                }
+            });
+
+            // Listen for financial, payment, and reconciliation real-time updates
+            const handleRealtimeReload = () => {
+                fetchData();
+                loadDeviceStatuses();
+            };
+
+            eventSource.addEventListener('payment_update', handleRealtimeReload);
+            eventSource.addEventListener('reconciliation_update', handleRealtimeReload);
+            eventSource.addEventListener('invoice_update', handleRealtimeReload);
+            eventSource.addEventListener('summary_update', handleRealtimeReload);
+
+            eventSource.onerror = (err) => {
+                console.warn('SSE connection error in PaymentSummary, EventSource will automatically retry:', err);
+            };
+        } catch (err) {
+            console.error('Failed to initialize SSE in PaymentSummary:', err);
+        }
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [user?.companyId]);
+
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && summaryData.length > 0 && tableContainerRef.current) {
-            tableContainerRef.current.scrollLeft = tableContainerRef.current.scrollWidth;
+            const { scrollWidth } = tableContainerRef.current;
+            tableContainerRef.current.scrollLeft = scrollWidth;
+            syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
         }
     }, [desktopView, isMobile, loading, summaryData]);
+
+    useEffect(() => {
+        if (matrixGeometry && tableContainerRef.current) {
+            syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
+        }
+    }, [matrixGeometry]);
 
     const morososCount = summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
 
@@ -201,11 +404,11 @@ const PaymentSummary = () => {
             if (!nameMatch && !driverMatch) return false;
         }
         // Status pill filter
-        if (statusFilter === 'debt')   return (item.device.unpaidTotal || 0) > 0;
-        if (statusFilter === 'ok')     return (item.device.unpaidTotal || 0) === 0;
+        if (statusFilter === 'debt') return (item.device.unpaidTotal || 0) > 0;
+        if (statusFilter === 'ok') return (item.device.unpaidTotal || 0) === 0;
         if (statusFilter === 'cutoff') {
             const status = getDeviceStatus(item.device.deviceId || item.device.name);
-            return status?.cutOff === 1;
+            return Boolean(status?.cutOff);
         }
         return true;
     });
@@ -213,10 +416,11 @@ const PaymentSummary = () => {
     const renderEngineButton = (device) => {
         const status = getDeviceStatus(device.deviceId || device.name);
         if (!status) return <span style={{ color: '#D1D5DB', fontSize: '0.7rem' }}>--</span>;
+        const isCutOff = Boolean(status.cutOff);
         if (user?.role === 'viewer') {
             return (
                 <div
-                    className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'}`}
+                    className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'}`}
                     style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
                 >
                     <div className="slider-knob"><Power size={10} /></div>
@@ -227,8 +431,8 @@ const PaymentSummary = () => {
             <button
                 onClick={() => handleEngineToggle(device)}
                 disabled={!!pendingCommands[status.id]}
-                className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[status.id] ? 'pending' : ''}`}
-                title={status.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
+                className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'} ${pendingCommands[status.id] ? 'pending' : ''}`}
+                title={isCutOff ? 'Activar Moto' : 'Desactivar Moto'}
                 style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
@@ -243,7 +447,19 @@ const PaymentSummary = () => {
     const renderDayCell = (dayData) => {
         let cellClass = 'status-cell empty';
         let content = '--';
+        let paymentTime = null;
+
         if (dayData) {
+            const rawDate = dayData.latestPaymentAt || dayData.paidAt || (dayData.paid && dayData.updatedAt ? dayData.updatedAt : null);
+            if (rawDate) {
+                const dateObj = new Date(rawDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const hours = String(dateObj.getHours()).padStart(2, '0');
+                    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                    paymentTime = `${hours}:${minutes}`;
+                }
+            }
+
             if (dayData.dayType === 'LOAN') {
                 cellClass = 'status-cell loand';
                 content = '--';
@@ -260,10 +476,22 @@ const PaymentSummary = () => {
                 cellClass = 'status-cell pending';
                 content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
             }
+
+            content = (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: '10.5px' }}>{content}</span>
+                    {paymentTime && (
+                        <span className="payment-time-sub">
+                            {paymentTime}
+                        </span>
+                    )}
+                </div>
+            );
+
             if (dayData.cutOff) {
                 content = (
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span>{content}</span>
+                        {content}
                         <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
                             <MotorIcon color="#ef4444" size={14} />
                         </div>
@@ -275,7 +503,10 @@ const PaymentSummary = () => {
     };
 
     return (
-        <div className="payment-summary-container">
+        <div
+            className="payment-summary-container"
+            style={{ '--summary-header-height': `${summaryHeaderHeight}px` }}
+        >
 
             {bulkOffModal && (
                 <div
@@ -334,7 +565,10 @@ const PaymentSummary = () => {
                 </div>
             )}
 
-            <div className="summary-header">
+            <div
+                ref={summaryHeaderRef}
+                className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
+            >
                 <div className="summary-heading">
                     <h1>Estatus de Pagos</h1>
 
@@ -484,70 +718,71 @@ const PaymentSummary = () => {
                     renderDayCell={renderDayCell}
                 />
             ) : (
-                <div className="matrix-container" ref={tableContainerRef}>
-                    <table className="summary-table">
-                        <thead>
-                            <tr>
-                                <th>DISPOSITIVO</th>
-                                <th>Deuda</th>
-                                {daysArray.map(day => (
-                                    <th key={day}>{String(day).padStart(2, '0')}</th>
-                                ))}
-                                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
-                            </tr>
-                            <tr className="daily-totals-row">
-                                <th className="totals-label">Total día</th>
-                                <th></th>
-                                {daysArray.map(day => (
-                                    <th key={day} className="daily-total-cell">
-                                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
-                                    </th>
-                                ))}
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
-                            ) : (
-                                summaryData.map((item) => (
-                                    <tr key={item.device.deviceId} className="bike-summary">
-                                        <td>
-                                            <div className="device-cell">
-                                                <span className="device-name">{item.device.name}</span>
-                                                <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="device-cell">
-                                                {item.device.unpaidTotal > 0 ? (
-                                                    <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
-                                                ) : (
-                                                    <span className="no-debt">✓</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        {daysArray.map(day => {
-                                            const dayData = item.days[day];
-                                            const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
-                                            const { cellClass, content } = renderDayCell(dayData);
-                                            return (
-                                                <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
-                                                    <div className={cellClass}>
-                                                        {content}
-                                                    </div>
-                                                </td>
-                                            );
-                                        })}
-                                        {/* Motor toggle per row */}
-                                        <td style={{ textAlign: 'center' }}>
-                                            {renderEngineButton(item)}
-                                        </td>
-                                    </tr>
-                                )))
-                            }
-                        </tbody>
-                    </table>
+                <div className="matrix-shell">
+                    <div className="matrix-sticky-header">
+                        <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
+                            <table
+                                className="summary-table summary-table--sticky-header"
+                                style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
+                            >
+                                {matrixGeometry && (
+                                    <colgroup>
+                                        {matrixGeometry.widths.map((width, index) => (
+                                            <col key={index} style={{ width: `${width}px` }} />
+                                        ))}
+                                    </colgroup>
+                                )}
+                                {renderMatrixHeader('matrix-visual-thead')}
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
+                        <table ref={matrixTableRef} className="summary-table">
+                            {renderMatrixHeader('matrix-semantic-thead')}
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
+                                ) : (
+                                    summaryData.map((item) => (
+                                        <tr key={item.device.deviceId} className="bike-summary">
+                                            <td>
+                                                <div className="device-cell">
+                                                    <span className="device-name">{item.device.name}</span>
+                                                    <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="device-cell">
+                                                    {item.device.unpaidTotal > 0 ? (
+                                                        <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
+                                                    ) : (
+                                                        <span className="no-debt">✓</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            {daysArray.map(day => {
+                                                const dayData = item.days[day];
+                                                const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
+                                                const { cellClass, content } = renderDayCell(dayData);
+                                                return (
+                                                    <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
+                                                        <div className={cellClass}>
+                                                            {content}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                            {/* Motor toggle per row */}
+                                            <td style={{ textAlign: 'center' }}>
+                                                {renderEngineButton(item)}
+                                            </td>
+                                        </tr>
+                                    )))
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
