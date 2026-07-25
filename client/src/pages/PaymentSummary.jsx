@@ -268,7 +268,8 @@ const PaymentSummary = () => {
         const status = getDeviceStatus(device.deviceId || device.name);
         if (!status) return;
         const id = status.id;
-        const command = status.cutOff === 1 ? 1 : 0;
+        const isCutOff = Boolean(status.cutOff);
+        const command = isCutOff ? 1 : 0;
         setPendingCommands(prev => ({ ...prev, [id]: true }));
         try {
             const result = await controlEngine(id, command);
@@ -305,6 +306,78 @@ const PaymentSummary = () => {
         loadDeviceStatuses();
     }, [selectedMonth, selectedYear]);
 
+    // Real-time SSE listening for device status updates in summary view
+    useEffect(() => {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
+        if (!token) return;
+
+        const activeCompanyId = user?.companyId || '';
+        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
+
+        let eventSource;
+        try {
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('device_update', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (!data) return;
+
+                    setDeviceStatuses((prevList) => {
+                        let matchFound = false;
+                        const updatedList = prevList.map((d) => {
+                            const isMatch = (
+                                (data.name && (d.name === data.name || d.deviceIdName === data.name)) ||
+                                (data.deviceIdName && (d.name === data.deviceIdName || d.deviceIdName === data.deviceIdName)) ||
+                                (data.gpsId && (d.gpsId === data.gpsId || d.id === data.gpsId || d.deviceId === data.gpsId)) ||
+                                (data._id && (d._id === data._id || d.id === data._id))
+                            );
+
+                            if (isMatch) {
+                                matchFound = true;
+                                return {
+                                    ...d,
+                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
+                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
+                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
+                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
+                                };
+                            }
+                            return d;
+                        });
+
+                        return matchFound ? updatedList : prevList;
+                    });
+                } catch (err) {
+                    console.error('Error parsing SSE device_update in PaymentSummary:', err);
+                }
+            });
+
+            // Listen for financial, payment, and reconciliation real-time updates
+            const handleRealtimeReload = () => {
+                fetchData();
+                loadDeviceStatuses();
+            };
+
+            eventSource.addEventListener('payment_update', handleRealtimeReload);
+            eventSource.addEventListener('reconciliation_update', handleRealtimeReload);
+            eventSource.addEventListener('invoice_update', handleRealtimeReload);
+            eventSource.addEventListener('summary_update', handleRealtimeReload);
+
+            eventSource.onerror = (err) => {
+                console.warn('SSE connection error in PaymentSummary, EventSource will automatically retry:', err);
+            };
+        } catch (err) {
+            console.error('Failed to initialize SSE in PaymentSummary:', err);
+        }
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [user?.companyId]);
+
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && summaryData.length > 0 && tableContainerRef.current) {
             const { scrollWidth } = tableContainerRef.current;
@@ -331,11 +404,11 @@ const PaymentSummary = () => {
             if (!nameMatch && !driverMatch) return false;
         }
         // Status pill filter
-        if (statusFilter === 'debt')   return (item.device.unpaidTotal || 0) > 0;
-        if (statusFilter === 'ok')     return (item.device.unpaidTotal || 0) === 0;
+        if (statusFilter === 'debt') return (item.device.unpaidTotal || 0) > 0;
+        if (statusFilter === 'ok') return (item.device.unpaidTotal || 0) === 0;
         if (statusFilter === 'cutoff') {
             const status = getDeviceStatus(item.device.deviceId || item.device.name);
-            return status?.cutOff === 1;
+            return Boolean(status?.cutOff);
         }
         return true;
     });
@@ -343,10 +416,11 @@ const PaymentSummary = () => {
     const renderEngineButton = (device) => {
         const status = getDeviceStatus(device.deviceId || device.name);
         if (!status) return <span style={{ color: '#D1D5DB', fontSize: '0.7rem' }}>--</span>;
+        const isCutOff = Boolean(status.cutOff);
         if (user?.role === 'viewer') {
             return (
                 <div
-                    className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'}`}
+                    className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'}`}
                     style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
                 >
                     <div className="slider-knob"><Power size={10} /></div>
@@ -357,8 +431,8 @@ const PaymentSummary = () => {
             <button
                 onClick={() => handleEngineToggle(device)}
                 disabled={!!pendingCommands[status.id]}
-                className={`engine-toggle-slider ${status.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[status.id] ? 'pending' : ''}`}
-                title={status.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
+                className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'} ${pendingCommands[status.id] ? 'pending' : ''}`}
+                title={isCutOff ? 'Activar Moto' : 'Desactivar Moto'}
                 style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
@@ -373,7 +447,19 @@ const PaymentSummary = () => {
     const renderDayCell = (dayData) => {
         let cellClass = 'status-cell empty';
         let content = '--';
+        let paymentTime = null;
+
         if (dayData) {
+            const rawDate = dayData.latestPaymentAt || dayData.paidAt || (dayData.paid && dayData.updatedAt ? dayData.updatedAt : null);
+            if (rawDate) {
+                const dateObj = new Date(rawDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const hours = String(dateObj.getHours()).padStart(2, '0');
+                    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                    paymentTime = `${hours}:${minutes}`;
+                }
+            }
+
             if (dayData.dayType === 'LOAN') {
                 cellClass = 'status-cell loand';
                 content = '--';
@@ -390,10 +476,22 @@ const PaymentSummary = () => {
                 cellClass = 'status-cell pending';
                 content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
             }
+
+            content = (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: '10.5px' }}>{content}</span>
+                    {paymentTime && (
+                        <span className="payment-time-sub">
+                            {paymentTime}
+                        </span>
+                    )}
+                </div>
+            );
+
             if (dayData.cutOff) {
                 content = (
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span>{content}</span>
+                        {content}
                         <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
                             <MotorIcon color="#ef4444" size={14} />
                         </div>
@@ -640,50 +738,50 @@ const PaymentSummary = () => {
                     </div>
 
                     <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
-                    <table ref={matrixTableRef} className="summary-table">
-                        {renderMatrixHeader('matrix-semantic-thead')}
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
-                            ) : (
-                                summaryData.map((item) => (
-                                    <tr key={item.device.deviceId} className="bike-summary">
-                                        <td>
-                                            <div className="device-cell">
-                                                <span className="device-name">{item.device.name}</span>
-                                                <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="device-cell">
-                                                {item.device.unpaidTotal > 0 ? (
-                                                    <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
-                                                ) : (
-                                                    <span className="no-debt">✓</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        {daysArray.map(day => {
-                                            const dayData = item.days[day];
-                                            const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
-                                            const { cellClass, content } = renderDayCell(dayData);
-                                            return (
-                                                <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
-                                                    <div className={cellClass}>
-                                                        {content}
-                                                    </div>
-                                                </td>
-                                            );
-                                        })}
-                                        {/* Motor toggle per row */}
-                                        <td style={{ textAlign: 'center' }}>
-                                            {renderEngineButton(item)}
-                                        </td>
-                                    </tr>
-                                )))
-                            }
-                        </tbody>
-                    </table>
+                        <table ref={matrixTableRef} className="summary-table">
+                            {renderMatrixHeader('matrix-semantic-thead')}
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
+                                ) : (
+                                    summaryData.map((item) => (
+                                        <tr key={item.device.deviceId} className="bike-summary">
+                                            <td>
+                                                <div className="device-cell">
+                                                    <span className="device-name">{item.device.name}</span>
+                                                    <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="device-cell">
+                                                    {item.device.unpaidTotal > 0 ? (
+                                                        <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
+                                                    ) : (
+                                                        <span className="no-debt">✓</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            {daysArray.map(day => {
+                                                const dayData = item.days[day];
+                                                const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
+                                                const { cellClass, content } = renderDayCell(dayData);
+                                                return (
+                                                    <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
+                                                        <div className={cellClass}>
+                                                            {content}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                            {/* Motor toggle per row */}
+                                            <td style={{ textAlign: 'center' }}>
+                                                {renderEngineButton(item)}
+                                            </td>
+                                        </tr>
+                                    )))
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}

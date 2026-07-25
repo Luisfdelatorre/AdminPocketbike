@@ -57,6 +57,66 @@ const DeviceManagement = () => {
         loadDevices();
     }, [viewMode]); // Reload when view mode changes
 
+    // Real-time SSE listening for device status updates (multi-tenant aware)
+    useEffect(() => {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
+        if (!token) return;
+
+        const activeCompanyId = user?.companyId || '';
+        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
+
+        let eventSource;
+        try {
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('device_update', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (!data) return;
+
+                    setDevices((prevDevices) => {
+                        let matchFound = false;
+                        const updatedList = prevDevices.map((d) => {
+                            const isMatch = (
+                                (data.gpsId && (d.gpsId === data.gpsId || d.deviceId === data.gpsId)) ||
+                                (data._id && d._id === data._id) ||
+                                (data.name && d.name === data.name)
+                            );
+
+                            if (isMatch) {
+                                matchFound = true;
+                                return {
+                                    ...d,
+                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
+                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
+                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
+                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
+                                };
+                            }
+                            return d;
+                        });
+
+                        return matchFound ? updatedList : prevDevices;
+                    });
+                } catch (err) {
+                    console.error('Error parsing SSE device_update:', err);
+                }
+            });
+
+            eventSource.onerror = (err) => {
+                console.warn('SSE connection error in DeviceSelector, EventSource will automatically retry:', err);
+            };
+        } catch (err) {
+            console.error('Failed to initialize SSE in DeviceSelector:', err);
+        }
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [user?.companyId]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (activeMenuId && !event.target.closest('.action-menu-container')) {
@@ -531,9 +591,9 @@ const DeviceManagement = () => {
                                     className="text-gray-900 cursor-pointer hover:text-gray-600 flex flex-col w-full"
                                 >
                                     <span className="text-gray-900 font-medium truncate">{device.name}</span>
-                                    {device.contractId && (
+                                    {(device.activeContractId || device.contractId) && (
                                         <span className="text-[9px] lg:text-[10px] text-gray-400 truncate">
-                                            {device.contractId}
+                                            {device.activeContractId || device.contractId}
                                         </span>
                                     )}
                                 </a>
@@ -559,13 +619,19 @@ const DeviceManagement = () => {
 
                             <div className="flex items-center justify-center gap-1.5 lg:gap-4">
                                 {/* Motor Status */}
-                                <div className={`flex flex-col items-center justify-center ${device.cutOff === 1 ? 'text-red-500' :
-                                    device.cutOff === 2 ? 'text-yellow-500' :
-                                        device.ignition ? 'text-emerald-500' :
-                                            'text-gray-300'
-                                    }`}>
-                                    <MotorIcon />
-                                </div>
+                                {(() => {
+                                    const isCutOff = device.cutOff === 1 || device.cutOff === true || device.cutOff === '1';
+                                    const isPendingCutOff = device.cutOff === 2 || device.cutOff === '2';
+                                    return (
+                                        <div className={`flex flex-col items-center justify-center ${isCutOff ? 'text-red-500' :
+                                            isPendingCutOff ? 'text-yellow-500' :
+                                                device.ignition ? 'text-emerald-500' :
+                                                    'text-gray-300'
+                                            }`}>
+                                            <MotorIcon />
+                                        </div>
+                                    );
+                                })()}
                                 {/* Battery Status */}
                                 <div className={`flex items-center ${device.batteryLevel > 70 ? 'text-emerald-500' :
                                     device.batteryLevel > 30 ? 'text-yellow-500' :
@@ -580,37 +646,42 @@ const DeviceManagement = () => {
                                     )}
                                 </div>
                                 {/* Engine Toggle Slider */}
-                                <div className="flex items-center scale-75 lg:scale-100 transform origin-left">
-                                    {user?.role !== 'viewer' ? (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleEngineToggle(device);
-                                            }}
-                                            disabled={pendingCommands[device.id]}
-                                            className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
-                                            title={device.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
-                                        >
-                                            <div className="slider-knob">
-                                                {pendingCommands[device.id] ? (
-                                                    <RefreshCw size={12} className="spin" />
-                                                ) : (
-                                                    <Power size={12} />
-                                                )}
-                                            </div>
-                                        </button>
-                                    ) : (
-                                        <div
-                                            className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'}`}
-                                            style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                                            title="Solo lectura"
-                                        >
-                                            <div className="slider-knob">
-                                                <Power size={12} />
-                                            </div>
+                                {(() => {
+                                    const isCutOff = device.cutOff === 1 || device.cutOff === true || device.cutOff === '1';
+                                    return (
+                                        <div className="flex items-center scale-75 lg:scale-100 transform origin-left">
+                                            {user?.role !== 'viewer' ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEngineToggle(device);
+                                                    }}
+                                                    disabled={pendingCommands[device.id]}
+                                                    className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
+                                                    title={isCutOff ? 'Activar Moto' : 'Desactivar Moto'}
+                                                >
+                                                    <div className="slider-knob">
+                                                        {pendingCommands[device.id] ? (
+                                                            <RefreshCw size={12} className="spin" />
+                                                        ) : (
+                                                            <Power size={12} />
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            ) : (
+                                                <div
+                                                    className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'}`}
+                                                    style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                                                    title="Solo lectura"
+                                                >
+                                                    <div className="slider-knob">
+                                                        <Power size={12} />
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
+                                    );
+                                })()}
                             </div>
 
                             <div className="flex items-center justify-center gap-1 lg:gap-2">

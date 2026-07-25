@@ -283,7 +283,8 @@
 }
 
 .status-cell {
-    height: 30px;
+    min-height: 30px;
+    height: auto;
     width: 100%;
     display: flex;
     align-items: center;
@@ -294,6 +295,16 @@
     color: white;
     /* Default text color for filled balls */
     margin: 2px;
+    padding: 2px 1px;
+}
+
+.payment-time-sub {
+    font-size: 8px;
+    font-weight: 500;
+    opacity: 0.5;
+    margin-top: 1px;
+    letter-spacing: -0.3px;
+    line-height: 1;
 }
 
 .status-cell.approved {

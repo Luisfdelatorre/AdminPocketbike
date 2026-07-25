@@ -173,7 +173,7 @@ const AdminDashboard = () => {
             )}
 
             <div className="dashboard-header">
-                <div>
+                <div className="desktop-only">
                     <h1>{t('dashboard.title')}</h1>
                 </div>
                 {/* Desktop controls */}
