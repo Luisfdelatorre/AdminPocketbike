@@ -103,4 +103,4 @@ export const createPaymentStream = (reference) => {
   return new EventSource(url);
 };
 
-export const getDeviceStatus = () => api.get('/apinode/payments/device-status');
+export const getDeviceStatus = () => api.get('/apinode/devices/status');
