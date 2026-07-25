@@ -18,10 +18,22 @@ export default defineConfig({
             '/apinode': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
+                configure: (proxy) => {
+                    proxy.on('error', (err) => {
+                        if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return;
+                        console.error('[vite-proxy] Error:', err.message);
+                    });
+                }
             },
             '/p': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
+                configure: (proxy) => {
+                    proxy.on('error', (err) => {
+                        if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return;
+                        console.error('[vite-proxy] Error:', err.message);
+                    });
+                }
             },
         },
     },

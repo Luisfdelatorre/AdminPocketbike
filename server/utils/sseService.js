@@ -3,14 +3,14 @@
  */
 export class SSEService {
     constructor() {
-        this.clients = new Map(); // clientId -> response object
+        this.clients = new Map(); // clientId -> { response, metadata }
     }
 
     /**
      * Register a new SSE client
      */
-    addClient(clientId, response) {
-        console.log(`📡 SSE client connected: ${clientId}`);
+    addClient(clientId, response, metadata = {}) {
+        console.log(`📡 SSE client connected: ${clientId}`, metadata?.companyId ? `(Company: ${metadata.companyId})` : '');
 
         // Set headers for SSE
         response.writeHead(200, {
@@ -20,8 +20,8 @@ export class SSEService {
             'Access-Control-Allow-Origin': '*',
         });
 
-        // Store client
-        this.clients.set(clientId, response);
+        // Store client with metadata
+        this.clients.set(clientId, { response, metadata });
 
         // Send initial connection event
         this.sendToClient(clientId, 'connected', { clientId, timestamp: new Date().toISOString() });
@@ -41,36 +41,59 @@ export class SSEService {
     }
 
     /**
+     * Helper to write SSE message to client response
+     */
+    _writeToClient(clientEntry, message) {
+        const res = clientEntry?.response || clientEntry;
+        if (res && typeof res.write === 'function') {
+            res.write(message);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Send event to a specific client
      */
     sendToClient(clientId, event, data) {
-        const client = this.clients.get(clientId);
-        if (client) {
+        const clientEntry = this.clients.get(clientId);
+        if (clientEntry) {
             const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-            client.write(message);
+            this._writeToClient(clientEntry, message);
         }
     }
 
     /**
-     * Broadcast event to all connected clients
+     * Broadcast event to all connected clients (or filter by companyId if specified in options)
      */
-    broadcast(event, data) {
+    broadcast(event, data, filterOptions = {}) {
         const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
         let sentCount = 0;
-        this.clients.forEach((client, clientId) => {
+        this.clients.forEach((clientEntry, clientId) => {
             try {
-                client.write(message);
-                sentCount++;
+                // If event belongs to a specific company, check if client has access or is unsubscribed
+                const targetCompanyId = data?.companyId || filterOptions?.companyId;
+                const clientCompanyId = clientEntry?.metadata?.companyId;
+                const clientCompanyIds = clientEntry?.metadata?.companyIds || [];
+
+                if (targetCompanyId && clientCompanyId) {
+                    const hasAccess = clientCompanyId === targetCompanyId || clientCompanyIds.includes(targetCompanyId);
+                    if (!hasAccess) {
+                        return; // Skip clients from other companies
+                    }
+                }
+
+                if (this._writeToClient(clientEntry, message)) {
+                    sentCount++;
+                }
             } catch (error) {
                 console.error(`Failed to send to client ${clientId}:`, error);
                 this.clients.delete(clientId);
             }
         });
 
-        if (sentCount > 0) {
-            console.log(`📡 Broadcasted "${event}" to ${sentCount} clients`);
-        }
+        // Broadcast completed cleanly
     }
 
     /**
@@ -79,10 +102,10 @@ export class SSEService {
     broadcastToFilter(event, data, filterFn) {
         const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
-        this.clients.forEach((client, clientId) => {
-            if (filterFn(clientId)) {
+        this.clients.forEach((clientEntry, clientId) => {
+            if (filterFn(clientId, clientEntry?.metadata)) {
                 try {
-                    client.write(message);
+                    this._writeToClient(clientEntry, message);
                 } catch (error) {
                     console.error(`Failed to send to client ${clientId}:`, error);
                     this.clients.delete(clientId);
@@ -102,7 +125,14 @@ export class SSEService {
      * Send heartbeat to all clients to keep connection alive
      */
     sendHeartbeat() {
-        this.broadcast('heartbeat', { timestamp: new Date().toISOString() });
+        const message = `event: heartbeat\ndata: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`;
+        this.clients.forEach((clientEntry, clientId) => {
+            try {
+                this._writeToClient(clientEntry, message);
+            } catch (error) {
+                this.clients.delete(clientId);
+            }
+        });
     }
 }
 
