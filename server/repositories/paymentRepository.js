@@ -97,25 +97,27 @@ export class PaymentRepository {
             throw error;
         }
     }
-    async createManualPayment({ deviceIdName, contract, invoice, companyId, amount }) {
+    async createManualPayment({ deviceIdName, contract, invoice, companyId, amount, adjustmentType, adjustmentReference }) {
         try {
             const paymentId = helper.generateReferenceAdjustment(invoice.invoiceId);
-            return await this.createStandarPayment(amount, paymentId, deviceIdName, contract, invoice, companyId, PAYMENT_TYPE.ADJUSTMENT);
+            return await this.createStandarPayment(amount, paymentId, deviceIdName, contract, invoice, companyId, PAYMENT_TYPE.ADJUSTMENT, { adjustmentType, adjustmentReference });
         } catch (error) {
             logger.error('Error creating manual adjustment payment:', error);
             throw error;
         }
     }
-    async createStandarPayment(amount, paymentId, deviceIdName, contract, unpaidInvoice, companyId, type) {
+    async createStandarPayment(amount, paymentId, deviceIdName, contract, unpaidInvoice, companyId, type, extraData = {}) {
         const now = dayjs().toDate();
+        const paymentAmount = amount || 0;
         const payment = {
             _id: paymentId,
             paymentId: paymentId,
             invoiceId: unpaidInvoice.invoiceId,
             companyId: companyId,
+            contractId: contract?.contractId || contract?.activeContractId,
             reference: paymentId,
-            amount: 0,
-            amount_in_cents: 0,
+            amount: paymentAmount,
+            amount_in_cents: paymentAmount * 100,
             payment_method_type: type,
             type: type,
             deviceIdName: deviceIdName,
@@ -128,6 +130,7 @@ export class PaymentRepository {
             unpaidInvoiceId: unpaidInvoice._id,
             gpsId: unpaidInvoice.gpsId,
             invoiceDate: unpaidInvoice.invoiceDate,
+            ...extraData
         };
         return await Payment.create(payment);
     }
@@ -139,7 +142,7 @@ export class PaymentRepository {
 
     async createInitialFeePayment(device, contract, invoice, initialFee, date) {
         try {
-            const paymentId = helper.generateInvoiceIdInitialFee(device.name, date);
+            const paymentId = Invoice.generateInvoiceIdInitialFee(device.name, date);
             return this.createStandarPayment(initialFee, paymentId, device.name, contract, invoice, device.companyId, PAYMENT_TYPE.INITIAL_FEE);
         } catch (error) {
             logger.error('Error creating initial fee payment:', error);
@@ -153,19 +156,28 @@ export class PaymentRepository {
     */
     async claimPaymentForProcessing(data) {
         try {
-
-            // 2. Try to lock it
+            if (!data || !data._id) return null;
             const payment = await Payment.findOneAndUpdate(
-                { _id: data._id, used: false },
-                { $set: { used: true } },
-                {
-                    new: true,
-                }
+                { _id: data._id, used: false, processing: { $ne: true } },
+                { $set: { processing: true } },
+                { new: true }
             );
             return payment;
         } catch (error) {
             logger.error('Error en claimPaymentForProcessing:', error);
             throw error;
+        }
+    }
+
+    async releaseProcessingLock(data) {
+        try {
+            if (!data || !data._id) return;
+            await Payment.updateOne(
+                { _id: data._id, used: false },
+                { $set: { processing: false } }
+            );
+        } catch (error) {
+            logger.error('Error en releaseProcessingLock:', error);
         }
     }
 
@@ -195,6 +207,11 @@ export class PaymentRepository {
      */
     async getPaymentById(paymentId) {
         return await Payment.findOne({ paymentId }).lean();
+    }
+
+    async getPaymentBy_Id(id) {
+        if (!id) return null;
+        return await Payment.findById(id).lean();
     }
 
     /**

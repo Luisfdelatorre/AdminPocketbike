@@ -189,7 +189,7 @@ export class PaymentService {
 
             isPrepaidConversion = true;
         } else {
-            const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract, companyId);
+            const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract);
             const payment = await paymentRepository.createFreePayment(deviceIdName, contract, unpaidInvoice, companyId);
             paidInvoice = await unpaidInvoice.applyPayment(payment);
             targetInvoice = unpaidInvoice;
@@ -472,39 +472,46 @@ export class PaymentService {
         const { reference } = paymentData;
         try {
             let payment = await paymentRepository.claimPaymentForProcessing(paymentData);
-            console.log('Payment locked for processing:', payment);
+            console.log('Payment reserved for processing:', payment);
 
-            /*if (!payment) {
-                // Distinguish: truly not found (webhook for untracked payment) vs already used
-                const existing = await Payment.findById(paymentData._id).lean();
+            if (!payment) {
+                const existing = await paymentRepository.getPaymentBy_Id(paymentData._id);
                 if (existing) {
-                    // Payment exists but already used — skip to avoid double-processing
-                    logger.warn(`[PAYMENT] Payment ${reference} already used. Skipping reprocessing.`);
-                    notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_ALREADY_PROCESSED, { reference });
-                    return { success: true, alreadyProcessed: true };
+                    if (existing.used) {
+                        logger.warn(`[PAYMENT] Payment ${reference} already used. Skipping reprocessing.`);
+                        notifyStateChange(onUpdate, PS.S_APPROVED, PM.M_ALREADY_PROCESSED, { reference });
+                        return { success: true, alreadyProcessed: true };
+                    }
+                    if (existing.processing) {
+                        logger.info(`[PAYMENT] Payment ${reference} is currently being processed by another worker. Skipping.`);
+                        notifyStateChange(onUpdate, PS.S_PROCESSING, PM.M_PROCESSING, { reference });
+                        return { success: true, processing: true };
+                    }
+                } else {
+                    logger.info(`[PAYMENT] Payment ${reference} not found in DB — hydrating from webhook data.`);
+                    payment = await this.hydratePaymentFromWebhook(paymentData);
+                    if (!payment) {
+                        logger.warn(`[PAYMENT] Could not hydrate payment for reference ${reference}. Skipping.`);
+                        return { success: false, reason: 'Could not hydrate payment' };
+                    }
+                    payment = await paymentRepository.claimPaymentForProcessing(payment);
                 }
+            }
 
-                // Payment not found in DB — webhook arrived for untracked payment, hydrate it
-                logger.info(`[PAYMENT] Payment ${reference} not found in DB — hydrating from webhook data.`);
-                payment = await this.hydratePaymentFromWebhook(paymentData);
-                if (!payment) {
-                    logger.warn(`[PAYMENT] Could not hydrate payment for reference ${reference}. Skipping.`);
-                    return { success: false, reason: 'Could not hydrate payment' };
-                }
-                // Re-lock the freshly upserted payment
-                payment = await paymentRepository.claimPaymentForProcessing(payment);
-                if (!payment) {
-                    logger.warn(`[PAYMENT] Hydrated payment ${reference} could not be claimed. Skipping.`);
-                    return { success: false, reason: 'Hydrated payment claim failed' };
-                }
-            }*/
+            if (!payment) {
+                logger.error(`[PAYMENT] Unable to claim or hydrate payment for reference ${reference}`);
+                return { success: false, reason: 'Payment claim failed' };
+            }
 
-            logger.info(`----[PAYMENT] Payment locked for processing: ${payment.deviceIdName}`, { reference });
+            const deviceName = payment.deviceIdName || payment.plate || reference;
+            logger.info(`----[PAYMENT] Payment reserved for processing: ${deviceName}`, { reference });
             notifyStateChange(onUpdate, PS.S_PROCESSING, PM.M_PROCESSING, { reference });
+
             const { anchorInvoice, latestPaid } = await invoiceRepository.processInvoicePaymentAtomically(payment);
             if (!anchorInvoice) {
                 throw new Error('Invoice not found or could not be processed');
             }
+
             await payment.markAsUsed(anchorInvoice);
 
             try {
@@ -546,6 +553,7 @@ export class PaymentService {
 
         } catch (error) {
             logger.error('[PAYMENT] Error processing approved payment:', error);
+            await paymentRepository.releaseProcessingLock(paymentData);
             throw error;
         }
     };
@@ -701,19 +709,38 @@ export class PaymentService {
             // Build query to fetch device info (driverName, deviceId) in parallel
             const deviceInfoQuery = companyId ? { companyId } : {};
 
-            // Fetch invoices, payments and device info in parallel (single round-trip each)
+            // Fetch invoices, payments, device info and active contracts in parallel (single round-trip each)
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs] = await Promise.all([
+            const [invoices, payments, deviceDocs, activeContracts] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
-                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1 }).lean()
+                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1 }).lean(),
+                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
 
-            // Build a lookup map: deviceName -> { driverName, deviceId }
+            const getFirstName = (nameStr) => {
+                if (!nameStr || typeof nameStr !== 'string') return null;
+                const first = nameStr.trim().split(/\s+/)[0];
+                if (!first) return null;
+                return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+            };
+
+            const contractDriverMap = {};
+            activeContracts.forEach(c => {
+                const driver = getFirstName(c.customerName || c.driverName);
+                if (c.deviceIdName && driver) {
+                    contractDriverMap[c.deviceIdName] = driver;
+                }
+            });
+
+            // Build a lookup map: deviceName -> { driverName, deviceId, cutOff }
             const deviceInfoMap = {};
             deviceDocs.forEach(d => {
-                if (d.name) deviceInfoMap[d.name] = { driverName: d.driverName || null, deviceId: d._id };
+                if (d.name) {
+                    const driver = contractDriverMap[d.name] || getFirstName(d.driverName) || null;
+                    deviceInfoMap[d.name] = { driverName: driver, deviceId: d._id, cutOff: Boolean(d.cutOff) };
+                }
             });
 
             const paymentsObj = payments.length > 0 ? payments[0] : {};
@@ -731,8 +758,9 @@ export class PaymentService {
                         device: {
                             name: devName,
                             deviceId: info.deviceId || invoice.deviceId || devName,
-                            driverName: info.driverName || null,
-                            unpaidTotal: 0
+                            driverName: info.driverName || contractDriverMap[devName] || null,
+                            unpaidTotal: 0,
+                            cutOff: Boolean(info.cutOff)
                         },
                         days: {}
                     };
@@ -745,7 +773,13 @@ export class PaymentService {
                 if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && isBeforeToday) {
                     deviceMap[devName].device.unpaidTotal += invoice.amount - invoice.paidAmount;
                 }
-                deviceMap[devName].days[day] = { ...invoice, totalPaid };
+                deviceMap[devName].days[day] = {
+                    amount: invoice.amount,
+                    paidAmount: invoice.paidAmount,
+                    dayType: invoice.dayType,
+                    distance: invoice.distance || 0,
+                    totalPaid
+                };
             });
             logger.info(`[SUMMARY TIMING] JS loop: ${Date.now() - t2}ms | total: ${Date.now() - t0}ms`);
 

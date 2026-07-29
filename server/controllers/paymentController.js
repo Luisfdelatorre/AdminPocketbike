@@ -1,5 +1,6 @@
 import paymentService from '../services/paymentService.js';
 import contractRepository from '../repositories/contractRepository.js';
+import { sseService } from '../utils/sseService.js';
 import logger from '../config/logger.js';
 import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
 import helpers from '../utils/helpers.js';
@@ -373,12 +374,20 @@ const paymentController = {
             if (!invoiceId || !adjustmentType) {
                 return res.status(400).json({ success: false, error: 'invoiceId and adjustmentReason are required' });
             }
-            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'];
+            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA'];
             if (!VALID_REASONS.includes(adjustmentType)) {
                 return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${VALID_REASONS.join(', ')}` });
             }
             const result = await paymentService.applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentType, adjustmentReference, note });
-            return res.status(200).json({ success: true, data: result });
+            sseService.broadcast('payment-updated', {
+                type: 'payment',
+                invoiceId,
+                amount,
+                adjustmentType,
+                result,
+                timestamp: new Date().toISOString()
+            });
+            return res.json({ success: true, data: result });
         } catch (error) {
             logger.error('Manual adjustment error:', error.message);
             return res.status(500).json({ success: false, error: error.message });
