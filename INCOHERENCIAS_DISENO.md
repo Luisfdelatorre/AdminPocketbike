@@ -27,6 +27,8 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **7** | Reestructuración DOM: Layout Flex Column en Móvil | 🧪 En validación | El shell móvil ya usa Header–Content–Footer en flujo vertical, safe areas centralizadas y scroll interno en `.admin-content`; build y arranque local correctos, pendiente aprobación visual del usuario. |
 | **7.1** | Vistas Por Moto y Matriz en Resumen de Pagos | 🧪 En validación | Desktop permite alternar mediante un control segmentado entre tarjetas por moto y una matriz comparativa con scroll vertical de página, desplazamiento horizontal propio y encabezado de días sticky. |
 | **7.2** | Altura Natural del Header Móvil | 🧪 En validación | El header móvil es sticky y usa altura natural como hijo flex, por lo que reserva el espacio real de títulos y acciones sin padding compensatorio en las páginas. |
+| **8** | Rediseño Visual iOS de AdminDashboard | 🧪 En validación | Maquetación con filtros superiores compactos, grid de 2 tarjetas primarias, 3 tarjetas secundarias compactas con resaltado naranja en pendientes y tabla de pagos recientes con badges estilo pill en verde y gris. |
+| **9** | Rediseño Visual iOS de DeviceSelector | 🧪 En validación | Stats bar visible en móvil (3 columnas), filtros tipo pill con `#0070eb` activo, búsqueda iOS (`#f3f3f4`), tabla con banda de encabezado y filas iOS, badges de estado sistema (verde/rojo/gris), motor con colores de sistema. |
 
 ---
 
