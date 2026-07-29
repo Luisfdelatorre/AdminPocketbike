@@ -1,6 +1,8 @@
 import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
 
+import deviceRepository from './deviceRepository.js';
+
 export class ContractRepository {
     /**
      * Create a new contract
@@ -231,6 +233,17 @@ export class ContractRepository {
         }
 
         await contract.save();
+
+        const hasActiveContract = contract.status === 'ACTIVE';
+        const deviceTarget = contract.deviceIdName || contract.deviceId;
+        if (deviceTarget) {
+            try {
+                await deviceRepository.updateContractStatus(deviceTarget, hasActiveContract ? contract.contractId : null, hasActiveContract);
+            } catch (err) {
+                // non-blocking device status sync
+            }
+        }
+
         return contract.toObject();
     }
 
