@@ -377,11 +377,16 @@ const cutoffDebtors = async (companyId) => {
     };
 };
 
+const getDeviceStatusByName = async (deviceIdName) => {
+    return deviceRepository.getDeviceStatusByName(deviceIdName);
+};
+
 export default {
     bulkWriteDevices,
     syncFromGps,
     initializeGpsUpdates,
     controlEngine,
+    getDeviceStatusByName,
     getCompanyDevicesPaymentStatus,
     cutoffDebtors
 };

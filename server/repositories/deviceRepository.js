@@ -222,6 +222,38 @@ class DeviceRepository {
             throw error;
         }
     }
+
+    async getDeviceStatusByName(deviceIdName) {
+        try {
+            const device = await Device.findOne({ name: deviceIdName }, 'name gpsId imei ignition lastUpdate cutOff batteryLevel companyId hasActiveContract').lean();
+            if (!device) return null;
+            return {
+                name: device.name,
+                gpsId: device.gpsId,
+                ignition: device.ignition,
+                lastUpdate: device.lastUpdate,
+                cutOff: device.cutOff,
+                batteryLevel: device.batteryLevel,
+                hasActiveContract: device.hasActiveContract,
+            };
+        } catch (error) {
+            logger.error(`Error getting device status for ${deviceIdName}:`, error);
+            throw error;
+        }
+    }
+
+    async updateContractStatus(deviceIdName, contractId, hasActiveContract) {
+        try {
+            return await Device.findOneAndUpdate(
+                { name: deviceIdName },
+                { contractId: contractId || null, hasActiveContract: Boolean(hasActiveContract) },
+                { new: true }
+            );
+        } catch (error) {
+            logger.error(`Error updating contract status for device ${deviceIdName}:`, error);
+            throw error;
+        }
+    }
 }
 
 export default new DeviceRepository();

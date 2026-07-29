@@ -331,6 +331,24 @@ const cutoffDebtors = async (req, res) => {
     }
 };
 
+const getDeviceStatus = async (req, res) => {
+    try {
+        const deviceIdName = req.paymentAuth?.deviceIdName || req.query.deviceIdName || req.params.deviceIdName;
+        if (!deviceIdName) {
+            return res.status(400).json({ success: false, error: 'deviceIdName is required' });
+        }
+        const status = await deviceServices.getDeviceStatusByName(deviceIdName);
+        if (!status) {
+            return res.status(404).json({ success: false, error: 'Device not found' });
+        }
+
+        res.json({ success: true, data: status });
+    } catch (error) {
+        logger.error(`Error in getDeviceStatus:`, error.message);
+        res.status(500).json({ success: false, error: 'Failed to get device status' });
+    }
+};
+
 export default {
     getAllDevices,
     createDevice,
@@ -339,5 +357,6 @@ export default {
     syncDevices,
     assignDevicesToCompany,
     controlEngine,
-    cutoffDebtors
+    cutoffDebtors,
+    getDeviceStatus
 };
