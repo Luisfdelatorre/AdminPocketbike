@@ -6,8 +6,9 @@ import { nanoid } from 'nanoid';
  */
 const subscribe = (req, res) => {
     const clientId = req.query.clientId || `client-${nanoid(8)}`;
+    const companyId = req.query.companyId || req.auth?.companyId || null;
 
-    sseService.addClient(clientId, res);
+    sseService.addClient(clientId, res, { companyId });
 
     // Handle client disconnect
     req.on('close', () => {

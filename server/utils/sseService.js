@@ -9,8 +9,8 @@ export class SSEService {
     /**
      * Register a new SSE client
      */
-    addClient(clientId, response) {
-        console.log(`📡 SSE client connected: ${clientId}`);
+    addClient(clientId, response, metadata = {}) {
+        console.log(`📡 SSE client connected: ${clientId}`, metadata?.companyId ? `(Company: ${metadata.companyId})` : '');
 
         // Set headers for SSE
         response.writeHead(200, {
@@ -20,8 +20,8 @@ export class SSEService {
             'Access-Control-Allow-Origin': '*',
         });
 
-        // Store client
-        this.clients.set(clientId, response);
+        // Store client with metadata
+        this.clients.set(clientId, { response, metadata });
 
         // Send initial connection event
         this.sendToClient(clientId, 'connected', { clientId, timestamp: new Date().toISOString() });
@@ -41,27 +41,49 @@ export class SSEService {
     }
 
     /**
+     * Helper to write SSE message to client response
+     */
+    _writeToClient(clientEntry, message) {
+        const res = clientEntry?.response || clientEntry;
+        if (res && typeof res.write === 'function') {
+            res.write(message);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Send event to a specific client
      */
     sendToClient(clientId, event, data) {
-        const client = this.clients.get(clientId);
-        if (client) {
+        const clientEntry = this.clients.get(clientId);
+        if (clientEntry) {
             const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-            client.write(message);
+            this._writeToClient(clientEntry, message);
         }
     }
 
     /**
-     * Broadcast event to all connected clients
+     * Broadcast event to all connected clients (or filter by companyId if specified)
      */
-    broadcast(event, data) {
+    broadcast(event, data, filterOptions = {}) {
         const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
         let sentCount = 0;
-        this.clients.forEach((client, clientId) => {
+        this.clients.forEach((clientEntry, clientId) => {
             try {
-                client.write(message);
-                sentCount++;
+                const targetCompanyId = data?.companyId || filterOptions?.companyId;
+                const clientCompanyId = clientEntry?.metadata?.companyId;
+
+                if (targetCompanyId && clientCompanyId) {
+                    if (String(clientCompanyId) !== String(targetCompanyId)) {
+                        return; // Skip clients from other companies
+                    }
+                }
+
+                if (this._writeToClient(clientEntry, message)) {
+                    sentCount++;
+                }
             } catch (error) {
                 console.error(`Failed to send to client ${clientId}:`, error);
                 this.clients.delete(clientId);
