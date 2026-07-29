@@ -257,6 +257,32 @@ export class PaymentService {
         payment.adjustmentReference = adjustmentReference;
         await invoice.applyPayment(payment);
         logger.info(`[MANUAL ADJ] ${adjustmentType} applied for ${deviceIdName}, invoice: ${invoice._id}, amount: ${paymentAmount}`);
+
+        try {
+            await contractRepository.updateContractProgress(payment);
+        } catch (err) {
+            logger.error(`[CONTRACT] Failed to update contract progress for manual payment: ${err.message}`);
+        }
+
+        try {
+            const company = await companyService.getCompanyById(companyId);
+            const now = dayjs();
+            const latestPaid = await invoiceRepository.getLatestPaidInvoice(deviceIdName);
+            const isUpToDate = companyService.isDeviceUpToDate(company, latestPaid, now);
+            if (isUpToDate) {
+                const curfew = company?.curfew;
+                const inCurfew = companyService.isCurfewActive(curfew, now);
+                if (!inCurfew) {
+                    const device = await deviceRepository.getDeviceByName(deviceIdName);
+                    if (device && device.gpsId) {
+                        await this.activateDevice(device.gpsId, payment.paymentReference || invoice._id, null, companyId);
+                    }
+                }
+            }
+        } catch (err) {
+            logger.error(`[MANUAL ADJ] Failed to check device activation: ${err.message}`);
+        }
+
         return {
             success: true,
             invoiceId: invoice._id,

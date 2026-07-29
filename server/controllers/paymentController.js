@@ -374,7 +374,7 @@ const paymentController = {
             if (!invoiceId || !adjustmentType) {
                 return res.status(400).json({ success: false, error: 'invoiceId and adjustmentReason are required' });
             }
-            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA'];
+            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA'];
             if (!VALID_REASONS.includes(adjustmentType)) {
                 return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${VALID_REASONS.join(', ')}` });
             }
