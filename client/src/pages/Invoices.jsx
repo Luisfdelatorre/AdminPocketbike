@@ -60,57 +60,74 @@ const Invoices = () => {
     const [manualPayLoading, setManualPayLoading] = useState(false);
     const [manualPayError, setManualPayError] = useState('');
 
-    // Config per adjustment type
+    // Config per adjustment / payment type
     const ADJUSTMENT_CONFIG = {
+        NEQUI: {
+            label: 'Pago Real - Nequi',
+            color: '#E11D48',
+            bg: '#FFF1F2',
+            description: 'Pago real recibido vía Nequi.',
+            autoAmount: null,
+            autoReference: 'Pago Nequi recibido por Admin',
+            isRealPayment: true,
+        },
+        EFECTIVO: {
+            label: 'Pago Real - Efectivo',
+            color: '#16A34A',
+            bg: '#F0FDF4',
+            description: 'Pago real recibido en efectivo.',
+            autoAmount: null,
+            autoReference: 'Pago en Efectivo recibido por Admin',
+            isRealPayment: true,
+        },
+        TRANSFERENCIA: {
+            label: 'Pago Real - Transferencia Bancaria',
+            color: '#2563EB',
+            bg: '#EFF6FF',
+            description: 'Pago real recibido por transferencia bancaria.',
+            autoAmount: null,
+            autoReference: 'Transferencia Bancaria recibida por Admin',
+            isRealPayment: true,
+        },
         REPAIR: {
-            label: 'Reparación',
+            label: 'Ajuste - Reparación ($0)',
             color: '#FB9678',
             bg: '#FFF4EF',
             description: 'El dispositivo estaba en reparación — día sin cobro al cliente.',
-            autoAmount: 0,         // free day
+            autoAmount: 0,
             autoReference: 'REPARACIÓN - Día ajustado automáticamente',
         },
-        DAMAGE: {
-            label: 'Daño',
-            color: '#EF4444',
-            bg: '#FEF2F2',
-            description: 'Cobro completo por daño — el cliente es responsable.',
-            autoAmount: null,      // full invoice amount
-            autoReference: 'DAÑO - Cobro completo por responsabilidad del cliente',
-            hidden: true,
-        },
         INCAPACITY: {
-            label: 'Incapacidad',
+            label: 'Ajuste - Incapacidad ($0)',
             color: '#3b82f6',
             bg: '#EFF6FF',
             description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
-            autoAmount: 0,         // free day (pago 0)
+            autoAmount: 0,
             autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
         },
         MAINTENANCE: {
-            label: 'Mantenimiento',
+            label: 'Ajuste - Mantenimiento ($0)',
             color: '#7460EE',
             bg: '#F5F3FF',
             description: 'Mantenimiento programado — día sin cobro al cliente.',
-            autoAmount: 0,         // free day
+            autoAmount: 0,
             autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
         },
         OFFICE: {
-            label: 'Oficina',
+            label: 'Ajuste - Oficina ($0)',
             color: '#0891B2',
             bg: '#ECFEFF',
             description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
-            autoAmount: 0,         // free day (pago 0)
+            autoAmount: 0,
             autoReference: 'OFICINA - Día ajustado automáticamente',
         },
         WORKSHOP: {
-            label: 'Taller',
+            label: 'Ajuste - Taller ($0)',
             color: '#A3A3A3',
             bg: '#F5F5F5',
             description: 'Dispositivo en taller — día sin cobro al cliente.',
-            autoAmount: 0,         // free day
+            autoAmount: 0,
             autoReference: 'TALLER - Día ajustado automáticamente',
-            hidden: true,
         },
     };
 
@@ -147,20 +164,13 @@ const Invoices = () => {
         setManualPayLoading(true);
         setManualPayError('');
         try {
-            if (manualPayForm.adjustmentType) {
-                await registerManualAdjustment({
-                    invoiceId: manualPayModal.invoice._id,
-                    adjustmentType: manualPayForm.adjustmentType,
-                    amount: Number(manualPayForm.amount),
-                    adjustmentReference: manualPayForm.reference,
-                    note: manualPayForm.note,
-                });
-            } else {
-                console.log('Plain manual payment submitted', {
-                    invoiceId: manualPayModal.invoice._id,
-                    ...manualPayForm,
-                });
-            }
+            await registerManualAdjustment({
+                invoiceId: manualPayModal.invoice._id,
+                adjustmentType: manualPayForm.adjustmentType || 'NEQUI',
+                amount: Number(manualPayForm.amount),
+                adjustmentReference: manualPayForm.reference || 'Pago manual Nequi / Registro directo por Admin',
+                note: manualPayForm.note,
+            });
             await loadInvoices(currentPage);
             closeManualPayModal();
         } catch (err) {
@@ -658,76 +668,77 @@ const Invoices = () => {
                 </div>
             ) : (
                 <>
-                    <div className="payments-table-container">
-                        <table className="payments-table">
-                            <thead>
-                                <tr>
-                                    <th>ID Factura</th>
-                                    <th className="desktop-only">{t('login.deviceId')}</th>
-                                    <th>Monto</th>
-                                    <th>Fecha Pago</th>
-                                    <th>{t('common.status')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredInvoices.map((invoice) => (
-                                    <tr key={invoice.invoiceId}>
-                                        <td className="payment-id">
-                                            <div style={{ lineHeight: '1.2' }}>
-                                                {(() => {
-                                                    const formatted = formatInvoiceId(invoice.invoiceId);
-                                                    const dashIndex = formatted.indexOf('-');
-                                                    if (dashIndex !== -1) {
-                                                        return (
-                                                            <>
-                                                                <div>{formatted.slice(0, dashIndex)}</div>
-                                                                <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>{formatted.slice(dashIndex + 1)}</div>
-                                                            </>
-                                                        );
-                                                    }
-                                                    return formatted;
-                                                })()}
-                                            </div>
-                                        </td>
-                                        <td className="desktop-only">{invoice.deviceIdName}</td>
-                                        <td className="amount" style={{ color: invoice.dayType === 'PAID' || invoice.dayType === 'FREE' ? '#00c292' : '#EF4444', fontWeight: 600 }}>
-                                            <span className="desktop-only">{formatCurrency(invoice.paidAmount, false)}</span>
-                                            <span className="mobile-only">{formatCurrency(invoice.paidAmount, true)}</span>
-                                        </td>
-                                        <td className="date">
-                                            <span className="desktop-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
-                                            <span className="mobile-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
-                                        </td>
-                                        <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span
-                                                    className="status-badge"
-                                                    onClick={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? () => openManualPayModal(invoice) : undefined}
-                                                    style={{
-                                                        background: `${getStatusColor(invoice.dayType)}20`,
-                                                        color: getStatusColor(invoice.dayType),
-                                                        cursor: (invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? 'pointer' : 'default'
-                                                    }}
-                                                    title={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? "Registrar pago manual / ajuste" : undefined}
-                                                >
-                                                    {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {(invoice.adjustmentType === 'DAMAGE' || invoice.adjustmentType === 'INCAPACITY' || invoice.adjustmentType === 'INCAPACIDAD')}
-                                                    {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                    {(invoice.adjustmentType === 'WORKSHOP' || invoice.adjustmentType === 'OFFICE' || invoice.adjustmentType === 'OFICINA')}
-                                                    {(() => {
-                                                        const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
-                                                        if (adjType && ADJUSTMENT_CONFIG[adjType]) {
-                                                            return ADJUSTMENT_CONFIG[adjType].label.toUpperCase();
-                                                        }
-                                                        return invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType;
-                                                    })()}
-                                                </span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="devices-table-card-ios">
+                        <div className="invoices-table-header-ios">
+                            <span>ID Factura</span>
+                            <span className="desktop-col">{t('login.deviceId')}</span>
+                            <span className="col-center">Monto</span>
+                            <span className="col-center">Fecha Pago</span>
+                            <span className="col-center">{t('common.status')}</span>
+                        </div>
+                        <div className="devices-table-rows-ios">
+                            {filteredInvoices.map((invoice) => (
+                                <div key={invoice.invoiceId} className="invoices-row-ios">
+                                    <div className="device-name-col">
+                                        <div style={{ lineHeight: '1.2' }}>
+                                            {(() => {
+                                                const formatted = formatInvoiceId(invoice.invoiceId);
+                                                const dashIndex = formatted.indexOf('-');
+                                                if (dashIndex !== -1) {
+                                                    return (
+                                                        <>
+                                                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1c1c' }}>{formatted.slice(0, dashIndex)}</div>
+                                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>{formatted.slice(dashIndex + 1)}</div>
+                                                        </>
+                                                    );
+                                                }
+                                                return <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1c1c' }}>{formatted}</div>;
+                                            })()}
+                                        </div>
+                                    </div>
+                                    <div className="desktop-col" style={{ fontSize: '13px', fontWeight: 600, color: '#4b5563', alignItems: 'center' }}>
+                                        {invoice.deviceIdName}
+                                    </div>
+                                    <div className="col-center" style={{ color: invoice.dayType === 'PAID' || invoice.dayType === 'FREE' ? '#059669' : '#FF3B30', fontWeight: 700, fontSize: '13px' }}>
+                                        <span className="desktop-only">{formatCurrency(invoice.paidAmount, false)}</span>
+                                        <span className="mobile-only">{formatCurrency(invoice.paidAmount, true)}</span>
+                                    </div>
+                                    <div className="col-center" style={{ fontSize: '12px', color: '#4b5563' }}>
+                                        <span className="desktop-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
+                                        <span className="mobile-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
+                                    </div>
+                                    <div className="col-center">
+                                        <span
+                                            className="status-badge"
+                                            onClick={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? () => openManualPayModal(invoice) : undefined}
+                                            style={{
+                                                background: `${getStatusColor(invoice.dayType)}20`,
+                                                color: getStatusColor(invoice.dayType),
+                                                cursor: (invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? 'pointer' : 'default',
+                                                padding: '4px 10px',
+                                                borderRadius: '9999px',
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                            title={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? "Registrar pago manual / ajuste" : undefined}
+                                        >
+                                            {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} />}
+                                            {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} />}
+                                            {(() => {
+                                                const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
+                                                if (adjType && ADJUSTMENT_CONFIG[adjType]) {
+                                                    return ADJUSTMENT_CONFIG[adjType].label.replace(/(\(\$0\)|Pago Real - |Ajuste - )/g, '').trim().toUpperCase();
+                                                }
+                                                return invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType;
+                                            })()}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="results-info">
@@ -852,8 +863,8 @@ const Invoices = () => {
                                         placeholder="0"
                                         value={manualPayForm.amount}
                                         onChange={(e) => setManualPayForm(f => ({ ...f, amount: e.target.value }))}
-                                        readOnly={!!manualPayForm.adjustmentType}
-                                        style={manualPayForm.adjustmentType ? { background: '#F9FAFB', cursor: 'default', fontWeight: 700 } : {}}
+                                        readOnly={!!manualPayForm.adjustmentType && !ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.isRealPayment && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.autoAmount !== null}
+                                        style={manualPayForm.adjustmentType && !ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.isRealPayment && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.autoAmount !== null ? { background: '#F9FAFB', cursor: 'default', fontWeight: 700 } : {}}
                                         required={!manualPayForm.adjustmentType}
                                     />
                                 </div>
