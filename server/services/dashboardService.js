@@ -24,7 +24,7 @@ export const getDashboardData = async (companyId, periodScope) => {
       paymentRepository.getTotalRevenueByCompany(companyId, periodScope),
       invoiceRepository.getTotalInvoicedByCompany(companyId, periodScope)
     ]);
-    const collectionGap = invoiceStats.totalInvoiced - totalRevenue;
+    const collectionGap = invoiceStats.totalUnpaid;
 
     // 3️⃣ Pending invoices count
     const pendingPayments = await invoiceRepository.countPendingInvoicesByCompany(companyId);
@@ -70,7 +70,7 @@ export const getDashboardData = async (companyId, periodScope) => {
         totalPaidInvoices: invoiceStats.totalPaid,
         collectionGap,
         collectionRate: invoiceStats.totalInvoiced > 0
-          ? parseFloat(((totalRevenue / invoiceStats.totalInvoiced) * 100).toFixed(1))
+          ? parseFloat(((invoiceStats.totalPaid / invoiceStats.totalInvoiced) * 100).toFixed(1))
           : 100,
         changes: {
           totalRevenue: parseFloat(revenueChange.toFixed(1)),

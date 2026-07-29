@@ -6,6 +6,7 @@ import { Company } from '../models/Company.js';
 import { Invoice } from '../models/Invoice.js';
 import deviceServices from '../services/deviceServices.js';
 import companyService from '../services/companyService.js';
+import { sseService } from '../utils/sseService.js';
 import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
 import logger from '../utils/logger.js';
 
@@ -276,6 +277,12 @@ const controlEngine = async (req, res) => {
         const response = await deviceServices.controlEngine(id, command, companyId);
 
         if (response && response.success) {
+            sseService.broadcast('payment-updated', {
+                type: 'engine',
+                deviceId: id,
+                command,
+                timestamp: new Date().toISOString()
+            });
             return res.json({
                 success: true,
                 response

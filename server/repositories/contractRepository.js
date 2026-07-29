@@ -51,8 +51,13 @@ export class ContractRepository {
      * Get active contract for a device
      */
     async getActiveContractByDevice(deviceIdName) {
+        if (!deviceIdName) return null;
         return await Contract.findOne({
-            deviceIdName,
+            $or: [
+                { deviceIdName: deviceIdName },
+                { plate: deviceIdName },
+                { deviceId: deviceIdName }
+            ],
             status: 'ACTIVE',
         }).lean();
     }

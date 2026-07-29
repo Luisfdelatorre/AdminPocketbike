@@ -25,13 +25,16 @@ export class InvoiceRepository {
                 throw new Error(`Device not found for name: ${deviceIdName}`);
             }
 
+            const contractId = device.activeContractId;
+
             const invoice = await Invoice.createInvoice({
                 amount,
                 date,
                 deviceIdName,
                 deviceId: device.deviceId,
                 gpsId: device.gpsId,
-                companyId: device.companyId
+                companyId: device.companyId,
+                contractId
             });
 
             return invoice.toObject();
@@ -66,11 +69,12 @@ export class InvoiceRepository {
             return invoice;
         }
 
-        if (!gpsId) {
+        if (!gpsId || !contractId) {
             const device = await Device.findOne({ name: deviceIdName });
             if (device) {
-                gpsId = device.gpsId;
+                if (!gpsId) gpsId = device.gpsId;
                 if (!megaDeviceId) megaDeviceId = device.megaDeviceId;
+                if (!contractId) contractId = device.activeContractId;
             }
         }
 
@@ -90,7 +94,8 @@ export class InvoiceRepository {
      * Find or create unpaid invoice
      */
     async findOrCreateUnpaidInvoice(deviceIdName, contract, maxAttempts = 3) {
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const attemptsLimit = typeof maxAttempts === 'number' && maxAttempts > 0 ? maxAttempts : 3;
+        for (let attempt = 1; attempt <= attemptsLimit; attempt++) {
             try {
                 // 1️⃣ Check for existing unpaid invoice
                 const existingInvoice = await Invoice.findLastUnPaid(deviceIdName);
@@ -273,7 +278,7 @@ export class InvoiceRepository {
     async findInvoicesForSummary(query) {
         try {
             return await Invoice.find(query)
-                .select('date deviceIdName dayType amount paidAmount cutOff')
+                .select('date deviceIdName dayType amount paidAmount cutOff distance')
                 .lean();
         } catch (error) {
             logger.error('Error finding invoices for summary:', error);
@@ -434,43 +439,46 @@ export class InvoiceRepository {
 
         let unpaidInvoices = await Invoice.find({ deviceIdName, paid: false, ...contractIdFilter }).sort({ date: 1 });
         let coveredDays = unpaidInvoices.length;
-        if (coveredDays >= targetLimit) {
-            logger.info(`[CYCLE] Already ${unpaidInvoices.length} unpaid invoices for ${deviceIdName}, skipping`);
-            return unpaidInvoices.slice(0, targetLimit);
-        }
-        // Start from the day after the latest paid invoice in THIS contract, or from contract.startDate
-        const latestPaid = await Invoice.findOne({ deviceIdName, paid: true, ...contractIdFilter }).sort({ date: -1 });
-        let currentDate = latestPaid
-            ? dayjs(latestPaid.date).add(1, 'day')
-            : dayjs(contract.startDate).startOf('day');
 
-        // Loop until exactly `targetLimit` calendar cycle unpaid days are pre-created
-        while (coveredDays < targetLimit) {
-            const dateVal = currentDate.toDate();
-            const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
+        const cycleInvoicesMap = new Map();
+        unpaidInvoices.forEach(inv => cycleInvoicesMap.set(inv._id.toString(), inv));
 
-            const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
-                contract.fixedFreeDayOfWeek !== undefined &&
-                currentDate.day() === contract.fixedFreeDayOfWeek;
+        if (coveredDays < targetLimit) {
+            // Start from the day after the latest paid invoice in THIS contract, or from contract.startDate
+            const latestPaid = await Invoice.findOne({ deviceIdName, paid: true, ...contractIdFilter }).sort({ date: -1 });
+            let currentDate = latestPaid
+                ? dayjs(latestPaid.date).add(1, 'day')
+                : dayjs(contract.startDate).startOf('day');
 
-            if (isFixedFreeDay) {
-                // Create a $0 Payment record for fixed free day audit trail
-                const payment = await paymentRepository.createFreePayment(
-                    deviceIdName,
-                    contract,
-                    invoice,
-                    contract.companyId
-                );
-                await invoice.applyPayment(payment);
-                logger.info(`[CYCLE] Pre-created FREE invoice + payment for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
-            } else {
-                coveredDays++;
-                logger.info(`[CYCLE] Pre-created DEBT invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
+            // Loop until exactly `targetLimit` calendar cycle unpaid days are pre-created
+            while (coveredDays < targetLimit) {
+                const dateVal = currentDate.toDate();
+                const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
+
+                const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
+                    contract.fixedFreeDayOfWeek !== undefined &&
+                    currentDate.day() === contract.fixedFreeDayOfWeek;
+
+                if (isFixedFreeDay) {
+                    // Create a $0 Payment record for fixed free day audit trail
+                    const payment = await paymentRepository.createFreePayment(
+                        deviceIdName,
+                        contract,
+                        invoice,
+                        contract.companyId
+                    );
+                    await invoice.applyPayment(payment);
+                    logger.info(`[CYCLE] Pre-created FREE invoice + payment for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
+                } else {
+                    coveredDays++;
+                    cycleInvoicesMap.set(invoice._id.toString(), invoice);
+                    logger.info(`[CYCLE] Pre-created DEBT invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
+                }
+                currentDate = currentDate.add(1, 'day');
             }
-            currentDate = currentDate.add(1, 'day');
         }
-        unpaidInvoices = await Invoice.find({ deviceIdName, paid: false, ...contractIdFilter }).sort({ date: 1 });
-        return unpaidInvoices.slice(0, targetLimit);
+        const resultInvoices = Array.from(cycleInvoicesMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
+        return resultInvoices.slice(0, targetLimit);
     }
 
     /**
@@ -480,22 +488,42 @@ export class InvoiceRepository {
     async processInvoicePaymentAtomically(payment) {
         const { deviceIdName } = payment;
 
-        let contract = await contractRepository.getActiveContractByDevice(deviceIdName);;
-        let frequency = payment.paymentFrequency;
-        let multiplier = payment.billingMultiplier;
+        let contract = payment.contractId
+            ? await contractRepository.getContractById(payment.contractId)
+            : await contractRepository.getActiveContractByDevice(deviceIdName);
 
-        if (!frequency || !multiplier) {
-            frequency = frequency || contract.paymentFrequency || 1;
-            multiplier = multiplier || Contract.getBillingMultiplier(frequency, contract.freeDayPolicy);
+        if (!contract) {
+            // Fallback lookup using device plate/name
+            const deviceDoc = await Device.findOne({ $or: [{ name: deviceIdName }, { plate: deviceIdName }, { _id: deviceIdName }] }).lean();
+            if (deviceDoc) {
+                contract = await contractRepository.getActiveContractByDevice(deviceDoc.name || deviceDoc.plate);
+            }
         }
-        const unpaidInvoicesToPay = await this.ensureCycleInvoicesExist(deviceIdName, contract);
-        await Promise.all(unpaidInvoicesToPay.map(invoice => invoice.applyPayment(payment)));
-        logger.info(`[PAYMENT FLOW] bulkWrite complete — invoices marked PAID for ${deviceIdName}.`);
 
-        // 5. Return both the oldest invoice (anchor) and the newest paid invoice (latestPaid)
+        if (!contract) {
+            logger.error(`[PAYMENT FLOW] No active contract found for deviceIdName: ${deviceIdName}`);
+            throw new Error(`No active contract found for device: ${deviceIdName}`);
+        }
+
+        let frequency = payment.paymentFrequency || contract.paymentFrequency || 1;
+        let multiplier = payment.billingMultiplier || Contract.getBillingMultiplier(frequency, contract.freeDayPolicy);
+
+        const unpaidInvoicesToPay = await this.ensureCycleInvoicesExist(deviceIdName, contract, multiplier);
+
+        if (!unpaidInvoicesToPay || unpaidInvoicesToPay.length === 0) {
+            logger.error(`[PAYMENT FLOW] ensureCycleInvoicesExist returned 0 invoices for ${deviceIdName}`);
+            throw new Error(`No invoices found or created for payment processing on ${deviceIdName}`);
+        }
+
+        await Promise.all(unpaidInvoicesToPay.map(invoice => invoice.applyPayment(payment)));
+        logger.info(`[PAYMENT FLOW] bulkWrite complete — ${unpaidInvoicesToPay.length} invoices marked PAID for ${deviceIdName}.`);
+
+        const anchorInvoice = unpaidInvoicesToPay[0];
+        const latestPaid = unpaidInvoicesToPay[unpaidInvoicesToPay.length - 1];
+
         return {
-            anchorInvoice: unpaidInvoicesToPay[0],
-            latestPaid: unpaidInvoicesToPay[unpaidInvoicesToPay.length - 1]
+            anchorInvoice,
+            latestPaid
         };
     }
 
@@ -519,9 +547,29 @@ export class InvoiceRepository {
             {
                 $group: {
                     _id: null,
-                    totalInvoiced: { $sum: '$amount' },
-                    totalPaid: { $sum: { $cond: ['$paid', '$amount', 0] } },
-                    totalUnpaid: { $sum: { $cond: ['$paid', 0, '$amount'] } }
+                    totalInvoiced: {
+                        $sum: {
+                            $cond: [{ $eq: ['$dayType', 'FREE'] }, 0, '$amount']
+                        }
+                    },
+                    totalPaid: {
+                        $sum: {
+                            $cond: [
+                                { $and: ['$paid', { $ne: ['$dayType', 'FREE'] }] },
+                                { $ifNull: ['$paidAmount', '$amount'] },
+                                0
+                            ]
+                        }
+                    },
+                    totalUnpaid: {
+                        $sum: {
+                            $cond: [
+                                { $and: [{ $eq: ['$paid', false] }, { $ne: ['$dayType', 'FREE'] }] },
+                                '$amount',
+                                0
+                            ]
+                        }
+                    }
                 }
             }
         ]);

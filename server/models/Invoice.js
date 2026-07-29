@@ -40,9 +40,8 @@ const InvoiceSchema = new mongoose.Schema(
         cutOff: { type: Boolean, default: false }, // Device turned off due to non-payment
         adjustmentType: {
             type: String,
-            enum: ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', null],
             default: null
-        }, // Reason why this day was altered
+        }, // Reason why this day was altered or manual payment type
         adjustmentReference: { type: String, default: '' }, // Admin reference / note for the adjustment
         adjustmentComment: { type: String, default: '' }, // Free-text explanation for the adjustment
     },
@@ -128,6 +127,12 @@ InvoiceSchema.statics.createInvoice = async function ({
     companyName,
     contractId
 }) {
+    if (!contractId && deviceIdName) {
+        const contract = await mongoose.model('Contract').findOne({ deviceIdName, status: 'ACTIVE' }, { contractId: 1 }).lean();
+        if (contract) {
+            contractId = contract.contractId;
+        }
+    }
     const id = this.buildId(deviceIdName, date);
     const invoice = await this.create({
         _id: id,
@@ -151,6 +156,16 @@ InvoiceSchema.statics.createInvoice = async function ({
 // ════════════════════════════════════════════
 // Add instance method
 InvoiceSchema.methods.applyPayment = async function (payment) {
+    if (!this.contractId) {
+        if (payment?.contractId) {
+            this.contractId = payment.contractId;
+        } else if (this.deviceIdName) {
+            const activeContract = await mongoose.model('Contract').findOne({ deviceIdName: this.deviceIdName, status: 'ACTIVE' }, { contractId: 1 }).lean();
+            if (activeContract) {
+                this.contractId = activeContract.contractId;
+            }
+        }
+    }
     // Aplicar lógica según tipo de evento
     switch (payment.type) {
         case PAYMENT_TYPE.WOMPI:
@@ -200,16 +215,20 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
 
         case PAYMENT_TYPE.ADJUSTMENT:
             this.paid = true;
-            this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;
             this.adjustmentType = payment.adjustmentType || payment.adjustmentReason || null;
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
 
-            // For free adjustments (REPAIR, MAINTENANCE, WORKSHOP, OFFICE, INCAPACITY), the amount is $0
-            if (['REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(this.adjustmentType)) {
+            const adjTypeUpper = String(this.adjustmentType || '').toUpperCase();
+            const isFreeAdj = ['REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'NOVEDAD', 'TALLER', 'MANTENIMIENTO', 'REPARACION'].includes(adjTypeUpper);
+
+            if (isFreeAdj) {
+                this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;
                 this.amount = 0;
                 this.paidAmount = 0;
             } else {
-                this.paidAmount = payment.amount;
+                this.dayType = INVOICE_DAYTYPE.PAID;
+                this.paidAmount = payment.amount || 0;
+                this.amount = payment.amount || this.amount;
             }
 
             this.transaction.id = payment._id;

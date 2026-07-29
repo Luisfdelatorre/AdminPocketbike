@@ -52,17 +52,23 @@ class MyTraccar {
             .map(d => ({ ...d, gpsId: d.id }));
     };
 
-    fetchPreviousDayKmDevice = async (now = new Date()) => {
+    fetchPreviousDayKmDevice = async (now = new Date(), deviceGpsIds = null) => {
         const start = new Date(now);
         start.setDate(start.getDate() - 1);
         const end = new Date(start);
         end.setHours(23, 59, 59, 999);
 
-        const res = await this._api.getDayKmDevice({
-            groupId: 1,
-            from: start.toISOString().replace('Z', '+00:00'),
-            to: end.toISOString().replace('Z', '+00:00'),
-        });
+        const params = new URLSearchParams();
+        params.append('from', start.toISOString().replace('Z', '+00:00'));
+        params.append('to', end.toISOString().replace('Z', '+00:00'));
+
+        if (Array.isArray(deviceGpsIds) && deviceGpsIds.length > 0) {
+            deviceGpsIds.forEach(id => params.append('deviceId', id));
+        } else {
+            params.append('groupId', 1);
+        }
+
+        const res = await this._api.axiosInstance.get('api/reports/summary', { params });
         return res.data;
     };
 
@@ -127,6 +133,19 @@ class MyTraccar {
             deviceIds.map(async id => {
                 try { await this.stopDevice(id); return id; }
                 catch (e) { logger.error(`Error stopping device ${id}`, e); return null; }
+            })
+        );
+        return results.filter(Boolean);
+    };
+
+    resumeDevices = async (deviceIds = []) => {
+        if (!deviceIds.length) return [];
+        logger.info('ER (Bulk)', { deviceIds });
+
+        const results = await Promise.all(
+            deviceIds.map(async id => {
+                try { await this.resumeDevice(id); return id; }
+                catch (e) { logger.error(`Error resuming device ${id}`, e); return null; }
             })
         );
         return results.filter(Boolean);

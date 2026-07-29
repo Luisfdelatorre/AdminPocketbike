@@ -110,7 +110,15 @@ class DeviceRepository {
     }
     async getDeviceByName(name) {
         try {
-            return await Device.findOne({ name });
+            if (!name) return null;
+            const numericId = !isNaN(name) ? Number(name) : name;
+            return await Device.findOne({
+                $or: [
+                    { name: name },
+                    { plate: name },
+                    { _id: numericId }
+                ]
+            });
         } catch (error) {
             logger.error(`Error getting device by name ${name}:`, error);
             throw error;
@@ -124,6 +132,7 @@ class DeviceRepository {
         console.log('Update contract status for device:', numericId, contractId, hasContract);
         const result = await Device.findByIdAndUpdate(numericId, {
             activeContractId: contractId,
+            contractId: contractId,
             hasActiveContract: hasContract
         }, { new: true });
 
@@ -140,7 +149,7 @@ class DeviceRepository {
                 activeContractId: contract.contractId,
                 hasActiveContract: true,
                 contractId: contract.contractId, // Sync requested by user
-                driverName: contract.driverName,
+                driverName: contract.customerName || contract.driverName,
                 nequiNumber: contract.nequiNumber,
                 companyId: contract.companyId,
                 companyName: contract.companyName,
@@ -166,7 +175,7 @@ class DeviceRepository {
         try {
             return await Device.findOneAndUpdate(
                 { deviceId: deviceId },
-                { cutOff: cutOff },
+                { cutOff: Boolean(cutOff) },
                 { new: true }
             );
         } catch (error) {
@@ -178,7 +187,7 @@ class DeviceRepository {
         try {
             return await Device.findOneAndUpdate(
                 { gpsId: gpsId },
-                { cutOff: cutOff },
+                { cutOff: Boolean(cutOff) },
                 { new: true }
             );
         } catch (error) {

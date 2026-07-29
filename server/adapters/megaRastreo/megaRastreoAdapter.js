@@ -196,6 +196,11 @@ class MegaRastreoApiWeb {
         return this._sendCommandsBulk("2", deviceIds);
     }
 
+    async resumeDevices(deviceIds) {
+        if (!deviceIds || deviceIds.length === 0) return [];
+        return this._sendCommandsBulk("1", deviceIds);
+    }
+
     async confirmCommand(commandId) {
         await this.ensureLogin();
 
