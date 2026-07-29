@@ -104,48 +104,74 @@ class MyTraccar {
         return await this._sendCommand(deviceId, commandType);
     };
     resumeDevice = async (deviceId, name = '') => {
-        logger.info('ER', { deviceId, name });
-        return await this._sendCommand(deviceId, ENGINERESUME);
+        const gpsId = typeof deviceId === 'object' ? (deviceId.gpsId || deviceId.id) : deviceId;
+        if (!gpsId || gpsId === 'undefined') {
+            logger.warn(`[Traccar] Skipping resume: missing valid gpsId`, { deviceId });
+            return null;
+        }
+        logger.info('ER', { gpsId, name });
+        return await this._sendCommand(gpsId, ENGINERESUME);
     };
 
     stopDevice = async (deviceId, name = '') => {
-        logger.info('ES', { deviceId, name });
-        return await this._sendCommand(deviceId, ENGINESTOP);
+        const gpsId = typeof deviceId === 'object' ? (deviceId.gpsId || deviceId.id) : deviceId;
+        if (!gpsId || gpsId === 'undefined') {
+            logger.warn(`[Traccar] Skipping stop: missing valid gpsId`, { deviceId });
+            return null;
+        }
+        logger.info('ES', { gpsId, name });
+        return await this._sendCommand(gpsId, ENGINESTOP);
     };
 
     resumeDeviceWithRetry = async (deviceId, name = '') => {
-        logger.info('ER-RETRY', { deviceId, name });
-        await this._sendCommand(deviceId, ENGINERESUME);
-        return await this._checkDeviceWithRetries(deviceId, 1);
+        const gpsId = typeof deviceId === 'object' ? (deviceId.gpsId || deviceId.id) : deviceId;
+        if (!gpsId || gpsId === 'undefined') return false;
+        logger.info('ER-RETRY', { gpsId, name });
+        await this._sendCommand(gpsId, ENGINERESUME);
+        return await this._checkDeviceWithRetries(gpsId, 1);
     };
 
     stopDeviceWithRetry = async (deviceId, name = '') => {
-        logger.info('ES-RETRY', { deviceId, name });
-        await this._sendCommand(deviceId, ENGINESTOP);
-        return await this._checkDeviceWithRetries(deviceId, 0);
+        const gpsId = typeof deviceId === 'object' ? (deviceId.gpsId || deviceId.id) : deviceId;
+        if (!gpsId || gpsId === 'undefined') return false;
+        logger.info('ES-RETRY', { gpsId, name });
+        await this._sendCommand(gpsId, ENGINESTOP);
+        return await this._checkDeviceWithRetries(gpsId, 0);
     };
 
     stopDevices = async (deviceIds = []) => {
-        if (!deviceIds.length) return [];
-        logger.info('ES (Bulk)', { deviceIds });
+        const validGpsIds = (deviceIds || []).map(item => typeof item === 'object' ? (item.gpsId || item.id) : item).filter(Boolean);
+        if (!validGpsIds.length) return [];
+        logger.info('ES (Bulk)', { validGpsIds });
 
         const results = await Promise.all(
-            deviceIds.map(async id => {
-                try { await this.stopDevice(id); return id; }
-                catch (e) { logger.error(`Error stopping device ${id}`, e); return null; }
+            validGpsIds.map(async gpsId => {
+                try {
+                    const res = await this.stopDevice(gpsId);
+                    return res ? gpsId : null;
+                } catch (e) {
+                    logger.error(`Error stopping device ${gpsId}`, e.message || e);
+                    return null;
+                }
             })
         );
         return results.filter(Boolean);
     };
 
     resumeDevices = async (deviceIds = []) => {
-        if (!deviceIds.length) return [];
-        logger.info('ER (Bulk)', { deviceIds });
+        const validGpsIds = (deviceIds || []).map(item => typeof item === 'object' ? (item.gpsId || item.id) : item).filter(Boolean);
+        if (!validGpsIds.length) return [];
+        logger.info('ER (Bulk)', { validGpsIds });
 
         const results = await Promise.all(
-            deviceIds.map(async id => {
-                try { await this.resumeDevice(id); return id; }
-                catch (e) { logger.error(`Error resuming device ${id}`, e); return null; }
+            validGpsIds.map(async gpsId => {
+                try {
+                    const res = await this.resumeDevice(gpsId);
+                    return res ? gpsId : null;
+                } catch (e) {
+                    logger.error(`Error resuming device ${gpsId}`, e.message || e);
+                    return null;
+                }
             })
         );
         return results.filter(Boolean);
@@ -386,10 +412,15 @@ class MyTraccar {
 
 
     _sendCommand = async (id, command) => {
-        const body = new CommandBody(command, id, 0);
+        const gpsId = typeof id === 'object' ? (id.gpsId || id.id) : id;
+        const numericId = Number(gpsId);
+        if (!gpsId || gpsId === 'undefined' || isNaN(numericId)) {
+            logger.warn(`[Traccar] Cannot send command: invalid numeric gpsId (${gpsId})`);
+            return null;
+        }
+        const body = new CommandBody(command, numericId, 0);
         console.log('Sending command to Traccar:', body);
         try {
-            console.log('Traccar API:', body);
             const res = await this._api.sendCommand(body);
             console.log('Traccar response:', res.data);
             return res.data;

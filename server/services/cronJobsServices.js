@@ -161,19 +161,19 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
   try {
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
 
-    // Prepare arrays for the adapter
-    const targetIds = batch.map(d => d.megaDeviceId || d.deviceId); // Need fallback if megaDeviceId is undefined
+    // Prepare arrays for the adapter strictly using gpsId
+    const targetIds = batch.map(d => d.gpsId).filter(Boolean);
 
     const streamedConfirmedIds = new Set();
 
     const handleDeviceConfirmed = (targetId) => {
       streamedConfirmedIds.add(targetId);
-      // Find original device inside the batch
-      const originalDevice = batch.find(d => (d.megaDeviceId || d.deviceId) === targetId);
+      // Find original device inside the batch using gpsId
+      const originalDevice = batch.find(d => String(d.gpsId) === String(targetId));
       if (originalDevice) {
         logger.info(`[CUT-OFF] Device ${originalDevice.name} engine stop confirmed early.`);
         // Fire and forget updating the status async
-        deviceRepository.updateCutOffStatus(originalDevice.deviceId, 1).catch(err => {
+        deviceRepository.updateCutOffStatus(originalDevice._id || originalDevice.gpsId, 1).catch(err => {
           logger.error(`Error streaming update for ${originalDevice.name}:`, err);
         });
       }
@@ -188,7 +188,8 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
     // Iterate through the original batch to correlate results and update DB
     // We only process devices that were NOT confirmed early.
     const updatePromises = batch.map(async (device) => {
-      const targetId = device.megaDeviceId || device.deviceId;
+      const targetId = device.gpsId;
+      if (!targetId) return;
 
       // If we already successfully streamed its update, do nothing
       if (streamedConfirmedIds.has(targetId)) return;
@@ -197,7 +198,7 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
 
       if (!confirmed) {
         logger.warn(`[CUT-OFF] Device ${device.name} engine stop command not confirmed after retries.`);
-        return deviceRepository.updateCutOffStatus(device.deviceId, 2); // 2 = Sent but not confirmed
+        return deviceRepository.updateCutOffStatus(device._id || device.gpsId, 2); // 2 = Sent but not confirmed
       } else {
         // Technically this shouldn't happen unless the callback missed it, 
         // but we handle it just in case as a fallback.
