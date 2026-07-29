@@ -1158,7 +1158,10 @@ class EventHandler {
         if (logout) logout.addEventListener('click', () => this._handleLogout());
 
         const more = this.dom.get('buttons.morePayment');
-        if (more) more.addEventListener('click', () => this._toggleMoreOptions());
+        if (more) more.addEventListener('click', (e) => {
+            e.preventDefault();
+            this._toggleMoreOptions();
+        });
 
         // Month navigation — buttons are in the static HTML so use direct listeners
         const prevBtn = document.getElementById('monthPrevBtn');

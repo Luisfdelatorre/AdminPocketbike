@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff } from 'lucide-react';
+import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff, ListFilter } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
@@ -42,6 +43,9 @@ const DeviceManagement = () => {
     const [pendingCommands, setPendingCommands] = useState({});
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+
+    useFilterVisibilityOnScroll(setShowFilters);
 
 
     const [formData, setFormData] = useState({
@@ -55,7 +59,44 @@ const DeviceManagement = () => {
 
     useEffect(() => {
         loadDevices();
-    }, [viewMode]); // Reload when view mode changes
+        const handlePaymentUpdate = (e) => {
+            const detail = e.detail;
+            if (detail?.type === 'gps_update' && Array.isArray(detail.devices)) {
+                setDevices(prev => prev.map(dev => {
+                    const match = detail.devices.find(u => {
+                        const targetId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
+                        return targetId && (
+                            String(dev.deviceId) === targetId ||
+                            String(dev.id) === targetId ||
+                            String(dev.gpsId) === targetId ||
+                            String(dev.name) === targetId
+                        );
+                    });
+                    if (match) {
+                        return {
+                            ...dev,
+                            ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
+                            ...(match.ignition != null && { ignition: match.ignition }),
+                            ...(match.cutOff != null && { cutOff: match.cutOff ? 1 : 0 }),
+                            ...(match.lastUpdate && { lastUpdate: match.lastUpdate })
+                        };
+                    }
+                    return dev;
+                }));
+            } else if (detail?.type === 'engine' && detail?.deviceId) {
+                const targetCutOff = detail.command === 0 ? 1 : 0;
+                setDevices(prev => prev.map(dev => {
+                    const id = dev.id || dev.deviceId || dev.name;
+                    if (id === detail.deviceId || dev.name === detail.deviceId) {
+                        return { ...dev, cutOff: targetCutOff };
+                    }
+                    return dev;
+                }));
+            }
+        };
+        window.addEventListener('payment-update', handlePaymentUpdate);
+        return () => window.removeEventListener('payment-update', handlePaymentUpdate);
+    }, [viewMode]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -96,14 +137,12 @@ const DeviceManagement = () => {
         }
     };
 
-    const loadDevices = async () => {
-        setLoading(true);
+    const loadDevices = async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             let result;
             if (viewMode !== 'financial') {
                 const financialData = await getStatusReport();
-                console.log(financialData);
-                // API returns { success: true, data: [...] }
                 const deviceList = Array.isArray(financialData) ? financialData
                     : (financialData?.data ?? financialData?.devices ?? []);
                 result = { success: true, devices: deviceList };
@@ -116,9 +155,9 @@ const DeviceManagement = () => {
             }
         } catch (err) {
             console.error('Error fetching devices:', err);
-            showToast('Failed to load devices', 'error');
+            if (!isSilent) showToast('Failed to load devices', 'error');
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     };
 
@@ -240,7 +279,7 @@ const DeviceManagement = () => {
         const id = device.id;
         // cutOff=1 → device stopped → toggle to resume (command=1)
         // cutOff=0 → device active  → toggle to stop  (command=0)
-        const command = device.cutOff === 1 ? 1 : 0;
+        const command = device.cutOff ? 1 : 0;
         setPendingCommands(prev => ({ ...prev, [id]: true }));
 
         try {
@@ -311,13 +350,12 @@ const DeviceManagement = () => {
     }
 
     return (
-        <div className="devices-page">
-            {/* Header */}
+        <div className="devices-page ios-devices-page">
+            {/* Desktop Header */}
             <div className="page-header">
                 <div className="desktop-only">
                     <h1>{t('devices.title')}</h1>
                 </div>
-
                 {user?.isSuperAdmin ? (
                     <button className="btn-secondary desktop-only" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
                         <RefreshCw className={loading ? 'spin' : ''} /> {t('devices.sync')}
@@ -327,113 +365,96 @@ const DeviceManagement = () => {
                         <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
                     </button>
                 )}
-                {user?.role !== 'viewer' && (
-                    <button className="btn-primary desktop-only" onClick={handleAddDevice}>
-                        <Plus /> {t('devices.addDevice')}
-                    </button>
-                )}
-
                 <MobileHeaderAction>
-                    {user?.role !== 'viewer' && (
-                        <button
-                            onClick={handleAddDevice}
-                            className="btn-mobile-header-action"
-                        >
-                            <Plus size={24} />
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
+                        onClick={() => setShowFilters(!showFilters)}
+                        id="filterToggle"
+                        title="Filtros"
+                    >
+                        <ListFilter size={20} />
+                    </button>
                     <button onClick={user?.isSuperAdmin ? handleSync : loadDevices} className="btn-mobile-header-action">
                         <RefreshCw size={20} className={loading ? 'spin' : ''} />
                     </button>
                 </MobileHeaderAction>
-
             </div>
 
-            {/* Stats Cards */}
-            <div className="devices-stats desktop-only">
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
-                        <Users />
+            {/* Expandable Metrics Section */}
+            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+                <div className="devices-stats-ios">
+                    <div className="stat-card-ios">
+                        <div className="stat-content-ios">
+                            <h3 className="uppercase-title-ios">{t('devices.totalDevices')}</h3>
+                            <div className="stat-value-container-ios">
+                                <span className="stat-value-ios">{devices.length}</span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('devices.totalDevices')}</div>
-                        <div className="stat-number">{devices.length}</div>
+                    <div className="stat-card-ios">
+                        <div className="stat-content-ios">
+                            <h3 className="uppercase-title-ios">{t('devices.activeContracts')}</h3>
+                            <div className="stat-value-container-ios">
+                                <span className="stat-value-ios" style={{ color: '#34C759' }}>
+                                    {devices.filter(d => d.hasActiveContract).length}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="stat-card-ios">
+                        <div className="stat-content-ios">
+                            <h3 className="uppercase-title-ios">{t('devices.available')}</h3>
+                            <div className="stat-value-container-ios">
+                                <span className="stat-value-ios" style={{ color: '#FF9500' }}>
+                                    {devices.filter(d => !d.hasActiveContract && d.isActive).length}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#00C292' }}>
-                        <CheckCircle />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('devices.activeContracts')}</div>
-                        <div className="stat-number">{devices.filter(d => d.hasActiveContract).length}</div>
-                    </div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#FB9678' }}>
-                        <Circle />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('devices.available')}</div>
-                        <div className="stat-number">{devices.filter(d => !d.hasActiveContract && d.isActive).length}</div>
-                    </div>
+                <div className="search-ios">
+                    <Search size={15} className="search-ios-icon" />
+                    <input
+                        type="text"
+                        className="search-ios-input"
+                        placeholder={t('devices.searchPlaceholder')}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button className="search-ios-clear" onClick={() => setSearchQuery('')}>
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
-
-
-
 
             {/* Bulk Engine Off Confirmation Modal */}
             {bulkOffModal && (
                 <div
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-                    }}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
                     onClick={() => setBulkOffModal(false)}
                 >
-                    <div
-                        style={{
-                            background: '#fff', borderRadius: '16px', padding: '28px 24px',
-                            maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                            <div style={{
-                                background: '#FEF2F2', borderRadius: '10px', padding: '10px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <ZapOff size={22} style={{ color: '#EF4444' }} />
+                    <div className="bulk-off-modal-ios" onClick={e => e.stopPropagation()}>
+                        <div className="bulk-off-modal-header">
+                            <div className="bulk-off-icon-wrap">
+                                <ZapOff size={22} style={{ color: '#FF3B30' }} />
                             </div>
                             <div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111' }}>Apagar vehículos con deuda</div>
-                                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '2px' }}>
+                                <div className="bulk-off-title">Apagar vehículos con deuda</div>
+                                <div className="bulk-off-subtitle">
                                     {devices.filter(d => d.id && (d.monthDebt || 0) > 0).length} moto(s) con deuda serán apagadas
                                 </div>
                             </div>
                         </div>
-                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '20px', lineHeight: 1.5 }}>
-                            Se enviará comando de <strong>corte de motor</strong> solo a dispositivos con <strong style={{ color: '#EF4444' }}>deuda pendiente</strong>. ¿Confirmar?
+                        <p className="bulk-off-body">
+                            Se enviará comando de <strong>corte de motor</strong> solo a dispositivos con{' '}
+                            <strong style={{ color: '#FF3B30' }}>deuda pendiente</strong>. ¿Confirmar?
                         </p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                onClick={() => setBulkOffModal(false)}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB',
-                                    background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151'
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleBulkEngineOff}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
-                                    background: '#EF4444', color: '#fff', cursor: 'pointer',
-                                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                }}
-                            >
+                        <div className="bulk-off-actions">
+                            <button className="bulk-off-btn-cancel" onClick={() => setBulkOffModal(false)}>Cancelar</button>
+                            <button className="bulk-off-btn-confirm" onClick={handleBulkEngineOff}>
                                 <ZapOff size={15} /> Apagar Todo
                             </button>
                         </div>
@@ -441,199 +462,115 @@ const DeviceManagement = () => {
                 </div>
             )}
 
-            {/* Filters */}
-            <div className="devices-filters">
-                <button
-                    className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-                    onClick={() => setFilter('all')}
-                >
-                    {t('devices.filterAll')}
-                </button>
-                <button
-                    className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
-                    onClick={() => setFilter('active')}
-                >
-                    {t('devices.filterActive')}
-                </button>
-                <button
-                    className={`filter-btn ${filter === 'available' ? 'active' : ''}`}
-                    onClick={() => setFilter('available')}
-                >
-                    {t('devices.filterAvailable')}
-                </button>
-
-                {/* Bulk Engine Off Button 
-                <button
-                    onClick={() => setBulkOffModal(true)}
-                    disabled={bulkOffLoading || devices.filter(d => d.id && (d.monthDebt || 0) > 0).length === 0}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        padding: '6px 14px', borderRadius: '9999px',
-                        border: '1px solid #EF4444',
-                        background: bulkOffLoading ? '#FEE2E2' : '#FEF2F2',
-                        color: '#EF4444', fontWeight: 600, fontSize: '13px',
-                        cursor: 'pointer', transition: 'all 0.2s',
-                        opacity: devices.filter(d => d.id && (d.monthDebt || 0) > 0).length === 0 ? 0.4 : 1,
-                        marginLeft: 'auto'
-                    }}
-                    title="Apagar motor de vehículos con deuda"
-                >
-                    {bulkOffLoading
-                        ? <><RefreshCw size={14} className="spin" /> Apagando...</>
-                        : <><ZapOff size={14} /> Apagar Con Deuda</>}
-                </button>*/}
-
-                {/* Search Bar */}
-                <div className="search-box" style={{ marginLeft: 0 }}>
-                    <Search className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder={t('devices.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            className="clear-search"
-                            onClick={() => setSearchQuery('')}
-                        >
-                            <X />
-                        </button>
-                    )}
+            {/* Filters + Search */}
+            <div className="devices-filter-row-ios">
+                <div className="filter-pills-ios">
+                    <button data-filter="all" className={`filter-pill-ios ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
+                        {t('devices.filterAll')}
+                    </button>
+                    <button data-filter="active" className={`filter-pill-ios ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>
+                        {t('devices.filterActive')}
+                    </button>
+                    <button data-filter="available" className={`filter-pill-ios ${filter === 'available' ? 'active' : ''}`} onClick={() => setFilter('available')}>
+                        {t('devices.filterAvailable')}
+                    </button>
                 </div>
 
             </div>
 
-            <div className="admin-card admin-card--flush w-full overflow-hidden">
-                {/* Header Row */}
-                <div className="grid grid-cols-[3fr_2fr_3.5fr_1.5fr] lg:grid-cols-7 gap-1 lg:gap-6 px-2 lg:px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center">{t('devices.table.contract')}</div>
-
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center justify-center">Pagado</div>
-                    {/* Hiding on Mobile/Tablet, visible on Desktop (lg) */}
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase hidden lg:flex items-center">Deuda</div>
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase hidden lg:flex items-center">Estado</div>
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase hidden lg:flex items-center">Dias Libres</div>
-
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center justify-center">Motor</div>
-                    <div className="text-[10px] lg:text-xs font-semibold tracking-wide text-gray-500 uppercase flex items-center justify-center">{t('devices.table.actions')}</div>
+            {/* iOS Device Table */}
+            <div className="devices-table-card-ios">
+                {/* Table Header Band */}
+                <div className="devices-table-header-ios">
+                    <span>{t('devices.table.contract')}</span>
+                    <span className="col-center">Pagado</span>
+                    <span className="col-center desktop-col">Deuda</span>
+                    <span className="col-center desktop-col">Estado</span>
+                    <span className="col-center desktop-col">Días</span>
+                    <span className="col-center">Motor</span>
+                    <span className="col-center">Acc.</span>
                 </div>
 
-                {/* Body Rows */}
-                <div className="divide-y divide-gray-50">
+                {/* Table Rows */}
+                <div className="devices-table-rows-ios">
                     {filteredDevices.map((device) => (
-                        <div key={device._id} className="grid grid-cols-[3fr_2fr_3.5fr_1.5fr] lg:grid-cols-7 gap-1 lg:gap-6 px-2 lg:px-4 py-3 hover:bg-gray-50/50 transition-colors items-center text-xs lg:text-sm">
-                            <div className="font-semibold text-gray-900 flex items-center overflow-hidden">
-                                <a
-                                    href={`/p/${device.name}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-gray-900 cursor-pointer hover:text-gray-600 flex flex-col w-full"
-                                >
-                                    <span className="text-gray-900 font-medium truncate">{device.name}</span>
+                        <div key={device._id} className="devices-row-ios">
+                            {/* Device Name + Contract ID */}
+                            <div className="device-name-col">
+                                <a href={`/p/${device.name}`} target="_blank" rel="noopener noreferrer" className="device-name-link">
+                                    <span className="device-name-text">{device.name}</span>
                                     {device.contractId && (
-                                        <span className="text-[9px] lg:text-[10px] text-gray-400 truncate">
-                                            {device.contractId}
-                                        </span>
+                                        <span className="device-contract-id">{device.contractId}</span>
                                     )}
                                 </a>
                             </div>
-                            <div className="text-emerald-600 flex items-center justify-center font-bold">
+
+                            {/* Pagado */}
+                            <div className={`col-center device-paid-col ${(device.monthPaid || 0) > 0 ? 'paid-positive' : 'paid-zero'}`}>
                                 ${(device.monthPaid || 0).toLocaleString()}
                             </div>
-                            <div className={`hidden lg:flex items-center font-bold ${device.monthDebt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+
+                            {/* Deuda — desktop only */}
+                            <div className={`col-center device-debt-col desktop-col ${(device.monthDebt || 0) > 0 ? 'debt-positive' : 'debt-zero'}`}>
                                 ${(device.monthDebt || 0).toLocaleString()}
                             </div>
-                            <div className="text-gray-500 hidden lg:flex items-center">
+
+                            {/* Status badge — desktop only */}
+                            <div className="col-center desktop-col">
                                 {device.status ? (
-                                    <span className="contract-active px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-[10px] lg:text-xs font-medium">
+                                    <span className={`status-badge-device-ios ${device.monthDebt > 0 ? 'debt' : device.hasActiveContract ? 'active' : 'free'}`}>
                                         {device.status}
                                     </span>
                                 ) : (
-                                    <span className="contract-none text-gray-300">--</span>
+                                    <span className="status-badge-device-ios free">Libre</span>
                                 )}
                             </div>
-                            <div className="text-blue-600 hidden lg:flex items-center font-bold pl-4">
+
+                            {/* Free days — desktop only */}
+                            <div className="col-center desktop-col device-freedays-col">
                                 {device.freeDays || 0}
                             </div>
 
-                            <div className="flex items-center justify-center gap-1.5 lg:gap-4">
-                                {/* Motor Status */}
-                                <div className={`flex flex-col items-center justify-center ${device.cutOff === 1 ? 'text-red-500' :
-                                    device.cutOff === 2 ? 'text-yellow-500' :
-                                        device.ignition ? 'text-emerald-500' :
-                                            'text-gray-300'
-                                    }`}>
+                            {/* Motor: icon + battery + toggle */}
+                            <div className="col-center device-motor-col">
+                                <div className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}>
                                     <MotorIcon />
                                 </div>
-                                {/* Battery Status */}
-                                <div className={`flex items-center ${device.batteryLevel > 70 ? 'text-emerald-500' :
-                                    device.batteryLevel > 30 ? 'text-yellow-500' :
-                                        'text-red-500'
-                                    }`}>
+                                <div className={`battery-wrap ${device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}>
                                     {device.batteryLevel > 70 ? (
-                                        <BatteryFull size={16} className="lg:w-5 lg:h-5" />
+                                        <BatteryFull size={15} />
                                     ) : device.batteryLevel > 30 ? (
-                                        <BatteryMedium size={16} className="lg:w-5 lg:h-5" />
+                                        <BatteryMedium size={15} />
                                     ) : (
-                                        <BatteryLow size={16} className="animate-pulse lg:w-5 lg:h-5" />
+                                        <BatteryLow size={15} className={device.batteryLevel <= 30 ? 'animate-pulse' : ''} />
                                     )}
                                 </div>
-                                {/* Engine Toggle Slider */}
-                                <div className="flex items-center scale-75 lg:scale-100 transform origin-left">
-                                    {user?.role !== 'viewer' ? (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleEngineToggle(device);
-                                            }}
-                                            disabled={pendingCommands[device.id]}
-                                            className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
-                                            title={device.cutOff === 1 ? 'Activar Moto' : 'Desactivar Moto'}
-                                        >
-                                            <div className="slider-knob">
-                                                {pendingCommands[device.id] ? (
-                                                    <RefreshCw size={12} className="spin" />
-                                                ) : (
-                                                    <Power size={12} />
-                                                )}
-                                            </div>
-                                        </button>
-                                    ) : (
-                                        <div
-                                            className={`engine-toggle-slider ${device.cutOff === 1 ? 'deactivated' : 'active'}`}
-                                            style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                                            title="Solo lectura"
-                                        >
-                                            <div className="slider-knob">
-                                                <Power size={12} />
-                                            </div>
+                                {user?.role !== 'viewer' ? (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleEngineToggle(device); }}
+                                        disabled={pendingCommands[device.id]}
+                                        className={`engine-toggle-slider ${Boolean(device.cutOff) ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
+                                        title={Boolean(device.cutOff) ? 'Activar Moto' : 'Desactivar Moto'}
+                                    >
+                                        <div className="slider-knob">
+                                            {pendingCommands[device.id] ? <RefreshCw size={12} className="spin" /> : <Power size={12} />}
                                         </div>
-                                    )}
-                                </div>
+                                    </button>
+                                ) : (
+                                    <div className={`engine-toggle-slider ${Boolean(device.cutOff) ? 'deactivated' : 'active'}`} style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                        <div className="slider-knob"><Power size={12} /></div>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="flex items-center justify-center gap-1 lg:gap-2">
-                                <button
-                                    className="p-1.5 lg:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleShare(device);
-                                        setActiveMenuId(null);
-                                    }}
-                                >
-                                    <Share2 size={16} />
+                            {/* Actions */}
+                            <div className="col-center device-actions-col">
+                                <button className="action-icon-btn" onClick={(e) => { e.stopPropagation(); handleShare(device); setActiveMenuId(null); }} title="Compartir">
+                                    <Share2 size={15} />
                                 </button>
                                 {user?.role !== 'viewer' && (
-                                    <button
-                                        className="p-1.5 lg:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditDevice(device);
-                                            setActiveMenuId(null);
-                                        }}
-                                    >
-                                        <Edit size={16} />
+                                    <button className="action-icon-btn" onClick={(e) => { e.stopPropagation(); handleEditDevice(device); setActiveMenuId(null); }} title="Editar">
+                                        <Edit size={15} />
                                     </button>
                                 )}
                             </div>
@@ -642,9 +579,8 @@ const DeviceManagement = () => {
                 </div>
             </div>
 
-
             {filteredDevices.length === 0 && (
-                <div className="empty-state">
+                <div className="empty-state-ios">
                     <p>{t('devices.emptyState')}</p>
                 </div>
             )}
@@ -657,8 +593,6 @@ const DeviceManagement = () => {
                 setFormData={setFormData}
                 isEditing={!!editingDevice}
             />
-
-
 
             <ShareDeviceModal
                 isOpen={showShareModal}
