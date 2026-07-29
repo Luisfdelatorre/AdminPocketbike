@@ -514,18 +514,13 @@ export class PaymentService {
                         return { success: true, processing: true };
                     }
                 } else {
-                    logger.info(`[PAYMENT] Payment ${reference} not found in DB — hydrating from webhook data.`);
-                    payment = await this.hydratePaymentFromWebhook(paymentData);
-                    if (!payment) {
-                        logger.warn(`[PAYMENT] Could not hydrate payment for reference ${reference}. Skipping.`);
-                        return { success: false, reason: 'Could not hydrate payment' };
-                    }
-                    payment = await paymentRepository.claimPaymentForProcessing(payment);
+                    logger.warn(`[PAYMENT] Payment ${reference} (ID: ${paymentData._id}) not found in DB. Skipping.`);
+                    return { success: false, reason: 'Payment not found in DB' };
                 }
             }
 
             if (!payment) {
-                logger.error(`[PAYMENT] Unable to claim or hydrate payment for reference ${reference}`);
+                logger.error(`[PAYMENT] Unable to claim payment for reference ${reference}`);
                 return { success: false, reason: 'Payment claim failed' };
             }
 
@@ -583,56 +578,6 @@ export class PaymentService {
             throw error;
         }
     };
-    async hydratePaymentFromWebhook(paymentData) {
-        try {
-            const { _id, reference, amount_in_cents, finalized_at, payment_method_type } = paymentData;
-            const deviceIdName = reference?.split('-')[0];
-            if (!deviceIdName) {
-                logger.error(`[PAYMENT] Cannot parse deviceIdName from reference: ${reference}`);
-                return null;
-            }
-            const device = await deviceRepository.getDeviceByName(deviceIdName);
-            if (!device) {
-                logger.error(`[PAYMENT] Device not found for name: ${deviceIdName}`);
-                return null;
-            }
-
-            const { companyId, gpsId, deviceId } = device;
-
-            // Find the oldest unpaid invoice for this device (the one the payment covers)
-            const unpaidInvoice = await invoiceRepository.findLastUnPaid(deviceIdName);
-            const invoiceId = unpaidInvoice?._id || unpaidInvoice?.invoiceId || null;
-
-            const now = dayjs().toDate();
-            const hydratedPayment = {
-                _id,
-                paymentId: _id,
-                reference,
-                status: PAYMENT_STATUS.S_APPROVED,
-                amount: amount_in_cents ? amount_in_cents / 100 : 0,
-                amount_in_cents: amount_in_cents || 0,
-                currency: paymentData.currency || 'COP',
-                payment_method_type: payment_method_type || PAYMENT_TYPE.WOMPI,
-                type: PAYMENT_TYPE.WOMPI,
-                deviceIdName,
-                deviceId: String(deviceId || ''),
-                gpsId: String(gpsId || ''),
-                companyId,
-                invoiceId,
-                unpaidInvoiceId: invoiceId,
-                invoiceDate: unpaidInvoice?.date || null,
-                finalized_at: finalized_at || now,
-                created_at: now,
-                used: false,
-            };
-
-            logger.info(`[PAYMENT] Hydrating payment ${_id} for device ${deviceIdName}, invoice ${invoiceId}`);
-            return await paymentRepository.upsertPayment(hydratedPayment);
-        } catch (err) {
-            logger.error(`[PAYMENT] Error hydrating payment from webhook: ${err.message}`);
-            return null;
-        }
-    }
     validatePaymentInput = (deviceIdName, phone) => {
         if (!phone || !deviceIdName) {
             throw new Error("Missing required fields: phone and deviceIdName");
