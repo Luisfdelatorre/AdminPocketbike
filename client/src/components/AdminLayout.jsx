@@ -30,6 +30,34 @@ const AdminLayout = () => {
     useEffect(() => {
         contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, [location.pathname]);
+
+    useEffect(() => {
+        const clientId = `admin-${Math.random().toString(36).substring(2, 9)}`;
+        const sseUrl = `/apinode/sse/subscribe?clientId=${clientId}`;
+        const eventSource = new EventSource(sseUrl);
+
+        eventSource.addEventListener('connected', () => {
+            console.log('✅ SSE Connected to Admin Portal');
+        });
+
+        eventSource.addEventListener('payment-updated', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('💳 Payment Updated via SSE:', data);
+                window.dispatchEvent(new CustomEvent('payment-update', { detail: data }));
+            } catch (err) {
+                console.error('Error parsing SSE event:', err);
+            }
+        });
+
+        eventSource.onerror = () => {
+            console.error('❌ SSE Connection Error');
+        };
+
+        return () => {
+            eventSource.close();
+        };
+    }, []);
     
     const { isAuthenticated, authType, user } = useAuth();
 

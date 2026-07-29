@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import {
     DollarSign, FileText, CreditCard, Users,
-    TrendingUp, TrendingDown, Download, ListFilter
+    TrendingUp, TrendingDown, Download, ListFilter, BarChart2
 } from 'lucide-react';
 // Recharts import removed due to crash issues
 import {
@@ -67,24 +67,21 @@ const AdminDashboard = () => {
         }
     };
 
-    const StatCard = ({ title, value, change, icon: Icon, color, className }) => {
+    const StatCard = ({ title, value, change, uppercaseTitle, valueColor, className }) => {
         const formatChange = (val) => {
             const num = Math.abs(val);
             return Number.isInteger(num) ? num : num.toFixed(1);
         };
 
         return (
-            <div className={`stat-card ${className || ''}`}>
-                <div className="stat-icon" style={{ background: color }}>
-                    <Icon size={18} />
-                </div>
-                <div className="stat-content">
-                    <h3>{title}</h3>
-                    <div className="stat-value-container">
-                        <span className="stat-value">{value}</span>
+            <div className={`stat-card-ios ${className || ''}`}>
+                <div className="stat-content-ios">
+                    <h3 className={uppercaseTitle ? 'uppercase-title-ios' : ''}>{title}</h3>
+                    <div className="stat-value-container-ios">
+                        <span className="stat-value-ios" style={valueColor ? { color: valueColor } : {}}>{value}</span>
                         {change !== undefined && change !== 0 && (
-                            <span className={`stat-change-inline ${change > 0 ? 'positive' : 'negative'}`}>
-                                {change > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                            <span className={`stat-change-inline-ios ${change > 0 ? 'positive' : 'negative'}`}>
+                                {change > 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                                 {formatChange(change)}%
                             </span>
                         )}
@@ -96,7 +93,7 @@ const AdminDashboard = () => {
 
     if (loading) {
         return (
-            <div className="dashboard-content">
+            <div className="dashboard-content ios-dashboard">
                 <div className="loading-container">
                     <div className="spinner"></div>
                     <p>{t('dashboard.loading')}</p>
@@ -159,7 +156,7 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="dashboard-content">
+        <div className="dashboard-content ios-dashboard">
             {portalElement && createPortal(
                 <button
                     type="button"
@@ -171,252 +168,125 @@ const AdminDashboard = () => {
                 </button>,
                 portalElement
             )}
+            {/* Expandable Metrics Section */}
+            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
 
-            <div className="dashboard-header">
-                <div>
-                    <h1>{t('dashboard.title')}</h1>
-                </div>
-                {/* Desktop controls */}
-                <div className="dashboard-controls hidden md:flex">
-                    <select
-                        value={selectedMonth}
-                        onChange={e => setSelectedMonth(e.target.value)}
-                        className="select-control"
+                {/* Header Controls Bar */}
+                <div className="dashboard-controls-row">
+                    <div className="select-wrapper-month">
+                        <select
+                            value={selectedMonth}
+                            onChange={e => setSelectedMonth(e.target.value)}
+                            className="select-control-ios"
+                        >
+                            <option value="">Todo el año</option>
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="select-wrapper-year">
+                        <select
+                            value={selectedYear}
+                            onChange={e => setSelectedYear(Number(e.target.value))}
+                            className="select-control-ios"
+                        >
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                            <option value={2027}>2027</option>
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn-icon-ios btn-ios-grey"
+                        onClick={handleDownloadReport}
+                        title={t('dashboard.downloadReport')}
                     >
-                        <option value="">Todo el año</option>
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={selectedYear}
-                        onChange={e => setSelectedYear(Number(e.target.value))}
-                        className="select-control"
-                    >
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                    </select>
-                    <button className="btn-download" onClick={handleDownloadReport} title={t('dashboard.downloadReport')}>
-                        <Download size={18} className="download-icon" /> Descargar Reporte
-                    </button>
-                </div>
-            </div>
-
-            {/* Mobile collapsible controls & stats */}
-            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection" >
-                <div className=" dashboard-controls">
-                    <select
-                        value={selectedMonth}
-                        onChange={e => setSelectedMonth(e.target.value)}
-                        className="select-control"
-                    >
-                        <option value="">Todo el año</option>
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={selectedYear}
-                        onChange={e => setSelectedYear(Number(e.target.value))}
-                        className="select-control"
-                    >
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                    </select>
-                    <button className="btn-download" onClick={handleDownloadReport} title={t('dashboard.downloadReport')}>
-                        <Download size={18} className="download-icon" />
-                        <span className="download-text-desktop">📊 {t('dashboard.downloadReport')}</span>
+                        <Download size={20} />
                     </button>
                 </div>
 
-                {/* Mobile Collapsible Stats Cards inside the collapsible wrapper */}
-                <div className="stats-grid-mobile-collapsible" style={{ marginTop: '0.25rem', marginBottom: '0.25rem' }}>
+
+                {/* Middle 3 Compact Stat Cards */}
+                <div className="stats-grid-mid-3">
                     <StatCard
-                        title={t('dashboard.stats.totalRevenue')}
+                        title="INGRESOS"
                         value={formatCompact(stats.totalRevenue)}
-                        change={stats.changes?.totalRevenue || 0}
-                        icon={DollarSign}
-                        color="var(--brand-teal)"
+                        uppercaseTitle
                     />
                     <StatCard
-                        title={t('dashboard.stats.activeDevices', 'Active Devices')}
-                        value={stats.activeDevices || 0}
-                        change={stats.changes?.activeDevices || 0}
-                        icon={Users}
-                        color="#FB9678"
+                        title="DEVICES"
+                        value={(stats.activeDevices || 0).toLocaleString()}
+                        uppercaseTitle
                     />
                     <StatCard
-                        title={t('dashboard.stats.pendingPayments')}
-                        value={stats.pendingPayments}
-                        change={stats.changes?.pendingPayments || 0}
-                        icon={CreditCard}
-                        color="#00C292"
+                        title="PENDIENTES"
+                        value={stats.pendingPayments || 0}
+                        uppercaseTitle
+                        valueColor="#FF9500"
                     />
                 </div>
             </div>
-
-            {/* Mobile Permanent Stats Cards (always visible on mobile, hidden on desktop) */}
-            <div className="stats-grid-mobile-permanent md:hidden">
+            {/* Top 2 Primary Stat Cards */}
+            <div className="stats-grid-top-2">
                 <StatCard
                     title="Facturado (año)"
                     value={formatCompact(stats.totalInvoiced || 0)}
-                    change={0}
-                    icon={FileText}
-                    color="#7460EE"
                 />
                 <StatCard
                     title="Cartera Pendiente"
                     value={formatCompact(stats.collectionGap || 0)}
                     change={stats.collectionRate ? -(100 - stats.collectionRate) : 0}
-                    icon={TrendingDown}
-                    color="#EF4444"
                 />
             </div>
 
-            {/* Desktop Stats Cards (always visible on desktop, hidden on mobile) */}
-            <div className="stats-grid hidden md:grid">
-                <StatCard
-                    title={t('dashboard.stats.totalRevenue')}
-                    value={`$${(stats.totalRevenue || 0).toLocaleString()}`}
-                    change={stats.changes?.totalRevenue || 0}
-                    icon={DollarSign}
-                    color="var(--brand-teal)"
-                />
-                <StatCard
-                    title={t('dashboard.stats.activeDevices', 'Active Devices')}
-                    value={stats.activeDevices || 0}
-                    change={stats.changes?.activeDevices || 0}
-                    icon={Users}
-                    color="#FB9678"
-                />
-                <StatCard
-                    title={t('dashboard.stats.pendingPayments')}
-                    value={stats.pendingPayments}
-                    change={stats.changes?.pendingPayments || 0}
-                    icon={CreditCard}
-                    color="#00C292"
-                />
-                <StatCard
-                    title="Facturado (año)"
-                    value={`$${(stats.totalInvoiced || 0).toLocaleString()}`}
-                    change={0}
-                    icon={FileText}
-                    color="#7460EE"
-                />
-                <StatCard
-                    title="Cartera Pendiente"
-                    value={`$${(stats.collectionGap || 0).toLocaleString()}`}
-                    change={stats.collectionRate ? -(100 - stats.collectionRate) : 0}
-                    icon={TrendingDown}
-                    color="#EF4444"
-                />
-            </div>
-            {/*
-          
-            <div className="charts-grid">
-                
-                <div className="chart-card revenue-chart">
-                    <div className="chart-header">
-                        <h3>{t('dashboard.charts.revenue')}</h3>
-                        <select className="chart-filter">
-                            <option>{t('dashboard.charts.last6Months')}</option>
-                            <option>{t('dashboard.charts.lastYear')}</option>
-                        </select>
-                    </div>
-                    {
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={revenueData}>
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="var(--brand-teal)" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="var(--brand-teal)" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                <XAxis dataKey="month" stroke="#666" />
-                                <YAxis stroke="#666" />
-                                <Tooltip />
-                                <Area type="monotone" dataKey="revenue" stroke="var(--brand-teal)"
-                                    fillOpacity={1} fill="url(#colorRevenue)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    }
+
+            {/* iOS Pagos Recientes Card */}
+            <div className="table-card-ios">
+                <div className="table-header-ios">
+                    <h2>{t('dashboard.recentPayments.title', 'Pagos Recientes')}</h2>
+                    <a href="#/payments" className="view-all-ios">
+                        <span>{t('dashboard.recentPayments.viewAll', 'Ver Todos')}</span>
+                        <span style={{ fontSize: '16px', lineHeight: 1 }}>→</span>
+                    </a>
                 </div>
 
-               
-                <div className="chart-card">
-                    <h3>{t('dashboard.charts.deviceStatus')}</h3>
-                    {
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={deviceData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    dataKey="value"
-                                    label
-                                >
-                                    {deviceData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    }
+                {/* Table Header Band */}
+                <div className="table-header-band-ios">
+                    <span className="text-left">{t('dashboard.recentPayments.table.device', 'Dispositivo')}</span>
+                    <span className="text-right">{t('dashboard.recentPayments.table.amount', 'Monto')}</span>
+                    <span className="text-center">{t('dashboard.recentPayments.table.status', 'Estado')}</span>
+                    <span className="text-right">{t('dashboard.recentPayments.table.date', 'Fecha')}</span>
                 </div>
-            </div>
 
-    */}
-            <div className="table-card">
-                <div className="table-header">
-                    <h3>{t('dashboard.recentPayments.title')}</h3>
-                    <a href="#/payments" className="view-all">{t('dashboard.recentPayments.viewAll')} →</a>
+                {/* List of Transactions */}
+                <div className="table-rows-container">
+                    {recentPayments.length > 0 ? (
+                        recentPayments.map((payment, index) => (
+                            <div key={payment.id || index} className="table-row-ios">
+                                <span className="device-cell text-left">{payment.device}</span>
+                                <span className="amount-cell text-right">${payment.amount.toLocaleString()}</span>
+                                <div className="status-cell text-center flex justify-center">
+                                    <span className={`status-badge-ios ${(payment.status || 'unknown').toLowerCase()}`}>
+                                        {payment.status || 'Unknown'}
+                                    </span>
+                                </div>
+                                <span className="date-cell text-right">{payment.date}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="no-data-cell text-center">
+                            {t('dashboard.recentPayments.noPayments')}
+                        </div>
+                    )}
                 </div>
-                <table className="payments-table">
-                    <thead>
-                        <tr>
-                            <th>{t('dashboard.recentPayments.table.device')}</th>
-                            <th>{t('dashboard.recentPayments.table.amount')}</th>
-                            <th>{t('dashboard.recentPayments.table.status')}</th>
-                            <th>{t('dashboard.recentPayments.table.date')}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {recentPayments.length > 0 ? (
-                            recentPayments.map(payment => (
-                                <tr key={payment.id}>
-                                    <td><strong>{payment.device}</strong></td>
-                                    <td>${payment.amount.toLocaleString()}</td>
-                                    <td>
-                                        <span className={`status-badge ${(payment.status || 'unknown').toLowerCase()}`}>
-                                            {payment.status || 'Unknown'}
-                                        </span>
-                                    </td>
-                                    <td>{payment.date}</td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#9CA3AF' }}>
-                                    {t('dashboard.recentPayments.noPayments')}
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
             </div>
         </div>
     );
 };
 
 export default AdminDashboard;
+
+

@@ -10,7 +10,7 @@
 .admin-content {
     flex: 1;
     margin-left: 280px;
-    padding: .5rem;
+    padding: .2rem .5rem;
     transition: margin-left 0.3s ease;
     min-height: 100vh;
     min-width: 0;
@@ -70,7 +70,7 @@
         flex: 1 1 auto;
         min-height: 0;
         margin-left: 0 !important;
-        padding: .5rem;
+        padding: .2rem .5rem;
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior-y: contain;
@@ -89,20 +89,29 @@
     body {
         font-size: 0.85rem !important;
     }
-    
-    h1, .page-header h1 {
+
+    h1,
+    .page-header h1 {
         font-size: 1.35rem !important;
     }
-    
-    h2, .section-header h2 {
+
+    h2,
+    .section-header h2 {
         font-size: 1.15rem !important;
     }
-    
-    p, .page-header p, .setting-description, .upload-hint-text {
+
+    p,
+    .page-header p,
+    .setting-description,
+    .upload-hint-text {
         font-size: 0.75rem !important;
     }
-    
-    input, select, textarea, button, label {
+
+    input,
+    select,
+    textarea,
+    button,
+    label {
         font-size: 0.825rem !important;
     }
 }

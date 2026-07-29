@@ -703,3 +703,416 @@
     opacity: 1;
     margin-top: 1rem;
 }
+
+/* iOS Dashboard Theme Styles */
+.ios-dashboard {
+    max-width: 650px;
+    margin: 0 auto;
+    padding: 0.5rem;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    color: #1a1c1c;
+}
+
+.dashboard-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0rem;
+    margin-bottom: .2rem;
+    width: 100%;
+}
+
+.select-wrapper-month {
+    flex: 1;
+    min-width: 0;
+}
+
+.select-wrapper-year {
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.select-control-ios {
+    width: 100%;
+    background-color: #f3f3f4;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1c1c;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.select-control-ios:hover,
+.select-control-ios:focus {
+    background-color: #e8e8e8;
+}
+
+.btn-icon-ios {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, background-color 0.2s ease;
+}
+
+.btn-icon-ios:active {
+    transform: scale(0.95);
+}
+
+.btn-ios-blue {
+    background-color: #0070eb;
+    color: #ffffff;
+}
+
+.btn-ios-blue:hover {
+    background-color: #0058bc;
+}
+
+.btn-ios-grey {
+    background-color: #e8e8e8;
+    color: #414755;
+}
+
+.btn-ios-grey:hover {
+    background-color: #dadada;
+}
+
+/* Expandable Metrics Container */
+.expandable-metrics-container {
+    overflow: hidden;
+    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.expandable-metrics-container.expanded {
+    max-height: 600px;
+    opacity: 1;
+}
+
+.expandable-metrics-container.collapsed {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Stat Cards Grids */
+.stats-grid-top-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: .2rem;
+    margin-bottom: .2rem;
+}
+
+.stats-grid-mid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: .2rem;
+}
+
+.stat-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.stat-content-ios h3 {
+    font-size: 13px;
+    font-weight: 500;
+    color: #414755;
+    margin: 0 0 0.25rem 0;
+}
+
+.stat-content-ios h3.uppercase-title-ios {
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #414755;
+    margin: 0 0 0.25rem 0;
+}
+
+.stat-value-container-ios {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+
+.stat-value-ios {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1c1c;
+    letter-spacing: 0.35px;
+}
+
+.stats-grid-mid-3 .stat-value-ios {
+    font-size: 13px;
+}
+
+.stat-change-inline-ios {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.stat-change-inline-ios.positive {
+    color: #34C759;
+}
+
+.stat-change-inline-ios.negative {
+    color: #FF3B30;
+}
+
+/* iOS Table Card */
+.table-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    overflow: hidden;
+}
+
+.table-header-ios {
+    padding: 1.25rem 1rem 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.table-header-ios h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a1c1c;
+    margin: 0;
+    letter-spacing: 0.38px;
+}
+
+.view-all-ios {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0058bc;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: opacity 0.2s ease;
+}
+
+.view-all-ios:hover {
+    opacity: 0.7;
+}
+
+.table-header-band-ios {
+    display: grid;
+    grid-template-columns: 1.1fr 0.85fr 1.1fr 1fr;
+    padding: 0.5rem 1rem;
+    background-color: rgba(243, 243, 244, 0.5);
+}
+
+.table-header-band-ios span {
+    font-size: 11px;
+    font-weight: 400;
+    color: #414755;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table-header-band-ios span.amount-header,
+.table-header-band-ios span:nth-child(2) {
+    padding-right: 0.5rem;
+}
+
+.table-rows-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.table-row-ios {
+    display: grid;
+    grid-template-columns: 1.1fr 0.85fr 1.1fr 1fr;
+    padding: 0.875rem 1rem;
+    align-items: center;
+    border-bottom: 1px solid rgba(198, 198, 200, 0.2);
+    transition: background-color 0.2s ease;
+}
+
+.table-row-ios:last-child {
+    border-bottom: none;
+}
+
+.table-row-ios:hover {
+    background-color: rgba(226, 226, 226, 0.2);
+}
+
+.table-row-ios .device-cell {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1c1c;
+}
+
+.table-row-ios .amount-cell {
+    font-size: 15px;
+    color: #1a1c1c;
+    padding-right: 0.5rem;
+}
+
+.table-row-ios .date-cell {
+    font-size: 11px;
+    color: #414755;
+}
+
+.status-badge-ios {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: -0.01em;
+}
+
+.status-badge-ios.approved,
+.status-badge-ios.s_approved,
+.status-badge-ios.completed {
+    background-color: rgba(52, 199, 89, 0.1);
+    color: #34C759;
+}
+
+.status-badge-ios.free {
+    background-color: #F2F2F7;
+    color: #414755;
+    font-weight: 500;
+    padding: 0.125rem 0.75rem;
+}
+
+.status-badge-ios.pending {
+    background-color: #FEF3C7;
+    color: #D97706;
+}
+
+.status-badge-ios.failed,
+.status-badge-ios.declined,
+.status-badge-ios.error {
+    background-color: #FEE2E2;
+    color: #FF3B30;
+}
+
+.status-badge-ios.unknown {
+    background-color: #F2F2F7;
+    color: #414755;
+}
+
+.payments-table-ios td.device-cell {
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.payments-table-ios td.amount-cell {
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.payments-table-ios td.date-cell {
+    color: #94A3B8;
+    font-size: 0.75rem;
+}
+
+.status-badge-ios {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+
+.status-badge-ios.approved,
+.status-badge-ios.s_approved,
+.status-badge-ios.completed {
+    background-color: #DCFCE7;
+    color: #16A34A;
+}
+
+.status-badge-ios.free {
+    background-color: #F1F5F9;
+    color: #64748B;
+}
+
+.status-badge-ios.pending {
+    background-color: #FEF3C7;
+    color: #D97706;
+}
+
+.status-badge-ios.failed,
+.status-badge-ios.declined,
+.status-badge-ios.error {
+    background-color: #FEE2E2;
+    color: #DC2626;
+}
+
+.status-badge-ios.unknown {
+    background-color: #F1F5F9;
+    color: #94A3B8;
+}
+
+.no-data-cell {
+    padding: 2rem 1rem;
+    color: #94A3B8;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    /* Filters bar is always visible; only metrics expand/collapse */
+}
+
+@media (max-width: 480px) {
+    .ios-dashboard {
+        padding: 0.25rem;
+    }
+
+    .stat-card-ios {
+        padding: 0.25rem 0.325rem;
+    }
+
+    .stat-value-ios {
+        font-size: 1.25rem;
+    }
+
+    .stats-grid-mid-3 .stat-value-ios {
+        font-size: 1rem;
+    }
+
+    .stat-content-ios h3 {
+        font-size: 0.75rem;
+    }
+
+    .stat-content-ios h3.uppercase-title-ios {
+        font-size: 0.625rem;
+    }
+}
