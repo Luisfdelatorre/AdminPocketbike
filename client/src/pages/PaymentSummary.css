@@ -1,13 +1,38 @@
+/* ============================================================
+   PaymentSummary — iOS Design System
+   Consistente con DeviceSelector.css
+   ============================================================ */
+
+/* Expandable Metrics Container */
+.expandable-metrics-container {
+    overflow: hidden;
+    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.expandable-metrics-container.expanded {
+    max-height: 400px;
+    opacity: 1;
+}
+
+.expandable-metrics-container.collapsed {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .payment-summary-container {
-    padding: 24px;
-    background-color: #f8f9fa;
+    padding: 0;
+    background-color: transparent;
     --summary-header-height: 0px;
     min-height: 0;
     display: flex;
     flex-direction: column;
+    gap: 0.625rem;
     box-sizing: border-box;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
 }
 
+/* -- Summary Header Card */
 .summary-header {
     display: flex;
     justify-content: space-between;
@@ -16,105 +41,298 @@
     position: sticky;
     top: -4px;
     z-index: 30;
-    row-gap: 16px;
-    margin-bottom: 24px;
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    row-gap: 10px;
+    margin-bottom: 0;
+    background: #ffffff;
+    padding: 0.75rem 0.875rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
     flex: 0 0 auto;
+    transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
 .summary-header.is-stuck {
-    border-radius: 0;
+    border-radius: 0 0 0.75rem 0.75rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    border-top: none;
 }
 
 .summary-heading {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 14px;
 }
 
 .summary-header h1 {
-    font-size: 24px;
+    font-size: 17px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: #1a1c1c;
     margin: 0;
+    letter-spacing: -0.3px;
 }
 
+/* -- View Segment Control */
 .summary-view-segment {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    background: #f8fafc;
+    gap: 2px;
+    padding: 2px;
+    border: 0.5px solid rgba(198, 198, 200, 0.5);
+    border-radius: 8px;
+    background: #f3f3f4;
 }
 
 .summary-view-option {
-    min-height: 36px;
-    padding: 7px 12px;
+    min-height: 30px;
+    padding: 5px 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 6px;
     border: 0;
-    border-radius: 7px;
+    border-radius: 6px;
     background: transparent;
-    color: #64748b;
-    font-size: 13px;
+    color: #6b7280;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    font-family: inherit;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .summary-view-option:hover {
-    color: #4338ca;
-    background: #eef2ff;
+    color: #1a1c1c;
+    background: rgba(0, 0, 0, 0.05);
 }
 
 .summary-view-option.active {
-    color: #4338ca;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    color: #0070eb;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 .summary-view-option:focus-visible {
-    outline: 2px solid #6366f1;
+    outline: 2px solid #0070eb;
     outline-offset: 2px;
 }
 
-.controls {
+/* -- Controls iOS (mismo patrón que AdminDashboard) */
+.dashboard-controls-row {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    gap: 0.5rem;
+    width: 100%;
 }
 
-.select-control {
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 14px;
+.select-wrapper-month {
+    flex: 1;
+    min-width: 0;
+}
+
+.select-wrapper-year {
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.select-control-ios {
+    width: 100%;
+    background-color: #f3f3f4;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1c1c;
     outline: none;
     cursor: pointer;
-    background-color: white;
-    color: #1a1a1a;
+    transition: background-color 0.2s ease;
 }
 
+.select-control-ios:hover,
+.select-control-ios:focus {
+    background-color: #e8e8e8;
+}
+
+.btn-icon-ios {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, background-color 0.2s ease, opacity 0.15s ease;
+}
+
+.btn-icon-ios:active {
+    transform: scale(0.95);
+}
+
+.btn-ios-grey {
+    background-color: #e8e8e8;
+    color: #414755;
+}
+
+.btn-ios-grey:hover {
+    background-color: #dadada;
+}
+
+.btn-ios-red {
+    background-color: #EF4444;
+    color: #ffffff;
+}
+
+.btn-ios-red:hover {
+    background-color: #dc2626;
+}
+
+.btn-ios-red:disabled {
+    cursor: not-allowed;
+}
+
+/* -- Filter Row iOS */
+.summary-filter-row-ios {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0;
+}
+
+.filter-pills-ios {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.filter-pill-ios {
+    padding: 0.35rem 0.875rem;
+    border-radius: 9999px;
+    border: 1px solid #e8e8e8;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: #f3f3f4;
+    color: #414755;
+    font-family: inherit;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-pill-ios:hover {
+    background-color: #e8e8e8;
+}
+
+/* Todos -> azul */
+.filter-pill-ios.active {
+    background-color: #0070eb;
+    color: #ffffff;
+    border-color: #005bc5;
+    box-shadow: 0 1px 4px rgba(0, 112, 235, 0.35);
+    font-weight: 600;
+}
+
+/* Con deuda -> rojo */
+.filter-pill-ios[data-filter='debt'].active {
+    background-color: #e5302e;
+    border-color: #b52120;
+    box-shadow: 0 1px 4px rgba(229, 48, 46, 0.35);
+}
+
+/* Al dia -> verde */
+.filter-pill-ios[data-filter='ok'].active {
+    background-color: #1b9e3e;
+    border-color: #148030;
+    box-shadow: 0 1px 4px rgba(27, 158, 62, 0.35);
+}
+
+/* Apagados -> gris oscuro */
+.filter-pill-ios[data-filter='cutoff'].active {
+    background-color: #414755;
+    border-color: #2d3240;
+    box-shadow: 0 1px 4px rgba(65, 71, 85, 0.35);
+}
+
+/* Search iOS */
+.search-ios {
+    position: relative;
+    width: 100%;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.search-ios-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    pointer-events: none;
+}
+
+.search-ios-input {
+    width: 100%;
+    background-color: #f3f3f4;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 2.5rem 0.5rem 2.25rem;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1c1c;
+    outline: none;
+    font-family: inherit;
+    transition: background-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.search-ios-input:focus {
+    background-color: #e8e8e8;
+}
+
+.search-ios-input::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.search-ios-clear {
+    position: absolute;
+    right: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    padding: 0.2rem;
+    border-radius: 50%;
+    transition: background-color 0.15s ease;
+}
+
+.search-ios-clear:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* -- Matrix Shell */
 .matrix-shell {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    overflow: hidden;
 }
 
 .matrix-sticky-header {
     position: sticky;
     top: calc(var(--summary-header-height) - 4px);
     z-index: 20;
-    background: white;
-    border-radius: 12px 12px 0 0;
+    background: #ffffff;
+    border-radius: 0.75rem 0.75rem 0 0;
+    border-bottom: 1px solid rgba(198, 198, 200, 0.35);
 }
 
 .matrix-sticky-header-viewport {
@@ -126,10 +344,11 @@
     min-width: 0;
     overflow-x: auto;
     overflow-y: clip;
-    background: white;
-    border-radius: 0 0 12px 12px;
+    background: #ffffff;
+    border-radius: 0 0 0.75rem 0.75rem;
 }
 
+/* -- Bike Summary List */
 .bike-summary-list {
     flex: 1 1 auto;
     min-height: 0;
@@ -145,11 +364,16 @@
     width: 100%;
     padding: 6px;
     flex: 0 0 auto;
-    background: #fff;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 12px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    background: #ffffff;
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
     box-sizing: border-box;
+    transition: box-shadow 0.15s ease;
+}
+
+.bike-summary-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
 }
 
 .pill-container {
@@ -162,12 +386,12 @@
     scrollbar-gutter: stable;
 }
 
+/* -- Summary Table */
 .summary-table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     min-width: 1200px;
-    /* Ensure scrolling on small screens */
     position: relative;
 }
 
@@ -175,17 +399,18 @@
 .summary-table td {
     padding: 2px;
     text-align: center;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid rgba(198, 198, 200, 0.2);
     min-width: 50px;
     max-width: 65px;
 }
 
 .summary-table th {
-    background: #f8fafc;
-    color: #64748b;
-    font-weight: 600;
-    font-size: 12px;
+    background: #f3f3f4;
+    color: #6b7280;
+    font-weight: 700;
+    font-size: 11px;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .matrix-semantic-thead {
@@ -213,75 +438,73 @@
 
 /* Daily totals second header row */
 .daily-totals-row th {
-    background: #eef2ff;
-    color: #4338ca;
+    background: rgba(0, 112, 235, 0.07);
+    color: #0055c8;
     font-size: 11px;
     font-weight: 700;
-    border-top: 2px solid #c7d2fe;
+    border-top: 1.5px solid rgba(0, 112, 235, 0.2);
 }
 
 .totals-label {
     text-align: left !important;
-    color: #4338ca !important;
+    color: #0055c8 !important;
     padding-left: 8px !important;
 }
 
 .daily-total-cell {
-    color: #4338ca !important;
+    color: #0055c8 !important;
 }
-
 
 .summary-table th:first-child,
 .summary-table td:first-child {
     position: sticky;
     left: 0;
-    background: white;
+    background: #ffffff;
     z-index: 10;
     text-align: left;
     min-width: 100px;
-    border-right: 1px solid #f0f0f0;
+    border-right: 1px solid rgba(198, 198, 200, 0.25);
 }
 
 .summary-table th:first-child {
-    background: #f8fafc;
+    background: #f3f3f4;
     z-index: 20;
 }
 
-/* Second sticky column (Deuda) */
 .summary-table th:nth-child(2),
 .summary-table td:nth-child(2) {
     position: sticky;
-    /* Position after first column */
-    background: white;
+    background: #ffffff;
     left: 100px;
     z-index: 9;
-    border-right: 1px solid #f0f0f0;
+    border-right: 1px solid rgba(198, 198, 200, 0.25);
 }
 
 .summary-table th:nth-child(2) {
-    background: #f8fafc;
+    background: #f3f3f4;
     z-index: 19;
 }
 
+/* -- Device Cell */
 .device-cell {
     display: flex;
     flex-direction: column;
 }
 
 .device-name {
-    font-weight: 600;
-    color: #3266cc;
-    ;
-    margin-bottom: -10px;
-}
-
-.driver-name {
-    font-size: 12px;
-    color: #32c6cc;
-    ;
+    font-weight: 700;
+    font-size: 13px;
+    color: #0070eb;
     margin-bottom: -8px;
 }
 
+.driver-name {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: -6px;
+}
+
+/* -- Status Cells */
 .status-cell {
     min-height: 30px;
     height: auto;
@@ -289,11 +512,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: 7px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: white;
-    /* Default text color for filled balls */
     margin: 2px;
     padding: 2px 1px;
 }
@@ -308,104 +530,100 @@
 }
 
 .status-cell.approved {
-    background-color: #4a3fec30;
-    /* blue-purple tint */
-    color: #4a3fecff;
+    background-color: rgba(74, 63, 236, 0.12);
+    color: #4338ca;
 }
 
 .status-cell.free {
-    background-color: #22C55E30;
-    /* green tint */
-    color: #22C55E;
+    background-color: rgba(34, 197, 94, 0.15);
+    color: #15803d;
 }
 
 .status-cell.partial {
     background-color: #86efac;
-    /* light green */
     color: #14532d;
 }
 
 .status-cell.pending {
-    background-color: #FACC1530;
-    /* yellow tint */
-    color: #b45309;
+    background-color: rgba(250, 204, 21, 0.18);
+    color: #92400e;
 }
 
 .status-cell.adjusted {
-    background-color: #5bc4e4;
-    /* Amber-500 */
-    color: white;
+    background-color: rgba(91, 196, 228, 0.3);
+    color: #0e7490;
 }
 
 .status-cell.cutoff {
-    background-color: #ef4444;
-    /* Red-500 */
-    color: white;
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
 }
 
 .status-cell.loand {
-    background-color: #ea580c;
-    /* Amber-500 */
-    color: white;
+    background-color: rgba(234, 88, 12, 0.15);
+    color: #c2410c;
 }
 
 .status-cell.empty {
-    background-color: #f1f5f9;
-    /* Gray-100 */
-    color: #94a3b8;
+    background-color: #f3f3f4;
+    color: #c6c6c8;
 }
 
-/* Debt badge styling */
+/* -- Debt Badge */
 .debt-badge {
     display: inline-block;
-    padding: 4px 12px;
-    background-color: #fee2e2;
+    padding: 3px 10px;
+    background-color: rgba(239, 68, 68, 0.1);
     color: #dc2626;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 13px;
-    border: 1px solid #fecaca;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 12px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
     margin-left: 4px;
 }
 
 .no-debt {
     color: #22c55e;
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
 }
 
+/* -- Legend */
 .legend {
     display: flex;
-    gap: 24px;
-    margin-top: 20px;
-    padding: 0 20px;
+    gap: 20px;
+    margin-top: 12px;
+    padding: 0 4px;
+    flex-wrap: wrap;
 }
 
 .legend-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #64748b;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
 }
 
 .indicator {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 4px;
 }
 
+/* -- Refresh Button */
 .refresh-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 6px 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    border-radius: 8px;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
 }
 
 .refresh-btn:hover {
-    background-color: #f1f5f9;
+    background-color: #eaeaea;
 }
 
 .refresh-btn.spinning {
@@ -418,16 +636,11 @@
 }
 
 @keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
 
-/* Engine Toggle Slider */
+/* -- Engine Toggle Slider */
 .engine-toggle-slider {
     position: relative;
     width: 40px;
@@ -486,14 +699,16 @@
     animation: spin 1s linear infinite;
 }
 
-/* Mobile Responsive Adjustments */
+/* -- Mobile */
 @media (max-width: 768px) {
     .payment-summary-container {
-        padding: 4px;
+        padding: 0;
         height: auto;
         min-height: 100%;
         max-width: 100vw;
-        display: block;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         overflow: visible;
         box-sizing: border-box;
     }
@@ -509,15 +724,6 @@
     }
 
     .summary-header {
-        position: sticky;
-        top: 0;
-        z-index: 30;
-        padding: 8px 12px;
-        margin-bottom: 12px;
-        background: white;
-    }
-
-    .summary-header h1 {
         display: none;
     }
 
@@ -532,14 +738,19 @@
     .controls select.select-control {
         flex: 1;
         min-width: 0;
-        padding: 6px;
-        font-size: 13px;
+        padding: 5px 6px;
+        font-size: 12px;
     }
 
     .controls button.select-control {
         flex: 0 0 auto;
-        padding: 6px 12px;
+        padding: 5px 10px;
         width: auto;
+    }
+
+    .summary-filter-row-ios {
+        flex-direction: column;
+        gap: 0.4rem;
     }
 
     .matrix-container {
@@ -599,8 +810,16 @@
         padding: 2px 6px;
         font-size: 10px;
     }
+}
 
-    .summary-header h1 {
-        font-size: 18px;
+@media (min-width: 768px) {
+    .summary-filter-row-ios {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .search-ios {
+        max-width: 260px;
+        margin-left: auto;
     }
 }

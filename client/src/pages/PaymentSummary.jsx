@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
@@ -48,6 +50,14 @@ const PaymentSummary = () => {
     const [matrixGeometry, setMatrixGeometry] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
+    const [showFilters, setShowFilters] = useState(false);
+    const [portalElement, setPortalElement] = useState(null);
+
+    useEffect(() => {
+        setPortalElement(document.getElementById('mobile-header-actions'));
+    }, []);
+
+    useFilterVisibilityOnScroll(setShowFilters);
 
     useEffect(() => {
         const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
@@ -219,8 +229,8 @@ const PaymentSummary = () => {
         return () => observer.disconnect();
     }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
 
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             // Using the new endpoint
             const response = await getPaymentSummary({
@@ -234,7 +244,7 @@ const PaymentSummary = () => {
         } catch (error) {
             console.error("Error fetching summary:", error);
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     };
 
@@ -250,32 +260,33 @@ const PaymentSummary = () => {
         }
     };
 
-
-    const loadDeviceStatuses = async () => {
-        try {
-            const data = await getStatusReport();
-            const list = Array.isArray(data) ? data : (data?.data ?? data?.devices ?? []);
-            setDeviceStatuses(list);
-        } catch (err) {
-            console.error('Error loading device statuses:', err);
-        }
+    const getDeviceStatus = (deviceId) => {
+        const item = summaryData.find(s => s.device?.deviceId === deviceId || s.device?.name === deviceId || s.device?.id === deviceId);
+        return item ? item.device : null;
     };
 
-    const getDeviceStatus = (deviceId) =>
-        deviceStatuses.find(d => d.id === deviceId || d.name === deviceId);
 
-    const handleEngineToggle = async (device) => {
-        const status = getDeviceStatus(device.deviceId || device.name);
-        if (!status) return;
-        const id = status.id;
-        const isCutOff = Boolean(status.cutOff);
-        const command = isCutOff ? 1 : 0;
+    const handleEngineToggle = async (deviceObj) => {
+        const dev = deviceObj.device || deviceObj;
+        const id = dev.deviceId || dev.id || dev.name;
+        const command = dev.cutOff ? 1 : 0;
         setPendingCommands(prev => ({ ...prev, [id]: true }));
         try {
             const result = await controlEngine(id, command);
             if (result.success) {
-                showToast(result.message, 'success');
-                loadDeviceStatuses();
+                const msg = result.message || result.response?.message || 'Comando enviado con éxito';
+                showToast(msg, 'success');
+                const nextCutOff = command === 0;
+                setSummaryData(prev => prev.map(item => {
+                    const currentId = item.device.deviceId || item.device.id || item.device.name;
+                    if (currentId === id || item.device.name === id) {
+                        return {
+                            ...item,
+                            device: { ...item.device, cutOff: nextCutOff }
+                        };
+                    }
+                    return item;
+                }));
             } else {
                 showToast(result.error || 'Error controlando motor', 'error');
             }
@@ -285,6 +296,88 @@ const PaymentSummary = () => {
             setPendingCommands(prev => ({ ...prev, [id]: false }));
         }
     };
+
+    useEffect(() => {
+        fetchData();
+        const handlePaymentUpdate = (e) => {
+            const detail = e.detail;
+            if (!detail) return;
+
+            if (detail?.type === 'gps_update' && Array.isArray(detail.devices)) {
+                setSummaryData(prev => prev.map(item => {
+                    const devId = String(item.device.deviceId || item.device.id || item.device.name || '');
+                    const devGpsId = String(item.device.gpsId || '');
+                    const match = detail.devices.find(u => {
+                        const targetId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
+                        return targetId && (devId === targetId || devGpsId === targetId || item.device.name?.toUpperCase() === targetId.toUpperCase());
+                    });
+                    if (match) {
+                        return {
+                            ...item,
+                            device: {
+                                ...item.device,
+                                ...(match.cutOff != null && { cutOff: match.cutOff ? 1 : 0 }),
+                                ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
+                                ...(match.ignition != null && { ignition: match.ignition })
+                            }
+                        };
+                    }
+                    return item;
+                }));
+            } else if (detail?.type === 'engine' && detail?.deviceId) {
+                const targetCutOff = (detail.command === 0 || detail.command === '0' || detail.command === false) ? 1 : 0;
+                setSummaryData(prev => prev.map(item => {
+                    const targetStr = String(detail.deviceId).toUpperCase();
+                    const isMatch =
+                        String(item.device._id) === targetStr ||
+                        String(item.device.gpsId) === targetStr ||
+                        item.device.name?.toUpperCase() === targetStr;
+
+                    if (isMatch) {
+                        return {
+                            ...item,
+                            device: { ...item.device, cutOff: targetCutOff }
+                        };
+                    }
+                    return item;
+                }));
+            } else if (detail?.type === 'cutoff-batch') {
+                fetchData();
+            }
+        };
+
+        const handleDeviceUpdate = (e) => {
+            const detail = e.detail;
+            if (!detail) return;
+
+            setSummaryData(prev => prev.map(item => {
+                const isMatch =
+                    (detail.gpsId != null && String(item.device.gpsId) === String(detail.gpsId)) ||
+                    (detail.name && item.device.name?.toUpperCase() === detail.name?.toUpperCase()) ||
+                    (detail._id && String(item.device._id) === String(detail._id));
+
+                if (isMatch) {
+                    return {
+                        ...item,
+                        device: {
+                            ...item.device,
+                            ...(detail.cutOff != null && { cutOff: (detail.cutOff === true || detail.cutOff === 1 || detail.cutOff === '1') ? 1 : 0 }),
+                            ...(detail.batteryLevel != null && { batteryLevel: detail.batteryLevel }),
+                            ...(detail.ignition != null && { ignition: detail.ignition })
+                        }
+                    };
+                }
+                return item;
+            }));
+        };
+
+        window.addEventListener('payment-update', handlePaymentUpdate);
+        window.addEventListener('device-update', handleDeviceUpdate);
+        return () => {
+            window.removeEventListener('payment-update', handlePaymentUpdate);
+            window.removeEventListener('device-update', handleDeviceUpdate);
+        };
+    }, [selectedMonth, selectedYear]);
 
     const handleBulkEngineOff = async () => {
         setBulkOffModal(false);
@@ -301,10 +394,11 @@ const PaymentSummary = () => {
         }
     };
 
+    const hasInitialScrolledRef = useRef(false);
+
     useEffect(() => {
-        fetchData();
-        loadDeviceStatuses();
-    }, [selectedMonth, selectedYear]);
+        hasInitialScrolledRef.current = false;
+    }, [selectedMonth, selectedYear, desktopView]);
 
     // Real-time SSE listening for device status updates in summary view
     useEffect(() => {
@@ -379,12 +473,15 @@ const PaymentSummary = () => {
     }, [user?.companyId]);
 
     useEffect(() => {
-        if (!isMobile && desktopView === 'matrix' && !loading && summaryData.length > 0 && tableContainerRef.current) {
-            const { scrollWidth } = tableContainerRef.current;
-            tableContainerRef.current.scrollLeft = scrollWidth;
-            syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
+        if (!isMobile && desktopView === 'matrix' && !loading && tableContainerRef.current) {
+            if (!hasInitialScrolledRef.current) {
+                const { scrollWidth } = tableContainerRef.current;
+                tableContainerRef.current.scrollLeft = scrollWidth;
+                syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
+                hasInitialScrolledRef.current = true;
+            }
         }
-    }, [desktopView, isMobile, loading, summaryData]);
+    }, [desktopView, isMobile, loading]);
 
     useEffect(() => {
         if (matrixGeometry && tableContainerRef.current) {
@@ -413,14 +510,16 @@ const PaymentSummary = () => {
         return true;
     });
 
-    const renderEngineButton = (device) => {
-        const status = getDeviceStatus(device.deviceId || device.name);
-        if (!status) return <span style={{ color: '#D1D5DB', fontSize: '0.7rem' }}>--</span>;
-        const isCutOff = Boolean(status.cutOff);
+    const renderEngineButton = (deviceObj) => {
+        const dev = deviceObj.device || deviceObj;
+        const devId = dev.deviceId || dev.id || dev.name;
+        const isOff = !!dev.cutOff;
+        const isPending = !!pendingCommands[devId];
+
         if (user?.role === 'viewer') {
             return (
                 <div
-                    className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'}`}
+                    className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'}`}
                     style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
                 >
                     <div className="slider-knob"><Power size={10} /></div>
@@ -429,14 +528,14 @@ const PaymentSummary = () => {
         }
         return (
             <button
-                onClick={() => handleEngineToggle(device)}
-                disabled={!!pendingCommands[status.id]}
-                className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'} ${pendingCommands[status.id] ? 'pending' : ''}`}
-                title={isCutOff ? 'Activar Moto' : 'Desactivar Moto'}
+                onClick={() => handleEngineToggle(dev)}
+                disabled={isPending}
+                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
+                title={isOff ? 'Activar Moto' : 'Desactivar Moto'}
                 style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
-                    {pendingCommands[status.id]
+                    {isPending
                         ? <RefreshCw size={10} className="spin" />
                         : <Power size={10} />}
                 </div>
@@ -565,6 +664,30 @@ const PaymentSummary = () => {
                 </div>
             )}
 
+            {portalElement && createPortal(
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                        type="button"
+                        className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
+                        onClick={() => setShowFilters(!showFilters)}
+                        id="filterToggle"
+                        title="Filtros"
+                    >
+                        <ListFilter size={20} />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-mobile-header-action"
+                        onClick={fetchData}
+                        disabled={loading}
+                        title="Actualizar datos"
+                    >
+                        <RefreshCw size={20} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>,
+                portalElement
+            )}
+
             <div
                 ref={summaryHeaderRef}
                 className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
@@ -596,97 +719,56 @@ const PaymentSummary = () => {
                     )}
                 </div>
 
-                <div className="controls">
-                    <select
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                        className="select-control"
-                    >
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                            </option>
-                        ))}
-                    </select>
 
-                    <select
-                        value={selectedYear}
-                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        className="select-control"
-                    >
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                    </select>
+            </div>
 
-                    <button
-                        className={`select-control refresh-btn ${loading ? 'spinning' : ''}`}
-                        onClick={fetchData}
-                        disabled={loading}
-                        title="Actualizar datos"
-                    >
-                        <RefreshCw size={20} />
-                    </button>
+            {/* ── Controles: mes / año / acciones ────────────────────────────── */}
+            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+                <div className="dashboard-controls-row">
+                    <div className="select-wrapper-month">
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                            className="select-control-ios"
+                        >
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="select-wrapper-year">
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                            className="select-control-ios"
+                        >
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                            <option value={2027}>2027</option>
+                        </select>
+                    </div>
 
                     {user?.role !== 'viewer' && (
                         <button
-                            className={`select-control refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
+                            type="button"
+                            className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
                             onClick={() => setBulkOffModal(true)}
                             disabled={bulkOffLoading || morososCount === 0}
                             title={`Apagar motor de vehículos morosos (${morososCount})`}
-                            style={{
-                                background: bulkOffLoading ? '#FEE2E2' : '#EF4444',
-                                color: bulkOffLoading ? '#EF4444' : '#fff',
-                                border: 'none',
-                                opacity: morososCount === 0 ? 0.45 : 1,
-                                cursor: morososCount === 0 ? 'not-allowed' : 'pointer'
-                            }}
+                            style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
                         >
-                            {bulkOffLoading ? (
-                                <RefreshCw size={20} />
-                            ) : (
-                                <ZapOff size={20} />
-                            )}
+                            {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
                         </button>
                     )}
                 </div>
-            </div>
-
-            {/* ── Filter bar (mirrors Contracts page) ───────────────────────── */}
-            <div className="contracts-filters" style={{ flexWrap: 'wrap', gap: '8px' }}>
-                <button
-                    type="button"
-                    className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('all')}
-                >
-                    Todos
-                </button>
-                <button
-                    type="button"
-                    className={`filter-btn ${statusFilter === 'debt' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('debt')}
-                >
-                    Con deuda
-                </button>
-                <button
-                    type="button"
-                    className={`filter-btn ${statusFilter === 'ok' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('ok')}
-                >
-                    Al día
-                </button>
-                <button
-                    type="button"
-                    className={`filter-btn ${statusFilter === 'cutoff' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('cutoff')}
-                >
-                    Apagados
-                </button>
-
-                <div className="search-box" style={{ marginLeft: 'auto' }}>
-                    <Search className="search-icon" size={16} />
+                <div className="search-ios">
+                    <Search size={15} className="search-ios-icon" />
                     <input
                         type="text"
+                        className="search-ios-input"
                         placeholder="Buscar moto o conductor…"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -694,7 +776,7 @@ const PaymentSummary = () => {
                     {searchQuery && (
                         <button
                             type="button"
-                            className="clear-search"
+                            className="search-ios-clear"
                             onClick={() => setSearchQuery('')}
                             aria-label="Limpiar búsqueda"
                         >
@@ -702,6 +784,46 @@ const PaymentSummary = () => {
                         </button>
                     )}
                 </div>
+            </div>
+
+            {/* ── Filtros: pills + búsqueda ───────────────────────────────────── */}
+            <div className="summary-filter-row-ios">
+                <div className="filter-pills-ios">
+                    <button
+                        type="button"
+                        data-filter="all"
+                        className={`filter-pill-ios ${statusFilter === 'all' ? 'active' : ''}`}
+                        onClick={() => setStatusFilter('all')}
+                    >
+                        Todos
+                    </button>
+                    <button
+                        type="button"
+                        data-filter="debt"
+                        className={`filter-pill-ios ${statusFilter === 'debt' ? 'active' : ''}`}
+                        onClick={() => setStatusFilter('debt')}
+                    >
+                        Con deuda
+                    </button>
+                    <button
+                        type="button"
+                        data-filter="ok"
+                        className={`filter-pill-ios ${statusFilter === 'ok' ? 'active' : ''}`}
+                        onClick={() => setStatusFilter('ok')}
+                    >
+                        Al día
+                    </button>
+                    <button
+                        type="button"
+                        data-filter="cutoff"
+                        className={`filter-pill-ios ${statusFilter === 'cutoff' ? 'active' : ''}`}
+                        onClick={() => setStatusFilter('cutoff')}
+                    >
+                        Apagados
+                    </button>
+                </div>
+
+
             </div>
 
             {isMobile || desktopView === 'bike' ? (
@@ -767,8 +889,15 @@ const PaymentSummary = () => {
                                                 const { cellClass, content } = renderDayCell(dayData);
                                                 return (
                                                     <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
-                                                        <div className={cellClass}>
-                                                            {content}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                            <div className={cellClass}>
+                                                                {content}
+                                                            </div>
+                                                            {dayData && (
+                                                                <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
+                                                                    {dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 );

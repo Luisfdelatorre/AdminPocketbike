@@ -162,6 +162,89 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* Table Header & Rows iOS Style */
+.devices-table-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    overflow: hidden;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+.invoices-table-header-ios {
+    display: grid;
+    /* ID FACTURA | MONTO | FECHA PAGO | ESTADO */
+    grid-template-columns: 1.1fr 0.9fr 1.1fr 1fr;
+    padding: 0.5rem 0.75rem;
+    background-color: rgba(243, 243, 244, 0.8);
+    border-bottom: 1px solid rgba(198, 198, 200, 0.4);
+    align-items: center;
+}
+
+.invoices-table-header-ios span {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.invoices-table-header-ios .col-center {
+    text-align: center;
+    justify-self: center;
+}
+
+.invoices-table-header-ios .desktop-col,
+.invoices-row-ios .desktop-col {
+    display: none;
+}
+
+.devices-table-rows-ios {
+    display: flex;
+    flex-direction: column;
+}
+
+.invoices-row-ios {
+    display: grid;
+    /* ID FACTURA | MONTO | FECHA PAGO | ESTADO */
+    grid-template-columns: 1.1fr 0.9fr 1.1fr 1fr;
+    padding: 0.6rem 0.75rem;
+    align-items: center;
+    border-bottom: 1px solid rgba(198, 198, 200, 0.2);
+    transition: background-color 0.15s ease;
+}
+
+.invoices-row-ios:last-child {
+    border-bottom: none;
+}
+
+.invoices-row-ios:hover {
+    background-color: rgba(226, 226, 226, 0.15);
+}
+
+@media (min-width: 768px) {
+    .invoices-table-header-ios {
+        /* ID FACTURA | MOTO | MONTO | FECHA PAGO | ESTADO */
+        grid-template-columns: 1.6fr 1.2fr 1fr 1.2fr 1.2fr;
+    }
+
+    .invoices-table-header-ios .desktop-col {
+        display: flex;
+    }
+
+    .invoices-row-ios {
+        /* ID FACTURA | MOTO | MONTO | FECHA PAGO | ESTADO */
+        grid-template-columns: 1.6fr 1.2fr 1fr 1.2fr 1.2fr;
+    }
+
+    .invoices-row-ios .desktop-col {
+        display: flex;
+    }
+}
+
 .table-header {
     display: grid;
     grid-template-columns: 1.5fr .8fr 0.8fr 1fr 1fr 0.8fr;

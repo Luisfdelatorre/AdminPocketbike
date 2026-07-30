@@ -29,7 +29,7 @@ router.post('/assign-to-company', deviceController.assignDevicesToCompany);
 
 /**
  * GET /api/devices/status
- * Get device online/cutoff status for authenticated device/user
+ * Get device online/cutoff status
  */
 router.get('/status', deviceController.getDeviceStatus);
 

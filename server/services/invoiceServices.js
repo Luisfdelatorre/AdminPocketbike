@@ -42,8 +42,12 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
         const schemaVersion = contract?.schemaVersion ?? 1;
 
         if (schemaVersion >= 2) {
-            // v2+ contracts: invoices carry contractId — filter strictly by it
-            query.contractId = contractId;
+            // v2+ contracts: match contractId OR legacy invoices for this device with null/missing contractId
+            query.$or = [
+                { contractId: contractId },
+                { contractId: null },
+                { contractId: { $exists: false } }
+            ];
         }
         // v1 legacy: skip contractId filter, query by device+date only
     }
@@ -128,7 +132,7 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
                     $sum: { $cond: [{ $eq: ['$paid', true] }, '$paidAmount', 0] }
                 },
                 monthDebt: {
-                    $sum: { $cond: [{ $eq: ['$paid', false] }, '$paidAmount', 0] }
+                    $sum: { $cond: [{ $eq: ['$paid', false] }, '$amount', 0] }
                 },
                 freeDays: {
                     $sum: { $cond: [{ $eq: ['$dayType', 'FREE'] }, 1, 0] }
@@ -146,16 +150,33 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
         }
     });
 
-    // 4. Determine Status
+    // 4. Return lightweight, clean report DTO
     const report = Object.values(deviceMap).map(d => {
-        if (d.monthDebt > 0) {
-            d.status = 'MORA';
-            d.color = 'red';
-        } else {
-            d.status = 'AL DÍA';
-            d.color = 'green';
-        }
-        return d;
+        const isMora = d.monthDebt > 0;
+        return {
+            id: d.deviceId || d._id,
+            _id: d._id,
+            name: d.name,
+            model: d.model || 'PocketBike',
+            deviceId: d.deviceId,
+            gpsId: d.gpsId,
+            driverName: d.driverName || null,
+            status: isMora ? 'MORA' : 'AL DÍA',
+            color: isMora ? 'red' : 'green',
+            cutOff: Boolean(d.cutOff),
+            ignition: Boolean(d.ignition),
+            batteryLevel: d.batteryLevel ?? null,
+            hasActiveContract: Boolean(d.hasActiveContract),
+            activeContractId: d.activeContractId || d.contractId || null,
+            dailyRate: d.dailyRate || 0,
+            monthPaid: d.monthPaid || 0,
+            monthDebt: d.monthDebt || 0,
+            freeDays: d.freeDays || 0,
+            exemptFromCutOff: Boolean(d.exemptFromCutOff),
+            exemptFromCurfew: Boolean(d.exemptFromCurfew),
+            cutOffTime: d.cutOffTime || null,
+            lastUpdate: d.lastUpdate || null
+        };
     });
 
     return report;

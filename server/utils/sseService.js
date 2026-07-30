@@ -64,7 +64,7 @@ export class SSEService {
     }
 
     /**
-     * Broadcast event to all connected clients (or filter by companyId if specified in options)
+     * Broadcast event to all connected clients (or filter by companyId if specified)
      */
     broadcast(event, data, filterOptions = {}) {
         const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -72,14 +72,11 @@ export class SSEService {
         let sentCount = 0;
         this.clients.forEach((clientEntry, clientId) => {
             try {
-                // If event belongs to a specific company, check if client has access or is unsubscribed
                 const targetCompanyId = data?.companyId || filterOptions?.companyId;
                 const clientCompanyId = clientEntry?.metadata?.companyId;
-                const clientCompanyIds = clientEntry?.metadata?.companyIds || [];
 
                 if (targetCompanyId && clientCompanyId) {
-                    const hasAccess = clientCompanyId === targetCompanyId || clientCompanyIds.includes(targetCompanyId);
-                    if (!hasAccess) {
+                    if (String(clientCompanyId) !== String(targetCompanyId)) {
                         return; // Skip clients from other companies
                     }
                 }

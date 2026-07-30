@@ -9,6 +9,7 @@ import companyService from "./companyService.js";
 import { Device } from "../models/Device.js";
 import { Invoice } from "../models/Invoice.js";
 import { Transaction, ENGINESTOP, ENGINERESUME } from "../config/config.js";
+import { sseService } from "../utils/sseService.js";
 
 
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
@@ -79,8 +80,52 @@ const generateDailyInvoices = async () => {
         logger.error(`Error generating invoice for device ${device.name}:`, innerErr);
       }
     }
+
+    // Automatically sync yesterday's km from Traccar
+    await syncYesterdayKm();
   } catch (err) {
     logger.error('Error generando invoices diarios', err);
+  }
+};
+
+const syncYesterdayKm = async () => {
+  try {
+    const yesterday = dayjs().subtract(1, 'day').startOf('day');
+    const yesterdayStr = yesterday.format('YYYY-MM-DD');
+    const companies = await Company.find({ isActive: true }).lean();
+
+    for (const company of companies) {
+      try {
+        const gpsAdapter = await companyService.getGpsAdapter(company._id);
+        if (!gpsAdapter?.adapter?.fetchPreviousDayKmDevice) continue;
+
+        const devices = await Device.find({ companyId: company._id }).lean();
+        const gpsIds = devices.map(d => d.gpsId).filter(Boolean);
+
+        const kmData = await gpsAdapter.adapter.fetchPreviousDayKmDevice(new Date(), gpsIds);
+        if (!kmData || !Array.isArray(kmData)) continue;
+
+        const kmMap = {};
+        for (const report of kmData) {
+          const distanceKm = Math.round((report.distance || 0) / 1000 * 10) / 10;
+          kmMap[report.deviceId] = distanceKm;
+        }
+
+        for (const device of devices) {
+          const distanceKm = kmMap[device.gpsId];
+          if (distanceKm === undefined) continue;
+          const invoiceId = `${device.name}-${yesterdayStr}`;
+          await Invoice.updateOne(
+            { _id: invoiceId },
+            { $set: { distance: distanceKm } }
+          );
+        }
+      } catch (cErr) {
+        logger.error(`[KM SYNC] Error for company ${company.name}:`, cErr);
+      }
+    }
+  } catch (err) {
+    logger.error('Error syncing yesterday km in cron:', err);
   }
 };
 
@@ -115,25 +160,19 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
   try {
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
 
-    const getTargetId = (d) => d.gpsId || d.megaDeviceId || d.deviceId;
-    // Filter out invalid or undefined IDs before calling adapter
-    const targetIds = batch.map(getTargetId).filter(id => id !== undefined && id !== null);
-
-    if (targetIds.length === 0) {
-      logger.warn(`[CUT-OFF] No valid GPS IDs found in batch for company ${companyId}.`);
-      return;
-    }
+    // Prepare arrays for the adapter strictly using gpsId
+    const targetIds = batch.map(d => d.gpsId).filter(Boolean);
 
     const streamedConfirmedIds = new Set();
 
     const handleDeviceConfirmed = (targetId) => {
       streamedConfirmedIds.add(targetId);
-      // Find original device inside the batch
-      const originalDevice = batch.find(d => getTargetId(d) === targetId);
+      // Find original device inside the batch using gpsId
+      const originalDevice = batch.find(d => String(d.gpsId) === String(targetId));
       if (originalDevice) {
         logger.info(`[CUT-OFF] Device ${originalDevice.name} engine stop confirmed early.`);
         // Fire and forget updating the status async
-        deviceRepository.updateCutOffStatus(originalDevice.deviceId || originalDevice._id, true).catch(err => {
+        deviceRepository.updateCutOffStatus(originalDevice._id || originalDevice.gpsId, 1).catch(err => {
           logger.error(`Error streaming update for ${originalDevice.name}:`, err);
         });
       }
@@ -148,7 +187,8 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
     // Iterate through the original batch to correlate results and update DB
     // We only process devices that were NOT confirmed early.
     const updatePromises = batch.map(async (device) => {
-      const targetId = getTargetId(device);
+      const targetId = device.gpsId;
+      if (!targetId) return;
 
       // If we already successfully streamed its update, do nothing
       if (!targetId || streamedConfirmedIds.has(targetId)) return;
@@ -157,7 +197,7 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
 
       if (!confirmed) {
         logger.warn(`[CUT-OFF] Device ${device.name} engine stop command not confirmed after retries.`);
-        return deviceRepository.updateCutOffStatus(device.deviceId || device._id, true);
+        return deviceRepository.updateCutOffStatus(device._id || device.gpsId, 2); // 2 = Sent but not confirmed
       } else {
         logger.info(`[CUT-OFF] Device ${device.name} engine stop confirmed (fallback DB write).`);
         return deviceRepository.updateCutOffStatus(device.deviceId || device._id, true);
@@ -165,6 +205,7 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
     });
 
     await Promise.all(updatePromises);
+    sseService.broadcast('payment-updated', { type: 'bulk_engine_off', timestamp: new Date().toISOString() });
   } catch (error) {
     logger.error(`[CUT-OFF] Error executing batch cut-off:`, error);
   }
@@ -189,7 +230,7 @@ const performPollingCutOff = async () => {
       for (const { device, hasUnpaidInvoice, invoice } of paymentStatuses) {
         try {
           if (device.exemptFromCutOff === true) continue;
-          if (device.cutOff === 1 || device.cutOff === 2) continue; // Already cut off / pending
+          if (device.cutOff) continue; // Already cut off
 
           // Centralised rule: is today's (or target day's) invoice due based on company strategy?
           const invoiceDate = invoice?.date ?? dayjs().startOf('day').toDate();
@@ -224,7 +265,7 @@ const performCurfewStart = async (companyId) => {
       companyId,
       hasActiveContract: true,
       exemptFromCutOff: { $ne: true },
-      cutOff: { $in: [0, null] }
+      cutOff: { $ne: true }
     }).lean();
 
     if (!devices || devices.length === 0) return;
@@ -279,7 +320,7 @@ const performCurfewEnd = async (companyId) => {
     // 3. Filter to resume ONLY devices that do NOT have an unpaid invoice
     const devicesToResume = curfewDevices.filter(device => {
       const hasUnpaid = unpaidMap.get(device._id.toString());
-      return !hasUnpaid && device.cutOff !== 1 && device.cutOff !== 2;
+      return !hasUnpaid && !device.cutOff;
     });
 
     logger.info(`[CURFEW] Out of ${curfewDevices.length} curfew devices, resuming ${devicesToResume.length} (unpaid or already cut-off skipped).`);

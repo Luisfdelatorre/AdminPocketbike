@@ -89,20 +89,20 @@ class GpsService {
             onProgress = null,
             onDeviceConfirmed = null, // Callback para streaming the status to DB early
         } = options;
-        const isStopCommand = command === ENGINE_COMMANDS.STOP || command === ENGINESTOP || command === 0 || command === '0' || command === 'engineStop';
-        const isResumeCommand = command === ENGINE_COMMANDS.RESUME || command === ENGINERESUME || command === 1 || command === '1' || command === 'engineResume';
-        const commandType = isStopCommand ? 'STOP' : (isResumeCommand ? 'RESUME' : 'UNKNOWN');
+        const isStop = command === ENGINE_COMMANDS.STOP || command === 0 || command === '0' || command === 'engineStop' || command === ENGINESTOP;
+        const isResume = command === ENGINE_COMMANDS.RESUME || command === 1 || command === '1' || command === 'engineResume' || command === ENGINERESUME;
+        const commandType = isStop ? 'STOP' : 'RESUME';
+
         if (!deviceIds || deviceIds.length === 0) return {};
 
         const adapter = this.adapter;
         let responseIds = [];
 
         try {
-            if (isStopCommand) {
+            if (isStop) {
                 responseIds = await adapter.stopDevices(deviceIds);
-            } else if (isResumeCommand) {
-                // Not strictly needed in bulk yet, but for symmetry we can implement it
-                throw new Error(`Bulk resume not implemented yet`);
+            } else if (isResume) {
+                responseIds = typeof adapter.resumeDevices === 'function' ? await adapter.resumeDevices(deviceIds) : [];
             } else {
                 throw new Error(`Invalid command type: ${command}`);
             }

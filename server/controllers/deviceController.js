@@ -6,6 +6,7 @@ import { Company } from '../models/Company.js';
 import { Invoice } from '../models/Invoice.js';
 import deviceServices from '../services/deviceServices.js';
 import companyService from '../services/companyService.js';
+import { sseService } from '../utils/sseService.js';
 import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
 import logger from '../utils/logger.js';
 
@@ -276,6 +277,12 @@ const controlEngine = async (req, res) => {
         const response = await deviceServices.controlEngine(id, command, companyId);
 
         if (response && response.success) {
+            sseService.broadcast('payment-updated', {
+                type: 'engine',
+                deviceId: id,
+                command,
+                timestamp: new Date().toISOString()
+            });
             return res.json({
                 success: true,
                 response
@@ -326,13 +333,19 @@ const cutoffDebtors = async (req, res) => {
 
 const getDeviceStatus = async (req, res) => {
     try {
-        const { deviceIdName } = req.paymentAuth;
+        const deviceIdName = req.paymentAuth?.deviceIdName || req.query.deviceIdName || req.params.deviceIdName;
+        if (!deviceIdName) {
+            return res.status(400).json({ success: false, error: 'deviceIdName is required' });
+        }
         const status = await deviceServices.getDeviceStatusByName(deviceIdName);
+        if (!status) {
+            return res.status(404).json({ success: false, error: 'Device not found' });
+        }
 
-        res.json(status);
+        res.json({ success: true, data: status });
     } catch (error) {
         logger.error(`Error in getDeviceStatus:`, error.message);
-        res.status(500).json({ error: 'Failed to get device status' });
+        res.status(500).json({ success: false, error: 'Failed to get device status' });
     }
 };
 

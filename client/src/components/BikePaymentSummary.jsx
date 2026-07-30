@@ -13,12 +13,12 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
   const containerRef = useRef(null);
   const visibleDays = daysArray.filter((day) => Boolean(item.days[day]) || !isFutureSummaryDay(day));
 
-  // Auto‑scroll to the last pill after render
+  // Auto‑scroll to the last pill ONLY on mount or when month (daysArray) changes
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollLeft = containerRef.current.scrollWidth;
     }
-  }, [daysArray, item]);
+  }, [daysArray]);
 
   return (
     <div className="pill-container" ref={containerRef}>
@@ -33,6 +33,7 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
           >
             <span style={{ fontSize: '9px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>{String(day).padStart(2, '0')}</span>
             <div className={cellClass} style={{ width: '36px', height: '28px', fontSize: '9px' }}>{content}</div>
+            {dayData && <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF' }}>{dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}</span>}
           </div>
         );
       })}
@@ -47,11 +48,12 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
 
   return (
     <section className="bike-summary-list">
-      {summaryData.map((item) => {
+      {summaryData.map((item, idx) => {
+        const cardKey = item.device._id || item.device.id || item.device.deviceId || item.device.name || idx;
         const hasDebt = (item.device.unpaidTotal || 0) > 0;
         return (
           <div
-            key={item.device.deviceId}
+            key={cardKey}
             className="bike-summary bike-summary-card"
           >
             {/* Card header: device name + debt badge */}
@@ -64,14 +66,13 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {/* Motor toggle */}
                 {(() => {
-                  const status = getDeviceStatus ? getDeviceStatus(item.device.deviceId || item.device.name) : null;
-                  if (!status) return null;
-                  const isCutOff = Boolean(status.cutOff);
+                  const dev = item.device;
+                  const isOff = Boolean(dev.cutOff);
 
                   if (user?.role === 'viewer') {
                     return (
                       <div
-                        className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'}`}
+                        className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'}`}
                         style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
                       >
                         <div className="slider-knob"><Power size={10} /></div>
@@ -79,13 +80,13 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                     );
                   }
 
-                  const isPending = pendingCommands ? !!pendingCommands[status.id] : false;
+                  const isPending = pendingCommands ? !!pendingCommands[dev.deviceId || dev.name] : false;
                   return (
                     <button
-                      onClick={() => handleEngineToggle && handleEngineToggle(item.device)}
+                      onClick={() => handleEngineToggle && handleEngineToggle(dev)}
                       disabled={isPending}
-                      className={`engine-toggle-slider ${isCutOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
-                      title={isCutOff ? 'Activar Moto' : 'Desactivar Moto'}
+                      className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
+                      title={isOff ? 'Activar Moto' : 'Desactivar Moto'}
                       style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
                     >
                       <div className="slider-knob">

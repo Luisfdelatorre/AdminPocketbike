@@ -110,7 +110,15 @@ class DeviceRepository {
     }
     async getDeviceByName(name) {
         try {
-            return await Device.findOne({ name });
+            if (!name) return null;
+            const numericId = !isNaN(name) ? Number(name) : name;
+            return await Device.findOne({
+                $or: [
+                    { name: name },
+                    { plate: name },
+                    { _id: numericId }
+                ]
+            });
         } catch (error) {
             logger.error(`Error getting device by name ${name}:`, error);
             throw error;
@@ -136,14 +144,12 @@ class DeviceRepository {
                 ? { _id: Number(deviceId) }
                 : { $or: [{ name: String(deviceId) }, { _id: deviceId }] };
 
-            const result = await Device.findOneAndUpdate(
-                filter,
-                {
-                    activeContractId: hasContract ? contractId : null,
-                    hasActiveContract: Boolean(hasContract)
-                },
-                { new: true }
-            );
+        console.log('Update contract status for device:', numericId, contractId, hasContract);
+        const result = await Device.findByIdAndUpdate(numericId, {
+            activeContractId: contractId,
+            contractId: contractId,
+            hasActiveContract: hasContract
+        }, { new: true });
 
             logger.info(`Updated contract status for device ${deviceId}: hasActiveContract=${hasContract}, activeContractId=${contractId}`);
             return result;
@@ -157,7 +163,8 @@ class DeviceRepository {
             const updateData = {
                 activeContractId: contract.contractId,
                 hasActiveContract: true,
-                driverName: contract.driverName,
+                contractId: contract.contractId, // Sync requested by user
+                driverName: contract.customerName || contract.driverName,
                 nequiNumber: contract.nequiNumber,
                 companyId: contract.companyId,
                 companyName: contract.companyName,
@@ -183,7 +190,7 @@ class DeviceRepository {
         try {
             return await Device.findOneAndUpdate(
                 { deviceId: deviceId },
-                { cutOff: cutOff },
+                { cutOff: Boolean(cutOff) },
                 { new: true }
             );
         } catch (error) {
@@ -195,7 +202,7 @@ class DeviceRepository {
         try {
             return await Device.findOneAndUpdate(
                 { gpsId: gpsId },
-                { cutOff: cutOff },
+                { cutOff: Boolean(cutOff) },
                 { new: true }
             );
         } catch (error) {
@@ -227,6 +234,38 @@ class DeviceRepository {
             );
         } catch (error) {
             logger.error(`Error updating exemption for device ${deviceIdentifier}:`, error);
+            throw error;
+        }
+    }
+
+    async getDeviceStatusByName(deviceIdName) {
+        try {
+            const device = await Device.findOne({ name: deviceIdName }, 'name gpsId imei ignition lastUpdate cutOff batteryLevel companyId hasActiveContract').lean();
+            if (!device) return null;
+            return {
+                name: device.name,
+                gpsId: device.gpsId,
+                ignition: device.ignition,
+                lastUpdate: device.lastUpdate,
+                cutOff: device.cutOff,
+                batteryLevel: device.batteryLevel,
+                hasActiveContract: device.hasActiveContract,
+            };
+        } catch (error) {
+            logger.error(`Error getting device status for ${deviceIdName}:`, error);
+            throw error;
+        }
+    }
+
+    async updateContractStatus(deviceIdName, contractId, hasActiveContract) {
+        try {
+            return await Device.findOneAndUpdate(
+                { name: deviceIdName },
+                { contractId: contractId || null, hasActiveContract: Boolean(hasActiveContract) },
+                { new: true }
+            );
+        } catch (error) {
+            logger.error(`Error updating contract status for device ${deviceIdName}:`, error);
             throw error;
         }
     }

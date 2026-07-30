@@ -23,6 +23,23 @@
     margin: 0;
 }
 
+/* Expandable Metrics Container */
+.expandable-metrics-container {
+    overflow: hidden;
+    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.expandable-metrics-container.expanded {
+    max-height: 400px;
+    opacity: 1;
+}
+
+.expandable-metrics-container.collapsed {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* Stats Cards */
 .devices-stats {
     display: grid;
@@ -461,8 +478,7 @@
     gap: 1rem;
 }
 
-.device-card {
-}
+.device-card {}
 
 .card-header {
     display: flex;
@@ -581,7 +597,7 @@
 }
 
 @media (max-width: 768px) {
-    .devices-page > .page-header {
+    .devices-page>.page-header {
         display: none;
     }
 
@@ -683,12 +699,656 @@
     animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
+/* ============================================================
+   iOS DEVICE PAGE THEME
+   Tokens del sistema de diseño iOS (mismo que AdminDashboard)
+   ============================================================ */
+
+.ios-devices-page {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    color: #1a1c1c;
+}
+
+/* Stats Bar — always visible (mobile + desktop) */
+.devices-stats-ios {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.devices-stats-ios .stat-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    padding: 0.3em 0.2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.devices-stats-ios .stat-content-ios {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.devices-stats-ios .stat-content-ios h3.uppercase-title-ios {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #6b7280;
+    margin: 0 0 0.25rem 0;
+    text-align: center;
+    width: 100%;
+    line-height: 1.3;
+}
+
+.devices-stats-ios .stat-value-container-ios {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    width: 100%;
+}
+
+.devices-stats-ios .stat-value-ios {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1a1c1c;
+    letter-spacing: -0.5px;
+    text-align: center;
+    line-height: 1;
+}
+
+/* Filters + Search Row */
+.devices-filter-row-ios {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.filter-pills-ios {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.filter-pill-ios {
+    padding: 0.35rem 0.875rem;
+    border-radius: 9999px;
+    border: 1px solid #e8e8e8;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: #f3f3f4;
+    color: #414755;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-family: inherit;
+}
+
+.filter-pill-ios:hover {
+    background-color: #e8e8e8;
+}
+
+.filter-pill-ios.active {
+    background-color: #0070eb;
+    color: #ffffff;
+    border: 1.5px solid #005bc5;
+    box-shadow: 0 1px 4px rgba(0, 112, 235, 0.35);
+    font-weight: 600;
+}
+
+/* Activos pill — color verde más acentuado */
+.filter-pill-ios[data-filter='active'].active {
+    background-color: #1b9e3e;
+    border-color: #148030;
+    box-shadow: 0 1px 4px rgba(27, 158, 62, 0.35);
+}
+
+/* Libres pill — color naranja más acentuado */
+.filter-pill-ios[data-filter='available'].active {
+    background-color: #c96f00;
+    border-color: #a55900;
+    box-shadow: 0 1px 4px rgba(255, 149, 0, 0.35);
+}
+
+/* Search iOS */
+.search-ios {
+    position: relative;
+    width: 100%;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.search-ios-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #414755;
+    pointer-events: none;
+}
+
+.search-ios-input {
+    width: 100%;
+    background-color: #f3f3f4;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 2.5rem 0.5rem 2.25rem;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1c1c;
+    outline: none;
+    font-family: inherit;
+    transition: background-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.search-ios-input:focus {
+    background-color: #e8e8e8;
+}
+
+.search-ios-input::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.search-ios-clear {
+    position: absolute;
+    right: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #414755;
+    display: flex;
+    align-items: center;
+    padding: 0.2rem;
+    border-radius: 50%;
+}
+
+.search-ios-clear:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Devices Table Card */
+.devices-table-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+/* Table Header Band */
+.devices-table-header-ios {
+    display: grid;
+    /* CONTRATO | PAGADO | MOTOR | ACC */
+    grid-template-columns: 1fr 0.9fr 1.6fr 0.75fr;
+    padding: 0.4rem 0.625rem;
+    background-color: rgba(243, 243, 244, 0.8);
+    border-bottom: 1px solid rgba(198, 198, 200, 0.4);
+    align-items: center;
+}
+
+.devices-table-header-ios span {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.devices-table-header-ios .col-center {
+    text-align: center;
+    justify-self: center;
+}
+
+.devices-table-header-ios .desktop-col {
+    display: none;
+}
+
+/* Table Rows */
+.devices-table-rows-ios {
+    display: flex;
+    flex-direction: column;
+}
+
+.devices-row-ios {
+    display: grid;
+    /* CONTRATO | PAGADO | MOTOR | ACC */
+    grid-template-columns: 1fr 0.9fr 1.6fr 0.75fr;
+    padding: 0.55rem 0.625rem;
+    align-items: center;
+    border-bottom: 1px solid rgba(198, 198, 200, 0.2);
+    transition: background-color 0.15s ease;
+}
+
+.devices-row-ios:last-child {
+    border-bottom: none;
+}
+
+.devices-row-ios:hover {
+    background-color: rgba(226, 226, 226, 0.15);
+}
+
+.col-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.desktop-col {
+    display: none;
+}
+
+/* Device Name Column */
+.device-name-col {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.device-name-link {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    overflow: hidden;
+    width: 100%;
+}
+
+.device-name-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1c1c;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.15s ease;
+}
+
+.device-name-link:hover .device-name-text {
+    color: #0070eb;
+}
+
+.device-contract-id {
+    font-size: 9px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+/* Pagado / Deuda Columns */
+.device-paid-col {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.device-paid-col.paid-positive {
+    color: #059669;
+}
+
+.device-paid-col.paid-zero {
+    color: #9ca3af;
+}
+
+.device-debt-col {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.device-debt-col.debt-positive {
+    color: #FF3B30;
+}
+
+.device-debt-col.debt-zero {
+    color: #9ca3af;
+}
+
+/* Free Days Column */
+.device-freedays-col {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0070eb;
+}
+
+/* Status Badges */
+.status-badge-device-ios {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.status-badge-device-ios.active {
+    background-color: rgba(52, 199, 89, 0.1);
+    color: #34C759;
+}
+
+.status-badge-device-ios.debt {
+    background-color: rgba(255, 59, 48, 0.1);
+    color: #FF3B30;
+}
+
+.status-badge-device-ios.free {
+    background-color: #F2F2F7;
+    color: #414755;
+}
+
+/* Motor Column */
+.device-motor-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    overflow: visible;
+}
+
+.motor-icon-wrap {
+    display: flex;
+    align-items: center;
+}
+
+.motor-icon-wrap.motor-on {
+    color: #34C759;
+}
+
+.motor-icon-wrap.motor-off {
+    color: #FF3B30;
+}
+
+.motor-icon-wrap.motor-warn {
+    color: #FF9500;
+}
+
+.motor-icon-wrap.motor-idle {
+    color: #c6c6c8;
+}
+
+.battery-wrap {
+    display: flex;
+    align-items: center;
+}
+
+.battery-wrap.bat-full {
+    color: #34C759;
+}
+
+.battery-wrap.bat-mid {
+    color: #FF9500;
+}
+
+.battery-wrap.bat-low {
+    color: #FF3B30;
+}
+
+/* Actions Column */
+.device-actions-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.action-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: none;
+    border: none;
+    border-radius: 0.375rem;
+    color: #414755;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    padding: 0;
+}
+
+.action-icon-btn:hover {
+    background-color: rgba(243, 243, 244, 0.8);
+    color: #1a1c1c;
+}
+
+/* Empty State iOS */
+.empty-state-ios {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #414755;
+    font-size: 13px;
+}
+
+/* Bulk Off Modal iOS */
+.bulk-off-modal-ios {
+    background: #ffffff;
+    border-radius: 0.875rem;
+    padding: 1.5rem 1.25rem;
+    max-width: 340px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.bulk-off-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.bulk-off-icon-wrap {
+    background: rgba(255, 59, 48, 0.1);
+    border-radius: 0.625rem;
+    padding: 0.625rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.bulk-off-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: #1a1c1c;
+}
+
+.bulk-off-subtitle {
+    font-size: 12px;
+    color: #414755;
+    margin-top: 2px;
+}
+
+.bulk-off-body {
+    font-size: 13px;
+    color: #414755;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+.bulk-off-actions {
+    display: flex;
+    gap: 0.625rem;
+}
+
+.bulk-off-btn-cancel {
+    flex: 1;
+    padding: 0.625rem;
+    border-radius: 0.5rem;
+    border: 0.5px solid rgba(198, 198, 200, 0.5);
+    background: #ffffff;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1a1c1c;
+    font-family: inherit;
+    transition: background-color 0.15s ease;
+}
+
+.bulk-off-btn-cancel:hover {
+    background-color: #f3f3f4;
+}
+
+.bulk-off-btn-confirm {
+    flex: 1;
+    padding: 0.625rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: #FF3B30;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-family: inherit;
+    transition: background-color 0.15s ease;
+}
+
+.bulk-off-btn-confirm:hover {
+    background-color: #d62b21;
+}
+
+/* Device Cards List */
+.devices-cards-list-ios {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Individual Device Card */
+.device-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 0.75rem 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    transition: box-shadow 0.15s ease;
+}
+
+.device-card-ios:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Card Top Row: name + status badge + action buttons */
+.device-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.device-card-top .device-name-link {
+    flex: 1;
+    min-width: 0;
+}
+
+.device-card-top-right {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+}
+
+/* Card Bottom Row: financials left + motor right */
+.device-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 0.5px solid rgba(198, 198, 200, 0.25);
+}
+
+/* Financials section */
+.device-card-financials {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.device-fin-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.device-fin-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+    margin-bottom: 1px;
+}
+
+.device-fin-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1c1c;
+}
+
+.device-fin-sep {
+    width: 1px;
+    height: 24px;
+    background-color: rgba(198, 198, 200, 0.35);
+    flex-shrink: 0;
+}
+
+/* Motor + battery + toggle in card */
+.device-card-motor {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .devices-table-header-ios {
+        /* CONTRATO | PAGADO | DEUDA | ESTADO | DIAS | MOTOR | ACC */
+        grid-template-columns: 2fr 1fr 1fr 1.1fr 0.7fr 1.5fr 0.8fr;
     }
 
-    to {
-        transform: rotate(360deg);
+    .devices-table-header-ios .desktop-col {
+        display: flex;
+    }
+
+    .devices-row-ios {
+        grid-template-columns: 2fr 1fr 1fr 1.1fr 0.7fr 1.5fr 0.8fr;
+    }
+
+    .desktop-col {
+        display: flex;
+    }
+
+    .devices-filter-row-ios {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .search-ios {
+        max-width: 280px;
+        margin-left: auto;
     }
 }

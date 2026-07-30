@@ -60,23 +60,34 @@ const initializeGpsUpdates = async () => {
         if (!batch || batch.length === 0) return;
         const NOW = Date.now();
 
-        // 1. Detect real changes and mark dirty only if something actually changed
+        // 1. Detect REAL state changes (ignition, cutOff, batteryLevel) with normalized comparison
         for (const update of batch) {
             const mem = deviceStateCache.get(update.filter.gpsId);
             if (!mem) continue;
 
-            const normCutOff = update.cutOff !== undefined ? Boolean(update.cutOff === 1 || update.cutOff === true || update.cutOff === '1') : undefined;
-            const changed =
-                mem.ignition !== update.ignition ||
-                mem.lastUpdate !== update.lastUpdate ||
-                (normCutOff !== undefined && mem.cutOff !== normCutOff) ||
-                (update.batteryLevel !== null && mem.batteryLevel !== update.batteryLevel);
+            const normBool = (val) => (val === null || val === undefined ? false : (typeof val === 'number' ? val === 1 : Boolean(val)));
+            const normBat = (val) => (val === null || val === undefined ? null : Math.round(Number(val)));
 
-            if (changed) {
-                mem.ignition = update.ignition;
-                mem.lastUpdate = update.lastUpdate;
-                if (normCutOff !== undefined) mem.cutOff = normCutOff;
-                if (update.batteryLevel !== null) mem.batteryLevel = update.batteryLevel;
+            const currentIgnition = normBool(mem.ignition);
+            const newIgnition = normBool(update.ignition);
+
+            const currentCutOff = normBool(mem.cutOff);
+            const newCutOff = update.cutOff !== undefined ? normBool(update.cutOff) : currentCutOff;
+
+            const currentBattery = normBat(mem.batteryLevel);
+            const newBattery = update.batteryLevel !== null && update.batteryLevel !== undefined ? normBat(update.batteryLevel) : currentBattery;
+
+            const stateChanged =
+                currentIgnition !== newIgnition ||
+                currentCutOff !== newCutOff ||
+                (newBattery !== null && currentBattery !== newBattery);
+
+            mem.lastUpdate = update.lastUpdate;
+
+            if (stateChanged) {
+                mem.ignition = newIgnition;
+                mem.cutOff = newCutOff;
+                mem.batteryLevel = newBattery;
                 mem._dirty = true;
                 deviceStateCache.set(update.filter.gpsId, mem);
 
@@ -94,13 +105,24 @@ const initializeGpsUpdates = async () => {
             }
         }
 
-        // 2. Every 5s, flush only dirty devices to DB
+        // 2. Throttle flush to once every 5 seconds (set lock immediately to prevent race conditions during async calls)
         if (NOW - _lastGlobalDbWrite < 5000) return;
+        _lastGlobalDbWrite = NOW;
 
         const bulkOps = [];
+        const updatesList = [];
 
         for (const [idKey, mem] of deviceStateCache.entries()) {
             if (!mem._dirty) continue; // skip unchanged devices
+
+            updatesList.push({
+                gpsId: mem.filter?.gpsId || mem.filter?.deviceId || idKey,
+                filter: mem.filter,
+                ignition: mem.ignition,
+                lastUpdate: mem.lastUpdate,
+                cutOff: mem.cutOff,
+                batteryLevel: mem.batteryLevel,
+            });
 
             bulkOps.push({
                 updateOne: {
@@ -123,12 +145,15 @@ const initializeGpsUpdates = async () => {
             try {
                 await deviceRepository.upsertDevicesBatch(bulkOps);
                 logger.info(`GPS bulk write: ${bulkOps.length} devices updated`);
+                sseService.broadcast('payment-updated', {
+                    type: 'gps_update',
+                    devices: updatesList,
+                    timestamp: new Date().toISOString()
+                });
             } catch (error) {
                 logger.error('Error in GPS onFlush:', error);
             }
         }
-
-        _lastGlobalDbWrite = NOW;
     };
 
     // 3. Initialize per-company adapter based on service requirement
@@ -335,7 +360,7 @@ const cutoffDebtors = async (companyId) => {
         const name = device.deviceName || device.name || device._id;
 
         // Skip if already cut off
-        if (device.cutOff === true || device.cutOff === 1) {
+        if (device.cutOff) {
             return {
                 device: name,
                 status: 'already_off'

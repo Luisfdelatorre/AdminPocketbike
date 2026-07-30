@@ -2,6 +2,8 @@ import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
 import deviceRepository from './deviceRepository.js';
 
+import deviceRepository from './deviceRepository.js';
+
 export class ContractRepository {
     /**
      * Create a new contract
@@ -52,8 +54,13 @@ export class ContractRepository {
      * Get active contract for a device
      */
     async getActiveContractByDevice(deviceIdName) {
+        if (!deviceIdName) return null;
         return await Contract.findOne({
-            deviceIdName,
+            $or: [
+                { deviceIdName: deviceIdName },
+                { plate: deviceIdName },
+                { deviceId: deviceIdName }
+            ],
             status: 'ACTIVE',
         }).lean();
     }
@@ -251,7 +258,11 @@ export class ContractRepository {
         const hasActiveContract = contract.status === 'ACTIVE';
         const deviceTarget = contract.deviceIdName || contract.deviceId;
         if (deviceTarget) {
-            await deviceRepository.updateContractStatus(deviceTarget, hasActiveContract ? contract.contractId : null, hasActiveContract);
+            try {
+                await deviceRepository.updateContractStatus(deviceTarget, hasActiveContract ? contract.contractId : null, hasActiveContract);
+            } catch (err) {
+                // non-blocking device status sync
+            }
         }
 
         return contract.toObject();

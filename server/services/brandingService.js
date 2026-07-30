@@ -57,8 +57,7 @@ let cachedTemplate = null;
 
 export async function injectBrandingIntoHTML(htmlPath, branding, deviceName = '') {
     try {
-        // Read HTML file from disk only once, then keep it in memory
-        if (!cachedTemplate) {
+        if (!cachedTemplate || process.env.NODE_ENV !== 'production') {
             cachedTemplate = await fs.readFile(htmlPath, 'utf-8');
         }
         let html = cachedTemplate;

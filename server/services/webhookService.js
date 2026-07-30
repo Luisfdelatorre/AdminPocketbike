@@ -26,6 +26,13 @@ export class WebhookService {
             if (paymentData.status === PAYMENT_STATUS.S_APPROVED) {
                 try {
                     processingResult = await paymentService.processApprovedPayment(paymentData, dummyOnUpdate);
+                    sseService.broadcast('payment-updated', {
+                        type: 'payment',
+                        reference: paymentData.reference,
+                        amount: paymentData.amountInCents ? paymentData.amountInCents / 100 : paymentData.amount,
+                        status: paymentData.status,
+                        timestamp: new Date().toISOString()
+                    });
                 } catch (err) {
                     console.error(`[WEBHOOK] processApprovedPayment failed for ${eventData.paymentReference}: ${err.message}`);
                     processingResult = { success: false, error: err.message };

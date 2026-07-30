@@ -956,6 +956,9 @@
         const token = localStorage.getItem('paymentAuthToken');
         const paymentScreen = document.getElementById('paymentScreen');
         const loginScreen = document.getElementById('loginScreen');
+        const paymentTitle = document.getElementById('paymentTitle');
+        const paymentLogo = document.getElementById('paymentLogo');
+
         if (token) {
           if (paymentScreen) {
             paymentScreen.classList.add('active');
@@ -966,7 +969,6 @@
             loginScreen.style.display = 'none';
           }
         } else {
-          // Fallback to API
           (async function () {
             try {
               const response = await fetch('/apinode/companies/branding');
@@ -988,39 +990,17 @@
             }
           })();
         }
-      } catch (error) {
-        console.error('Error in initial payment screen check:', error);
+      } catch (err) {
+        console.error('Error initializing payment page:', err);
       }
+
+      setTimeout(() => {
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = '/js/payment-app.js';
+        document.body.appendChild(script);
+      }, 0);
     })();
-  </script>
-  <script>
-      function _getDeviceIdFromUrl() {
-        const pathParts = window.location.pathname.split('/').filter(Boolean);
-        const pIndex = pathParts.indexOf('p');
-        if (pIndex !== -1 && pathParts[pIndex + 1]) {
-          return decodeURIComponent(pathParts[pIndex + 1]).toUpperCase();
-        }
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('device') || urlParams.get('id') || '';
-      }
-
-      (function () {
-        const urlDeviceId = _getDeviceIdFromUrl();
-        const deviceIdDisplay = document.getElementById('deviceDisplay');
-
-        if (deviceIdDisplay && urlDeviceId) {
-          deviceIdDisplay.textContent = urlDeviceId;
-          deviceIdDisplay.style.display = 'block';
-        }
-
-        // Delay loading the main app module until after the initial screen has painted
-        setTimeout(() => {
-          const script = document.createElement('script');
-          script.type = 'module';
-          script.src = '../js/payment-app.js';
-          document.body.appendChild(script);
-        }, 0);
-      })();
   </script>
 
 

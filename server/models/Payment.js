@@ -30,8 +30,11 @@ const paymentSchema = new mongoose.Schema({
     invoiceId: { type: String, default: null }, // ID de la factura asociada
     unpaidInvoiceId: { type: String, default: null }, // ID de la posible factura no pagada asociada
     used: { type: Boolean, default: false }, // Indica si el pago ya fue aplicado
+    processing: { type: Boolean, default: false }, // Reserva de procesamiento en curso
     paymentFrequency: { type: Number },
     billingMultiplier: { type: Number },
+    adjustmentType: { type: String, default: null },
+    adjustmentReference: { type: String, default: null },
 
 
 
@@ -137,8 +140,8 @@ paymentSchema.methods.getPendingFormat = function () {
 };
 
 paymentSchema.methods.markAsUsed = async function (invoice = null) {
-    if (this.used) return this; // already marked, no changes
     this.used = true;
+    this.processing = false;
     if (invoice) this.invoiceId = invoice._id;
     await this.save();
 

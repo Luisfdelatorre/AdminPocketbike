@@ -6,7 +6,7 @@ export const MongoDB = {
 export const debugMode = process.env.DEBUG === 'true' || true; // Default to true for development if not specified
 
 export const server = {
-    port: process.env.PORT || 7083,
+    port: process.env.PORT || 8084,
     env: process.env.NODE_ENV || 'development',
 };
 

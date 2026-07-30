@@ -62,7 +62,7 @@ const deviceSchema = new mongoose.Schema({
     isDeleted: { type: Boolean, default: false, index: true },
     notes: { type: String, default: '', },
     // online: { type: Boolean, default: false },//diff < Transaction.DEVICE_ONLINE_TIMEOUT;
-    cutOff: { type: Boolean, default: false }, // true when motor is cut off (attributes.status === 133)
+    cutOff: { type: Boolean, default: false },
     ignition: { type: Boolean, default: false, },// sensors.ignition
     batteryLevel: { type: Number, default: null, },// attributes.batteryLevel (0–100)
     //BACKWARD COMPATIBILITY //TRACCAR
