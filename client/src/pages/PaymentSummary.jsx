@@ -301,12 +301,15 @@ const PaymentSummary = () => {
         fetchData();
         const handlePaymentUpdate = (e) => {
             const detail = e.detail;
+            if (!detail) return;
+
             if (detail?.type === 'gps_update' && Array.isArray(detail.devices)) {
                 setSummaryData(prev => prev.map(item => {
                     const devId = String(item.device.deviceId || item.device.id || item.device.name || '');
+                    const devGpsId = String(item.device.gpsId || '');
                     const match = detail.devices.find(u => {
                         const targetId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
-                        return targetId && (devId === targetId || item.device.name === targetId);
+                        return targetId && (devId === targetId || devGpsId === targetId || item.device.name?.toUpperCase() === targetId.toUpperCase());
                     });
                     if (match) {
                         return {
@@ -322,10 +325,15 @@ const PaymentSummary = () => {
                     return item;
                 }));
             } else if (detail?.type === 'engine' && detail?.deviceId) {
-                const targetCutOff = detail.command === 0 ? 1 : 0;
+                const targetCutOff = (detail.command === 0 || detail.command === '0' || detail.command === false) ? 1 : 0;
                 setSummaryData(prev => prev.map(item => {
-                    const devId = item.device.deviceId || item.device.id || item.device.name;
-                    if (devId === detail.deviceId || item.device.name === detail.deviceId) {
+                    const targetStr = String(detail.deviceId).toUpperCase();
+                    const isMatch =
+                        String(item.device._id) === targetStr ||
+                        String(item.device.gpsId) === targetStr ||
+                        item.device.name?.toUpperCase() === targetStr;
+
+                    if (isMatch) {
                         return {
                             ...item,
                             device: { ...item.device, cutOff: targetCutOff }
@@ -333,10 +341,42 @@ const PaymentSummary = () => {
                     }
                     return item;
                 }));
+            } else if (detail?.type === 'cutoff-batch') {
+                fetchData();
             }
         };
+
+        const handleDeviceUpdate = (e) => {
+            const detail = e.detail;
+            if (!detail) return;
+
+            setSummaryData(prev => prev.map(item => {
+                const isMatch =
+                    (detail.gpsId != null && String(item.device.gpsId) === String(detail.gpsId)) ||
+                    (detail.name && item.device.name?.toUpperCase() === detail.name?.toUpperCase()) ||
+                    (detail._id && String(item.device._id) === String(detail._id));
+
+                if (isMatch) {
+                    return {
+                        ...item,
+                        device: {
+                            ...item.device,
+                            ...(detail.cutOff != null && { cutOff: (detail.cutOff === true || detail.cutOff === 1 || detail.cutOff === '1') ? 1 : 0 }),
+                            ...(detail.batteryLevel != null && { batteryLevel: detail.batteryLevel }),
+                            ...(detail.ignition != null && { ignition: detail.ignition })
+                        }
+                    };
+                }
+                return item;
+            }));
+        };
+
         window.addEventListener('payment-update', handlePaymentUpdate);
-        return () => window.removeEventListener('payment-update', handlePaymentUpdate);
+        window.addEventListener('device-update', handleDeviceUpdate);
+        return () => {
+            window.removeEventListener('payment-update', handlePaymentUpdate);
+            window.removeEventListener('device-update', handleDeviceUpdate);
+        };
     }, [selectedMonth, selectedYear]);
 
     const handleBulkEngineOff = async () => {
