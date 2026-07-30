@@ -9,3 +9,5 @@ logs/
 .vscode/
 .idea/
 dist/
+*.mjs
+*.bat
