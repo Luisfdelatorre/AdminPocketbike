@@ -664,11 +664,12 @@ export class PaymentService {
 
             // Fetch invoices, payments, device info and active contracts in parallel (single round-trip each)
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs, activeContracts] = await Promise.all([
+            const [invoices, payments, deviceDocs, activeContracts, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
                 Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1 }).lean(),
-                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean()
+                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean(),
+                Company.find(companyId ? { _id: companyId } : {}).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
 
