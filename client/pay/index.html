@@ -895,12 +895,19 @@
 
             </div>
           </div>
-          <span class="device-id" id="deviceDisplay" style="display: block;">{{DEVICE_ID}}</span>
-          <span id="paymentDueDate" class="text-muted payment-date-style">- ---</span>
+          <div class="device-details-column" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
+            <span class="device-id" id="deviceDisplay" style="display: block; padding: 0; margin: 0; line-height: 1.1;">{{DEVICE_ID}}</span>
+            <span id="paymentDueDate" class="text-muted payment-date-style" style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;">- ---</span>
+          </div>
         </div>
 
         <div class="payment-amount">
           <span class="currency">$</span><span id="paymentAmount">35.000</span><span class="currency-code">COP</span>
+        </div>
+        <div class="cuotas-pill-badge" style="display: flex; justify-content: center; margin: -2px 0 14px 0;">
+          <span style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px;">
+            Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">500</span>
+          </span>
         </div>
         <div class="phone-input-group">
           <div class="country-code">Nequi<br>+57</div>
@@ -967,6 +974,8 @@
               const response = await fetch('/apinode/companies/branding');
               const data = await response.json();
               if (data.success) {
+                const paymentTitle = document.getElementById('paymentTitle');
+                const paymentLogo = document.getElementById('paymentLogo');
                 if (paymentTitle) paymentTitle.textContent = `Pago a ${data.data.displayName}`;
                 if (paymentLogo) paymentLogo.src = data.data.logo;
               }
@@ -974,6 +983,8 @@
               console.error('Error loading branding:', error);
               const companyLogo = localStorage.getItem('companyLogo');
               const displayName = localStorage.getItem('displayName');
+              const paymentTitle = document.getElementById('paymentTitle');
+              const paymentLogo = document.getElementById('paymentLogo');
               if (displayName && paymentTitle) paymentTitle.textContent = `Pago a ${displayName}`;
               if (companyLogo && paymentLogo) paymentLogo.src = companyLogo;
             }

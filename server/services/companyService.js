@@ -65,6 +65,53 @@ class CompanyService {
     }
 
     /**
+     * Determines whether an invoice for a given day is currently "due" (should count as debt)
+     * based on the company's cutoff strategy and current time.
+     *
+     * Strategy 1 - "Apagar si debe hoy":
+     *   - Days before today → always due
+     *   - Today → due only after cutOffTime
+     *   - Future → never due
+     *
+     * Strategy 2 - "Apagar si debe ayer":
+     *   - Days before today → always due
+     *   - Today → never due (must wait until tomorrow)
+     *   - Future → never due
+     *
+     * Strategy 3 - "No apagar":
+     *   - Never due (no automatic cutoff)
+     *
+     * @param {Object} company - Company document with { cutOffStrategy, cutOffTime }
+     * @param {Date|string} invoiceDate - The date of the invoice
+     * @param {dayjs.Dayjs} [now] - Current time (injectable for testing)
+     * @returns {boolean}
+     */
+    isInvoiceDue(company, invoiceDate, now = dayjs()) {
+        const strategy = company?.cutOffStrategy || 1;
+
+        if (strategy === 3) return false;
+
+        const invoiceDay = dayjs(invoiceDate).startOf('day');
+        const todayStart = now.clone().startOf('day');
+
+        const isBeforeToday = invoiceDay.isBefore(todayStart);
+        const isToday = invoiceDay.isSame(todayStart, 'day');
+
+        if (isBeforeToday) return true;
+        if (!isToday) return false; // future
+
+        // For today: only strategy 1 applies the cutoff hour check
+        if (strategy === 1) {
+            const cutOffTimeStr = company?.cutOffTime || '23:59';
+            const currentTimeStr = now.format('HH:mm');
+            return currentTimeStr >= cutOffTimeStr;
+        }
+
+        // Strategy 2: today is never due yet
+        return false;
+    }
+
+    /**
      * Get or create a WompiAdapter instance for the specified company.
      * @param {string} companyId 
      * @returns {Promise<WompiAdapter>}
@@ -94,9 +141,9 @@ class CompanyService {
     async getGpsAdapter(companyId) {
 
 
-        // No companyId: return a default MegaRastreo instance (legacy fallback)
+        // No companyId: return a default Traccar instance (legacy fallback)
         if (!companyId) {
-            return new GpsService(null);
+            return new GpsService({ gpsService: 'traccar' });
         }
 
         // Return cached instance if already created for this company

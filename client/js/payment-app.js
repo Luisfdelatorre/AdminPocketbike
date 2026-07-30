@@ -93,6 +93,7 @@ class DOMManager {
             paymentDueDate: document.getElementById('paymentDueDate'),
             freeDaysCount: document.getElementById('freeDaysCount'),
             loginError: document.getElementById('loginError'),
+            cuotasPagadas: document.getElementById('cuotasPagadas'),
             totalCuotas: document.getElementById('totalCuotas')
         };
 
@@ -653,9 +654,14 @@ class PaymentManager {
             dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
             dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
 
-            const totalCuotasDisplay = dom.get('displays.totalCuotas');
-            if (totalCuotasDisplay && STATE.paymentData.cuotasPagadas !== undefined) {
-                totalCuotasDisplay.textContent = STATE.paymentData.cuotasPagadas;
+            const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas') || document.getElementById('cuotasPagadas');
+            const totalCuotasDisplay = dom.get('displays.totalCuotas') || document.getElementById('totalCuotas');
+
+            if (cuotasPagadasDisplay && STATE.paymentData.cuotasPagadas !== undefined) {
+                cuotasPagadasDisplay.textContent = STATE.paymentData.cuotasPagadas;
+            }
+            if (totalCuotasDisplay) {
+                totalCuotasDisplay.textContent = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 500;
             }
 
             const freeDaysCount = STATE.paymentData.freeDaysAvailable || 0;
@@ -1293,12 +1299,16 @@ class EventHandler {
     _updateReminderVisibility(isExpanded) {
         const pending = this.dom.get('pendingPayment.container');
         const normal = this.dom.get('pendingPayment.normal');
+        const cuotasBadge = document.querySelector('.cuotas-pill-badge');
 
         if (pending) {
             pending.style.display = isExpanded ? 'none' : (pending.dataset.shouldShow === 'true' ? 'flex' : 'none');
         }
         if (normal) {
             normal.style.display = isExpanded ? 'none' : (normal.dataset.shouldShow === 'true' ? 'flex' : 'none');
+        }
+        if (cuotasBadge) {
+            cuotasBadge.style.display = isExpanded ? 'none' : 'flex';
         }
     }
 

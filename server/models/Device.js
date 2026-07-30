@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import dayjs from '../config/dayjs.js';
 import { Transaction } from '../config/config.js';
-const { DEFAULTAMOUNT } = Transaction;
+const { DEFAULTAMOUNT, BATTERY_GRACE_PERIOD = 600 } = Transaction;
 
 function generateDeviceId(plate) {
     const p = String(plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -110,6 +111,29 @@ deviceSchema.statics.prepareForBulkWrite = function (docs) {
                 )
         );
     });
+};
+
+deviceSchema.methods.toStatus = function () {
+    const diffSeconds = this.lastUpdate ? dayjs().diff(dayjs(this.lastUpdate), 'second') : null;
+    const online = diffSeconds !== null && diffSeconds < Transaction.DEVICE_ONLINE_TIMEOUT;
+
+    let battery = Number(this.batteryLevel);
+    const hasBattery = Number.isFinite(battery);
+    if (!hasBattery || !online) {
+        if (diffSeconds !== null && diffSeconds <= BATTERY_GRACE_PERIOD) {
+            battery = Math.max(0, ((BATTERY_GRACE_PERIOD - diffSeconds) / BATTERY_GRACE_PERIOD) * 100);
+        } else {
+            battery = 0;
+        }
+    }
+
+    return {
+        online,
+        cutOff: Boolean(this.cutOff),
+        ignition: this.ignition ?? false,
+        batteryLevel: Number(battery),
+        lastUpdate: this.lastUpdate || null
+    };
 };
 
 export const Device = mongoose.model('Device', deviceSchema);

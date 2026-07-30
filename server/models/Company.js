@@ -74,7 +74,7 @@ const companySchema = new mongoose.Schema({
     gpsService: {
         type: String,
         enum: ['megarastreo', 'traccar'],
-        default: 'megarastreo'
+        default: 'traccar'
     },
     gpsConfig: {
         host: { type: String, trim: true },

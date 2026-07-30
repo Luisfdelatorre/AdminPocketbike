@@ -1,0 +1,6 @@
+import{c}from"./createLucideIcon-DxgL6jKG.js";import{r as d}from"./main-CDfNp4a9.js";/**
+ * @license lucide-react v0.562.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const v=[["path",{d:"M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7",key:"1m0v6g"}],["path",{d:"M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z",key:"ohrbg2"}]],a=c("square-pen",v),m=o=>{d.useEffect(()=>{if(!o)return;const e=document.querySelector(".admin-content"),r=document.body.style.overflow,t=document.documentElement.style.overflow,l=document.body.style.overscrollBehavior,s=e==null?void 0:e.style.overflowY,n=e==null?void 0:e.style.overscrollBehaviorY;return document.body.style.overflow="hidden",document.documentElement.style.overflow="hidden",document.body.style.overscrollBehavior="none",e&&(e.style.overflowY="hidden",e.style.overscrollBehaviorY="none"),()=>{document.body.style.overflow=r,document.documentElement.style.overflow=t,document.body.style.overscrollBehavior=l,e&&(e.style.overflowY=s,e.style.overscrollBehaviorY=n)}},[o])};export{a as S,m as u};

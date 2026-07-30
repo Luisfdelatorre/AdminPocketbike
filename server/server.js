@@ -120,7 +120,7 @@ async function startServer() {
         // Seed Super Admin
 
         await seedSuperAdmin();
-        await cron.init();
+        // await cron.init();
         //execute cron jobs
         // await cron.execute('dailyInvoicesCreation');
 

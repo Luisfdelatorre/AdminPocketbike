@@ -400,6 +400,78 @@ const PaymentSummary = () => {
         hasInitialScrolledRef.current = false;
     }, [selectedMonth, selectedYear, desktopView]);
 
+    // Real-time SSE listening for device status updates in summary view
+    useEffect(() => {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
+        if (!token) return;
+
+        const activeCompanyId = user?.companyId || '';
+        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
+
+        let eventSource;
+        try {
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('device_update', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (!data) return;
+
+                    setDeviceStatuses((prevList) => {
+                        let matchFound = false;
+                        const updatedList = prevList.map((d) => {
+                            const isMatch = (
+                                (data.name && (d.name === data.name || d.deviceIdName === data.name)) ||
+                                (data.deviceIdName && (d.name === data.deviceIdName || d.deviceIdName === data.deviceIdName)) ||
+                                (data.gpsId && (d.gpsId === data.gpsId || d.id === data.gpsId || d.deviceId === data.gpsId)) ||
+                                (data._id && (d._id === data._id || d.id === data._id))
+                            );
+
+                            if (isMatch) {
+                                matchFound = true;
+                                return {
+                                    ...d,
+                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
+                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
+                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
+                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
+                                };
+                            }
+                            return d;
+                        });
+
+                        return matchFound ? updatedList : prevList;
+                    });
+                } catch (err) {
+                    console.error('Error parsing SSE device_update in PaymentSummary:', err);
+                }
+            });
+
+            // Listen for financial, payment, and reconciliation real-time updates
+            const handleRealtimeReload = () => {
+                fetchData();
+                loadDeviceStatuses();
+            };
+
+            eventSource.addEventListener('payment_update', handleRealtimeReload);
+            eventSource.addEventListener('reconciliation_update', handleRealtimeReload);
+            eventSource.addEventListener('invoice_update', handleRealtimeReload);
+            eventSource.addEventListener('summary_update', handleRealtimeReload);
+
+            eventSource.onerror = (err) => {
+                console.warn('SSE connection error in PaymentSummary, EventSource will automatically retry:', err);
+            };
+        } catch (err) {
+            console.error('Failed to initialize SSE in PaymentSummary:', err);
+        }
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [user?.companyId]);
+
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && tableContainerRef.current) {
             if (!hasInitialScrolledRef.current) {
@@ -474,7 +546,19 @@ const PaymentSummary = () => {
     const renderDayCell = (dayData) => {
         let cellClass = 'status-cell empty';
         let content = '--';
+        let paymentTime = null;
+
         if (dayData) {
+            const rawDate = dayData.latestPaymentAt || dayData.paidAt || (dayData.paid && dayData.updatedAt ? dayData.updatedAt : null);
+            if (rawDate) {
+                const dateObj = new Date(rawDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const hours = String(dateObj.getHours()).padStart(2, '0');
+                    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                    paymentTime = `${hours}:${minutes}`;
+                }
+            }
+
             if (dayData.dayType === 'LOAN') {
                 cellClass = 'status-cell loand';
                 content = '--';
@@ -491,10 +575,22 @@ const PaymentSummary = () => {
                 cellClass = 'status-cell pending';
                 content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
             }
+
+            content = (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: '10.5px' }}>{content}</span>
+                    {paymentTime && (
+                        <span className="payment-time-sub">
+                            {paymentTime}
+                        </span>
+                    )}
+                </div>
+            );
+
             if (dayData.cutOff) {
                 content = (
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span>{content}</span>
+                        {content}
                         <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
                             <MotorIcon color="#ef4444" size={14} />
                         </div>

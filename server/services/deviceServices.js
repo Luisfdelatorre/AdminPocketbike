@@ -39,9 +39,12 @@ const initializeGpsUpdates = async () => {
     const companies = await Company.find({}).lean();
 
     // 2. Pre-populate in-memory cache to avoid DB storm
-    const allDevices = await Device.find({}, 'gpsId imei ignition lastUpdate cutOff batteryLevel').lean();
+    const allDevices = await Device.find({}, '_id name gpsId imei ignition lastUpdate cutOff batteryLevel companyId').lean();
     for (const d of allDevices) {
         const entry = {
+            _id: d._id,
+            name: d.name,
+            companyId: d.companyId,
             ignition: d.ignition,
             lastUpdate: d.lastUpdate,
             cutOff: d.cutOff,
@@ -87,6 +90,18 @@ const initializeGpsUpdates = async () => {
                 mem.batteryLevel = newBattery;
                 mem._dirty = true;
                 deviceStateCache.set(update.filter.gpsId, mem);
+
+                // Broadcast real-time SSE update to connected clients
+                sseService.broadcast('device_update', {
+                    gpsId: update.filter.gpsId,
+                    _id: mem._id,
+                    name: mem.name,
+                    companyId: mem.companyId,
+                    ignition: mem.ignition,
+                    lastUpdate: mem.lastUpdate,
+                    cutOff: mem.cutOff,
+                    batteryLevel: mem.batteryLevel
+                });
             }
         }
 
@@ -145,16 +160,14 @@ const initializeGpsUpdates = async () => {
     for (const c of companies) {
         const gpsAdapter = await companyService.getGpsAdapter(c._id);
 
+        const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
+        if (isMegaRastreo) {
+            logger.info(`[GPS] MegaRastreo auto-update disabled for company ${c.name || c._id}`);
+            continue;
+        }
+
         if (gpsAdapter && typeof gpsAdapter.startAutoUpdate === 'function') {
-            let imeis = [];
-            const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
-
-            if (isMegaRastreo) {
-                const devices = await deviceRepository.getDevicesByCompanyId(c._id);
-                imeis = devices.map(d => d.imei).filter(Boolean);
-            }
-
-            await gpsAdapter.startAutoUpdate(imeis, onFlush);
+            await gpsAdapter.startAutoUpdate([], onFlush);
         }
     }
 };
@@ -199,7 +212,7 @@ const controlEngine = async (id, command, companyId) => {
         }
 
         // 4. Update the local DB state bypassing strict schema validations on unrelated fields
-        const newCutOffState = !command; // 0 = stop (true), 1 = resume (false)
+        const newCutOffState = (command === 0 || command === '0' || command === false); // 0 = stop (true), 1 = resume (false)
         await deviceRepository.updateDeviceCutOff(device._id, newCutOffState);
 
         return {
