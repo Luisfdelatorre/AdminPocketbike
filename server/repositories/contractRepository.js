@@ -2,7 +2,6 @@ import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
 import deviceRepository from './deviceRepository.js';
 
-import deviceRepository from './deviceRepository.js';
 
 export class ContractRepository {
     /**
