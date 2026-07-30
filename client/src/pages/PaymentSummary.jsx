@@ -307,9 +307,14 @@ const PaymentSummary = () => {
                 setSummaryData(prev => prev.map(item => {
                     const devId = String(item.device.deviceId || item.device.id || item.device.name || '');
                     const devGpsId = String(item.device.gpsId || '');
+                    const devNameUpper = item.device.name ? String(item.device.name).toUpperCase() : '';
+
                     const match = detail.devices.find(u => {
-                        const targetId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
-                        return targetId && (devId === targetId || devGpsId === targetId || item.device.name?.toUpperCase() === targetId.toUpperCase());
+                        const targetGpsId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
+                        const targetName = u.name ? String(u.name).toUpperCase() : '';
+                        const isGpsIdMatch = Boolean(targetGpsId && (devGpsId === targetGpsId || devId === targetGpsId || devNameUpper === targetGpsId));
+                        const isNameMatch = Boolean(targetName && devNameUpper === targetName);
+                        return isGpsIdMatch || isNameMatch;
                     });
                     if (match) {
                         return {

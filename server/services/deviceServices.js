@@ -102,6 +102,7 @@ const initializeGpsUpdates = async () => {
 
             updatesList.push({
                 gpsId: mem.filter?.gpsId || mem.filter?.deviceId || idKey,
+                name: mem.name,
                 filter: mem.filter,
                 ignition: mem.ignition,
                 lastUpdate: mem.lastUpdate,
