@@ -3,7 +3,7 @@
  */
 export class SSEService {
     constructor() {
-        this.clients = new Map(); // clientId -> response object
+        this.clients = new Map(); // clientId -> { response, metadata }
     }
 
     /**
@@ -90,9 +90,7 @@ export class SSEService {
             }
         });
 
-        if (sentCount > 0) {
-            console.log(`📡 Broadcasted "${event}" to ${sentCount} clients`);
-        }
+        // Broadcast completed cleanly
     }
 
     /**
@@ -101,10 +99,10 @@ export class SSEService {
     broadcastToFilter(event, data, filterFn) {
         const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
-        this.clients.forEach((client, clientId) => {
-            if (filterFn(clientId)) {
+        this.clients.forEach((clientEntry, clientId) => {
+            if (filterFn(clientId, clientEntry?.metadata)) {
                 try {
-                    client.write(message);
+                    this._writeToClient(clientEntry, message);
                 } catch (error) {
                     console.error(`Failed to send to client ${clientId}:`, error);
                     this.clients.delete(clientId);
@@ -124,7 +122,14 @@ export class SSEService {
      * Send heartbeat to all clients to keep connection alive
      */
     sendHeartbeat() {
-        this.broadcast('heartbeat', { timestamp: new Date().toISOString() });
+        const message = `event: heartbeat\ndata: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`;
+        this.clients.forEach((clientEntry, clientId) => {
+            try {
+                this._writeToClient(clientEntry, message);
+            } catch (error) {
+                this.clients.delete(clientId);
+            }
+        });
     }
 }
 

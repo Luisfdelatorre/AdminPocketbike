@@ -124,10 +124,25 @@ class DeviceRepository {
             throw error;
         }
     }
+    async getDeviceStatusByName(name) {
+        try {
+            const device = await Device.findOne({ name });
+            if (!device) {
+                logger.warn(`[DEVICE STATUS] Device not found for name: ${name}`);
+                return { deviceIdName: name, engineOn: null, cutOff: null };
+            }
+            return device.toStatus();
+        } catch (error) {
+            logger.error(`Error getting device status for name ${name}:`, error);
+            throw error;
+        }
+    }
     async updateContractStatus(deviceId, contractId, hasContract) {
-        // try {
-        // Cast deviceId to Number because the DB uses Numeric _id (Mixed type in schema)
-        const numericId = !isNaN(deviceId) ? Number(deviceId) : deviceId;
+        try {
+            const isNum = !isNaN(deviceId);
+            const filter = isNum
+                ? { _id: Number(deviceId) }
+                : { $or: [{ name: String(deviceId) }, { _id: deviceId }] };
 
         console.log('Update contract status for device:', numericId, contractId, hasContract);
         const result = await Device.findByIdAndUpdate(numericId, {
@@ -136,12 +151,12 @@ class DeviceRepository {
             hasActiveContract: hasContract
         }, { new: true });
 
-        console.log('Update contract status result:', result);
-        return result;
-        // } catch (error) {
-        //  logger.error(`Error updating contract status for device ${deviceId}:`, error);
-        //  throw error;
-        // }
+            logger.info(`Updated contract status for device ${deviceId}: hasActiveContract=${hasContract}, activeContractId=${contractId}`);
+            return result;
+        } catch (error) {
+            logger.error(`Error updating contract status for device ${deviceId}:`, error);
+            throw error;
+        }
     }
     async assignContractToDevice(contract, data, device) {
         try {

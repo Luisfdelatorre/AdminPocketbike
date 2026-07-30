@@ -4,6 +4,7 @@ import invoiceRepository from "../repositories/invoiceRepository.js";
 import deviceRepository from "../repositories/deviceRepository.js";
 import dayjs from "../config/dayjs.js";
 import { Company } from "../models/Company.js";
+import companyService from "./companyService.js";
 
 import { Device } from "../models/Device.js";
 import { Invoice } from "../models/Invoice.js";
@@ -20,7 +21,6 @@ const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 //activationQueue.start();
 
 import paymentService from './paymentService.js';
-import companyService from "./companyService.js";
 import deviceServices from "./deviceServices.js";
 
 const generateDailyInvoices = async () => {
@@ -130,25 +130,24 @@ const syncYesterdayKm = async () => {
 };
 
 
-const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId, companyId) => {
+const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId, companyId, gpsId = null) => {
   logger.info(`[CUT-OFF] Device ${deviceName} engine stop verification starting...`);
 
   try {
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
 
-    // For safety, let's use the `deviceId` (DB ID) if `megaDeviceId` is missing, assuming existing logic populated `megaDeviceId` correctly.
-    const targetId = megaDeviceId || deviceId;
+    const targetId = gpsId || megaDeviceId || deviceId;
 
     const confirmed = await gpsAdapter.executeAndVerify(targetId, ENGINESTOP, { companyConfig: companyId });
 
     if (!confirmed) {
       logger.warn(`[CUT-OFF] Device ${deviceName} engine stop command not confirmed after retries.`);
-      // Update database flag (2 = Sent but not confirmed)
-      await deviceRepository.updateCutOffStatus(deviceId, 2);
+      // Update database flag (true = CutOff)
+      await deviceRepository.updateCutOffStatus(deviceId, true);
     } else {
       logger.info(`[CUT-OFF] Device ${deviceName} engine stop confirmed.`);
-      // Update database flag (1 = Confirmed)
-      await deviceRepository.updateCutOffStatus(deviceId, 1);
+      // Update database flag (true = Confirmed)
+      await deviceRepository.updateCutOffStatus(deviceId, true);
     }
   } catch (error) {
     logger.error(`[CUT-OFF] Error executing cut-off for ${deviceName}:`, error);
@@ -156,7 +155,7 @@ const verifyAndMarkCutOff = async (deviceName, deviceId, megaDeviceId, companyId
 };
 
 const verifyAndMarkCutOffBatch = async (batch, companyId) => {
-  logger.info(`[CUT-OFF] Batch engine stop verification starting for ${batch.length} devices...`);
+  logger.info(`[CUT-OFF] Starting BATCH engine stop verification for ${batch.length} devices in company ${companyId}...`);
 
   try {
     const gpsAdapter = await companyService.getGpsAdapter(companyId);
@@ -192,7 +191,7 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
       if (!targetId) return;
 
       // If we already successfully streamed its update, do nothing
-      if (streamedConfirmedIds.has(targetId)) return;
+      if (!targetId || streamedConfirmedIds.has(targetId)) return;
 
       const confirmed = resultsMap[targetId];
 
@@ -200,10 +199,8 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
         logger.warn(`[CUT-OFF] Device ${device.name} engine stop command not confirmed after retries.`);
         return deviceRepository.updateCutOffStatus(device._id || device.gpsId, 2); // 2 = Sent but not confirmed
       } else {
-        // Technically this shouldn't happen unless the callback missed it, 
-        // but we handle it just in case as a fallback.
         logger.info(`[CUT-OFF] Device ${device.name} engine stop confirmed (fallback DB write).`);
-        return deviceRepository.updateCutOffStatus(device.deviceId, 1); // 1 = Confirmed
+        return deviceRepository.updateCutOffStatus(device.deviceId || device._id, true);
       }
     });
 
@@ -223,32 +220,21 @@ const performPollingCutOff = async () => {
       return;
     }
 
-    const currentTimeStr = dayjs().format('HH:mm');
-
     for (const company of enabledCompanies) {
-      const companyCutOffTime = company.cutOffTime || '23:59';
 
       // 1. Get payment statuses of devices for this company
       const paymentStatuses = await deviceServices.getCompanyDevicesPaymentStatus(company._id);
 
       const devicesToCutOff = [];
 
-      for (const { device, hasUnpaidInvoice } of paymentStatuses) {
+      for (const { device, hasUnpaidInvoice, invoice } of paymentStatuses) {
         try {
           if (device.exemptFromCutOff === true) continue;
           if (device.cutOff) continue; // Already cut off
 
-          // Time verification
-          let timeReached = false;
-          if (currentTimeStr >= companyCutOffTime) {
-            if (device.cutOffTime && device.cutOffTime > currentTimeStr) {
-              timeReached = false;
-            } else {
-              timeReached = true;
-            }
-          } else {
-            timeReached = !!(device.cutOffTime && device.cutOffTime <= currentTimeStr);
-          }
+          // Centralised rule: is today's (or target day's) invoice due based on company strategy?
+          const invoiceDate = invoice?.date ?? dayjs().startOf('day').toDate();
+          const timeReached = companyService.isInvoiceDue(company, invoiceDate);
 
           if (hasUnpaidInvoice && timeReached) {
             devicesToCutOff.push(device);
@@ -259,7 +245,7 @@ const performPollingCutOff = async () => {
       }
 
       if (devicesToCutOff.length > 0) {
-        logger.info(`🚫 Cutting off ${devicesToCutOff.length} devices for Company: ${company.name} at ${currentTimeStr}`);
+        logger.info(`🚫 Cutting off ${devicesToCutOff.length} devices for Company: ${company.name} at ${dayjs().format('HH:mm')}`);
         const BATCH_SIZE = 10;
         for (let i = 0; i < devicesToCutOff.length; i += BATCH_SIZE) {
           const batch = devicesToCutOff.slice(i, i + BATCH_SIZE);

@@ -83,18 +83,33 @@ const getStatusReportData = async (isSystemAdmin, companyId) => {
         deviceQuery.companyId = companyId;
     }
 
-    const maxBatteryLevel = 600;
     const devices = await Device.find(deviceQuery).lean();
     const deviceMap = {};
 
     devices.forEach(d => {
+        const diffSeconds = d.lastUpdate ? dayjs().diff(dayjs(d.lastUpdate), 'second') : null;
+        const online = diffSeconds !== null && diffSeconds < Transaction.DEVICE_ONLINE_TIMEOUT;
+
         deviceMap[d.name] = {
-            ...d,
-            batteryLevel: d.batteryLevel,
+            _id: d._id,
+            id: d._id,
+            name: d.name,
+            gpsId: d.gpsId,
+            companyId: d.companyId,
+            companyName: d.companyName,
+            driverName: d.driverName,
+            online,
+            cutOff: Boolean(d.cutOff),
+            ignition: d.ignition ?? false,
+            batteryLevel: d.batteryLevel ?? 0,
+            lastUpdate: d.lastUpdate || null,
+            activeContractId: d.activeContractId || null,
+            hasActiveContract: Boolean(d.hasActiveContract),
+            dailyRate: d.dailyRate || 0,
+            exemptFromCutOff: Boolean(d.exemptFromCutOff),
             monthPaid: 0,
             monthDebt: 0,
             freeDays: 0,
-            dailyRate: 0,
             contractStatus: 'NONE'
         };
     });

@@ -98,6 +98,66 @@ const DeviceManagement = () => {
         return () => window.removeEventListener('payment-update', handlePaymentUpdate);
     }, [viewMode]);
 
+    // Real-time SSE listening for device status updates (multi-tenant aware)
+    useEffect(() => {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
+        if (!token) return;
+
+        const activeCompanyId = user?.companyId || '';
+        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
+
+        let eventSource;
+        try {
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('device_update', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (!data) return;
+
+                    setDevices((prevDevices) => {
+                        let matchFound = false;
+                        const updatedList = prevDevices.map((d) => {
+                            const isMatch = (
+                                (data.gpsId && (d.gpsId === data.gpsId || d.deviceId === data.gpsId)) ||
+                                (data._id && d._id === data._id) ||
+                                (data.name && d.name === data.name)
+                            );
+
+                            if (isMatch) {
+                                matchFound = true;
+                                return {
+                                    ...d,
+                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
+                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
+                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
+                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
+                                };
+                            }
+                            return d;
+                        });
+
+                        return matchFound ? updatedList : prevDevices;
+                    });
+                } catch (err) {
+                    console.error('Error parsing SSE device_update:', err);
+                }
+            });
+
+            eventSource.onerror = (err) => {
+                console.warn('SSE connection error in DeviceSelector, EventSource will automatically retry:', err);
+            };
+        } catch (err) {
+            console.error('Failed to initialize SSE in DeviceSelector:', err);
+        }
+
+        return () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    }, [user?.companyId]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (activeMenuId && !event.target.closest('.action-menu-container')) {

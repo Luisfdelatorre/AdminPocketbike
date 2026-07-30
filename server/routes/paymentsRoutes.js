@@ -5,7 +5,6 @@ import { verifyToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.get('/status', verifyToken, paymentController.getPaymentStatus);
-router.get('/device-status', verifyToken, paymentController.getDeviceStatus);
 router.post("/request", verifyToken, paymentController.createPayment);
 router.get("/stream/:reference", verifyToken, paymentController.getPaymentStream);
 router.post('/use-free-day', verifyToken, paymentController.useFreeDay);
