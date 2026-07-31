@@ -313,7 +313,7 @@
 
 .engine-toggle-slider.queued {
     background-color: #FF9500 !important;
-    border: 2px dashed #FFFFFF !important;
+    border: 2px #FFFFFF !important;
     box-shadow: 0 0 10px rgba(255, 149, 0, 0.8) !important;
     animation: queued-pulse 1.6s infinite ease-in-out !important;
 }
@@ -358,10 +358,12 @@
         box-shadow: 0 0 3px rgba(255, 149, 0, 0.4);
         opacity: 0.85;
     }
+
     50% {
         box-shadow: 0 0 12px rgba(255, 149, 0, 0.95);
         opacity: 1;
     }
+
     100% {
         box-shadow: 0 0 3px rgba(255, 149, 0, 0.4);
         opacity: 0.85;
