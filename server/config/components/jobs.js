@@ -40,4 +40,18 @@ export const CRON_JOBS = [
         flag: true,
         job: 'performPollingCutOff',
     },
+    {
+        name: 'syncCurrentDayKm',
+        time: '0 8,11,14,17,20 * * *', // 5 veces al día (08:00, 11:00, 14:00, 17:00, 20:00)
+        log: 'Syncing intraday current day kilometers from GPS',
+        flag: true,
+        job: 'syncCurrentDayKm',
+    },
+    {
+        name: 'syncYesterdayKm',
+        time: '15 0 * * *', // cada día a las 00:15 AM
+        log: 'Final midnight closing sync for yesterday kilometers from GPS',
+        flag: true,
+        job: 'syncYesterdayKm',
+    },
 ];

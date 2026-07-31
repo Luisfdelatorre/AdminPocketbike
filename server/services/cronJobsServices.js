@@ -81,10 +81,51 @@ const generateDailyInvoices = async () => {
       }
     }
 
-    // Automatically sync yesterday's km from Traccar
-    await syncYesterdayKm();
+    logger.info(`Invoice generation cycle completed for ${devices.length} devices.`);
   } catch (err) {
     logger.error('Error generando invoices diarios', err);
+  }
+};
+
+const syncCurrentDayKm = async () => {
+  try {
+    const todayStr = dayjs().format('YYYY-MM-DD');
+    const companies = await Company.find({ isActive: true }).lean();
+
+    for (const company of companies) {
+      try {
+        const gpsAdapter = await companyService.getGpsAdapter(company._id);
+        const fetchMethod = gpsAdapter?.adapter?.fetchCurrentDayKmDevice || gpsAdapter?.adapter?.fetchPreviousDayKmDevice;
+        if (!fetchMethod) continue;
+
+        const devices = await Device.find({ companyId: company._id }).lean();
+        const gpsIds = devices.map(d => d.gpsId).filter(Boolean);
+        if (gpsIds.length === 0) continue;
+
+        const kmData = await fetchMethod(new Date(), gpsIds);
+        if (!kmData || !Array.isArray(kmData)) continue;
+
+        const kmMap = {};
+        for (const report of kmData) {
+          const distanceKm = Math.round((report.distance || 0) / 1000 * 10) / 10;
+          kmMap[report.deviceId] = distanceKm;
+        }
+
+        for (const device of devices) {
+          const distanceKm = kmMap[device.gpsId];
+          if (distanceKm === undefined) continue;
+          const invoiceId = `${device.name}-${todayStr}`;
+          await Invoice.updateOne(
+            { _id: invoiceId },
+            { $set: { distance: distanceKm } }
+          );
+        }
+      } catch (cErr) {
+        logger.error(`[KM SYNC TODAY] Error for company ${company.name}:`, cErr);
+      }
+    }
+  } catch (err) {
+    logger.error('Error syncing current day km in cron:', err);
   }
 };
 
@@ -101,6 +142,7 @@ const syncYesterdayKm = async () => {
 
         const devices = await Device.find({ companyId: company._id }).lean();
         const gpsIds = devices.map(d => d.gpsId).filter(Boolean);
+        if (gpsIds.length === 0) continue;
 
         const kmData = await gpsAdapter.adapter.fetchPreviousDayKmDevice(new Date(), gpsIds);
         if (!kmData || !Array.isArray(kmData)) continue;
@@ -121,7 +163,7 @@ const syncYesterdayKm = async () => {
           );
         }
       } catch (cErr) {
-        logger.error(`[KM SYNC] Error for company ${company.name}:`, cErr);
+        logger.error(`[KM SYNC YESTERDAY] Error for company ${company.name}:`, cErr);
       }
     }
   } catch (err) {
@@ -350,6 +392,8 @@ const performCurfewEnd = async (companyId) => {
 
 export default {
   generateDailyInvoices,
+  syncCurrentDayKm,
+  syncYesterdayKm,
   performPollingCutOff,
   performDailyCutOff: performPollingCutOff,
   performCurfewStart,
