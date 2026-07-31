@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings } from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, ListFilter } from 'lucide-react';
+import { FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, ListFilter, Moon, Zap } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import useAdminScrollLock from '../hooks/useAdminScrollLock';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
@@ -557,6 +557,24 @@ const Contracts = () => {
                                     >
                                         {t(`common.${contract.status.toLowerCase()}`, contract.status)}
                                     </span>
+                                    {contract.exemptFromCurfew && (
+                                        <span 
+                                            title="No Apagado Nocturno" 
+                                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-800 relative overflow-hidden"
+                                        >
+                                            <Moon size={12} strokeWidth={2.5} />
+                                            <div className="absolute w-[18px] h-[1.5px] bg-blue-800 -rotate-45 rounded-full" />
+                                        </span>
+                                    )}
+                                    {contract.exemptFromCutOff && (
+                                        <span 
+                                            title="No aplicar Apagado Automático" 
+                                            className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 relative overflow-hidden"
+                                        >
+                                            <Zap size={12} strokeWidth={2.5} />
+                                            <div className="absolute w-[18px] h-[1.5px] bg-red-600 -rotate-45 rounded-full" />
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="action-menu-container" onClick={(e) => e.stopPropagation()}>
                                     <button
