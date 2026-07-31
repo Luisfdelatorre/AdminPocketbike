@@ -1,4 +1,5 @@
 import authService from '../services/authService.js';
+import { DEFAULT_DAY_TYPES_CONFIG } from '../constants/dayTypes.js';
 
 /**
  * Register a new admin user (requires existing admin)
@@ -153,6 +154,7 @@ const getMe = async (req, res) => {
                 data: {
                     type: 'admin',
                     user,
+                    dayTypesConfig: DEFAULT_DAY_TYPES_CONFIG
                 },
             });
         } else {
@@ -161,6 +163,7 @@ const getMe = async (req, res) => {
                 data: {
                     type: 'device',
                     deviceId: req.auth.deviceId,
+                    dayTypesConfig: DEFAULT_DAY_TYPES_CONFIG
                 },
             });
         }

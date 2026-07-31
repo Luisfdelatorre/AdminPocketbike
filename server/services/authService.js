@@ -8,6 +8,7 @@ import { resolveDeviceId } from '../utils/deviceResolver.js';
 import contractRepository from '../repositories/contractRepository.js';
 import paymentService from './paymentService.js';
 import { Transaction } from '../config/config.js';
+import { DEFAULT_DAY_TYPES_CONFIG } from '../constants/dayTypes.js';
 
 const { JWT_SECRET, JWT_EXPIRY } = Transaction;
 
@@ -140,7 +141,8 @@ export class AuthService {
                 role: user.role,
                 permissions: user.permissions,
                 isSuperAdmin: user.isSuperAdmin,
-                accessibleCompanies: accessibleCompaniesData
+                accessibleCompanies: accessibleCompaniesData,
+                dayTypesConfig: DEFAULT_DAY_TYPES_CONFIG
             },
             token,
             traccarCookies: traccarCookies // Return the array of cookies
