@@ -40,6 +40,7 @@ export function getStatusIcon(status) {
 
 /**
  * Export array of rows or CSV string to file and trigger browser download with UTF-8 BOM.
+ * Uses Blob and URL.createObjectURL for secure, compliant browser downloading across HTTP/HTTPS.
  */
 export function exportToCSV(filename, contentOrRows) {
     if (!contentOrRows) return;
@@ -59,12 +60,14 @@ export function exportToCSV(filename, contentOrRows) {
         csvString = String(contentOrRows);
     }
 
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + csvString;
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
+    link.href = url;
+    link.download = filename.endsWith('.csv') ? filename : `${filename}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 500);
 }

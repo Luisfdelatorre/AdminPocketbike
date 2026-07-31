@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
-import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft } from 'lucide-react';
+import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, FileText } from 'lucide-react';
 import { getSettings, updateSettings, syncDevices } from '../services/api';
+import ReportTemplateEditorModal from '../components/ReportTemplateEditorModal';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import './Settings.css';
@@ -58,6 +59,7 @@ const Settings = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
+    const [activeTemplateModalKey, setActiveTemplateModalKey] = useState(null);
     const [portalElement, setPortalElement] = useState(null);
 
     useEffect(() => {
@@ -457,6 +459,12 @@ const Settings = () => {
                         onClick={() => setActiveTab('system')}
                     >
                         <RefreshCw size={18} /> {t('settings.tabs.system')}
+                    </button>
+                    <button
+                        className={`tab-button ${activeTab === 'reports' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('reports')}
+                    >
+                        <FileText size={18} /> Plantillas de Reportes
                     </button>
                 </div>
 
@@ -987,6 +995,81 @@ const Settings = () => {
                         </div>
                     </div>
                 )}
+
+                {/* ── REPORTS TAB ── */}
+                {activeTab === 'reports' && (
+                    <div className="settings-card-section">
+                        <div className="card-section-header" style={{ marginBottom: '1rem' }}>
+                            <div className="card-title-group">
+                                <FileText size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Plantillas de Reportes y Exportación en BD</h2>
+                            </div>
+                        </div>
+
+                        <p style={{ fontSize: '0.875rem', color: '#64748B', marginBottom: '1.25rem' }}>
+                            Personalice las columnas, etiquetas y campos formateados que se incluyen en la exportación de archivos CSV para cada módulo del sistema.
+                        </p>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                            <div style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.75rem', background: '#F8FAFC' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <FileText size={18} style={{ color: '#0d9488' }} />
+                                    <h3 style={{ fontSize: '0.938rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>Panel Principal (Dashboard)</h3>
+                                </div>
+                                <p style={{ fontSize: '0.813rem', color: '#64748B', marginBottom: '1rem' }}>
+                                    Métricas de resumen del período y tabla de pagos recientes.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTemplateModalKey('dashboard-summary')}
+                                    style={{ padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 0, background: '#0d9488', color: '#FFFFFF', fontSize: '0.813rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
+                                >
+                                    <Edit2 size={14} /> Editar Plantilla
+                                </button>
+                            </div>
+
+                            <div style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.75rem', background: '#F8FAFC' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <FileText size={18} style={{ color: '#0d9488' }} />
+                                    <h3 style={{ fontSize: '0.938rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>Facturación (Invoices)</h3>
+                                </div>
+                                <p style={{ fontSize: '0.813rem', color: '#64748B', marginBottom: '1rem' }}>
+                                    Campos y columnas para reportes mensuales de facturas.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTemplateModalKey('invoices-monthly')}
+                                    style={{ padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 0, background: '#0d9488', color: '#FFFFFF', fontSize: '0.813rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
+                                >
+                                    <Edit2 size={14} /> Editar Plantilla
+                                </button>
+                            </div>
+
+                            <div style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.75rem', background: '#F8FAFC' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <FileText size={18} style={{ color: '#0d9488' }} />
+                                    <h3 style={{ fontSize: '0.938rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>Pagos (Payments)</h3>
+                                </div>
+                                <p style={{ fontSize: '0.813rem', color: '#64748B', marginBottom: '1rem' }}>
+                                    Estructura de exportación para transacciones y estatus de cobro.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTemplateModalKey('payments-status')}
+                                    style={{ padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 0, background: '#0d9488', color: '#FFFFFF', fontSize: '0.813rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
+                                >
+                                    <Edit2 size={14} /> Editar Plantilla
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <ReportTemplateEditorModal
+                    isOpen={!!activeTemplateModalKey}
+                    onClose={() => setActiveTemplateModalKey(null)}
+                    templateKey={activeTemplateModalKey || 'dashboard-summary'}
+                />
 
                 {/* Save All Button */}
                 <div className="settings-actions">

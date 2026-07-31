@@ -175,4 +175,14 @@ export const generateCompanyInvoice = async (data) => {
     }
 };
 
+// --- Report Templates ---
+export const getReportTemplates = (moduleName = '') =>
+    api.get(`/report-templates${moduleName ? `?module=${moduleName}` : ''}`);
+
+export const getReportTemplateByKey = (key) =>
+    api.get(`/report-templates/${key}`);
+
+export const updateReportTemplate = (key, data) =>
+    api.put(`/report-templates/${key}`, data);
+
 export default api;

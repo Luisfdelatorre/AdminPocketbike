@@ -11,13 +11,17 @@ import {
     AreaChart, Area, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { getDashboardStats } from '../services/api';
+import { getDashboardStats, getReportTemplateByKey } from '../services/api';
 import { formatCompact, exportToCSV } from '../utils/helpers';
+import { generateReportFromTemplate } from '../utils/reportGenerator';
+import ReportTemplateEditorModal from '../components/ReportTemplateEditorModal';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
     const { t } = useTranslation();
+    const [templateData, setTemplateData] = useState(null);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [stats, setStats] = useState({
         totalRevenue: 0,
         activeDevices: 0,
@@ -103,34 +107,49 @@ const AdminDashboard = () => {
         );
     }
 
-    const handleDownloadReport = () => {
+    const handleDownloadReport = async () => {
         const period = selectedMonth ? `${selectedMonth}-${selectedYear}` : `${selectedYear}`;
-        const csvRows = [];
+        const dataContext = {
+            period,
+            stats,
+            recentPayments
+        };
 
-        // 1. Stats Section
-        csvRows.push(['RESUMEN DEL PERIODO', period]);
-        csvRows.push(['']);
-        csvRows.push(['Métrica', 'Valor (COP/Cantidad)']);
-        csvRows.push(['Ingresos Totales', stats.totalRevenue || 0]);
-        csvRows.push(['Dispositivos Activos', stats.activeDevices || 0]);
-        csvRows.push(['Pagos Pendientes', stats.pendingPayments || 0]);
-        csvRows.push(['Facturado (año)', stats.totalInvoiced || 0]);
-        csvRows.push(['Cartera Pendiente', stats.collectionGap || 0]);
-        csvRows.push(['']);
-
-        // 2. Recent Payments Section
-        csvRows.push(['PAGOS RECIENTES']);
-        csvRows.push(['']);
-        csvRows.push(['Dispositivo', 'Monto (COP)', 'Estado', 'Fecha']);
-
-        if (recentPayments && recentPayments.length > 0) {
-            recentPayments.forEach(p => {
-                csvRows.push([p.device, p.amount, p.status, p.date]);
-            });
-        } else {
-            csvRows.push(['No hay pagos recientes en este periodo']);
+        try {
+            let tmpl = templateData;
+            if (!tmpl) {
+                const res = await getReportTemplateByKey('dashboard-summary');
+                if (res.data && res.data.data) {
+                    tmpl = res.data.data;
+                    setTemplateData(tmpl);
+                }
+            }
+            if (tmpl) {
+                generateReportFromTemplate(tmpl, dataContext, `reporte_pocketbike_${period}.csv`);
+                return;
+            }
+        } catch (err) {
+            console.error('Error rendering report from DB template, using fallback:', err);
         }
 
+        // Fallback export if API is offline
+        const csvRows = [
+            ['RESUMEN DEL PERIODO', period],
+            [''],
+            ['Métrica', 'Valor (COP/Cantidad)'],
+            ['Ingresos Totales', stats.totalRevenue || 0],
+            ['Dispositivos Activos', stats.activeDevices || 0],
+            ['Pagos Pendientes', stats.pendingPayments || 0],
+            ['Facturado (año)', stats.totalInvoiced || 0],
+            ['Cartera Pendiente', stats.collectionGap || 0],
+            [''],
+            ['PAGOS RECIENTES'],
+            [''],
+            ['Dispositivo', 'Monto (COP)', 'Estado', 'Fecha']
+        ];
+        if (recentPayments && recentPayments.length > 0) {
+            recentPayments.forEach(p => csvRows.push([p.device, p.amount, p.status, p.date]));
+        }
         exportToCSV(`reporte_pocketbike_${period}.csv`, csvRows);
     };
 
@@ -155,7 +174,6 @@ const AdminDashboard = () => {
                     </div>
                 </div>
             </div>
-
             {portalElement && createPortal(
                 <button
                     type="button"
