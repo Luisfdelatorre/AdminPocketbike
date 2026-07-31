@@ -39,6 +39,7 @@ const PaymentSummary = () => {
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [deviceStatuses, setDeviceStatuses] = useState([]);
     const [pendingCommands, setPendingCommands] = useState({});
+    const [queuedCommands, setQueuedCommands] = useState({});
     const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
     const matrixTableRef = useRef(null);
@@ -273,22 +274,53 @@ const PaymentSummary = () => {
         setPendingCommands(prev => ({ ...prev, [id]: true }));
         try {
             const result = await controlEngine(id, command);
-            if (result.success) {
-                const msg = result.message || result.response?.message || 'Comando enviado con éxito';
-                showToast(msg, 'success');
-                const nextCutOff = command === 0;
-                setSummaryData(prev => prev.map(item => {
-                    const currentId = item.device.deviceId || item.device.id || item.device.name;
-                    if (currentId === id || item.device.name === id) {
-                        return {
-                            ...item,
-                            device: { ...item.device, cutOff: nextCutOff }
-                        };
-                    }
-                    return item;
-                }));
+            const data = result.data || result;
+            const resObj = data.response || data;
+
+            if (data.success || resObj.success) {
+                const isQueued = Boolean(resObj.queued || resObj.offline || data.queued || data.offline);
+                const keys = [dev.name, dev.deviceId, dev.id, dev.gpsId, dev._id, id].filter(Boolean);
+
+                setQueuedCommands(prev => {
+                    const next = { ...prev };
+                    keys.forEach(k => {
+                        next[k] = isQueued;
+                        if (typeof k === 'string') next[k.toUpperCase()] = isQueued;
+                    });
+                    return next;
+                });
+
+                if (isQueued) {
+                    const offlineStr = formatOfflineTime(resObj.lastUpdate || dev.lastUpdate) || 'offline';
+                    showToast(`Comando encolado en Traccar. El vehículo ${dev.name} está inactivo (${offlineStr}). Se aplicará apenas recupere señal.`, 'info');
+                    setSummaryData(prev => prev.map(item => {
+                        const devName = item.device.name;
+                        const match = keys.some(k => String(k).toUpperCase() === String(devName || '').toUpperCase());
+                        if (match) {
+                            return {
+                                ...item,
+                                device: { ...item.device, queued: true }
+                            };
+                        }
+                        return item;
+                    }));
+                } else {
+                    showToast(resObj.message || data.message || 'Comando enviado con éxito', 'success');
+                    const nextCutOff = command === 0;
+                    setSummaryData(prev => prev.map(item => {
+                        const devName = item.device.name;
+                        const match = keys.some(k => String(k).toUpperCase() === String(devName || '').toUpperCase());
+                        if (match) {
+                            return {
+                                ...item,
+                                device: { ...item.device, cutOff: nextCutOff, queued: false }
+                            };
+                        }
+                        return item;
+                    }));
+                }
             } else {
-                showToast(result.error || 'Error controlando motor', 'error');
+                showToast(resObj.error || data.error || 'Error controlando motor', 'error');
             }
         } catch (err) {
             showToast(err.message || 'Error', 'error');
@@ -329,7 +361,7 @@ const PaymentSummary = () => {
                     }
                     return item;
                 }));
-            } else if (detail?.type === 'engine' && detail?.deviceId) {
+            } else if (detail?.type === 'engine' && detail?.deviceId && !detail?.queued) {
                 const targetCutOff = (detail.command === 0 || detail.command === '0' || detail.command === false) ? 1 : 0;
                 setSummaryData(prev => prev.map(item => {
                     const targetStr = String(detail.deviceId).toUpperCase();
@@ -346,6 +378,9 @@ const PaymentSummary = () => {
                     }
                     return item;
                 }));
+            } else if (detail?.type === 'engine-queued' && detail?.deviceId) {
+                const targetStr = String(detail.deviceId).toUpperCase();
+                setQueuedCommands(prev => ({ ...prev, [targetStr]: true }));
             } else if (detail?.type === 'cutoff-batch') {
                 fetchData();
             }
@@ -841,6 +876,7 @@ const PaymentSummary = () => {
                     user={user}
                     handleEngineToggle={handleEngineToggle}
                     pendingCommands={pendingCommands}
+                    queuedCommands={queuedCommands}
                     getDeviceStatus={getDeviceStatus}
                     renderDayCell={renderDayCell}
                 />

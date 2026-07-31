@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff, ListFilter } from 'lucide-react';
 import { showToast } from '../utils/toast';
+import { formatOfflineTime, formatOfflineTimeShort } from '../utils/helpers';
 import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
@@ -41,6 +42,7 @@ const DeviceManagement = () => {
     const [viewMode, setViewMode] = useState('technical'); // technical, financial
     const [activeMenuId, setActiveMenuId] = useState(null);
     const [pendingCommands, setPendingCommands] = useState({});
+    const [queuedCommands, setQueuedCommands] = useState({});
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
@@ -344,11 +346,31 @@ const DeviceManagement = () => {
 
         try {
             const result = await controlEngine(id, command);
-            if (result.success) {
-                showToast(result.message, 'success');
+            const data = result.data || result;
+            const resObj = data.response || data;
+
+            if (data.success || resObj.success) {
+                const isQueued = Boolean(resObj.queued || resObj.offline || data.queued || data.offline);
+                const keys = [device.name, device.deviceId, device.id, device.gpsId, device._id, id].filter(Boolean);
+
+                setQueuedCommands(prev => {
+                    const next = { ...prev };
+                    keys.forEach(k => {
+                        next[k] = isQueued;
+                        if (typeof k === 'string') next[k.toUpperCase()] = isQueued;
+                    });
+                    return next;
+                });
+
+                if (isQueued) {
+                    const offlineStr = formatOfflineTime(resObj.lastUpdate || device.lastUpdate) || 'offline';
+                    showToast(`Comando encolado en Traccar. El vehículo ${device.name} está inactivo (${offlineStr}). Se aplicará apenas recupere señal.`, 'info');
+                } else {
+                    showToast(resObj.message || data.message || 'Comando enviado exitosamente', 'success');
+                }
                 loadDevices();
             } else {
-                showToast(result.error || 'Failed to control engine', 'error');
+                showToast(resObj.error || data.error || 'Failed to control engine', 'error');
             }
         } catch (err) {
             console.error('Engine control error:', err);
@@ -591,32 +613,52 @@ const DeviceManagement = () => {
                                 {device.freeDays || 0}
                             </div>
 
-                            {/* Motor: icon + battery + toggle */}
+                             {/* Motor: icon + battery (with offline text) + toggle */}
                             <div className="col-center device-motor-col">
                                 <div className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}>
                                     <MotorIcon />
                                 </div>
-                                <div className={`battery-wrap ${device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}>
-                                    {device.batteryLevel > 70 ? (
-                                        <BatteryFull size={15} />
-                                    ) : device.batteryLevel > 30 ? (
-                                        <BatteryMedium size={15} />
-                                    ) : (
-                                        <BatteryLow size={15} className={device.batteryLevel <= 30 ? 'animate-pulse' : ''} />
+                                <div className="battery-column-container">
+                                    <div className={`battery-wrap ${device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}>
+                                        {device.batteryLevel > 70 ? (
+                                            <BatteryFull size={15} />
+                                        ) : device.batteryLevel > 30 ? (
+                                            <BatteryMedium size={15} />
+                                        ) : (
+                                            <BatteryLow size={15} className={device.batteryLevel <= 30 ? 'animate-pulse' : ''} />
+                                        )}
+                                    </div>
+                                    {formatOfflineTimeShort(device.lastUpdate) && (
+                                        <span
+                                            className="battery-offline-subtext"
+                                            title={`Inactivo desde: ${device.lastUpdate ? new Date(device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
+                                        >
+                                            {formatOfflineTimeShort(device.lastUpdate)}
+                                        </span>
                                     )}
                                 </div>
-                                {user?.role !== 'viewer' ? (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleEngineToggle(device); }}
-                                        disabled={pendingCommands[device.id]}
-                                        className={`engine-toggle-slider ${Boolean(device.cutOff) ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''}`}
-                                        title={Boolean(device.cutOff) ? 'Activar Moto' : 'Desactivar Moto'}
-                                    >
-                                        <div className="slider-knob">
-                                            {pendingCommands[device.id] ? <RefreshCw size={12} className="spin" /> : <Power size={12} />}
-                                        </div>
-                                    </button>
-                                ) : (
+                                {user?.role !== 'viewer' ? (() => {
+                                    const isQueued = Boolean(
+                                        queuedCommands[device.id] ||
+                                        queuedCommands[device.name] ||
+                                        (device.name && queuedCommands[device.name.toUpperCase()]) ||
+                                        queuedCommands[device.gpsId] ||
+                                        queuedCommands[device._id] ||
+                                        queuedCommands[device.deviceId]
+                                    );
+                                    return (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleEngineToggle(device); }}
+                                            disabled={pendingCommands[device.id]}
+                                            className={`engine-toggle-slider ${Boolean(device.cutOff) ? 'deactivated' : 'active'} ${pendingCommands[device.id] ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                                            title={isQueued ? 'Comando en cola (esperando señal GPS)' : (Boolean(device.cutOff) ? 'Activar Moto' : 'Desactivar Moto')}
+                                        >
+                                            <div className="slider-knob">
+                                                {pendingCommands[device.id] ? <RefreshCw size={12} className="spin" /> : <Power size={12} />}
+                                            </div>
+                                        </button>
+                                    );
+                                })() : (
                                     <div className={`engine-toggle-slider ${Boolean(device.cutOff) ? 'deactivated' : 'active'}`} style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                         <div className="slider-knob"><Power size={12} /></div>
                                     </div>

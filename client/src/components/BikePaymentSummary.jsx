@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Power, RefreshCw } from 'lucide-react';
+import { formatOfflineTimeShort } from '../utils/helpers';
 
 const formatCurrency = (amount) => {
   if (!amount) return '-';
@@ -41,7 +42,7 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
   );
 };
 
-const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, pendingCommands, getDeviceStatus, renderDayCell }) => {
+const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, pendingCommands, queuedCommands, getDeviceStatus, renderDayCell }) => {
   if (loading) {
     return <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Cargando...</div>;
   }
@@ -57,17 +58,17 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
             className="bike-summary bike-summary-card"
           >
             {/* Card header: device name + debt badge */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.95rem', color: '#111827', letterSpacing: '0.05em' }}>
-                  {item.device.name} - {item.device.driverName || 'Sin Conductor'}
-                </span>
+            <div className="bike-summary-card-header">
+              <div className="device-cell">
+                <span className="device-name">{item.device.name}</span>
+                <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {/* Motor toggle */}
                 {(() => {
                   const dev = item.device;
                   const isOff = Boolean(dev.cutOff);
+                  const devKey = dev.deviceId || dev.id || dev.name;
 
                   if (user?.role === 'viewer') {
                     return (
@@ -80,13 +81,27 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                     );
                   }
 
-                  const isPending = pendingCommands ? !!pendingCommands[dev.deviceId || dev.name] : false;
+                  const isPending = pendingCommands ? Boolean(
+                    pendingCommands[dev.deviceId] || pendingCommands[dev.id] || pendingCommands[dev.name] || pendingCommands[devKey]
+                  ) : false;
+                  const isQueued = Boolean(
+                    dev.queued ||
+                    (queuedCommands && (
+                      queuedCommands[dev.deviceId] ||
+                      queuedCommands[dev.id] ||
+                      queuedCommands[dev.name] ||
+                      (dev.name && queuedCommands[dev.name.toUpperCase()]) ||
+                      queuedCommands[dev.gpsId] ||
+                      queuedCommands[dev._id] ||
+                      queuedCommands[devKey]
+                    ))
+                  );
                   return (
                     <button
                       onClick={() => handleEngineToggle && handleEngineToggle(dev)}
                       disabled={isPending}
-                      className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
-                      title={isOff ? 'Activar Moto' : 'Desactivar Moto'}
+                      className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                      title={isQueued ? 'Comando en cola (esperando señal GPS)' : (isOff ? 'Activar Moto' : 'Desactivar Moto')}
                       style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
                     >
                       <div className="slider-knob">
@@ -104,6 +119,15 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                   <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
                 ) : (
                   <span className="no-debt">✓</span>
+                )}
+                {formatOfflineTimeShort(item.device.lastUpdate) && (
+                  <span
+                    className="battery-offline-subtext"
+                    style={{ position: 'static', transform: 'none', fontSize: '0.7rem', color: '#DC2626', fontWeight: 700 }}
+                    title={`Inactivo desde: ${item.device.lastUpdate ? new Date(item.device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
+                  >
+                    {formatOfflineTimeShort(item.device.lastUpdate)}
+                  </span>
                 )}
               </div>
             </div>
