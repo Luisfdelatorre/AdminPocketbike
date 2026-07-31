@@ -12,6 +12,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { getDashboardStats } from '../services/api';
+import { formatCompact, exportToCSV } from '../utils/helpers';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -102,17 +103,6 @@ const AdminDashboard = () => {
         );
     }
 
-    const formatCompact = (value) => {
-        if (!value) return '$0';
-        if (value >= 1000000) {
-            return `$${Math.round(value / 1000000)}M`;
-        }
-        if (value >= 1000) {
-            return `$${Math.round(value / 1000)}k`;
-        }
-        return `$${value}`;
-    };
-
     const handleDownloadReport = () => {
         const period = selectedMonth ? `${selectedMonth}-${selectedYear}` : `${selectedYear}`;
         const csvRows = [];
@@ -120,11 +110,11 @@ const AdminDashboard = () => {
         // 1. Stats Section
         csvRows.push(['RESUMEN DEL PERIODO', period]);
         csvRows.push(['']);
-        csvRows.push(['Metrica', 'Valor (COP/Cantidad)']);
+        csvRows.push(['Métrica', 'Valor (COP/Cantidad)']);
         csvRows.push(['Ingresos Totales', stats.totalRevenue || 0]);
         csvRows.push(['Dispositivos Activos', stats.activeDevices || 0]);
         csvRows.push(['Pagos Pendientes', stats.pendingPayments || 0]);
-        csvRows.push(['Facturado (ano)', stats.totalInvoiced || 0]);
+        csvRows.push(['Facturado (año)', stats.totalInvoiced || 0]);
         csvRows.push(['Cartera Pendiente', stats.collectionGap || 0]);
         csvRows.push(['']);
 
@@ -141,22 +131,31 @@ const AdminDashboard = () => {
             csvRows.push(['No hay pagos recientes en este periodo']);
         }
 
-        // Create CSV content (adding BOM for UTF-8 Excel compatibility)
-        const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
-            + csvRows.map(e => e.join(",")).join("\n");
-
-        // Trigger download
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `reporte_pocketbike_${period}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        exportToCSV(`reporte_pocketbike_${period}.csv`, csvRows);
     };
 
     return (
         <div className="dashboard-content ios-dashboard">
+            <div className="app-page-header">
+                <div className="app-page-header-main">
+                    <div className="app-page-title-group">
+                        <h1 className="app-page-title">{t('sidebar.dashboard', 'Panel Principal')}</h1>
+                        {user?.username && <span className="app-page-subtitle">Bienvenido, {user.username}</span>}
+                    </div>
+                    <div className="app-page-actions-group">
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={handleDownloadReport}
+                            title={t('dashboard.downloadReport', 'Descargar Reporte')}
+                        >
+                            <Download size={18} />
+                            <span>Exportar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {portalElement && createPortal(
                 <button
                     type="button"
@@ -198,14 +197,6 @@ const AdminDashboard = () => {
                             <option value={2027}>2027</option>
                         </select>
                     </div>
-                    <button
-                        type="button"
-                        className="btn-icon-ios btn-ios-grey"
-                        onClick={handleDownloadReport}
-                        title={t('dashboard.downloadReport')}
-                    >
-                        <Download size={20} />
-                    </button>
                 </div>
 
 

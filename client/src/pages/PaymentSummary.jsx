@@ -7,18 +7,12 @@ import { useAuth } from '../context/AuthContext';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
+import { formatCompact } from '../utils/helpers';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 
-// Helper to format currency
-// Helper to format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '-';
-    if (amount >= 1000) {
-        return `$${(amount / 1000).toFixed(0)}k`;
-    }
-    return `$${amount}`;
-};
+// Standardized currency formatter alias
+const formatCurrency = (amount) => amount ? formatCompact(amount) : '-';
 
 const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
 
@@ -695,16 +689,19 @@ const PaymentSummary = () => {
 
             <div
                 ref={summaryHeaderRef}
-                className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
+                className={`app-page-header summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
             >
-                <div className="summary-heading">
-                    <h1>Estatus de Pagos</h1>
+                <div className="app-page-header-main">
+                    <div className="app-page-title-group">
+                        <h1 className="app-page-title">Estatus de Pagos</h1>
+                        <span className="app-page-subtitle">{summaryData.length} motos monitoreadas</span>
+                    </div>
 
                     {!isMobile && (
-                        <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
+                        <div className="app-segment-control" role="group" aria-label="Vista del resumen de pagos">
                             <button
                                 type="button"
-                                className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
+                                className={`app-segment-option${desktopView === 'bike' ? ' active' : ''}`}
                                 onClick={() => handleDesktopViewChange('bike')}
                                 aria-pressed={desktopView === 'bike'}
                             >
@@ -713,7 +710,7 @@ const PaymentSummary = () => {
                             </button>
                             <button
                                 type="button"
-                                className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
+                                className={`app-segment-option${desktopView === 'matrix' ? ' active' : ''}`}
                                 onClick={() => handleDesktopViewChange('matrix')}
                                 aria-pressed={desktopView === 'matrix'}
                             >
@@ -723,8 +720,6 @@ const PaymentSummary = () => {
                         </div>
                     )}
                 </div>
-
-
             </div>
 
             {/* ── Controles: mes / año / acciones ────────────────────────────── */}
@@ -769,7 +764,7 @@ const PaymentSummary = () => {
                         </button>
                     )}
                 </div>
-                <div className="search-ios">
+                <div className="search-ios search-box-ios">
                     <Search size={15} className="search-ios-icon" />
                     <input
                         type="text"

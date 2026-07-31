@@ -411,35 +411,42 @@ const DeviceManagement = () => {
 
     return (
         <div className="devices-page ios-devices-page">
-            {/* Desktop Header */}
-            <div className="page-header">
-                <div className="desktop-only">
-                    <h1>{t('devices.title')}</h1>
+            <div className="app-page-header">
+                <div className="app-page-header-main">
+                    <div className="app-page-title-group">
+                        <h1 className="app-page-title">{t('devices.title', 'Gestión de Equipos')}</h1>
+                        <span className="app-page-subtitle">{devices.length} vehículos registrados</span>
+                    </div>
+                    <div className="app-page-actions-group">
+                        {user?.isSuperAdmin ? (
+                            <button className="btn-secondary" onClick={handleSync} disabled={loading}>
+                                <RefreshCw size={18} className={loading ? 'spin' : ''} />
+                                <span>{t('devices.sync', 'Sincronizar')}</span>
+                            </button>
+                        ) : (
+                            <button className="btn-secondary" onClick={loadDevices} disabled={loading}>
+                                <RefreshCw size={18} className={loading ? 'spin' : ''} />
+                                <span>{t('payments.refresh', 'Actualizar')}</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
-                {user?.isSuperAdmin ? (
-                    <button className="btn-secondary desktop-only" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
-                        <RefreshCw className={loading ? 'spin' : ''} /> {t('devices.sync')}
-                    </button>
-                ) : (
-                    <button className="btn-secondary desktop-only" onClick={loadDevices} disabled={loading} style={{ marginRight: '1rem' }}>
-                        <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
-                    </button>
-                )}
-                <MobileHeaderAction>
-                    <button
-                        type="button"
-                        className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        title="Filtros"
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                    <button onClick={user?.isSuperAdmin ? handleSync : loadDevices} className="btn-mobile-header-action">
-                        <RefreshCw size={20} className={loading ? 'spin' : ''} />
-                    </button>
-                </MobileHeaderAction>
             </div>
+
+            <MobileHeaderAction>
+                <button
+                    type="button"
+                    className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
+                    onClick={() => setShowFilters(!showFilters)}
+                    id="filterToggle"
+                    title="Filtros"
+                >
+                    <ListFilter size={20} />
+                </button>
+                <button onClick={user?.isSuperAdmin ? handleSync : loadDevices} className="btn-mobile-header-action">
+                    <RefreshCw size={20} className={loading ? 'spin' : ''} />
+                </button>
+            </MobileHeaderAction>
 
             {/* Expandable Metrics Section */}
             <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
@@ -473,20 +480,45 @@ const DeviceManagement = () => {
                         </div>
                     </div>
                 </div>
-                <div className="search-ios">
-                    <Search size={15} className="search-ios-icon" />
-                    <input
-                        type="text"
-                        className="search-ios-input"
-                        placeholder={t('devices.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button className="search-ios-clear" onClick={() => setSearchQuery('')}>
-                            <X size={14} />
+                <div className="app-page-filters-bar">
+                    <div className="search-ios search-box-ios">
+                        <Search size={15} className="search-ios-icon" />
+                        <input
+                            type="text"
+                            className="search-ios-input"
+                            placeholder={t('devices.searchPlaceholder')}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button className="search-ios-clear" onClick={() => setSearchQuery('')}>
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                    <div className="app-segment-control">
+                        <button
+                            type="button"
+                            className={`app-segment-option ${filter === 'all' ? 'active' : ''}`}
+                            onClick={() => setFilter('all')}
+                        >
+                            Todos
                         </button>
-                    )}
+                        <button
+                            type="button"
+                            className={`app-segment-option ${filter === 'active' ? 'active' : ''}`}
+                            onClick={() => setFilter('active')}
+                        >
+                            Contratados
+                        </button>
+                        <button
+                            type="button"
+                            className={`app-segment-option ${filter === 'available' ? 'active' : ''}`}
+                            onClick={() => setFilter('available')}
+                        >
+                            Disponibles
+                        </button>
+                    </div>
                 </div>
             </div>
 
