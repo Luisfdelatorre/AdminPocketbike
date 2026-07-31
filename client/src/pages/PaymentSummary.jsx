@@ -6,6 +6,7 @@ import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, c
 import { useAuth } from '../context/AuthContext';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import { showToast } from '../utils/toast';
+import { getDayTypeConfig } from '../utils/helpers';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MotorIcon from '../components/MotorIcon';
@@ -35,6 +36,7 @@ const PaymentSummary = () => {
     const [loading, setLoading] = useState(false);
     const [downloading, setDownloading] = useState(false);
     const [summaryData, setSummaryData] = useState([]);
+    const [serverDayTypesConfig, setServerDayTypesConfig] = useState(null);
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [deviceStatuses, setDeviceStatuses] = useState([]);
@@ -241,6 +243,9 @@ const PaymentSummary = () => {
 
             if (response.success && Array.isArray(response.data)) {
                 setSummaryData(response.data);
+                if (response.dayTypesConfig) {
+                    setServerDayTypesConfig(response.dayTypesConfig);
+                }
             }
         } catch (error) {
             console.error("Error fetching summary:", error);
@@ -599,26 +604,13 @@ const PaymentSummary = () => {
                 }
             }
 
-            if (dayData.dayType === 'LOAN') {
-                cellClass = 'status-cell loand';
-                content = '--';
-            } else if (dayData.dayType === 'PAID') {
-                cellClass = 'status-cell approved';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-            } else if (dayData.dayType === 'FREE') {
-                cellClass = 'status-cell free';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-            } else if (dayData.dayType === 'ADJUSTMENT') {
-                cellClass = 'status-cell adjusted';
-                content = '🔧';
-            } else {
-                cellClass = 'status-cell pending';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
-            }
+            const dayConfig = getDayTypeConfig(dayData, serverDayTypesConfig, formatCurrency);
+            cellClass = dayConfig.cellClass;
+            const innerContent = dayConfig.content;
 
             content = (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
-                    <span style={{ fontSize: '10.5px' }}>{content}</span>
+                    <span style={{ fontSize: '10.5px' }}>{innerContent}</span>
                     {paymentTime && (
                         <span className="payment-time-sub">
                             {paymentTime}

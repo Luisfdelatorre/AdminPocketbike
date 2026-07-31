@@ -30,11 +30,10 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
           <div
             key={day}
             className={`bike-summary-day${day === currentDay ? ' border p-1 rounded bg-indigo-50/50 border-gray-300' : ''}`}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', flexShrink: 0 }}
           >
-            <span style={{ fontSize: '9px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>{String(day).padStart(2, '0')}</span>
-            <div className={cellClass} style={{ width: '36px', height: '28px', fontSize: '9px' }}>{content}</div>
-            {dayData && <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF' }}>{dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}</span>}
+            <span className="day-number">{String(day).padStart(2, '0')}</span>
+            <div className={`${cellClass} day-cell-badge`}>{content}</div>
+            {dayData && <span className="day-distance">{dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}</span>}
           </div>
         );
       })}
@@ -44,7 +43,7 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
 
 const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, pendingCommands, queuedCommands, getDeviceStatus, renderDayCell }) => {
   if (loading) {
-    return <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Cargando...</div>;
+    return <div className="summary-loading">Cargando...</div>;
   }
 
   return (
@@ -59,12 +58,21 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
           >
             {/* Card header: device name + debt badge */}
             <div className="bike-summary-card-header">
-              <div className="device-cell">
+              <div className="device-cell inline-header">
                 <span className="device-name">{item.device.name}</span>
+                <span className="header-separator">•</span>
                 <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="header-actions">
                 {/* Motor toggle */}
+                {formatOfflineTimeShort(item.device.lastUpdate) && (
+                  <span
+                    className="header-offline-badge"
+                    title={`Inactivo desde: ${item.device.lastUpdate ? new Date(item.device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
+                  >
+                    {formatOfflineTimeShort(item.device.lastUpdate)}
+                  </span>
+                )}
                 {(() => {
                   const dev = item.device;
                   const isOff = Boolean(dev.cutOff);
@@ -73,8 +81,8 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                   if (user?.role === 'viewer') {
                     return (
                       <div
-                        className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'}`}
-                        style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
+                        className={`engine-toggle-slider scaled ${isOff ? 'deactivated' : 'active'}`}
+                        style={{ opacity: 0.5, cursor: 'not-allowed' }}
                       >
                         <div className="slider-knob"><Power size={10} /></div>
                       </div>
@@ -100,9 +108,8 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                     <button
                       onClick={() => handleEngineToggle && handleEngineToggle(dev)}
                       disabled={isPending}
-                      className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                      className={`engine-toggle-slider scaled ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
                       title={isQueued ? 'Comando en cola (esperando señal GPS)' : (isOff ? 'Activar Moto' : 'Desactivar Moto')}
-                      style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
                     >
                       <div className="slider-knob">
                         {isPending ? (
@@ -120,15 +127,7 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                 ) : (
                   <span className="no-debt">✓</span>
                 )}
-                {formatOfflineTimeShort(item.device.lastUpdate) && (
-                  <span
-                    className="battery-offline-subtext"
-                    style={{ position: 'static', transform: 'none', fontSize: '0.7rem', color: '#DC2626', fontWeight: 700 }}
-                    title={`Inactivo desde: ${item.device.lastUpdate ? new Date(item.device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
-                  >
-                    {formatOfflineTimeShort(item.device.lastUpdate)}
-                  </span>
-                )}
+
               </div>
             </div>
 

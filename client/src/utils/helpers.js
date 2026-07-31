@@ -119,6 +119,59 @@ export function exportToCSV(filename, contentOrRows) {
     link.download = filename.endsWith('.csv') ? filename : `${filename}.csv`;
     document.body.appendChild(link);
     link.click();
+
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 500);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Configuration registry for day cell types in Payment Summary.
+ * Easily extensible for new day types without changing JSX component logic.
+ */
+export const DAY_TYPE_CONFIG = {
+    LOAN: {
+        cellClass: 'status-cell loand',
+        getContent: () => '--',
+    },
+    PAID: {
+        cellClass: 'status-cell approved',
+        getContent: (dayData, formatFn) => (dayData?.totalPaid > 0 ? (formatFn ? formatFn(dayData.totalPaid) : formatCurrency(dayData.totalPaid)) : '✓'),
+    },
+    FREE: {
+        cellClass: 'status-cell free',
+        getContent: (dayData, formatFn) => (dayData?.totalPaid > 0 ? (formatFn ? formatFn(dayData.totalPaid) : formatCurrency(dayData.totalPaid)) : '✓'),
+    },
+    ADJUSTMENT: {
+        cellClass: 'status-cell adjusted',
+        getContent: () => '🔧',
+    },
+    PENDING: {
+        cellClass: 'status-cell pending',
+        getContent: (dayData, formatFn) => (dayData?.totalPaid > 0 ? (formatFn ? formatFn(dayData.totalPaid) : formatCurrency(dayData.totalPaid)) : '-'),
+    },
+};
+
+export function getDayTypeConfig(dayData, serverDayTypesConfig, formatFn) {
+    if (!dayData) {
+        return { cellClass: 'status-cell pending', content: '-' };
+    }
+    const typeKey = dayData.dayType || 'PENDING';
+    const serverMeta = serverDayTypesConfig?.[typeKey];
+    
+    if (serverMeta) {
+        let content = serverMeta.defaultText || '-';
+        if ((serverMeta.renderMode === 'currency_or_default' || serverMeta.renderMode === 'currency_or_dash') && dayData.totalPaid > 0) {
+            content = formatFn ? formatFn(dayData.totalPaid) : formatCurrency(dayData.totalPaid);
+        }
+        return {
+            cellClass: serverMeta.cellClass || 'status-cell pending',
+            content,
+        };
+    }
+
+    const typeConfig = DAY_TYPE_CONFIG[typeKey] || DAY_TYPE_CONFIG.PENDING;
+    return {
+        cellClass: typeConfig.cellClass,
+        content: typeof typeConfig.getContent === 'function' ? typeConfig.getContent(dayData, formatFn) : (typeConfig.defaultText || '-'),
+    };
 }
