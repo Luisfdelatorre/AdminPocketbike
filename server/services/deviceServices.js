@@ -202,19 +202,43 @@ const controlEngine = async (id, command, companyId) => {
 
         // 3. Send command and verify execution with the hardware
         logger.info(`[EngineControl] Sending command ${command} to device ${id} (GPS ID: ${gpsId}, Company: ${companyId})`);
-        const isConfirmed = await gpsAdapter.executeAndVerify(gpsId, command);
+        const verifyResult = await gpsAdapter.executeAndVerify(gpsId, command);
+        let isConfirmed = false;
+        let isOffline = false;
+        let lastUpdate = null;
+
+        if (typeof verifyResult === 'object' && verifyResult !== null) {
+            isConfirmed = Boolean(verifyResult.confirmed);
+            isOffline = Boolean(verifyResult.offline);
+            lastUpdate = verifyResult.lastUpdate || null;
+        } else {
+            isConfirmed = Boolean(verifyResult);
+        }
 
         if (!isConfirmed) {
             const action = command === 0 ? 'stop' : 'resume';
+            if (isOffline) {
+                // Persist queued: true in MongoDB Device model until signal is restored
+                await Device.updateOne({ _id: device._id }, { $set: { queued: true } });
+                return {
+                    success: true,
+                    queued: true,
+                    offline: true,
+                    lastUpdate,
+                    message: `Comando encolado en Traccar. El vehículo está inactivo (offline). Se aplicará el ${action === 'stop' ? 'apagado' : 'encendido'} apenas se reconecte.`,
+                    cutOff: Boolean(device.cutOff) // Preserve current unchanged cutOff state until hardware confirms
+                };
+            }
             return {
                 success: false,
                 error: `Failed to ${action} engine. The command was sent but not confirmed by the device.`
             };
         }
 
-        // 4. Update the local DB state bypassing strict schema validations on unrelated fields
+        // 4. Update the local DB state ONLY after hardware confirmation
         const newCutOffState = (command === 0 || command === '0' || command === false); // 0 = stop (true), 1 = resume (false)
         await deviceRepository.updateDeviceCutOff(device._id, newCutOffState);
+        await Device.updateOne({ _id: device._id }, { $set: { queued: false } });
 
         return {
             success: true,

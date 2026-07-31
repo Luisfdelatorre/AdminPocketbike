@@ -277,12 +277,22 @@ const controlEngine = async (req, res) => {
         const response = await deviceServices.controlEngine(id, command, companyId);
 
         if (response && response.success) {
-            sseService.broadcast('payment-updated', {
-                type: 'engine',
-                deviceId: id,
-                command,
-                timestamp: new Date().toISOString()
-            });
+            if (!response.queued && !response.offline) {
+                sseService.broadcast('payment-updated', {
+                    type: 'engine',
+                    deviceId: id,
+                    command,
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                sseService.broadcast('payment-updated', {
+                    type: 'engine-queued',
+                    deviceId: id,
+                    command,
+                    queued: true,
+                    timestamp: new Date().toISOString()
+                });
+            }
             return res.json({
                 success: true,
                 response

@@ -195,7 +195,16 @@ class GpsService {
                 const confirmed = await this.adapter.confirmCommand(responseId, gpsId, command);
                 if (confirmed) {
                     logger.info(`[GPS] ${command} confirmed for ${gpsId} after ${attempt - 1} delayed attempts.`);
-                    return true;
+                    return { confirmed: true, offline: false };
+                }
+
+                // Check if device is offline to abort retry loop early
+                if (typeof this.adapter.getDetailedStatus === 'function') {
+                    const status = await this.adapter.getDetailedStatus(gpsId);
+                    if (status && !status.online) {
+                        logger.info(`[GPS] Device ${gpsId} is offline (last update: ${status.lastUpdate}). Command is queued in Traccar — aborting retry loop early after attempt ${attempt}.`);
+                        return { confirmed: false, offline: true, lastUpdate: status.lastUpdate };
+                    }
                 }
             } catch (error) {
                 logger.warn(`[GPS] Check attempt ${attempt} for ${gpsId} failed: ${error.message}`);
@@ -211,7 +220,7 @@ class GpsService {
         }
 
         logger.warn(`[GPS] ${command} command for ${gpsId} not confirmed after ${maxAttempts} attempts.`);
-        return false;
+        return { confirmed: false, offline: false };
     }
 
     updateDevice(pos) {
