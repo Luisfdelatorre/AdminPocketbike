@@ -29,6 +29,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **7.2** | Altura Natural del Header Móvil | 🧪 En validación | El header móvil es sticky y usa altura natural como hijo flex, por lo que reserva el espacio real de títulos y acciones sin padding compensatorio en las páginas. |
 | **8** | Rediseño Visual iOS de AdminDashboard | 🧪 En validación | Maquetación con filtros superiores compactos, grid de 2 tarjetas primarias, 3 tarjetas secundarias compactas con resaltado naranja en pendientes y tabla de pagos recientes con badges estilo pill en verde y gris. |
 | **9** | Rediseño Visual iOS de DeviceSelector | 🧪 En validación | Stats bar visible en móvil (3 columnas), filtros tipo pill con `#0070eb` activo, búsqueda iOS (`#f3f3f4`), tabla con banda de encabezado y filas iOS, badges de estado sistema (verde/rojo/gris), motor con colores de sistema. |
+| **10** | Estandarización de Clases CSS Comunes de Página | ✅ Completado | Definición de clases CSS globales en `index.css` (`.app-page-header`, `.search-box-ios`, `.app-segment-control`, `.stat-card-ios`) aplicadas en Dashboard (`/`), Dispositivos (`/devices`) y Resumen (`/summary`), con visibilidad exclusiva en escritorio para bloques de título y controles segmentados. |
 
 ---
 
