@@ -52,24 +52,56 @@ class MyTraccar {
             .map(d => ({ ...d, gpsId: d.id }));
     };
 
+    fetchKmDeviceForRange = async (startDate, endDate, deviceGpsIds = null) => {
+        const fromStr = startDate.toISOString().replace('Z', '+00:00');
+        const toStr = endDate.toISOString().replace('Z', '+00:00');
+
+        if (!Array.isArray(deviceGpsIds) || deviceGpsIds.length === 0) {
+            const params = new URLSearchParams();
+            params.append('from', fromStr);
+            params.append('to', toStr);
+            params.append('groupId', 1);
+            const res = await this._api.axiosInstance.get('api/reports/summary', { params });
+            return res.data || [];
+        }
+
+        const BATCH_SIZE = 50;
+        let allSummaries = [];
+
+        for (let i = 0; i < deviceGpsIds.length; i += BATCH_SIZE) {
+            const batch = deviceGpsIds.slice(i, i + BATCH_SIZE);
+            const params = new URLSearchParams();
+            params.append('from', fromStr);
+            params.append('to', toStr);
+            batch.forEach(id => params.append('deviceId', id));
+
+            try {
+                const res = await this._api.axiosInstance.get('api/reports/summary', { params });
+                if (Array.isArray(res.data)) {
+                    allSummaries.push(...res.data);
+                }
+            } catch (err) {
+                logger.error(`[Traccar] Error fetching km summary batch (${i}-${i + batch.length}):`, err);
+            }
+        }
+
+        return allSummaries;
+    };
+
     fetchPreviousDayKmDevice = async (now = new Date(), deviceGpsIds = null) => {
         const start = new Date(now);
         start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
         const end = new Date(start);
         end.setHours(23, 59, 59, 999);
+        return this.fetchKmDeviceForRange(start, end, deviceGpsIds);
+    };
 
-        const params = new URLSearchParams();
-        params.append('from', start.toISOString().replace('Z', '+00:00'));
-        params.append('to', end.toISOString().replace('Z', '+00:00'));
-
-        if (Array.isArray(deviceGpsIds) && deviceGpsIds.length > 0) {
-            deviceGpsIds.forEach(id => params.append('deviceId', id));
-        } else {
-            params.append('groupId', 1);
-        }
-
-        const res = await this._api.axiosInstance.get('api/reports/summary', { params });
-        return res.data;
+    fetchCurrentDayKmDevice = async (now = new Date(), deviceGpsIds = null) => {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(now);
+        return this.fetchKmDeviceForRange(start, end, deviceGpsIds);
     };
 
     getDetailedStatus = async (deviceId) => {
