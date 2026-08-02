@@ -37,7 +37,6 @@ const PaymentSummary = () => {
     const [summaryData, setSummaryData] = useState([]);
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
-    const [deviceStatuses, setDeviceStatuses] = useState([]);
     const [pendingCommands, setPendingCommands] = useState({});
     const [queuedCommands, setQueuedCommands] = useState({});
     const summaryHeaderRef = useRef(null);
@@ -439,78 +438,6 @@ const PaymentSummary = () => {
     useEffect(() => {
         hasInitialScrolledRef.current = false;
     }, [selectedMonth, selectedYear, desktopView]);
-
-    // Real-time SSE listening for device status updates in summary view
-    useEffect(() => {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
-        if (!token) return;
-
-        const activeCompanyId = user?.companyId || '';
-        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
-
-        let eventSource;
-        try {
-            eventSource = new EventSource(sseUrl);
-
-            eventSource.addEventListener('device_update', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (!data) return;
-
-                    setDeviceStatuses((prevList) => {
-                        let matchFound = false;
-                        const updatedList = prevList.map((d) => {
-                            const isMatch = (
-                                (data.name && (d.name === data.name || d.deviceIdName === data.name)) ||
-                                (data.deviceIdName && (d.name === data.deviceIdName || d.deviceIdName === data.deviceIdName)) ||
-                                (data.gpsId && (d.gpsId === data.gpsId || d.id === data.gpsId || d.deviceId === data.gpsId)) ||
-                                (data._id && (d._id === data._id || d.id === data._id))
-                            );
-
-                            if (isMatch) {
-                                matchFound = true;
-                                return {
-                                    ...d,
-                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
-                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
-                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
-                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
-                                };
-                            }
-                            return d;
-                        });
-
-                        return matchFound ? updatedList : prevList;
-                    });
-                } catch (err) {
-                    console.error('Error parsing SSE device_update in PaymentSummary:', err);
-                }
-            });
-
-            // Listen for financial, payment, and reconciliation real-time updates
-            const handleRealtimeReload = () => {
-                fetchData();
-                loadDeviceStatuses();
-            };
-
-            eventSource.addEventListener('payment_update', handleRealtimeReload);
-            eventSource.addEventListener('reconciliation_update', handleRealtimeReload);
-            eventSource.addEventListener('invoice_update', handleRealtimeReload);
-            eventSource.addEventListener('summary_update', handleRealtimeReload);
-
-            eventSource.onerror = (err) => {
-                console.warn('SSE connection error in PaymentSummary, EventSource will automatically retry:', err);
-            };
-        } catch (err) {
-            console.error('Failed to initialize SSE in PaymentSummary:', err);
-        }
-
-        return () => {
-            if (eventSource) {
-                eventSource.close();
-            }
-        };
-    }, [user?.companyId]);
 
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && tableContainerRef.current) {

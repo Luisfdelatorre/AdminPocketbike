@@ -19,7 +19,7 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
     if (containerRef.current) {
       containerRef.current.scrollLeft = containerRef.current.scrollWidth;
     }
-  }, [daysArray]);
+  }, [daysArray.length]);
 
   return (
     <div className="pill-container" ref={containerRef}>
