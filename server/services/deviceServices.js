@@ -283,7 +283,7 @@ const syncFromGps = async (companyId) => {
  * @param {string} companyId - Company ID
  * @returns {Promise<Array<{device: Object, hasUnpaidInvoice: boolean, invoice: Object|null}>>}
  */
-const getCompanyDevicesPaymentStatus = async (companyId) => {
+const getCompanyDevicesPaymentStatus = async (companyId, executionTime = dayjs()) => {
     const company = await Company.findById(companyId).lean();
     if (!company || !company.isActive) {
         return [];
@@ -294,8 +294,8 @@ const getCompanyDevicesPaymentStatus = async (companyId) => {
         return [];
     }
 
-    const today = dayjs().startOf('day');
-    const yesterday = dayjs().subtract(1, 'day').startOf('day');
+    const today = executionTime.clone().startOf('day');
+    const yesterday = executionTime.clone().subtract(1, 'day').startOf('day');
     const targetDate = strategy === 1 ? today.toDate() : yesterday.toDate();
 
     // Find all active devices for this company
