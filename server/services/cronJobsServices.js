@@ -212,6 +212,7 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
 };
 
 const performPollingCutOff = async () => {
+  const executionTime = dayjs();
   logger.info("🕒 Starting 5-minute polling cut-off process...");
   try {
     const enabledCompanies = await Company.find({ automaticCutOff: true, isActive: true }).lean();
@@ -223,7 +224,7 @@ const performPollingCutOff = async () => {
     for (const company of enabledCompanies) {
 
       // 1. Get payment statuses of devices for this company
-      const paymentStatuses = await deviceServices.getCompanyDevicesPaymentStatus(company._id);
+      const paymentStatuses = await deviceServices.getCompanyDevicesPaymentStatus(company._id, executionTime);
 
       const devicesToCutOff = [];
 
@@ -233,8 +234,8 @@ const performPollingCutOff = async () => {
           if (device.cutOff) continue; // Already cut off
 
           // Centralised rule: is today's (or target day's) invoice due based on company strategy?
-          const invoiceDate = invoice?.date ?? dayjs().startOf('day').toDate();
-          const timeReached = companyService.isInvoiceDue(company, invoiceDate);
+          const invoiceDate = invoice?.date ?? executionTime.startOf('day').toDate();
+          const timeReached = companyService.isInvoiceDue(company, invoiceDate, executionTime);
 
           if (hasUnpaidInvoice && timeReached) {
             devicesToCutOff.push(device);
