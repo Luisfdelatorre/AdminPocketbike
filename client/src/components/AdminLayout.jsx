@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useSSE } from '../context/SSEContext';
 import { Home, Users, FileText, CreditCard, DollarSign, Image as ImageIcon, Settings as SettingsIcon, Database, RefreshCw, ArrowLeft, Menu } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
 import './AdminLayout.css';
@@ -27,20 +28,14 @@ const AdminLayout = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const { subscribe } = useSSE();
+
     useEffect(() => {
         contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, [location.pathname]);
 
     useEffect(() => {
-        const clientId = `admin-${Math.random().toString(36).substring(2, 9)}`;
-        const sseUrl = `/apinode/sse/subscribe?clientId=${clientId}`;
-        const eventSource = new EventSource(sseUrl);
-
-        eventSource.addEventListener('connected', () => {
-            console.log('✅ SSE Connected to Admin Portal');
-        });
-
-        eventSource.addEventListener('payment-updated', (event) => {
+        const unsub1 = subscribe('payment-updated', (event) => {
             try {
                 const data = JSON.parse(event.data);
                 console.log('💳 Payment Updated via SSE:', data);
@@ -50,7 +45,7 @@ const AdminLayout = () => {
             }
         });
 
-        eventSource.addEventListener('device_update', (event) => {
+        const unsub2 = subscribe('device_update', (event) => {
             try {
                 const data = JSON.parse(event.data);
                 console.log('📡 Device Updated via SSE:', data);
@@ -60,14 +55,11 @@ const AdminLayout = () => {
             }
         });
 
-        eventSource.onerror = () => {
-            console.error('❌ SSE Connection Error');
-        };
-
         return () => {
-            eventSource.close();
+            unsub1();
+            unsub2();
         };
-    }, []);
+    }, [subscribe]);
     
     const { isAuthenticated, authType, user } = useAuth();
 

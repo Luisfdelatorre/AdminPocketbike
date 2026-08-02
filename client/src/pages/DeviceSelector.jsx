@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff, ListFilter } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatOfflineTime, formatOfflineTimeShort } from '../utils/helpers';
-import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors } from '../services/api';
+import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors, getDashboardStats } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSSE } from '../context/SSEContext';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
@@ -25,6 +26,7 @@ const MobileHeaderAction = ({ children }) => {
 };
 
 const DeviceManagement = () => {
+    const { subscribe } = useSSE();
     const navigate = useNavigate();
     const { t } = useTranslation();
     const { user } = useAuth();
@@ -100,65 +102,49 @@ const DeviceManagement = () => {
         return () => window.removeEventListener('payment-update', handlePaymentUpdate);
     }, [viewMode]);
 
-    // Real-time SSE listening for device status updates (multi-tenant aware)
     useEffect(() => {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
-        if (!token) return;
+        const unsub = subscribe('device_update', (e) => {
+            try {
+                const data = e.parsedData;
+                if (!data) return;
 
-        const activeCompanyId = user?.companyId || '';
-        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
+                const updates = Array.isArray(data) ? data : [data];
 
-        let eventSource;
-        try {
-            eventSource = new EventSource(sseUrl);
+                const updateMap = new Map();
+                updates.forEach(u => {
+                    if (u.gpsId) updateMap.set(String(u.gpsId), u);
+                });
 
-            eventSource.addEventListener('device_update', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (!data) return;
+                setDevices((prevDevices) => {
+                    let matchFound = false;
+                    const updatedList = prevDevices.map((d) => {
+                        const frontendGpsId = String(d.gpsId || d.deviceId || d.id);
+                        const match = updateMap.get(frontendGpsId);
 
-                    setDevices((prevDevices) => {
-                        let matchFound = false;
-                        const updatedList = prevDevices.map((d) => {
-                            const isMatch = (
-                                (data.gpsId && (d.gpsId === data.gpsId || d.deviceId === data.gpsId)) ||
-                                (data._id && d._id === data._id) ||
-                                (data.name && d.name === data.name)
-                            );
-
-                            if (isMatch) {
-                                matchFound = true;
-                                return {
-                                    ...d,
-                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
-                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
-                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
-                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
-                                };
-                            }
-                            return d;
-                        });
-
-                        return matchFound ? updatedList : prevDevices;
+                        if (match) {
+                            matchFound = true;
+                            return {
+                                ...d,
+                                ignition: match.ignition !== undefined ? match.ignition : d.ignition,
+                                batteryLevel: match.batteryLevel !== null && match.batteryLevel !== undefined ? match.batteryLevel : d.batteryLevel,
+                                cutOff: match.cutOff !== undefined ? match.cutOff : d.cutOff,
+                                lastUpdate: match.lastUpdate ? match.lastUpdate : d.lastUpdate,
+                            };
+                        }
+                        return d;
                     });
-                } catch (err) {
-                    console.error('Error parsing SSE device_update:', err);
-                }
-            });
 
-            eventSource.onerror = (err) => {
-                console.warn('SSE connection error in DeviceSelector, EventSource will automatically retry:', err);
-            };
-        } catch (err) {
-            console.error('Failed to initialize SSE in DeviceSelector:', err);
-        }
+                    return matchFound ? updatedList : prevDevices;
+                });
+            } catch (err) {
+                console.error('Error in DeviceSelector SSE listener:', err);
+            }
+        });
 
         return () => {
-            if (eventSource) {
-                eventSource.close();
-            }
+            unsub();
         };
-    }, [user?.companyId]);
+    }, [subscribe]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {

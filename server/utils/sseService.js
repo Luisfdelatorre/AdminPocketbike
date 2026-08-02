@@ -75,9 +75,9 @@ export class SSEService {
                 const targetCompanyId = data?.companyId || filterOptions?.companyId;
                 const clientCompanyId = clientEntry?.metadata?.companyId;
 
-                if (targetCompanyId && clientCompanyId) {
+                if (targetCompanyId) {
                     if (String(clientCompanyId) !== String(targetCompanyId)) {
-                        return; // Skip clients from other companies
+                        return; // Skip clients from other companies or unauthenticated clients
                     }
                 }
 

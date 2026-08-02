@@ -1,13 +1,15 @@
 import deviceRepository from '../repositories/deviceRepository.js';
 import invoiceRepository from '../repositories/invoiceRepository.js';
 import { Device } from '../models/Device.js';
+import companyRepository from '../repositories/companyRepository.js';
 import { Company } from '../models/Company.js';
-import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES } from '../config/config.js';
+import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES, GPS_THROTTLE } from '../config/config.js';
 import GpsService from '../services/gpsServices.js';
 import companyService from '../services/companyService.js';
 import helper from '../utils/helpers.js';
 import logger from '../utils/logger.js';
 import { sseService } from '../utils/sseService.js';
+import { deviceStateCache } from '../utils/memoryStorage.js';
 
 // Centralized Day.js
 import dayjs from '../config/dayjs.js';
@@ -24,7 +26,6 @@ const {
     INVOICE_DAYTYPE_TRANSLATION
 } = Transaction;
 
-const deviceStateCache = new Map();
 
 
 const bulkWriteDevices = async (gpsDevices) => {
@@ -35,138 +36,67 @@ const bulkWriteDevices = async (gpsDevices) => {
 
 
 const initializeGpsUpdates = async () => {
-    // 1. Fetch all companies
-    const companies = await Company.find({}).lean();
-
     // 2. Pre-populate in-memory cache to avoid DB storm
-    const allDevices = await Device.find({}, '_id name gpsId imei ignition lastUpdate cutOff batteryLevel companyId').lean();
-    for (const d of allDevices) {
-        const entry = {
-            _id: d._id,
-            name: d.name,
-            companyId: d.companyId,
-            ignition: d.ignition,
-            lastUpdate: d.lastUpdate,
-            cutOff: d.cutOff,
-            batteryLevel: d.batteryLevel,
-            filter: { gpsId: d.gpsId },
-            _dirty: false, // starts clean — no real change yet
-        };
-
-        deviceStateCache.set(d.gpsId, entry);
-    }
+    const allDevices = await deviceRepository.findForGpsCache();
+    allDevices
+        .filter(d => d.gpsId != null)
+        .forEach(d => deviceStateCache.set(d.gpsId, d));
     let _lastGlobalDbWrite = 0;
+    let _pendingCutOffFlush = false;
+
     const onFlush = async (batch) => {
         if (!batch || batch.length === 0) return;
         const NOW = Date.now();
-
         // 1. Detect REAL state changes (ignition, cutOff, batteryLevel) with normalized comparison
         for (const update of batch) {
             const mem = deviceStateCache.get(update.filter.gpsId);
             if (!mem) continue;
 
-            const normBool = (val) => (val === null || val === undefined ? false : (typeof val === 'number' ? val === 1 : Boolean(val)));
-            const normBat = (val) => (val === null || val === undefined ? null : Math.round(Number(val)));
-
-            const currentIgnition = normBool(mem.ignition);
-            const newIgnition = normBool(update.ignition);
-
-            const currentCutOff = normBool(mem.cutOff);
-            const newCutOff = update.cutOff !== undefined ? normBool(update.cutOff) : currentCutOff;
-
-            const currentBattery = normBat(mem.batteryLevel);
-            const newBattery = update.batteryLevel !== null && update.batteryLevel !== undefined ? normBat(update.batteryLevel) : currentBattery;
-
-            const stateChanged =
-                currentIgnition !== newIgnition ||
-                currentCutOff !== newCutOff ||
-                (newBattery !== null && currentBattery !== newBattery);
-
-            mem.lastUpdate = update.lastUpdate;
-
-            if (stateChanged) {
-                mem.ignition = newIgnition;
-                mem.cutOff = newCutOff;
-                mem.batteryLevel = newBattery;
-                mem._dirty = true;
-                deviceStateCache.set(update.filter.gpsId, mem);
-
-                // Broadcast real-time SSE update to connected clients
-                sseService.broadcast('device_update', {
-                    gpsId: update.filter.gpsId,
-                    _id: mem._id,
-                    name: mem.name,
-                    companyId: mem.companyId,
-                    ignition: mem.ignition,
-                    lastUpdate: mem.lastUpdate,
-                    cutOff: mem.cutOff,
-                    batteryLevel: mem.batteryLevel
-                });
-            }
-        }
-
-        // 2. Throttle flush to once every 5 seconds (set lock immediately to prevent race conditions during async calls)
-        if (NOW - _lastGlobalDbWrite < 5000) return;
-        _lastGlobalDbWrite = NOW;
-
-        const bulkOps = [];
-        const updatesList = [];
-
-        for (const [idKey, mem] of deviceStateCache.entries()) {
-            if (!mem._dirty) continue; // skip unchanged devices
-
-            updatesList.push({
-                gpsId: mem.filter?.gpsId || mem.filter?.deviceId || idKey,
-                name: mem.name,
-                filter: mem.filter,
-                ignition: mem.ignition,
-                lastUpdate: mem.lastUpdate,
-                cutOff: mem.cutOff,
-                batteryLevel: mem.batteryLevel,
-            });
-
-            bulkOps.push({
-                updateOne: {
-                    filter: mem.filter,
-                    update: {
-                        $set: {
-                            ignition: mem.ignition,
-                            lastUpdate: mem.lastUpdate,
-                            cutOff: mem.cutOff,
-                            batteryLevel: mem.batteryLevel,
-                        }
-                    }
+            if (mem.applyUpdate(update)) {
+                if (mem._cutOffChanged) {
+                    _pendingCutOffFlush = true;
                 }
-            });
-
-            mem._dirty = false; // reset after queuing
-        }
-
-        if (bulkOps.length > 0) {
-            try {
-                await deviceRepository.upsertDevicesBatch(bulkOps);
-                logger.info(`GPS bulk write: ${bulkOps.length} devices updated`);
-                sseService.broadcast('payment-updated', {
-                    type: 'gps_update',
-                    devices: updatesList,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (error) {
-                logger.error('Error in GPS onFlush:', error);
             }
+        }
+        // 2. Dynamic throttle: URGENT_MS if cutoff changed, otherwise NORMAL_MS
+        const throttleLimit = _pendingCutOffFlush ? GPS_THROTTLE.URGENT_MS : GPS_THROTTLE.NORMAL_MS;
+        if (NOW - _lastGlobalDbWrite < throttleLimit) return;
+        _lastGlobalDbWrite = NOW;
+        _pendingCutOffFlush = false;
+
+        const updatesList = Array.from(deviceStateCache.values()).filter(mem => mem._dirty);
+        if (updatesList.length === 0) return;
+
+        const updatesByCompany = {};
+        updatesList.forEach(mem => {
+            logger.info(`[GPS] Update queued for ${mem.gpsId}. Reason(s): ${mem._updateReasons.join(', ')}`);
+            mem.clearDirty();
+
+            const cid = mem.companyId?.toString();
+            if (cid) {
+                if (!updatesByCompany[cid]) updatesByCompany[cid] = [];
+                updatesByCompany[cid].push(mem);
+            }
+        });
+
+        try {
+            await deviceRepository.upsertDevicesBatch(updatesList);
+            logger.info(`GPS bulk write: ${updatesList.length} devices updated`);
+
+            for (const [companyId, companyUpdates] of Object.entries(updatesByCompany)) {
+                sseService.broadcast('device_update', companyUpdates, { companyId });
+            }
+        } catch (error) {
+            logger.error('Error in GPS onFlush:', error);
         }
     };
+
+    // 1. Fetch all companies
+    const companies = await companyRepository.getAllCompanies();
 
     // 3. Initialize per-company adapter based on service requirement
     for (const c of companies) {
         const gpsAdapter = await companyService.getGpsAdapter(c._id);
-
-        const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
-        if (isMegaRastreo) {
-            logger.info(`[GPS] MegaRastreo auto-update disabled for company ${c.name || c._id}`);
-            continue;
-        }
-
         if (gpsAdapter && typeof gpsAdapter.startAutoUpdate === 'function') {
             await gpsAdapter.startAutoUpdate([], onFlush);
         }

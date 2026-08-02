@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { Transaction, ENGINERESUME, ENGINESTOP, Url, Login, ENGINE_COMMANDS } from '../../config/config.js';
 import { CommandBody } from '../../utils/CommandBody.js';
+import { DeviceUpdate } from '../../entities/deviceEntities.js';
 import logger from '../../config/logger.js';
 import TraccarApi from './traccarApi.js';
 
@@ -326,24 +327,7 @@ class MyTraccar {
 
         for (const p of positions) {
             if (!p?.deviceId) continue;
-            const status = p?.attributes?.status || null;
-            const result = (p?.attributes?.result || '').trim().toLowerCase();
-            let updateData = {
-                filter: { gpsId: p.deviceId },
-                ignition: p.attributes?.ignition ?? false,
-                lastUpdate: p.deviceTime ? new Date(p.deviceTime) : new Date(),
-                batteryLevel: p.attributes?.batteryLevel ?? null,
-            }
-            if (status != undefined) {
-                updateData.cutOff = ((status <= 255 && (status & 128) !== 0) || (status > 255 && ((status >> 27) & 1) == 0));
-            }
-            if (result.includes('cut off') && (result.includes('success') || result.includes('already'))) {
-                updateData.cutOff = true;
-            } else if ((result.includes('restore') || result.includes('resume')) && (result.includes('success') || result.includes('already'))) {
-                updateData.cutOff = false;
-            }
-
-            standardBatch.push(updateData);
+            standardBatch.push(new DeviceUpdate(p));
         }
 
         this._onFlushCallback(standardBatch);

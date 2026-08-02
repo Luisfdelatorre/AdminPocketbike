@@ -153,7 +153,13 @@ export const updateSettings = (data) => api.put('/companies/settings', data);
 
 // --- SSE ---
 export const createSSEConnection = (clientId) => {
-    return new EventSource(`${window.location.origin}${API_URL}/sse/subscribe?clientId=${clientId}`);
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('adminToken');
+    const url = new URL(`${window.location.origin}${API_URL}/sse/subscribe`);
+    url.searchParams.append('clientId', clientId);
+    if (token) {
+        url.searchParams.append('token', token);
+    }
+    return new EventSource(url.toString());
 };
 
 // --- Company Billing ---

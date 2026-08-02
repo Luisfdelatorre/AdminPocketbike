@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
@@ -37,7 +37,6 @@ const PaymentSummary = () => {
     const [summaryData, setSummaryData] = useState([]);
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
-    const [deviceStatuses, setDeviceStatuses] = useState([]);
     const [pendingCommands, setPendingCommands] = useState({});
     const [queuedCommands, setQueuedCommands] = useState({});
     const summaryHeaderRef = useRef(null);
@@ -51,14 +50,13 @@ const PaymentSummary = () => {
     const [matrixGeometry, setMatrixGeometry] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(true);
     const [portalElement, setPortalElement] = useState(null);
 
     useEffect(() => {
         setPortalElement(document.getElementById('mobile-header-actions'));
     }, []);
 
-    useFilterVisibilityOnScroll(setShowFilters);
 
     useEffect(() => {
         const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
@@ -147,25 +145,7 @@ const PaymentSummary = () => {
         syncMatrixHeaderScroll(event.currentTarget.scrollLeft);
     };
 
-    useLayoutEffect(() => {
-        const header = summaryHeaderRef.current;
-        if (!header) return undefined;
 
-        const updateHeaderHeight = () => {
-            setSummaryHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
-        };
-
-        updateHeaderHeight();
-
-        if (typeof ResizeObserver === 'undefined') {
-            window.addEventListener('resize', updateHeaderHeight);
-            return () => window.removeEventListener('resize', updateHeaderHeight);
-        }
-
-        const observer = new ResizeObserver(updateHeaderHeight);
-        observer.observe(header);
-        return () => observer.disconnect();
-    }, []);
 
     useEffect(() => {
         const updateStickyState = () => {
@@ -390,20 +370,23 @@ const PaymentSummary = () => {
             const detail = e.detail;
             if (!detail) return;
 
-            setSummaryData(prev => prev.map(item => {
-                const isMatch =
-                    (detail.gpsId != null && String(item.device.gpsId) === String(detail.gpsId)) ||
-                    (detail.name && item.device.name?.toUpperCase() === detail.name?.toUpperCase()) ||
-                    (detail._id && String(item.device._id) === String(detail._id));
+            const updates = Array.isArray(detail) ? detail : [detail];
 
-                if (isMatch) {
+            setSummaryData(prev => prev.map(item => {
+                const match = updates.find(u =>
+                    (u.gpsId != null && String(item.device.gpsId) === String(u.gpsId)) ||
+                    (u.name && item.device.name?.toUpperCase() === u.name?.toUpperCase()) ||
+                    (u._id && String(item.device._id) === String(u._id))
+                );
+
+                if (match) {
                     return {
                         ...item,
                         device: {
                             ...item.device,
-                            ...(detail.cutOff != null && { cutOff: (detail.cutOff === true || detail.cutOff === 1 || detail.cutOff === '1') ? 1 : 0 }),
-                            ...(detail.batteryLevel != null && { batteryLevel: detail.batteryLevel }),
-                            ...(detail.ignition != null && { ignition: detail.ignition })
+                            ...(match.cutOff != null && { cutOff: (match.cutOff === true || match.cutOff === 1 || match.cutOff === '1') ? 1 : 0 }),
+                            ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
+                            ...(match.ignition != null && { ignition: match.ignition })
                         }
                     };
                 }
@@ -440,44 +423,47 @@ const PaymentSummary = () => {
         hasInitialScrolledRef.current = false;
     }, [selectedMonth, selectedYear, desktopView]);
 
+    const { subscribe } = useSSE();
+
     // Real-time SSE listening for device status updates in summary view
     useEffect(() => {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
-        if (!token) return;
-
-        const activeCompanyId = user?.companyId || '';
-        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
-
-        let eventSource;
-        try {
-            eventSource = new EventSource(sseUrl);
-
-            eventSource.addEventListener('device_update', (e) => {
+        const unsubs = [
+            subscribe('device_update', (e) => {
                 try {
-                    const data = JSON.parse(e.data);
+                    const data = e.parsedData;
                     if (!data) return;
 
-                    setDeviceStatuses((prevList) => {
-                        let matchFound = false;
-                        const updatedList = prevList.map((d) => {
-                            const isMatch = (
-                                (data.name && (d.name === data.name || d.deviceIdName === data.name)) ||
-                                (data.deviceIdName && (d.name === data.deviceIdName || d.deviceIdName === data.deviceIdName)) ||
-                                (data.gpsId && (d.gpsId === data.gpsId || d.id === data.gpsId || d.deviceId === data.gpsId)) ||
-                                (data._id && (d._id === data._id || d.id === data._id))
-                            );
+                    const updates = Array.isArray(data) ? data : [data];
 
-                            if (isMatch) {
+                    const updateMap = new Map();
+                    updates.forEach(u => {
+                        if (u.gpsId) updateMap.set(String(u.gpsId), u);
+                    });
+
+                    setSummaryData((prevList) => {
+                        let matchFound = false;
+                        const updatedList = prevList.map((s) => {
+                            const d = s.device;
+                            if (!d) return s;
+
+                            // Extract the frontend's GPS identifier
+                            const frontendGpsId = String(d.gpsId || d.deviceId || d.id);
+                            const match = updateMap.get(frontendGpsId);
+
+                            if (match) {
                                 matchFound = true;
                                 return {
-                                    ...d,
-                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
-                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
-                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
-                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
+                                    ...s,
+                                    device: {
+                                        ...d,
+                                        ignition: match.ignition !== undefined ? match.ignition : d.ignition,
+                                        batteryLevel: match.batteryLevel !== null && match.batteryLevel !== undefined ? match.batteryLevel : d.batteryLevel,
+                                        cutOff: match.cutOff !== undefined ? match.cutOff : d.cutOff,
+                                        lastUpdate: match.lastUpdate ? match.lastUpdate : d.lastUpdate,
+                                    }
                                 };
                             }
-                            return d;
+                            return s;
                         });
 
                         return matchFound ? updatedList : prevList;
@@ -485,32 +471,13 @@ const PaymentSummary = () => {
                 } catch (err) {
                     console.error('Error parsing SSE device_update in PaymentSummary:', err);
                 }
-            });
-
-            // Listen for financial, payment, and reconciliation real-time updates
-            const handleRealtimeReload = () => {
-                fetchData();
-                loadDeviceStatuses();
-            };
-
-            eventSource.addEventListener('payment_update', handleRealtimeReload);
-            eventSource.addEventListener('reconciliation_update', handleRealtimeReload);
-            eventSource.addEventListener('invoice_update', handleRealtimeReload);
-            eventSource.addEventListener('summary_update', handleRealtimeReload);
-
-            eventSource.onerror = (err) => {
-                console.warn('SSE connection error in PaymentSummary, EventSource will automatically retry:', err);
-            };
-        } catch (err) {
-            console.error('Failed to initialize SSE in PaymentSummary:', err);
-        }
+            })
+        ];
 
         return () => {
-            if (eventSource) {
-                eventSource.close();
-            }
+            unsubs.forEach(unsub => unsub());
         };
-    }, [user?.companyId]);
+    }, [subscribe, user?.companyId]);
 
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && tableContainerRef.current) {
@@ -637,9 +604,119 @@ const PaymentSummary = () => {
                     </div>
                 );
             }
+
+            if (dayData.note) {
+                content = (
+                    <div className="has-note-indicator" title={dayData.note}>
+                        {content}
+                    </div>
+                );
+            }
         }
+
         return { cellClass, content };
     };
+
+    const handleFilterToggle = () => setShowFilters(prev => !prev);
+
+    const renderViews = useMemo(() => {
+        if (isMobile || desktopView === 'bike') {
+            return (
+                <BikePaymentSummary
+                    summaryData={filteredSummaryData}
+                    daysArray={daysArray}
+                    currentDay={currentDay}
+                    isFutureSummaryDay={isFutureSummaryDay}
+                    loading={loading}
+                    user={user}
+                    handleEngineToggle={handleEngineToggle}
+                    pendingCommands={pendingCommands}
+                    queuedCommands={queuedCommands}
+                    getDeviceStatus={getDeviceStatus}
+                    renderDayCell={renderDayCell}
+                />
+            );
+        }
+
+        return (
+            <div className="matrix-shell">
+                <div className="matrix-sticky-header">
+                    <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
+                        <table
+                            className="summary-table summary-table--sticky-header"
+                            style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
+                        >
+                            {matrixGeometry && (
+                                <colgroup>
+                                    {matrixGeometry.widths.map((width, index) => (
+                                        <col key={index} style={{ width: `${width}px` }} />
+                                    ))}
+                                </colgroup>
+                            )}
+                            {renderMatrixHeader('matrix-visual-thead')}
+                        </table>
+                    </div>
+                </div>
+
+                <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
+                    <table ref={matrixTableRef} className="summary-table">
+                        {renderMatrixHeader('matrix-semantic-thead')}
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
+                            ) : (
+                                filteredSummaryData.map((item) => (
+                                    <tr key={item.device.deviceId} className="bike-summary">
+                                        <td>
+                                            <div className="device-cell">
+                                                <span className="device-name">{item.device.name}</span>
+                                                <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div className="device-cell">
+                                                {item.device.unpaidTotal > 0 ? (
+                                                    <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
+                                                ) : (
+                                                    <span className="no-debt">✓</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        {daysArray.map(day => {
+                                            const dayData = item.days[day];
+                                            const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
+                                            const { cellClass, content } = renderDayCell(dayData);
+                                            return (
+                                                <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                        <div className={cellClass}>
+                                                            {content}
+                                                        </div>
+                                                        {dayData && (
+                                                            <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
+                                                                {dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                        {/* Motor toggle per row */}
+                                        <td style={{ textAlign: 'center' }}>
+                                            {renderEngineButton(item)}
+                                        </td>
+                                    </tr>
+                                )))
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }, [
+        isMobile, desktopView, filteredSummaryData, daysArray, currentDay,
+        loading, user, pendingCommands, queuedCommands, matrixGeometry
+    ]);
 
     return (
         <div
@@ -709,7 +786,7 @@ const PaymentSummary = () => {
                     <button
                         type="button"
                         className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
+                        onClick={handleFilterToggle}
                         id="filterToggle"
                         title="Filtros"
                     >
@@ -759,204 +836,110 @@ const PaymentSummary = () => {
                     )}
                 </div>
 
-
-            </div>
-
-            {/* ── Controles: mes / año / acciones ────────────────────────────── */}
-            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
-                <div className="dashboard-controls-row">
-                    <div className="select-wrapper-month">
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="select-control-ios"
-                        >
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="select-wrapper-year">
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="select-control-ios"
-                        >
-                            <option value={2025}>2025</option>
-                            <option value={2026}>2026</option>
-                            <option value={2027}>2027</option>
-                        </select>
-                    </div>
-
-                    {user?.role !== 'viewer' && (
-                        <button
-                            type="button"
-                            className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
-                            onClick={() => setBulkOffModal(true)}
-                            disabled={bulkOffLoading || morososCount === 0}
-                            title={`Apagar motor de vehículos morosos (${morososCount})`}
-                            style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
-                        >
-                            {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
-                        </button>
-                    )}
-                </div>
-                <div className="search-ios">
-                    <Search size={15} className="search-ios-icon" />
-                    <input
-                        type="text"
-                        className="search-ios-input"
-                        placeholder="Buscar moto o conductor…"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            type="button"
-                            className="search-ios-clear"
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Limpiar búsqueda"
-                        >
-                            <X size={14} />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* ── Filtros: pills + búsqueda ───────────────────────────────────── */}
-            <div className="summary-filter-row-ios">
-                <div className="filter-pills-ios">
-                    <button
-                        type="button"
-                        data-filter="all"
-                        className={`filter-pill-ios ${statusFilter === 'all' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('all')}
-                    >
-                        Todos
-                    </button>
-                    <button
-                        type="button"
-                        data-filter="debt"
-                        className={`filter-pill-ios ${statusFilter === 'debt' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('debt')}
-                    >
-                        Con deuda
-                    </button>
-                    <button
-                        type="button"
-                        data-filter="ok"
-                        className={`filter-pill-ios ${statusFilter === 'ok' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('ok')}
-                    >
-                        Al día
-                    </button>
-                    <button
-                        type="button"
-                        data-filter="cutoff"
-                        className={`filter-pill-ios ${statusFilter === 'cutoff' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('cutoff')}
-                    >
-                        Apagados
-                    </button>
-                </div>
-
-
-            </div>
-
-            {isMobile || desktopView === 'bike' ? (
-                <BikePaymentSummary
-                    summaryData={filteredSummaryData}
-                    daysArray={daysArray}
-                    currentDay={currentDay}
-                    isFutureSummaryDay={isFutureSummaryDay}
-                    loading={loading}
-                    user={user}
-                    handleEngineToggle={handleEngineToggle}
-                    pendingCommands={pendingCommands}
-                    queuedCommands={queuedCommands}
-                    getDeviceStatus={getDeviceStatus}
-                    renderDayCell={renderDayCell}
-                />
-            ) : (
-                <div className="matrix-shell">
-                    <div className="matrix-sticky-header">
-                        <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
-                            <table
-                                className="summary-table summary-table--sticky-header"
-                                style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
+                {/* ── Controles: mes / año / acciones ────────────────────────────── */}
+                <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+                    <div className="dashboard-controls-row">
+                        <div className="select-wrapper-month">
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                className="select-control-ios"
                             >
-                                {matrixGeometry && (
-                                    <colgroup>
-                                        {matrixGeometry.widths.map((width, index) => (
-                                            <col key={index} style={{ width: `${width}px` }} />
-                                        ))}
-                                    </colgroup>
-                                )}
-                                {renderMatrixHeader('matrix-visual-thead')}
-                            </table>
+                                {Array.from({ length: 12 }, (_, i) => (
+                                    <option key={i + 1} value={i + 1}>
+                                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    </div>
 
-                    <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
-                        <table ref={matrixTableRef} className="summary-table">
-                            {renderMatrixHeader('matrix-semantic-thead')}
-                            <tbody>
-                                {loading ? (
-                                    <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
-                                ) : (
-                                    summaryData.map((item) => (
-                                        <tr key={item.device.deviceId} className="bike-summary">
-                                            <td>
-                                                <div className="device-cell">
-                                                    <span className="device-name">{item.device.name}</span>
-                                                    <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="device-cell">
-                                                    {item.device.unpaidTotal > 0 ? (
-                                                        <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
-                                                    ) : (
-                                                        <span className="no-debt">✓</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            {daysArray.map(day => {
-                                                const dayData = item.days[day];
-                                                const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
-                                                const { cellClass, content } = renderDayCell(dayData);
-                                                return (
-                                                    <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                            <div className={cellClass}>
-                                                                {content}
-                                                            </div>
-                                                            {dayData && (
-                                                                <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-                                                                    {dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })}
-                                            {/* Motor toggle per row */}
-                                            <td style={{ textAlign: 'center' }}>
-                                                {renderEngineButton(item)}
-                                            </td>
-                                        </tr>
-                                    )))
-                                }
-                            </tbody>
-                        </table>
+                        <div className="select-wrapper-year">
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                className="select-control-ios"
+                            >
+                                <option value={2025}>2025</option>
+                                <option value={2026}>2026</option>
+                                <option value={2027}>2027</option>
+                            </select>
+                        </div>
+
+                        {user?.role !== 'viewer' && (
+                            <button
+                                type="button"
+                                className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
+                                onClick={() => setBulkOffModal(true)}
+                                disabled={bulkOffLoading || morososCount === 0}
+                                title={`Apagar motor de vehículos morosos (${morososCount})`}
+                                style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
+                            >
+                                {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
+                            </button>
+                        )}
+                    </div>
+                    <div className="search-ios">
+                        <Search size={15} className="search-ios-icon" />
+                        <input
+                            type="text"
+                            className="search-ios-input"
+                            placeholder="Buscar moto o conductor…"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                className="search-ios-clear"
+                                onClick={() => setSearchQuery('')}
+                                aria-label="Limpiar búsqueda"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
-            )}
 
+                {/* ── Filtros: pills + búsqueda ───────────────────────────────────── */}
+                <div className="summary-filter-row-ios">
+                    <div className="filter-pills-ios">
+                        <button
+                            type="button"
+                            data-filter="all"
+                            className={`filter-pill-ios ${statusFilter === 'all' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('all')}
+                        >
+                            Todos
+                        </button>
+                        <button
+                            type="button"
+                            data-filter="debt"
+                            className={`filter-pill-ios ${statusFilter === 'debt' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('debt')}
+                        >
+                            Con deuda
+                        </button>
+                        <button
+                            type="button"
+                            data-filter="ok"
+                            className={`filter-pill-ios ${statusFilter === 'ok' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('ok')}
+                        >
+                            Al día
+                        </button>
+                        <button
+                            type="button"
+                            data-filter="cutoff"
+                            className={`filter-pill-ios ${statusFilter === 'cutoff' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('cutoff')}
+                        >
+                            Apagados
+                        </button>
+                    </div>
+                </div>
+            </div>
 
+            {renderViews}
             {/*<div className="legend">
                 <div className="legend-item">
                     <div className="indicator" style={{ background: '#22c55e' }}></div>

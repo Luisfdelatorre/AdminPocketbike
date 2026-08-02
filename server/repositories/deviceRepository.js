@@ -1,7 +1,14 @@
 import { Device } from '../models/Device.js';
+import { DeviceState } from '../entities/deviceEntities.js';
 import logger from '../config/logger.js';
 
+const GPS_CACHE_PROJECTION = '_id name gpsId imei ignition lastUpdate cutOff batteryLevel companyId';
+
 class DeviceRepository {
+    async findForGpsCache() {
+        const devices = await Device.find({}, GPS_CACHE_PROJECTION).lean();
+        return devices.map(d => new DeviceState(d));
+    }
     async insertDevicesBatch(docs) {
         try {
             if (!docs || docs.length === 0) return { created: 0, updated: 0, errors: 0 };
@@ -30,9 +37,24 @@ class DeviceRepository {
             throw error;
         }
     }
-    async upsertDevicesBatch(bulkOps) {
+    async upsertDevicesBatch(devices) {
         try {
-            // console.log('bulkOps', bulkOps);
+            if (!devices || devices.length === 0) return { created: 0, updated: 0, errors: 0 };
+
+            const bulkOps = devices.map(mem => ({
+                updateOne: {
+                    filter: { _id: mem._id },
+                    update: {
+                        $set: {
+                            ignition: mem.ignition,
+                            lastUpdate: mem.lastUpdate,
+                            cutOff: mem.cutOff,
+                            batteryLevel: mem.batteryLevel,
+                        }
+                    }
+                }
+            }));
+
             const result = await Device.bulkWrite(bulkOps);
             logger.info(`GPS sync upsert: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
             return {

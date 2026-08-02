@@ -29,12 +29,14 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
         return (
           <div
             key={day}
-            className={`bike-summary-day${day === currentDay ? ' border p-1 rounded bg-indigo-50/50 border-gray-300' : ''}`}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', flexShrink: 0 }}
+            className={`bike-summary-day${day === currentDay ? ' border rounded bg-indigo-50/50 border-gray-300' : ''}`}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0px', flexShrink: 0 }}
           >
             <span style={{ fontSize: '9px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>{String(day).padStart(2, '0')}</span>
-            <div className={cellClass} style={{ width: '36px', height: '28px', fontSize: '9px' }}>{content}</div>
-            {dayData && <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF' }}>{dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}</span>}
+            <div className={cellClass} style={{ width: '36px', minHeight: '34px', fontSize: '9px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', padding: '2px 0' }}>
+              {content}
+              {dayData && <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', lineHeight: 1 }}>{dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}</span>}
+            </div>
           </div>
         );
       })}
@@ -64,6 +66,15 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                 <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {formatOfflineTimeShort(item.device.lastUpdate) && (
+                  <span
+                    className="battery-offline-subtext"
+                    style={{ position: 'static', transform: 'none', fontSize: '0.7rem', color: '#DC2626', fontWeight: 700 }}
+                    title={`Inactivo desde: ${item.device.lastUpdate ? new Date(item.device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
+                  >
+                    {formatOfflineTimeShort(item.device.lastUpdate)}
+                  </span>
+                )}
                 {/* Motor toggle */}
                 {(() => {
                   const dev = item.device;
@@ -120,15 +131,7 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                 ) : (
                   <span className="no-debt">✓</span>
                 )}
-                {formatOfflineTimeShort(item.device.lastUpdate) && (
-                  <span
-                    className="battery-offline-subtext"
-                    style={{ position: 'static', transform: 'none', fontSize: '0.7rem', color: '#DC2626', fontWeight: 700 }}
-                    title={`Inactivo desde: ${item.device.lastUpdate ? new Date(item.device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
-                  >
-                    {formatOfflineTimeShort(item.device.lastUpdate)}
-                  </span>
-                )}
+
               </div>
             </div>
 

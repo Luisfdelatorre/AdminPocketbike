@@ -96,3 +96,8 @@ export const GPS_SERVICES = {
     // XXXXX:    'xxxxx', // <-- espacio para futuros proveedores
 };
 export const DEFAULT_CUTOFF_TIME = '23:59';
+
+export const GPS_THROTTLE = {
+    NORMAL_MS: 5000,
+    URGENT_MS: 1000
+};
