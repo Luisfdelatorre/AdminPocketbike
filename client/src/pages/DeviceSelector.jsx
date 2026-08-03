@@ -14,6 +14,7 @@ import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import ExpandableMetricsContainer from '../components/ExpandableMetricsContainer';
 import MotorIcon from '../components/MotorIcon';
 
 const MobileHeaderAction = ({ children }) => {
@@ -451,7 +452,7 @@ const DeviceManagement = () => {
             </div>
 
             {/* Expandable Metrics Section */}
-            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+            <ExpandableMetricsContainer isExpanded={showFilters}>
                 <div className="devices-stats-ios">
                     <div className="stat-card-ios">
                         <div className="stat-content-ios">
@@ -495,7 +496,7 @@ const DeviceManagement = () => {
                     ]}
                     filterRowClass="devices-filter-row-ios"
                 />
-            </div>
+            </ExpandableMetricsContainer>
 
             {/* iOS Device Table */}
             <div className="devices-table-card-ios">
