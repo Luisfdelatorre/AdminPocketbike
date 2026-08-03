@@ -9,6 +9,7 @@ import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MotorIcon from '../components/MotorIcon';
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
 
 // Helper to format currency
 // Helper to format currency
@@ -878,64 +879,20 @@ const PaymentSummary = () => {
                             </button>
                         )}
                     </div>
-                    <div className="search-ios">
-                        <Search size={15} className="search-ios-icon" />
-                        <input
-                            type="text"
-                            className="search-ios-input"
-                            placeholder="Buscar moto o conductor…"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                className="search-ios-clear"
-                                onClick={() => setSearchQuery('')}
-                                aria-label="Limpiar búsqueda"
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* ── Filtros: pills + búsqueda ───────────────────────────────────── */}
-                <div className="summary-filter-row-ios">
-                    <div className="filter-pills-ios">
-                        <button
-                            type="button"
-                            data-filter="all"
-                            className={`filter-pill-ios ${statusFilter === 'all' ? 'active' : ''}`}
-                            onClick={() => setStatusFilter('all')}
-                        >
-                            Todos
-                        </button>
-                        <button
-                            type="button"
-                            data-filter="debt"
-                            className={`filter-pill-ios ${statusFilter === 'debt' ? 'active' : ''}`}
-                            onClick={() => setStatusFilter('debt')}
-                        >
-                            Con deuda
-                        </button>
-                        <button
-                            type="button"
-                            data-filter="ok"
-                            className={`filter-pill-ios ${statusFilter === 'ok' ? 'active' : ''}`}
-                            onClick={() => setStatusFilter('ok')}
-                        >
-                            Al día
-                        </button>
-                        <button
-                            type="button"
-                            data-filter="cutoff"
-                            className={`filter-pill-ios ${statusFilter === 'cutoff' ? 'active' : ''}`}
-                            onClick={() => setStatusFilter('cutoff')}
-                        >
-                            Apagados
-                        </button>
-                    </div>
+                    <SearchAndFilterBar
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        searchPlaceholder="Buscar moto o conductor…"
+                        filter={statusFilter}
+                        setFilter={setStatusFilter}
+                        filterOptions={[
+                            { value: 'all', label: 'Todos' },
+                            { value: 'debt', label: 'Con deuda' },
+                            { value: 'ok', label: 'Al día' },
+                            { value: 'cutoff', label: 'Apagados' }
+                        ]}
+                        filterRowClass="summary-filter-row-ios"
+                    />
                 </div>
             </div>
 

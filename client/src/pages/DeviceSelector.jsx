@@ -13,6 +13,7 @@ import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import './DeviceSelector.css';
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
 
 const MobileHeaderAction = ({ children }) => {
@@ -481,69 +482,19 @@ const DeviceManagement = () => {
                         </div>
                     </div>
                 </div>
-                <div className="search-ios">
-                    <Search size={15} className="search-ios-icon" />
-                    <input
-                        type="text"
-                        className="search-ios-input"
-                        placeholder={t('devices.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button className="search-ios-clear" onClick={() => setSearchQuery('')}>
-                            <X size={14} />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Bulk Engine Off Confirmation Modal */}
-            {bulkOffModal && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
-                    onClick={() => setBulkOffModal(false)}
-                >
-                    <div className="bulk-off-modal-ios" onClick={e => e.stopPropagation()}>
-                        <div className="bulk-off-modal-header">
-                            <div className="bulk-off-icon-wrap">
-                                <ZapOff size={22} style={{ color: '#FF3B30' }} />
-                            </div>
-                            <div>
-                                <div className="bulk-off-title">Apagar vehículos con deuda</div>
-                                <div className="bulk-off-subtitle">
-                                    {devices.filter(d => d.id && (d.monthDebt || 0) > 0).length} moto(s) con deuda serán apagadas
-                                </div>
-                            </div>
-                        </div>
-                        <p className="bulk-off-body">
-                            Se enviará comando de <strong>corte de motor</strong> solo a dispositivos con{' '}
-                            <strong style={{ color: '#FF3B30' }}>deuda pendiente</strong>. ¿Confirmar?
-                        </p>
-                        <div className="bulk-off-actions">
-                            <button className="bulk-off-btn-cancel" onClick={() => setBulkOffModal(false)}>Cancelar</button>
-                            <button className="bulk-off-btn-confirm" onClick={handleBulkEngineOff}>
-                                <ZapOff size={15} /> Apagar Todo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Filters + Search */}
-            <div className="devices-filter-row-ios">
-                <div className="filter-pills-ios">
-                    <button data-filter="all" className={`filter-pill-ios ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
-                        {t('devices.filterAll')}
-                    </button>
-                    <button data-filter="active" className={`filter-pill-ios ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>
-                        {t('devices.filterActive')}
-                    </button>
-                    <button data-filter="available" className={`filter-pill-ios ${filter === 'available' ? 'active' : ''}`} onClick={() => setFilter('available')}>
-                        {t('devices.filterAvailable')}
-                    </button>
-                </div>
-
+                <SearchAndFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    searchPlaceholder={t('devices.searchPlaceholder')}
+                    filter={filter}
+                    setFilter={setFilter}
+                    filterOptions={[
+                        { value: 'all', label: t('devices.filterAll') },
+                        { value: 'active', label: t('devices.filterActive') },
+                        { value: 'available', label: t('devices.filterAvailable') }
+                    ]}
+                    filterRowClass="devices-filter-row-ios"
+                />
             </div>
 
             {/* iOS Device Table */}
@@ -599,7 +550,7 @@ const DeviceManagement = () => {
                                 {device.freeDays || 0}
                             </div>
 
-                             {/* Motor: icon + battery (with offline text) + toggle */}
+                            {/* Motor: icon + battery (with offline text) + toggle */}
                             <div className="col-center device-motor-col">
                                 <div className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}>
                                     <MotorIcon />
@@ -672,6 +623,38 @@ const DeviceManagement = () => {
                     <p>{t('devices.emptyState')}</p>
                 </div>
             )}
+            {/* Bulk Engine Off Confirmation Modal */}
+            {bulkOffModal && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+                    onClick={() => setBulkOffModal(false)}
+                >
+                    <div className="bulk-off-modal-ios" onClick={e => e.stopPropagation()}>
+                        <div className="bulk-off-modal-header">
+                            <div className="bulk-off-icon-wrap">
+                                <ZapOff size={22} style={{ color: '#FF3B30' }} />
+                            </div>
+                            <div>
+                                <div className="bulk-off-title">Apagar vehículos con deuda</div>
+                                <div className="bulk-off-subtitle">
+                                    {devices.filter(d => d.id && (d.monthDebt || 0) > 0).length} moto(s) con deuda serán apagadas
+                                </div>
+                            </div>
+                        </div>
+                        <p className="bulk-off-body">
+                            Se enviará comando de <strong>corte de motor</strong> solo a dispositivos con{' '}
+                            <strong style={{ color: '#FF3B30' }}>deuda pendiente</strong>. ¿Confirmar?
+                        </p>
+                        <div className="bulk-off-actions">
+                            <button className="bulk-off-btn-cancel" onClick={() => setBulkOffModal(false)}>Cancelar</button>
+                            <button className="bulk-off-btn-confirm" onClick={handleBulkEngineOff}>
+                                <ZapOff size={15} /> Apagar Todo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             <DeviceFormModal
                 isOpen={showModal}
@@ -696,6 +679,7 @@ const DeviceManagement = () => {
                 deviceId={deviceToDelete?._id}
             />
         </div>
+
     );
 };
 
