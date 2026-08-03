@@ -836,65 +836,66 @@ const PaymentSummary = () => {
                         </div>
                     )}
                 </div>
-
                 {/* ── Controles: mes / año / acciones ────────────────────────────── */}
                 <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
                     <div className="dashboard-controls-row">
-                        <div className="select-wrapper-month">
-                            <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                className="select-control-ios"
-                            >
-                                {Array.from({ length: 12 }, (_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                <div className="select-wrapper-month">
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                        className="select-control-ios"
+                    >
+                        {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
-                        <div className="select-wrapper-year">
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                className="select-control-ios"
-                            >
-                                <option value={2025}>2025</option>
-                                <option value={2026}>2026</option>
-                                <option value={2027}>2027</option>
-                            </select>
-                        </div>
+                <div className="select-wrapper-year">
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                        className="select-control-ios"
+                    >
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                        <option value={2027}>2027</option>
+                    </select>
+                </div>
 
-                        {user?.role !== 'viewer' && (
-                            <button
-                                type="button"
-                                className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
-                                onClick={() => setBulkOffModal(true)}
-                                disabled={bulkOffLoading || morososCount === 0}
-                                title={`Apagar motor de vehículos morosos (${morososCount})`}
-                                style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
-                            >
-                                {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
-                            </button>
-                        )}
-                    </div>
-                    <SearchAndFilterBar
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        searchPlaceholder="Buscar moto o conductor…"
-                        filter={statusFilter}
-                        setFilter={setStatusFilter}
-                        filterOptions={[
-                            { value: 'all', label: 'Todos' },
-                            { value: 'debt', label: 'Con deuda' },
-                            { value: 'ok', label: 'Al día' },
-                            { value: 'cutoff', label: 'Apagados' }
-                        ]}
-                        filterRowClass="summary-filter-row-ios"
-                    />
+                {user?.role !== 'viewer' && (
+                    <button
+                        type="button"
+                        className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
+                        onClick={() => setBulkOffModal(true)}
+                        disabled={bulkOffLoading || morososCount === 0}
+                        title={`Apagar motor de vehículos morosos (${morososCount})`}
+                        style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
+                    >
+                        {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
+                    </button>
+                )}
+            </div>
+
+            <SearchAndFilterBar
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                searchPlaceholder="Buscar moto o conductor…"
+                filter={statusFilter}
+                setFilter={setStatusFilter}
+                filterOptions={[
+                    { value: 'all', label: 'Todos' },
+                    { value: 'debt', label: 'Con deuda' },
+                    { value: 'ok', label: 'Al día' },
+                    { value: 'cutoff', label: 'Apagados' }
+                ]}
+                filterRowClass="summary-filter-row-ios"
+                />
                 </div>
             </div>
+
 
             {renderViews}
             {/*<div className="legend">
