@@ -12,9 +12,7 @@ import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
-import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
-import ExpandableMetricsContainer from '../components/ExpandableMetricsContainer';
 import MotorIcon from '../components/MotorIcon';
 
 const MobileHeaderAction = ({ children }) => {
@@ -452,7 +450,7 @@ const DeviceManagement = () => {
             </div>
 
             {/* Expandable Metrics Section */}
-            <ExpandableMetricsContainer isExpanded={showFilters}>
+            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
                 <div className="devices-stats-ios">
                     <div className="stat-card-ios">
                         <div className="stat-content-ios">
@@ -496,7 +494,7 @@ const DeviceManagement = () => {
                     ]}
                     filterRowClass="devices-filter-row-ios"
                 />
-            </ExpandableMetricsContainer>
+            </div>
 
             {/* iOS Device Table */}
             <div className="devices-table-card-ios">
