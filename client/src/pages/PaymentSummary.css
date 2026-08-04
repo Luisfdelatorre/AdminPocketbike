@@ -3,22 +3,6 @@
    Consistente con DeviceSelector.css
    ============================================================ */
 
-/* Expandable Metrics Container */
-.expandable-metrics-container {
-    overflow: hidden;
-    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-.expandable-metrics-container.expanded {
-    max-height: 400px;
-    opacity: 1;
-}
-
-.expandable-metrics-container.collapsed {
-    max-height: 0;
-    opacity: 0;
-    pointer-events: none;
-}
 
 .payment-summary-container {
     padding: 0;
