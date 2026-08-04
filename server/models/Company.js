@@ -58,7 +58,7 @@ const companySchema = new mongoose.Schema({
     },
     cutOffTime: {
         type: String,
-        default: '23:59' // HH:mm format — time of day when daily engine cut-off runs
+        default: '18:00' // HH:mm format — time of day when daily engine cut-off runs
     },
     curfew: {
         enabled: { type: Boolean, default: false },
