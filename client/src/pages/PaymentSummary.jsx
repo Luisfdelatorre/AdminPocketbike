@@ -10,7 +10,7 @@ import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
-import ExpandableMetricsContainer from '../components/ExpandableMetricsContainer';
+import MobileHeaderAction from '../components/MobileHeaderAction';
 
 // Helper to format currency
 // Helper to format currency
@@ -53,11 +53,7 @@ const PaymentSummary = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
-    const [portalElement, setPortalElement] = useState(null);
 
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
 
     useEffect(() => {
@@ -721,10 +717,140 @@ const PaymentSummary = () => {
     ]);
 
     return (
-        <div
-            className="payment-summary-container"
-            style={{ '--summary-header-height': `${summaryHeaderHeight}px` }}
-        >
+        <div className="payment-summary-container" style={{ '--summary-header-height': `${summaryHeaderHeight}px` }} >
+
+            <MobileHeaderAction>
+                <button
+                    type="button"
+                    className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
+                    onClick={handleFilterToggle}
+                    id="filterToggle"
+                    title="Filtros"
+                >
+                    <ListFilter size={20} />
+                </button>
+                <button onClick={fetchData} className="btn-mobile-header-action">
+                    <RefreshCw size={20} className={loading ? 'spin' : ''} />
+                </button>
+            </MobileHeaderAction>
+            
+            <div className="summary-heading">
+                <h1>Estatus de Pagos</h1>
+                {!isMobile && (
+                    <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
+                        <button
+                            type="button"
+                            className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
+                            onClick={() => handleDesktopViewChange('bike')}
+                            aria-pressed={desktopView === 'bike'}
+                        >
+                            <LayoutList size={16} aria-hidden="true" />
+                            <span>Por moto</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
+                            onClick={() => handleDesktopViewChange('matrix')}
+                            aria-pressed={desktopView === 'matrix'}
+                        >
+                            <Table2 size={16} aria-hidden="true" />
+                            <span>Matriz</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`} >
+
+                {/* ── Controles: mes / año / acciones ────────────────────────────── */}
+                <div className="dashboard-controls-row">
+                    <div className="select-wrapper-month">
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                            className="select-control-ios"
+                        >
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="select-wrapper-year">
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                            className="select-control-ios"
+                        >
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                            <option value={2027}>2027</option>
+                        </select>
+                    </div>
+
+                    {user?.role !== 'viewer' && (
+                        <button
+                            type="button"
+                            className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
+                            onClick={() => setBulkOffModal(true)}
+                            disabled={bulkOffLoading || morososCount === 0}
+                            title={`Apagar motor de vehículos morosos (${morososCount})`}
+                            style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
+                        >
+                            {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+
+
+
+
+
+
+
+            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+                <SearchAndFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    searchPlaceholder="Buscar moto o conductor…"
+                    filter={statusFilter}
+                    setFilter={setStatusFilter}
+                    filterOptions={[
+                        { value: 'all', label: 'Todos' },
+                        { value: 'debt', label: 'Con deuda' },
+                        { value: 'ok', label: 'Al día' },
+                        { value: 'cutoff', label: 'Apagados' }
+                    ]}
+                    filterRowClass="summary-filter-row-ios"
+                />
+            </div>
+
+            {renderViews}
+            {/*<div className="legend">
+                <div className="legend-item">
+                    <div className="indicator" style={{ background: '#22c55e' }}></div>
+                    <span>Pagado</span>
+                </div>
+                <div className="legend-item">
+                    <div className="indicator" style={{ background: '#ef4444' }}></div>
+                    <span>Corte / Apagado</span>
+                </div>
+                <div className="legend-item">
+                    <div className="indicator" style={{ background: '#f59e0b' }}></div>
+                    <span>Pase Provisional</span>
+                </div>
+                <div className="legend-item">
+                    <div className="indicator" style={{ background: '#fca5a5' }}></div>
+                    <span>Pendiente / Alerta</span>
+                </div>
+                <div className="legend-item">
+                    <div className="indicator" style={{ background: '#f1f5f9' }}></div>
+                    <span>Sin registro</span>
+                </div>
+            </div>*/}
 
             {bulkOffModal && (
                 <div
@@ -782,145 +908,6 @@ const PaymentSummary = () => {
                     </div>
                 </div>
             )}
-
-            {portalElement && createPortal(
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button
-                        type="button"
-                        className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
-                        onClick={handleFilterToggle}
-                        id="filterToggle"
-                        title="Filtros"
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                    <button
-                        type="button"
-                        className="btn-mobile-header-action"
-                        onClick={fetchData}
-                        disabled={loading}
-                        title="Actualizar datos"
-                    >
-                        <RefreshCw size={20} className={loading ? 'spin' : ''} />
-                    </button>
-                </div>,
-                portalElement
-            )}
-
-            <div
-                ref={summaryHeaderRef}
-                className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
-            >
-                <div className="summary-heading">
-                    <h1>Estatus de Pagos</h1>
-
-                    {!isMobile && (
-                        <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
-                            <button
-                                type="button"
-                                className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
-                                onClick={() => handleDesktopViewChange('bike')}
-                                aria-pressed={desktopView === 'bike'}
-                            >
-                                <LayoutList size={16} aria-hidden="true" />
-                                <span>Por moto</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
-                                onClick={() => handleDesktopViewChange('matrix')}
-                                aria-pressed={desktopView === 'matrix'}
-                            >
-                                <Table2 size={16} aria-hidden="true" />
-                                <span>Matriz</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
-                {/* ── Controles: mes / año / acciones ────────────────────────────── */}
-                <ExpandableMetricsContainer isExpanded={showFilters}>
-                    <div className="dashboard-controls-row">
-                        <div className="select-wrapper-month">
-                            <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                className="select-control-ios"
-                            >
-                                {Array.from({ length: 12 }, (_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="select-wrapper-year">
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                className="select-control-ios"
-                            >
-                                <option value={2025}>2025</option>
-                                <option value={2026}>2026</option>
-                                <option value={2027}>2027</option>
-                            </select>
-                        </div>
-
-                        {user?.role !== 'viewer' && (
-                            <button
-                                type="button"
-                                className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
-                                onClick={() => setBulkOffModal(true)}
-                                disabled={bulkOffLoading || morososCount === 0}
-                                title={`Apagar motor de vehículos morosos (${morososCount})`}
-                                style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
-                            >
-                                {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
-                            </button>
-                        )}
-                    </div>
-
-                    <SearchAndFilterBar
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        searchPlaceholder="Buscar moto o conductor…"
-                        filter={statusFilter}
-                        setFilter={setStatusFilter}
-                        filterOptions={[
-                            { value: 'all', label: 'Todos' },
-                            { value: 'debt', label: 'Con deuda' },
-                            { value: 'ok', label: 'Al día' },
-                            { value: 'cutoff', label: 'Apagados' }
-                        ]}
-                        filterRowClass="summary-filter-row-ios"
-                    />
-                </ExpandableMetricsContainer>
-            </div>
-
-
-            {renderViews}
-            {/*<div className="legend">
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#22c55e' }}></div>
-                    <span>Pagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#ef4444' }}></div>
-                    <span>Corte / Apagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f59e0b' }}></div>
-                    <span>Pase Provisional</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#fca5a5' }}></div>
-                    <span>Pendiente / Alerta</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f1f5f9' }}></div>
-                    <span>Sin registro</span>
-                </div>
-            </div>*/}
         </div>
     );
 };
