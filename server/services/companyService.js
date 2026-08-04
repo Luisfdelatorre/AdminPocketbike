@@ -102,7 +102,7 @@ class CompanyService {
 
         // For today: only strategy 1 applies the cutoff hour check
         if (strategy === 1) {
-            const cutOffTimeStr = company?.cutOffTime || '23:59';
+            const cutOffTimeStr = company?.cutOffTime || '18:00';
             const currentTimeStr = now.format('HH:mm');
             return currentTimeStr >= cutOffTimeStr;
         }
