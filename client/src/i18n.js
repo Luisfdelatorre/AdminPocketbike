@@ -62,7 +62,8 @@ const resources = {
                 logout: 'Logout',
                 users: 'Users',
                 companies: 'Companies',
-                reports: 'Reports'
+                reports: 'Reports',
+                summary: 'Payment Summary'
             },
             reports: {
                 totalPayments: 'Total Payments',
@@ -454,7 +455,8 @@ const resources = {
                 logout: 'Salir',
                 users: 'Usuarios',
                 companies: 'Empresas',
-                reports: 'Reporte'
+                reports: 'Reporte',
+                summary: 'Resumen'
             },
             reports: {
                 totalPayments: 'Total Pagos',
