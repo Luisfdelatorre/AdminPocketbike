@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Power, RefreshCw } from 'lucide-react';
 import { formatOfflineTimeShort } from '../utils/helpers';
+import DayCell from './DayCell';
 
 const formatCurrency = (amount) => {
   if (!amount) return '-';
@@ -10,7 +11,7 @@ const formatCurrency = (amount) => {
   return `$${amount}`;
 };
 
-const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, renderDayCell }) => {
+const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay }) => {
   const containerRef = useRef(null);
   const visibleDays = daysArray.filter((day) => Boolean(item.days[day]) || !isFutureSummaryDay(day));
 
@@ -25,7 +26,6 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
     <div className="pill-container" ref={containerRef}>
       {visibleDays.map((day) => {
         const dayData = item.days[day];
-        const { cellClass, content } = renderDayCell(dayData);
         return (
           <div
             key={day}
@@ -33,10 +33,7 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0px', flexShrink: 0 }}
           >
             <span style={{ fontSize: '9px', fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>{String(day).padStart(2, '0')}</span>
-            <div className={cellClass} style={{ width: '36px', minHeight: '34px', fontSize: '9px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', padding: '2px 0' }}>
-              {content}
-              {dayData && <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', lineHeight: 1 }}>{dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}</span>}
-            </div>
+            <DayCell dayData={dayData} isMobile={true} />
           </div>
         );
       })}
@@ -44,7 +41,7 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, render
   );
 };
 
-const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, pendingCommands, queuedCommands, getDeviceStatus, renderDayCell }) => {
+const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, pendingCommands, getDeviceStatus }) => {
   if (loading) {
     return <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Cargando...</div>;
   }
@@ -95,18 +92,7 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
                   const isPending = pendingCommands ? Boolean(
                     pendingCommands[dev.deviceId] || pendingCommands[dev.id] || pendingCommands[dev.name] || pendingCommands[devKey]
                   ) : false;
-                  const isQueued = Boolean(
-                    dev.queued ||
-                    (queuedCommands && (
-                      queuedCommands[dev.deviceId] ||
-                      queuedCommands[dev.id] ||
-                      queuedCommands[dev.name] ||
-                      (dev.name && queuedCommands[dev.name.toUpperCase()]) ||
-                      queuedCommands[dev.gpsId] ||
-                      queuedCommands[dev._id] ||
-                      queuedCommands[devKey]
-                    ))
-                  );
+                  const isQueued = Boolean(dev.queued);
                   return (
                     <button
                       onClick={() => handleEngineToggle && handleEngineToggle(dev)}
@@ -141,7 +127,6 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
               currentDay={currentDay}
               item={item}
               isFutureSummaryDay={isFutureSummaryDay}
-              renderDayCell={renderDayCell}
             />
           </div>
         );

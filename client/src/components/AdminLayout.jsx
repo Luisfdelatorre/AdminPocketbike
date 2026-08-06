@@ -37,7 +37,7 @@ const AdminLayout = () => {
     useEffect(() => {
         const unsub1 = subscribe('payment-updated', (event) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = event.parsedData;
                 console.log('💳 Payment Updated via SSE:', data);
                 window.dispatchEvent(new CustomEvent('payment-update', { detail: data }));
             } catch (err) {
@@ -47,7 +47,7 @@ const AdminLayout = () => {
 
         const unsub2 = subscribe('device_update', (event) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = event.parsedData;
                 console.log('📡 Device Updated via SSE:', data);
                 window.dispatchEvent(new CustomEvent('device-update', { detail: data }));
             } catch (err) {
@@ -60,7 +60,7 @@ const AdminLayout = () => {
             unsub2();
         };
     }, [subscribe]);
-    
+
     const { isAuthenticated, authType, user } = useAuth();
 
     // Redirect device users to their payment page
@@ -92,6 +92,7 @@ const AdminLayout = () => {
         if (path.startsWith('/invoices')) return t('sidebar.invoices');
         if (path.startsWith('/settings')) return t('sidebar.settings');
         if (path.startsWith('/reports')) return t('sidebar.reports');
+        if (path.startsWith('/summary')) return t('sidebar.summary');
         return 'PocketBike';
     };
 
@@ -123,36 +124,36 @@ const AdminLayout = () => {
             {/* Bottom Navigation Bar for Mobile viewports */}
             {isSettingsPage ? (
                 <nav className="mobile-bottom-nav" aria-label="Navegación de configuración">
-                    <button 
-                        onClick={() => setSettingsTab('branding')} 
+                    <button
+                        onClick={() => setSettingsTab('branding')}
                         className={`nav-btn ${settingsTab === 'branding' ? 'active' : ''}`}
                     >
                         <ImageIcon size={20} />
                         <span>Perfil</span>
                     </button>
-                    <button 
-                        onClick={() => setSettingsTab('business')} 
+                    <button
+                        onClick={() => setSettingsTab('business')}
                         className={`nav-btn ${settingsTab === 'business' ? 'active' : ''}`}
                     >
                         <SettingsIcon size={20} />
                         <span>Negocio</span>
                     </button>
-                    <button 
-                        onClick={() => setSettingsTab('integrations')} 
+                    <button
+                        onClick={() => setSettingsTab('integrations')}
                         className={`nav-btn ${settingsTab === 'integrations' ? 'active' : ''}`}
                     >
                         <Database size={20} />
                         <span>Integración</span>
                     </button>
-                    <button 
-                        onClick={() => setSettingsTab('system')} 
+                    <button
+                        onClick={() => setSettingsTab('system')}
                         className={`nav-btn ${settingsTab === 'system' ? 'active' : ''}`}
                     >
                         <RefreshCw size={20} />
                         <span>Sistema</span>
                     </button>
-                    <button 
-                        onClick={() => navigate(-1)} 
+                    <button
+                        onClick={() => navigate(-1)}
                         className="nav-btn"
                         style={{ color: '#EF4444' }}
                     >
@@ -162,36 +163,36 @@ const AdminLayout = () => {
                 </nav>
             ) : (
                 <nav className="mobile-bottom-nav" aria-label="Navegación principal">
-                    <button 
-                        onClick={() => navigate('/')} 
+                    <button
+                        onClick={() => navigate('/')}
                         className={`nav-btn ${isTabActive('/') ? 'active' : ''}`}
                     >
                         <Home size={20} />
                         <span>Inicio</span>
                     </button>
-                    <button 
-                        onClick={() => navigate('/devices')} 
+                    <button
+                        onClick={() => navigate('/devices')}
                         className={`nav-btn ${isTabActive('/devices') ? 'active' : ''}`}
                     >
                         <Users size={20} />
                         <span>Equipos</span>
                     </button>
-                    <button 
-                        onClick={() => navigate('/contracts')} 
+                    <button
+                        onClick={() => navigate('/contracts')}
                         className={`nav-btn ${isTabActive('/contracts') ? 'active' : ''}`}
                     >
                         <FileText size={20} />
                         <span>Contratos</span>
                     </button>
-                    <button 
-                        onClick={() => navigate('/payments')} 
+                    <button
+                        onClick={() => navigate('/payments')}
                         className={`nav-btn ${isTabActive('/payments') ? 'active' : ''}`}
                     >
                         <CreditCard size={20} />
                         <span>Pagos</span>
                     </button>
-                    <button 
-                        onClick={() => navigate('/invoices')} 
+                    <button
+                        onClick={() => navigate('/invoices')}
                         className={`nav-btn ${isTabActive('/invoices') ? 'active' : ''}`}
                     >
                         <DollarSign size={20} />

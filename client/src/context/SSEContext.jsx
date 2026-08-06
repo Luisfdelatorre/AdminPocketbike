@@ -44,7 +44,14 @@ export const SSEProvider = ({ children }) => {
         const handleEvent = (eventName, e) => {
             const callbacks = subscribersRef.current[eventName];
             if (callbacks) {
-                callbacks.forEach(cb => cb(e));
+                let parsedData = null;
+                try {
+                    parsedData = JSON.parse(e.data);
+                } catch (err) {
+                    // It might not be JSON (e.g. simple strings), ignore
+                }
+                const customEvent = { ...e, parsedData };
+                callbacks.forEach(cb => cb(customEvent));
             }
         };
 

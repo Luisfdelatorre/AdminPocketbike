@@ -5,13 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff, ListFilter } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatOfflineTime, formatOfflineTimeShort } from '../utils/helpers';
-import { getAllDevices, syncDevices, createDevice, updateDevice, deleteDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors, getDashboardStats } from '../services/api';
+import { getAllDevices, updateDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors, getDashboardStats } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSSE } from '../context/SSEContext';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
-import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
+
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
@@ -31,7 +31,7 @@ const DeviceManagement = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
     const { user } = useAuth();
-    const [devices, setDevices] = useState([]);
+    const [devices, setDevices] = useState({});
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
@@ -39,13 +39,9 @@ const DeviceManagement = () => {
     const [shareUrl, setShareUrl] = useState('');
     const [selectedDeviceId, setSelectedDeviceId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [deviceToDelete, setDeviceToDelete] = useState(null);
     const [filter, setFilter] = useState('all'); // all, active, available
     const [viewMode, setViewMode] = useState('technical'); // technical, financial
-    const [activeMenuId, setActiveMenuId] = useState(null);
     const [pendingCommands, setPendingCommands] = useState({});
-    const [queuedCommands, setQueuedCommands] = useState({});
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
@@ -58,84 +54,33 @@ const DeviceManagement = () => {
         deviceName: '',
         nequiNumber: '',
         simCardNumber: '',
-        isActive: true,
-        notes: ''
+        DailyPayment: false
     });
 
     useEffect(() => {
         loadDevices();
-        const handlePaymentUpdate = (e) => {
-            const detail = e.detail;
-            if (detail?.type === 'gps_update' && Array.isArray(detail.devices)) {
-                setDevices(prev => prev.map(dev => {
-                    const match = detail.devices.find(u => {
-                        const targetId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
-                        return targetId && (
-                            String(dev.deviceId) === targetId ||
-                            String(dev.id) === targetId ||
-                            String(dev.gpsId) === targetId ||
-                            String(dev.name) === targetId
-                        );
-                    });
-                    if (match) {
-                        return {
-                            ...dev,
-                            ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
-                            ...(match.ignition != null && { ignition: match.ignition }),
-                            ...(match.cutOff != null && { cutOff: match.cutOff ? 1 : 0 }),
-                            ...(match.lastUpdate && { lastUpdate: match.lastUpdate })
-                        };
-                    }
-                    return dev;
-                }));
-            } else if (detail?.type === 'engine' && detail?.deviceId) {
-                const targetCutOff = detail.command === 0 ? 1 : 0;
-                setDevices(prev => prev.map(dev => {
-                    const id = dev.id || dev.deviceId || dev.name;
-                    if (id === detail.deviceId || dev.name === detail.deviceId) {
-                        return { ...dev, cutOff: targetCutOff };
-                    }
-                    return dev;
-                }));
-            }
-        };
-        window.addEventListener('payment-update', handlePaymentUpdate);
-        return () => window.removeEventListener('payment-update', handlePaymentUpdate);
-    }, [viewMode]);
+    }, []);
 
     useEffect(() => {
         const unsub = subscribe('device_update', (e) => {
             try {
                 const data = e.parsedData;
                 if (!data) return;
-
                 const updates = Array.isArray(data) ? data : [data];
-
-                const updateMap = new Map();
-                updates.forEach(u => {
-                    if (u.gpsId) updateMap.set(String(u.gpsId), u);
-                });
-
                 setDevices((prevDevices) => {
                     let matchFound = false;
-                    const updatedList = prevDevices.map((d) => {
-                        const frontendGpsId = String(d.gpsId || d.deviceId || d.id);
-                        const match = updateMap.get(frontendGpsId);
-
-                        if (match) {
+                    const next = { ...prevDevices };
+                    updates.forEach(u => {
+                        const targetId = String(u.gpsId);
+                        if (targetId && next[targetId]) {
                             matchFound = true;
-                            return {
-                                ...d,
-                                ignition: match.ignition !== undefined ? match.ignition : d.ignition,
-                                batteryLevel: match.batteryLevel !== null && match.batteryLevel !== undefined ? match.batteryLevel : d.batteryLevel,
-                                cutOff: match.cutOff !== undefined ? match.cutOff : d.cutOff,
-                                lastUpdate: match.lastUpdate ? match.lastUpdate : d.lastUpdate,
+                            next[targetId] = {
+                                ...next[targetId],
+                                ...u
                             };
                         }
-                        return d;
                     });
-
-                    return matchFound ? updatedList : prevDevices;
+                    return matchFound ? next : prevDevices;
                 });
             } catch (err) {
                 console.error('Error in DeviceSelector SSE listener:', err);
@@ -147,15 +92,6 @@ const DeviceManagement = () => {
         };
     }, [subscribe]);
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (activeMenuId && !event.target.closest('.action-menu-container')) {
-                setActiveMenuId(null);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [activeMenuId]);
 
     const handleShare = (device) => {
         const url = `${window.location.origin}/p/${device.name}`;
@@ -165,42 +101,44 @@ const DeviceManagement = () => {
     };
 
     const copyToClipboard = async () => {
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-        } catch (err) {
-            console.error('Failed to copy text: ', err);
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                showToast('Enlace copiado al portapapeles', 'success');
+                return;
+            } catch (err) {
+                console.error('Failed to copy text with clipboard API: ', err);
+            }
+        }
 
+        // Fallback for non-secure contexts or older browsers
+        try {
             const textArea = document.createElement("textarea");
             textArea.value = shareUrl;
             document.body.appendChild(textArea);
             textArea.focus();
             textArea.select();
             textArea.setSelectionRange(0, 99999); /* For mobile devices */
-            try {
-                document.execCommand('copy');
-            } catch (err) {
-                console.error('Unable to copy', err);
-                showToast('Failed to copy link manually.', 'error');
-            }
+            document.execCommand('copy');
             document.body.removeChild(textArea);
+            showToast('Enlace copiado al portapapeles', 'success');
+        } catch (err) {
+            console.error('Unable to copy', err);
+            showToast('Error al copiar el enlace manualmente.', 'error');
         }
     };
 
     const loadDevices = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
-            let result;
-            if (viewMode !== 'financial') {
-                const financialData = await getStatusReport();
-                const deviceList = Array.isArray(financialData) ? financialData
-                    : (financialData?.data ?? financialData?.devices ?? []);
-                result = { success: true, devices: deviceList };
-            } else {
-                result = await getAllDevices();
-            }
-
+            let result = await getAllDevices();
             if (result.success) {
-                setDevices(result.devices || []);
+                const deviceArray = result.devices || [];
+                const deviceMap = {};
+                deviceArray.forEach(d => {
+                    if (d.gpsId) deviceMap[String(d.gpsId)] = d;
+                });
+                setDevices(deviceMap);
             }
         } catch (err) {
             console.error('Error fetching devices:', err);
@@ -213,29 +151,7 @@ const DeviceManagement = () => {
     // ... rest of handlers ... hiding for brevity ...
     // ... kept existing handlers ...
 
-    const handleSync = async () => {
-        console.log('Sync button clicked');
-        // Removed confirm for now/debugging
 
-        console.log('Starting sync...');
-        setLoading(true);
-        try {
-            const result = await syncDevices();
-            console.log('Sync result:', result);
-
-            if (result.success) {
-                showToast(result.message, 'success');
-                loadDevices();
-            } else {
-                showToast(result.error || 'Sync failed', 'error');
-            }
-        } catch (err) {
-            console.error('Error syncing devices:', err);
-            showToast('Failed to sync devices: ' + err.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleAddDevice = () => {
         setEditingDevice(null);
@@ -244,8 +160,7 @@ const DeviceManagement = () => {
             deviceName: '',
             nequiNumber: '',
             simCardNumber: '',
-            isActive: true,
-            notes: ''
+            DailyPayment: false
         });
         setShowModal(true);
     };
@@ -253,12 +168,11 @@ const DeviceManagement = () => {
     const handleEditDevice = (device) => {
         setEditingDevice(device);
         setFormData({
-            _id: device._id,
-            deviceName: device.deviceName,
+            _id: device._id || device.id,
+            deviceName: device.deviceName || device.name || '',
             nequiNumber: device.nequiNumber || '',
             simCardNumber: device.simCardNumber || '',
-            isActive: device.isActive,
-            notes: device.notes || ''
+            DailyPayment: Boolean(device.attributes?.DailyPayment)
         });
         setShowModal(true);
     };
@@ -267,16 +181,14 @@ const DeviceManagement = () => {
         e.preventDefault();
 
         try {
-            const result = editingDevice
-                ? await updateDevice(editingDevice._id, formData)
-                : await createDevice(formData);
+            const result = await updateDevice(formData._id, formData);
 
             if (result.success) {
                 setShowModal(false);
                 loadDevices();
-                showToast(editingDevice ? 'Device updated successfully' : 'Device created successfully', 'success');
+                showToast('Información de la SIM guardada', 'success');
             } else {
-                showToast(result.error || 'Failed to save device', 'error');
+                showToast(result.error || 'Failed to update device', 'error');
             }
         } catch (err) {
             console.error('Error saving device:', err);
@@ -284,31 +196,6 @@ const DeviceManagement = () => {
         }
     };
 
-    const handleDeleteClick = (device) => {
-        setDeviceToDelete(device);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDelete = async () => {
-        if (!deviceToDelete) return;
-        const deviceId = deviceToDelete._id;
-
-        try {
-            const result = await deleteDevice(deviceId);
-
-            if (result.success) {
-                loadDevices();
-                setShowDeleteModal(false);
-                setDeviceToDelete(null);
-                showToast('Device deactivated successfully', 'success');
-            } else {
-                showToast(result.error, 'error');
-            }
-        } catch (err) {
-            console.error('Error deleting device:', err);
-            showToast(`Failed to delete device: ${err.message || 'Unknown error'}`, 'error');
-        }
-    };
 
 
 
@@ -338,14 +225,15 @@ const DeviceManagement = () => {
 
             if (data.success || resObj.success) {
                 const isQueued = Boolean(resObj.queued || resObj.offline || data.queued || data.offline);
-                const keys = [device.name, device.deviceId, device.id, device.gpsId, device._id, id].filter(Boolean);
-
-                setQueuedCommands(prev => {
+                setDevices(prev => {
                     const next = { ...prev };
-                    keys.forEach(k => {
-                        next[k] = isQueued;
-                        if (typeof k === 'string') next[k.toUpperCase()] = isQueued;
-                    });
+                    const keyToUpdate = Object.keys(next).find(k => (next[k]._id && next[k]._id === device._id) || (next[k].id && next[k].id === device.id));
+                    if (keyToUpdate) {
+                        // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
+                        if (next[keyToUpdate].cutOff === !!device.cutOff) {
+                            next[keyToUpdate] = { ...next[keyToUpdate], queued: isQueued };
+                        }
+                    }
                     return next;
                 });
 
@@ -355,7 +243,6 @@ const DeviceManagement = () => {
                 } else {
                     showToast(resObj.message || data.message || 'Comando enviado exitosamente', 'success');
                 }
-                loadDevices();
             } else {
                 showToast(resObj.error || data.error || 'Failed to control engine', 'error');
             }
@@ -386,8 +273,8 @@ const DeviceManagement = () => {
         }
     };
 
-    // Filter devices based on search and filter
-    const filteredDevices = devices.filter(device => {
+    const devicesList = Object.values(devices);
+    const filteredDevices = devicesList.filter(device => {
         // Search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
@@ -425,15 +312,9 @@ const DeviceManagement = () => {
                 <div className="desktop-only">
                     <h1>{t('devices.title')}</h1>
                 </div>
-                {user?.isSuperAdmin ? (
-                    <button className="btn-secondary desktop-only" onClick={handleSync} disabled={loading} style={{ marginRight: '1rem' }}>
-                        <RefreshCw className={loading ? 'spin' : ''} /> {t('devices.sync')}
-                    </button>
-                ) : (
-                    <button className="btn-secondary desktop-only" onClick={loadDevices} disabled={loading} style={{ marginRight: '1rem' }}>
-                        <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
-                    </button>
-                )}
+                <button className="btn-secondary desktop-only" onClick={loadDevices} disabled={loading} style={{ marginRight: '1rem' }}>
+                    <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
+                </button>
                 <MobileHeaderAction>
                     <button
                         type="button"
@@ -444,7 +325,7 @@ const DeviceManagement = () => {
                     >
                         <ListFilter size={20} />
                     </button>
-                    <button onClick={user?.isSuperAdmin ? handleSync : loadDevices} className="btn-mobile-header-action">
+                    <button onClick={loadDevices} className="btn-mobile-header-action">
                         <RefreshCw size={20} className={loading ? 'spin' : ''} />
                     </button>
                 </MobileHeaderAction>
@@ -457,7 +338,7 @@ const DeviceManagement = () => {
                         <div className="stat-content-ios">
                             <h3 className="uppercase-title-ios">{t('devices.totalDevices')}</h3>
                             <div className="stat-value-container-ios">
-                                <span className="stat-value-ios">{devices.length}</span>
+                                <span className="stat-value-ios">{devicesList.length}</span>
                             </div>
                         </div>
                     </div>
@@ -466,7 +347,7 @@ const DeviceManagement = () => {
                             <h3 className="uppercase-title-ios">{t('devices.activeContracts')}</h3>
                             <div className="stat-value-container-ios">
                                 <span className="stat-value-ios" style={{ color: '#34C759' }}>
-                                    {devices.filter(d => d.hasActiveContract).length}
+                                    {devicesList.filter(d => d.hasActiveContract).length}
                                 </span>
                             </div>
                         </div>
@@ -476,7 +357,7 @@ const DeviceManagement = () => {
                             <h3 className="uppercase-title-ios">{t('devices.available')}</h3>
                             <div className="stat-value-container-ios">
                                 <span className="stat-value-ios" style={{ color: '#FF9500' }}>
-                                    {devices.filter(d => !d.hasActiveContract && d.isActive).length}
+                                    {devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length}
                                 </span>
                             </div>
                         </div>
@@ -575,14 +456,7 @@ const DeviceManagement = () => {
                                     )}
                                 </div>
                                 {user?.role !== 'viewer' ? (() => {
-                                    const isQueued = Boolean(
-                                        queuedCommands[device.id] ||
-                                        queuedCommands[device.name] ||
-                                        (device.name && queuedCommands[device.name.toUpperCase()]) ||
-                                        queuedCommands[device.gpsId] ||
-                                        queuedCommands[device._id] ||
-                                        queuedCommands[device.deviceId]
-                                    );
+                                    const isQueued = Boolean(device.queued);
                                     return (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleEngineToggle(device); }}
@@ -604,11 +478,11 @@ const DeviceManagement = () => {
 
                             {/* Actions */}
                             <div className="col-center device-actions-col">
-                                <button className="action-icon-btn" onClick={(e) => { e.stopPropagation(); handleShare(device); setActiveMenuId(null); }} title="Compartir">
+                                <button className="action-icon-btn" onClick={(e) => { e.stopPropagation(); handleShare(device); }} title="Compartir">
                                     <Share2 size={15} />
                                 </button>
                                 {user?.role !== 'viewer' && (
-                                    <button className="action-icon-btn" onClick={(e) => { e.stopPropagation(); handleEditDevice(device); setActiveMenuId(null); }} title="Editar">
+                                    <button className="action-icon-btn" onClick={(e) => { e.stopPropagation(); handleEditDevice(device); }} title="Editar">
                                         <Edit size={15} />
                                     </button>
                                 )}
@@ -672,12 +546,7 @@ const DeviceManagement = () => {
                 onCopy={copyToClipboard}
             />
 
-            <DeleteConfirmationModal
-                isOpen={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onConfirm={confirmDelete}
-                deviceId={deviceToDelete?._id}
-            />
+
         </div>
 
     );

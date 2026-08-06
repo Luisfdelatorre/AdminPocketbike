@@ -5,6 +5,7 @@ import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as I
 import { getSettings, updateSettings, syncDevices } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
+import PageHeader from '../components/PageHeader';
 import './Settings.css';
 
 const Settings = () => {
@@ -415,20 +416,23 @@ const Settings = () => {
                 portalElement
             )}
             {/* Header */}
-            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div>
-                    <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>⚙️ {t('settings.title')}</h1>
-                    <p style={{ margin: '4px 0 0 0', color: '#6B7280', fontSize: '14px' }} className="desktop-only">{t('settings.subtitle')}</p>
-                </div>
-                <button
-                    onClick={handleSave}
-                    className="btn-header-save"
-                    title={t('settings.actions.save')}
-                    style={{ background: '#f0fdfa', border: '1px solid #0d9488', color: '#0d9488', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                >
-                    <Save size={18} />
-                </button>
-            </div>
+            <PageHeader
+                title={
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        ⚙️ {t('settings.title')}
+                    </span>
+                }
+                desktopActions={
+                    <button
+                        onClick={handleSave}
+                        className="btn-header-save"
+                        title={t('settings.actions.save')}
+                        style={{ background: '#f0fdfa', border: '1px solid #0d9488', color: '#0d9488', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                    >
+                        <Save size={18} />
+                    </button>
+                }
+            />
 
             {/* Settings Sections */}
             <div className="settings-container">

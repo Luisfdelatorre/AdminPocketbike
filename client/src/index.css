@@ -383,3 +383,53 @@
     opacity: 0;
     pointer-events: none;
 }
+
+/* Global Page Header Styles */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0rem;
+    padding-bottom: .5rem;
+}
+
+.page-header h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #1F2937;
+    margin: 0 0 0.5rem 0;
+}
+
+.header-actions-desktop {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-mobile-header-action {
+    background: none;
+    border: none;
+    color: var(--brand-teal);
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.btn-mobile-header-action:hover {
+    color: #02aab6;
+}
+
+/* Global Responsive Utilities */
+@media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-only {
+        display: none !important;
+    }
+}

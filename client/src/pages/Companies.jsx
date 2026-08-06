@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
 import { Building, Plus, Search, X, Pencil, Link } from 'lucide-react';
 import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
+import PageHeader from '../components/PageHeader';
 import './Users.css'; // Reusing Users CSS for consistency
 
 const Companies = () => {
@@ -142,17 +143,18 @@ const Companies = () => {
 
     return (
         <div className="users-page">
-            <div className="page-header">
-                <div>
-                    <h1><Building className="inline-icon" /> Companies Management</h1>
-                    <p>Manage system companies</p>
-                </div>
-                <div className="header-actions">
+            <PageHeader 
+                title={
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Building className="inline-icon" /> Companies Management
+                    </span>
+                }
+                desktopActions={
                     <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
                         <Plus size={16} /> Add Company
                     </button>
-                </div>
-            </div>
+                }
+            />
 
             {/* Search */}
             <div className="users-search">

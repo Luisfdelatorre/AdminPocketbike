@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
-
+import { useTranslation } from 'react-i18next';
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { Calendar, DollarSign, Activity, FileText, ChevronDown, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone } from 'lucide-react';
+import MobileHeaderAction from '../components/MobileHeaderAction';
 import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
+import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
-import MobileHeaderAction from '../components/MobileHeaderAction';
+import PageHeader from '../components/PageHeader';
 
 // Helper to format currency
 // Helper to format currency
@@ -34,13 +37,15 @@ const getInitialDesktopView = () => {
 
 const PaymentSummary = () => {
     const { user } = useAuth();
+    const { subscribe } = useSSE();
     const [loading, setLoading] = useState(false);
+    const { t } = useTranslation();
     const [downloading, setDownloading] = useState(false);
-    const [summaryData, setSummaryData] = useState([]);
+    const [summaryDataMap, setSummaryDataMap] = useState({});
+    const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [bulkOffModal, setBulkOffModal] = useState(false);
     const [pendingCommands, setPendingCommands] = useState({});
-    const [queuedCommands, setQueuedCommands] = useState({});
     const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
     const matrixTableRef = useRef(null);
@@ -53,8 +58,6 @@ const PaymentSummary = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
-
-
 
     useEffect(() => {
         const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
@@ -102,36 +105,6 @@ const PaymentSummary = () => {
             : maxRecordedDay;
 
     const daysArray = Array.from({ length: lastVisibleDay }, (_, i) => i + 1);
-
-
-    // Vertical sum of totalPaid per day across all devices
-    const dailyTotals = daysArray.reduce((acc, day) => {
-        acc[day] = summaryData.reduce((sum, item) => sum + (item.days[day]?.totalPaid || 0), 0);
-        return acc;
-    }, {});
-
-    const renderMatrixHeader = (className = '') => (
-        <thead className={className}>
-            <tr>
-                <th>DISPOSITIVO</th>
-                <th>Deuda</th>
-                {daysArray.map(day => (
-                    <th key={day}>{String(day).padStart(2, '0')}</th>
-                ))}
-                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
-            </tr>
-            <tr className="daily-totals-row">
-                <th className="totals-label">Total día</th>
-                <th></th>
-                {daysArray.map(day => (
-                    <th key={day} className="daily-total-cell">
-                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
-                    </th>
-                ))}
-                <th></th>
-            </tr>
-        </thead>
-    );
 
     const syncMatrixHeaderScroll = (scrollLeft) => {
         if (matrixHeaderViewportRef.current) {
@@ -211,14 +184,29 @@ const PaymentSummary = () => {
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
-            // Using the new endpoint
             const response = await getPaymentSummary({
                 month: selectedMonth,
                 year: selectedYear
             });
 
             if (response.success && Array.isArray(response.data)) {
-                setSummaryData(response.data);
+                const map = {};
+                response.data.forEach(item => map[item.device.gpsId] = item);
+                
+                // Anti-Race Condition: If the API response has older data than our local SSE cache, keep the local SSE device state!
+                setSummaryDataMap(prev => {
+                    const next = { ...map };
+                    Object.keys(next).forEach(key => {
+                        const prevDev = prev[key]?.device;
+                        const nextDev = next[key].device;
+                        if (prevDev?.lastUpdate && nextDev?.lastUpdate) {
+                            if (new Date(prevDev.lastUpdate) > new Date(nextDev.lastUpdate)) {
+                                next[key].device = { ...nextDev, ...prevDev };
+                            }
+                        }
+                    });
+                    return next;
+                });
             }
         } catch (error) {
             console.error("Error fetching summary:", error);
@@ -245,9 +233,8 @@ const PaymentSummary = () => {
     };
 
 
-    const handleEngineToggle = async (deviceObj) => {
-        const dev = deviceObj.device || deviceObj;
-        const id = dev.deviceId || dev.id || dev.name;
+    const handleEngineToggle = async (dev) => {
+        const id = dev.deviceId;
         const command = dev.cutOff ? 1 : 0;
         setPendingCommands(prev => ({ ...prev, [id]: true }));
         try {
@@ -256,47 +243,21 @@ const PaymentSummary = () => {
             const resObj = data.response || data;
 
             if (data.success || resObj.success) {
-                const isQueued = Boolean(resObj.queued || resObj.offline || data.queued || data.offline);
-                const keys = [dev.name, dev.deviceId, dev.id, dev.gpsId, dev._id, id].filter(Boolean);
-
-                setQueuedCommands(prev => {
+                showToast(`Comando encolado en Traccar para ${dev.name}`, 'info');
+                setSummaryDataMap(prev => {
                     const next = { ...prev };
-                    keys.forEach(k => {
-                        next[k] = isQueued;
-                        if (typeof k === 'string') next[k.toUpperCase()] = isQueued;
-                    });
+                    const primaryKey = String(dev.gpsId);
+                    if (next[primaryKey]) {
+                        // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
+                        if (next[primaryKey].device.cutOff === !!dev.cutOff) {
+                            next[primaryKey] = {
+                                ...next[primaryKey],
+                                device: { ...next[primaryKey].device, queued: true }
+                            };
+                        }
+                    }
                     return next;
                 });
-
-                if (isQueued) {
-                    const offlineStr = formatOfflineTime(resObj.lastUpdate || dev.lastUpdate) || 'offline';
-                    showToast(`Comando encolado en Traccar. El vehículo ${dev.name} está inactivo (${offlineStr}). Se aplicará apenas recupere señal.`, 'info');
-                    setSummaryData(prev => prev.map(item => {
-                        const devName = item.device.name;
-                        const match = keys.some(k => String(k).toUpperCase() === String(devName || '').toUpperCase());
-                        if (match) {
-                            return {
-                                ...item,
-                                device: { ...item.device, queued: true }
-                            };
-                        }
-                        return item;
-                    }));
-                } else {
-                    showToast(resObj.message || data.message || 'Comando enviado con éxito', 'success');
-                    const nextCutOff = command === 0;
-                    setSummaryData(prev => prev.map(item => {
-                        const devName = item.device.name;
-                        const match = keys.some(k => String(k).toUpperCase() === String(devName || '').toUpperCase());
-                        if (match) {
-                            return {
-                                ...item,
-                                device: { ...item.device, cutOff: nextCutOff, queued: false }
-                            };
-                        }
-                        return item;
-                    }));
-                }
             } else {
                 showToast(resObj.error || data.error || 'Error controlando motor', 'error');
             }
@@ -309,95 +270,6 @@ const PaymentSummary = () => {
 
     useEffect(() => {
         fetchData();
-        const handlePaymentUpdate = (e) => {
-            const detail = e.detail;
-            if (!detail) return;
-
-            if (detail?.type === 'gps_update' && Array.isArray(detail.devices)) {
-                setSummaryData(prev => prev.map(item => {
-                    const devId = String(item.device.deviceId || item.device.id || item.device.name || '');
-                    const devGpsId = String(item.device.gpsId || '');
-                    const devNameUpper = item.device.name ? String(item.device.name).toUpperCase() : '';
-
-                    const match = detail.devices.find(u => {
-                        const targetGpsId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
-                        const targetName = u.name ? String(u.name).toUpperCase() : '';
-                        const isGpsIdMatch = Boolean(targetGpsId && (devGpsId === targetGpsId || devId === targetGpsId || devNameUpper === targetGpsId));
-                        const isNameMatch = Boolean(targetName && devNameUpper === targetName);
-                        return isGpsIdMatch || isNameMatch;
-                    });
-                    if (match) {
-                        return {
-                            ...item,
-                            device: {
-                                ...item.device,
-                                ...(match.cutOff != null && { cutOff: match.cutOff ? 1 : 0 }),
-                                ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
-                                ...(match.ignition != null && { ignition: match.ignition })
-                            }
-                        };
-                    }
-                    return item;
-                }));
-            } else if (detail?.type === 'engine' && detail?.deviceId && !detail?.queued) {
-                const targetCutOff = (detail.command === 0 || detail.command === '0' || detail.command === false) ? 1 : 0;
-                setSummaryData(prev => prev.map(item => {
-                    const targetStr = String(detail.deviceId).toUpperCase();
-                    const isMatch =
-                        String(item.device._id) === targetStr ||
-                        String(item.device.gpsId) === targetStr ||
-                        item.device.name?.toUpperCase() === targetStr;
-
-                    if (isMatch) {
-                        return {
-                            ...item,
-                            device: { ...item.device, cutOff: targetCutOff }
-                        };
-                    }
-                    return item;
-                }));
-            } else if (detail?.type === 'engine-queued' && detail?.deviceId) {
-                const targetStr = String(detail.deviceId).toUpperCase();
-                setQueuedCommands(prev => ({ ...prev, [targetStr]: true }));
-            } else if (detail?.type === 'cutoff-batch') {
-                fetchData();
-            }
-        };
-
-        const handleDeviceUpdate = (e) => {
-            const detail = e.detail;
-            if (!detail) return;
-
-            const updates = Array.isArray(detail) ? detail : [detail];
-
-            setSummaryData(prev => prev.map(item => {
-                const match = updates.find(u =>
-                    (u.gpsId != null && String(item.device.gpsId) === String(u.gpsId)) ||
-                    (u.name && item.device.name?.toUpperCase() === u.name?.toUpperCase()) ||
-                    (u._id && String(item.device._id) === String(u._id))
-                );
-
-                if (match) {
-                    return {
-                        ...item,
-                        device: {
-                            ...item.device,
-                            ...(match.cutOff != null && { cutOff: (match.cutOff === true || match.cutOff === 1 || match.cutOff === '1') ? 1 : 0 }),
-                            ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
-                            ...(match.ignition != null && { ignition: match.ignition })
-                        }
-                    };
-                }
-                return item;
-            }));
-        };
-
-        window.addEventListener('payment-update', handlePaymentUpdate);
-        window.addEventListener('device-update', handleDeviceUpdate);
-        return () => {
-            window.removeEventListener('payment-update', handlePaymentUpdate);
-            window.removeEventListener('device-update', handleDeviceUpdate);
-        };
     }, [selectedMonth, selectedYear]);
 
     const handleBulkEngineOff = async () => {
@@ -421,59 +293,40 @@ const PaymentSummary = () => {
         hasInitialScrolledRef.current = false;
     }, [selectedMonth, selectedYear, desktopView]);
 
-    const { subscribe } = useSSE();
+
 
     // Real-time SSE listening for device status updates in summary view
     useEffect(() => {
-        const unsubs = [
-            subscribe('device_update', (e) => {
-                try {
-                    const data = e.parsedData;
-                    if (!data) return;
-
-                    const updates = Array.isArray(data) ? data : [data];
-
-                    const updateMap = new Map();
+        const unsub = subscribe('device_update', (e) => {
+            try {
+                const data = e.parsedData;
+                if (!data) return;
+                const updates = Array.isArray(data) ? data : [data];
+                setSummaryDataMap(prev => {
+                    const next = { ...prev };
+                    let matchFound = false;
                     updates.forEach(u => {
-                        if (u.gpsId) updateMap.set(String(u.gpsId), u);
+                        const key = String(u.gpsId);
+                        if (next[key]) {
+                            matchFound = true;
+                            next[key] = {
+                                ...next[key],
+                                device: {
+                                    ...next[key].device,
+                                    ...u
+                                }
+                            };
+                        }
                     });
-
-                    setSummaryData((prevList) => {
-                        let matchFound = false;
-                        const updatedList = prevList.map((s) => {
-                            const d = s.device;
-                            if (!d) return s;
-
-                            // Extract the frontend's GPS identifier
-                            const frontendGpsId = String(d.gpsId || d.deviceId || d.id);
-                            const match = updateMap.get(frontendGpsId);
-
-                            if (match) {
-                                matchFound = true;
-                                return {
-                                    ...s,
-                                    device: {
-                                        ...d,
-                                        ignition: match.ignition !== undefined ? match.ignition : d.ignition,
-                                        batteryLevel: match.batteryLevel !== null && match.batteryLevel !== undefined ? match.batteryLevel : d.batteryLevel,
-                                        cutOff: match.cutOff !== undefined ? match.cutOff : d.cutOff,
-                                        lastUpdate: match.lastUpdate ? match.lastUpdate : d.lastUpdate,
-                                    }
-                                };
-                            }
-                            return s;
-                        });
-
-                        return matchFound ? updatedList : prevList;
-                    });
-                } catch (err) {
-                    console.error('Error parsing SSE device_update in PaymentSummary:', err);
-                }
-            })
-        ];
+                    return matchFound ? next : prev;
+                });
+            } catch (err) {
+                console.error('Error parsing SSE device_update in PaymentSummary:', err);
+            }
+        });
 
         return () => {
-            unsubs.forEach(unsub => unsub());
+            unsub();
         };
     }, [subscribe, user?.companyId]);
 
@@ -515,22 +368,12 @@ const PaymentSummary = () => {
         return true;
     });
 
-    const renderEngineButton = (deviceObj) => {
-        const dev = deviceObj.device || deviceObj;
-        const devId = dev.deviceId || dev.id || dev.name;
+    const renderEngineButton = (item) => {
+        const dev = item.device;
+        const devId = dev.deviceId;
         const isOff = !!dev.cutOff;
-        const isPending = !!pendingCommands[devId];
+        const isPending = !!pendingCommands[devId] || dev.queued;
 
-        if (user?.role === 'viewer') {
-            return (
-                <div
-                    className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'}`}
-                    style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
-                >
-                    <div className="slider-knob"><Power size={10} /></div>
-                </div>
-            );
-        }
         return (
             <button
                 onClick={() => handleEngineToggle(dev)}
@@ -548,72 +391,7 @@ const PaymentSummary = () => {
         );
     };
 
-    const renderDayCell = (dayData) => {
-        let cellClass = 'status-cell empty';
-        let content = '--';
-        let paymentTime = null;
 
-        if (dayData) {
-            const rawDate = dayData.latestPaymentAt || dayData.paidAt || (dayData.paid && dayData.updatedAt ? dayData.updatedAt : null);
-            if (rawDate) {
-                const dateObj = new Date(rawDate);
-                if (!isNaN(dateObj.getTime())) {
-                    const hours = String(dateObj.getHours()).padStart(2, '0');
-                    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-                    paymentTime = `${hours}:${minutes}`;
-                }
-            }
-
-            if (dayData.dayType === 'LOAN') {
-                cellClass = 'status-cell loand';
-                content = '--';
-            } else if (dayData.dayType === 'PAID') {
-                cellClass = 'status-cell approved';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-            } else if (dayData.dayType === 'FREE') {
-                cellClass = 'status-cell free';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-            } else if (dayData.dayType === 'ADJUSTMENT') {
-                cellClass = 'status-cell adjusted';
-                content = '🔧';
-            } else {
-                cellClass = 'status-cell pending';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
-            }
-
-            content = (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
-                    <span style={{ fontSize: '10.5px' }}>{content}</span>
-                    {paymentTime && (
-                        <span className="payment-time-sub">
-                            {paymentTime}
-                        </span>
-                    )}
-                </div>
-            );
-
-            if (dayData.cutOff) {
-                content = (
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {content}
-                        <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
-                            <MotorIcon color="#ef4444" size={14} />
-                        </div>
-                    </div>
-                );
-            }
-
-            if (dayData.note) {
-                content = (
-                    <div className="has-note-indicator" title={dayData.note}>
-                        {content}
-                    </div>
-                );
-            }
-        }
-
-        return { cellClass, content };
-    };
 
     const handleFilterToggle = () => setShowFilters(prev => !prev);
 
@@ -629,114 +407,43 @@ const PaymentSummary = () => {
                     user={user}
                     handleEngineToggle={handleEngineToggle}
                     pendingCommands={pendingCommands}
-                    queuedCommands={queuedCommands}
                     getDeviceStatus={getDeviceStatus}
-                    renderDayCell={renderDayCell}
                 />
             );
         }
 
         return (
-            <div className="matrix-shell">
-                <div className="matrix-sticky-header">
-                    <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
-                        <table
-                            className="summary-table summary-table--sticky-header"
-                            style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
-                        >
-                            {matrixGeometry && (
-                                <colgroup>
-                                    {matrixGeometry.widths.map((width, index) => (
-                                        <col key={index} style={{ width: `${width}px` }} />
-                                    ))}
-                                </colgroup>
-                            )}
-                            {renderMatrixHeader('matrix-visual-thead')}
-                        </table>
-                    </div>
-                </div>
-
-                <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
-                    <table ref={matrixTableRef} className="summary-table">
-                        {renderMatrixHeader('matrix-semantic-thead')}
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
-                            ) : (
-                                filteredSummaryData.map((item) => (
-                                    <tr key={item.device.deviceId} className="bike-summary">
-                                        <td>
-                                            <div className="device-cell">
-                                                <span className="device-name">{item.device.name}</span>
-                                                <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="device-cell">
-                                                {item.device.unpaidTotal > 0 ? (
-                                                    <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
-                                                ) : (
-                                                    <span className="no-debt">✓</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        {daysArray.map(day => {
-                                            const dayData = item.days[day];
-                                            const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
-                                            const { cellClass, content } = renderDayCell(dayData);
-                                            return (
-                                                <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                        <div className={cellClass}>
-                                                            {content}
-                                                        </div>
-                                                        {dayData && (
-                                                            <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-                                                                {dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            );
-                                        })}
-                                        {/* Motor toggle per row */}
-                                        <td style={{ textAlign: 'center' }}>
-                                            {renderEngineButton(item)}
-                                        </td>
-                                    </tr>
-                                )))
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <MatrixPaymentSummary
+                matrixHeaderViewportRef={matrixHeaderViewportRef}
+                matrixGeometry={matrixGeometry}
+                tableContainerRef={tableContainerRef}
+                handleMatrixScroll={handleMatrixScroll}
+                matrixTableRef={matrixTableRef}
+                loading={loading}
+                daysInMonth={daysInMonth}
+                filteredSummaryData={filteredSummaryData}
+                daysArray={daysArray}
+                isFutureSummaryDay={isFutureSummaryDay}
+                renderEngineButton={renderEngineButton}
+            />
         );
     }, [
         isMobile, desktopView, filteredSummaryData, daysArray, currentDay,
-        loading, user, pendingCommands, queuedCommands, matrixGeometry
+        loading, user, pendingCommands, matrixGeometry
     ]);
 
     return (
         <div className="payment-summary-container" style={{ '--summary-header-height': `${summaryHeaderHeight}px` }} >
 
-            <MobileHeaderAction>
-                <button
-                    type="button"
-                    className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
-                    onClick={handleFilterToggle}
-                    id="filterToggle"
-                    title="Filtros"
-                >
-                    <ListFilter size={20} />
-                </button>
-                <button onClick={fetchData} className="btn-mobile-header-action">
-                    <RefreshCw size={20} className={loading ? 'spin' : ''} />
-                </button>
-            </MobileHeaderAction>
-            
-            <div className="summary-heading">
-                <h1>Estatus de Pagos</h1>
-                {!isMobile && (
+            {/* Desktop Header */}
+            <PageHeader
+                title={<h1>Estatus de Pagos</h1>}
+                onRefresh={fetchData}
+                loading={loading}
+                refreshText="Actualizar"
+                onFilterToggle={handleFilterToggle}
+                showFilters={showFilters}
+                desktopActions={
                     <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
                         <button
                             type="button"
@@ -757,8 +464,8 @@ const PaymentSummary = () => {
                             <span>Matriz</span>
                         </button>
                     </div>
-                )}
-            </div>
+                }
+            />
             <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`} >
 
                 {/* ── Controles: mes / año / acciones ────────────────────────────── */}
@@ -788,28 +495,8 @@ const PaymentSummary = () => {
                             <option value={2027}>2027</option>
                         </select>
                     </div>
-
-                    {user?.role !== 'viewer' && (
-                        <button
-                            type="button"
-                            className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
-                            onClick={() => setBulkOffModal(true)}
-                            disabled={bulkOffLoading || morososCount === 0}
-                            title={`Apagar motor de vehículos morosos (${morososCount})`}
-                            style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
-                        >
-                            {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
-                        </button>
-                    )}
                 </div>
             </div>
-
-
-
-
-
-
-
 
             <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
                 <SearchAndFilterBar

@@ -5,6 +5,7 @@ import { Building, Plus, FileText, Printer, FileSpreadsheet, Search, X, Check, R
 import { useNavigate } from 'react-router-dom';
 import CompanyInvoiceTemplate from '../components/CompanyInvoiceTemplate';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import PageHeader from '../components/PageHeader';
 import './Payments.css';
 import './Users.css';
 
@@ -148,39 +149,24 @@ const CompanyInvoices = () => {
                     }
                 }
             `}</style>
-            {portalElement && createPortal(
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                        type="button"
-                        className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        style={{ border: 'none', background: 'none', padding: '8px' }}
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                </div>,
-                portalElement
-            )}
-
-            <div className="page-header">
-                <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+            <PageHeader 
+                title={
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
                         <Building size={28} color="#2563eb" />
                         Facturas de Empresas
-                    </h1>
-                    <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '14px' }}>Historial de facturación para sus clientes</p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button onClick={loadData} className="btn-secondary">
-                        <RefreshCw size={16} /> Actualizar
-                    </button>
+                    </span>
+                }
+                onRefresh={loadData}
+                loading={loading}
+                refreshText="Actualizar"
+                onFilterToggle={() => setShowFilters(!showFilters)}
+                showFilters={showFilters}
+                desktopActions={
                     <button onClick={() => setShowGenerateModal(true)} className="btn-primary">
                         <Plus size={16} /> Generar Factura Mensual
                     </button>
-                </div>
-            </div>
+                }
+            />
 
             {/* Mobile Collapsible Filter Section (Mobile only) */}
             <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
