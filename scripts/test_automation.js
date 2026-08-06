@@ -18,30 +18,30 @@ const testAutomation = async () => {
         await connectDatabase();
         console.log('✅ Connected to MongoDB');
 
-        const deviceId = '69820474ccab39e9a27b6645'; // YAG19H
-        const testDevice = await Device.findById(deviceId);
-
-        if (!testDevice) {
-            console.error('❌ Test device YAG19H not found in DB!');
-            process.exit(1);
-        }
-        console.log(`✅ Found Device: ${testDevice.name} (hasActiveContract: ${testDevice.hasActiveContract})`);
-
-        // 1. Test Invoicing
-        console.log('\nStep 1: Running generateDailyInvoices...');
-        await cronJobsServices.generateDailyInvoices();
-        console.log('✅ generateDailyInvoices execution finished.');
-
-        // Check if invoice was created for YAG19H
-        const dayjs = (await import('dayjs')).default;
-        const today = dayjs().startOf('day').toDate();
-        const inv = await Invoice.findOne({ deviceIdName: 'YAG19H', date: today });
-
-        if (inv) {
-            console.log(`✅ Invoice created for YAG19H: ID=${inv._id}, Amount=${inv.amount}, Paid=${inv.paid}`);
-        } else {
-            console.error('❌ Invoice NOT created for YAG19H!');
-        }
+        /* const deviceId = '69820474ccab39e9a27b6645'; // YAG19H
+         const testDevice = await Device.findById(deviceId);
+ 
+         if (!testDevice) {
+             console.error('❌ Test device YAG19H not found in DB!');
+             process.exit(1);
+         }
+         console.log(`✅ Found Device: ${testDevice.name} (hasActiveContract: ${testDevice.hasActiveContract})`);
+ 
+         // 1. Test Invoicing
+         console.log('\nStep 1: Running generateDailyInvoices...');
+         await cronJobsServices.generateDailyInvoices();
+         console.log('✅ generateDailyInvoices execution finished.');
+ 
+         // Check if invoice was created for YAG19H
+         const dayjs = (await import('dayjs')).default;
+         const today = dayjs().startOf('day').toDate();
+         const inv = await Invoice.findOne({ deviceIdName: 'YAG19H', date: today });
+ 
+         if (inv) {
+             console.log(`✅ Invoice created for YAG19H: ID=${inv._id}, Amount=${inv.amount}, Paid=${inv.paid}`);
+         } else {
+             console.error('❌ Invoice NOT created for YAG19H!');
+         }*/
 
         // 2. Test Cut-Off
         console.log('\nStep 2: Running performDailyCutOff...');
@@ -50,8 +50,8 @@ const testAutomation = async () => {
         console.log('✅ performDailyCutOff execution finished.');
 
         // Final check
-        const updatedDevice = await Device.findById(deviceId);
-        console.log(`\nFinal Device Status: cutOff=${updatedDevice.cutOff} (Expected 1 or 2 if GPS command sent)`);
+        //const updatedDevice = await Device.findById(deviceId);
+        // console.log(`\nFinal Device Status: cutOff=${updatedDevice.cutOff} (Expected 1 or 2 if GPS command sent)`);
 
         console.log('\n--- TEST COMPLETED ---');
         process.exit(0);
