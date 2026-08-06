@@ -139,41 +139,27 @@ const controlEngine = async (id, command, companyId) => {
 
         if (typeof verifyResult === 'object' && verifyResult !== null) {
             isConfirmed = Boolean(verifyResult.confirmed);
-            isOffline = Boolean(verifyResult.offline);
-            lastUpdate = verifyResult.lastUpdate || null;
         } else {
             isConfirmed = Boolean(verifyResult);
         }
 
+        const action = command === 0 || command === '0' || command === false ? 'stop' : 'resume';
+
         if (!isConfirmed) {
-            const action = command === 0 ? 'stop' : 'resume';
-            if (isOffline) {
-                // Persist queued: true in MongoDB Device model until signal is restored
-                await Device.updateOne({ _id: device._id }, { $set: { queued: true } });
-                return {
-                    success: true,
-                    queued: true,
-                    offline: true,
-                    lastUpdate,
-                    message: `Comando encolado en Traccar. El vehículo está inactivo (offline). Se aplicará el ${action === 'stop' ? 'apagado' : 'encendido'} apenas se reconecte.`,
-                    cutOff: Boolean(device.cutOff) // Preserve current unchanged cutOff state until hardware confirms
-                };
-            }
             return {
                 success: false,
-                error: `Failed to ${action} engine. The command was sent but not confirmed by the device.`
+                error: `Failed to ${action} engine. The command was not accepted by the adapter.`
             };
         }
 
-        // 4. Update the local DB state ONLY after hardware confirmation
-        const newCutOffState = (command === 0 || command === '0' || command === false); // 0 = stop (true), 1 = resume (false)
-        await deviceRepository.updateDeviceCutOff(device._id, newCutOffState);
-        await Device.updateOne({ _id: device._id }, { $set: { queued: false } });
+        // 4. Update the local DB state to indicate the command is queued
+        await deviceRepository.updateDeviceQueuedStatus(device._id, true);
 
         return {
             success: true,
-            message: `Engine ${command === 0 ? 'stopped' : 'resumed'} successfully`,
-            cutOff: newCutOffState
+            queued: true,
+            message: `Command to ${action} engine queued successfully. Awaiting confirmation from device.`,
+            cutOff: Boolean(device.cutOff) // Preserve current unchanged cutOff state until hardware confirms
         };
 
     } catch (error) {

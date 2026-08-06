@@ -72,25 +72,14 @@ const getAllInvoices = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
-        const status = req.query.status; // optional: PAID, UNPAID, PENDING
         const month = req.query.month ? parseInt(req.query.month) : null;
         const year = req.query.year ? parseInt(req.query.year) : null;
         const skip = (page - 1) * limit;
-
         const { isSuperAdmin, companyId, role, companyName } = req.auth;
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
         // Build query
         const query = {};
-
-        if (status) {
-            const statusUpper = status.toUpperCase();
-            if (statusUpper === 'UNPAID') {
-                query.dayType = 'DEBT';
-            } else {
-                query.dayType = statusUpper;
-            }
-        }
 
         if (month && year) {
             const startOfMonth = new Date(year, month - 1, 1);
@@ -106,7 +95,7 @@ const getAllInvoices = async (req, res) => {
         // Get invoices and total count in parallel
         const [invoices, total] = await Promise.all([
             Invoice.find(query)
-                .sort({ date: -1, createdAt: -1 })
+                .sort({ date: -1, createdAt: -1, _id: -1 })
                 .skip(skip)
                 .limit(limit)
                 .lean(),

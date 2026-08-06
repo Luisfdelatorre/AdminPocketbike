@@ -163,44 +163,20 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
     // Prepare arrays for the adapter strictly using gpsId
     const targetIds = batch.map(d => d.gpsId).filter(Boolean);
 
-    const streamedConfirmedIds = new Set();
-
-    const handleDeviceConfirmed = (targetId) => {
-      streamedConfirmedIds.add(targetId);
-      // Find original device inside the batch using gpsId
-      const originalDevice = batch.find(d => String(d.gpsId) === String(targetId));
-      if (originalDevice) {
-        logger.info(`[CUT-OFF] Device ${originalDevice.name} engine stop confirmed early.`);
-        // Fire and forget updating the status async
-        deviceRepository.updateCutOffStatus(originalDevice._id || originalDevice.gpsId, 1).catch(err => {
-          logger.error(`Error streaming update for ${originalDevice.name}:`, err);
-        });
-      }
-    };
-
-    // pass onDeviceConfirmed
-    const resultsMap = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP, {
-      companyConfig: companyId,
-      onDeviceConfirmed: handleDeviceConfirmed
-    });
+    const responseIds = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP);
 
     // Iterate through the original batch to correlate results and update DB
-    // We only process devices that were NOT confirmed early.
     const updatePromises = batch.map(async (device) => {
       const targetId = device.gpsId;
       if (!targetId) return;
 
-      // If we already successfully streamed its update, do nothing
-      if (!targetId || streamedConfirmedIds.has(targetId)) return;
-
-      const confirmed = resultsMap[targetId];
+      const confirmed = responseIds.includes(targetId);
 
       if (!confirmed) {
-        logger.warn(`[CUT-OFF] Device ${device.name} engine stop command not confirmed after retries.`);
-        return deviceRepository.updateCutOffStatus(device._id || device.gpsId, 2); // 2 = Sent but not confirmed
+        logger.warn(`[CUT-OFF] Device ${device.name} engine stop command failed to queue.`);
       } else {
-        logger.info(`[CUT-OFF] Device ${device.name} engine stop confirmed (fallback DB write).`);
-        return deviceRepository.updateCutOffStatus(device.deviceId || device._id, true);
+        logger.info(`[CUT-OFF] Device ${device.name} engine stop queued.`);
+        return deviceRepository.updateDeviceQueuedStatus(device._id, true);
       }
     });
 
@@ -222,13 +198,12 @@ const performPollingCutOff = async () => {
     }
 
     for (const company of enabledCompanies) {
-
       // 1. Get payment statuses of devices for this company
       const paymentStatuses = await deviceServices.getCompanyDevicesPaymentStatus(company._id, executionTime);
-
+      console.log('company', company.name);
       const devicesToCutOff = [];
-
       for (const { device, hasUnpaidInvoice, invoice } of paymentStatuses) {
+        console.log('device', device.name, 'hasUnpaidInvoice', hasUnpaidInvoice);
         try {
           if (device.exemptFromCutOff === true) continue;
           if (device.cutOff) continue; // Already cut off
@@ -277,14 +252,14 @@ const performCurfewStart = async (companyId) => {
     const BATCH_SIZE = 10;
     for (let i = 0; i < devices.length; i += BATCH_SIZE) {
       const batch = devices.slice(i, i + BATCH_SIZE);
-      const targetIds = batch.map(d => d.megaDeviceId || d.deviceId);
+      const targetIds = batch.map(d => d.gpsId).filter(Boolean);
 
-      const resultsMap = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP, {
+      const responseIds = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP, {
         companyConfig: companyId
       });
 
       // Update curfewStatus=true for all that were successfully stopped
-      const successfulIds = batch.filter(d => resultsMap[d.megaDeviceId || d.deviceId]).map(d => d._id);
+      const successfulIds = batch.filter(d => responseIds.includes(d.gpsId)).map(d => d._id);
       if (successfulIds.length > 0) {
         await Device.updateMany({ _id: { $in: successfulIds } }, { $set: { curfewStatus: true } });
         logger.info(`[CURFEW] Successfully turned off ${successfulIds.length} devices.`);
@@ -334,7 +309,7 @@ const performCurfewEnd = async (companyId) => {
       const batchToResume = devicesToResume.filter(d => batchAll.some(b => b._id.toString() === d._id.toString()));
 
       if (batchToResume.length > 0) {
-        const targetIds = batchToResume.map(d => d.megaDeviceId || d.deviceId);
+        const targetIds = batchToResume.map(d => d.gpsId).filter(Boolean);
         await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINERESUME, {
           companyConfig: companyId
         });

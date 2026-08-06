@@ -35,6 +35,7 @@ export class DeviceState {
         this.batteryLevel = data.batteryLevel;
         this.companyId = data.companyId;
         this.lastUpdate = data.lastUpdate;
+        this.queued = data.queued;
 
         this._dirty = false;
         this._cutOffChanged = false;
@@ -51,11 +52,14 @@ export class DeviceState {
         const ignitionChanged = this.ignition !== newIgnition;
         const cutOffChanged = this.cutOff !== newCutOff;
         const batteryChanged = this.batteryLevel !== newBattery;
+        const lastUpdateChanged = update.lastUpdate && this.lastUpdate && 
+            (new Date(update.lastUpdate).getTime() - new Date(this.lastUpdate).getTime() > 120000); // 2 mins heartbeat
 
         const stateChanged = [
             ignitionChanged,
             cutOffChanged,
-            batteryChanged
+            batteryChanged,
+            lastUpdateChanged
         ].some(Boolean);
 
         this.lastUpdate = update.lastUpdate;
@@ -64,9 +68,13 @@ export class DeviceState {
         if (stateChanged) {
             this._updateReasons = [];
             if (ignitionChanged) this._updateReasons.push('ignition');
+            if (lastUpdateChanged && !ignitionChanged && !cutOffChanged && !batteryChanged) {
+                this._updateReasons.push('heartbeat');
+            }
             if (cutOffChanged) {
                 this._updateReasons.push('cutOff');
                 this._cutOffChanged = true;
+                this.queued = false; // Clear queued status since it was confirmed
             }
             if (batteryChanged) this._updateReasons.push('battery');
 

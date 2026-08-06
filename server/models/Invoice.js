@@ -90,7 +90,7 @@ InvoiceSchema.statics.findUnpaidCycleInvoices = function (deviceIdName) {
     return this.find({
         deviceIdName,
         paid: false,
-    }).sort({ date: 1 });
+    }).sort({ date: -1 });
 };
 
 InvoiceSchema.statics.getPaymentUpdatePayload = function (payment) {

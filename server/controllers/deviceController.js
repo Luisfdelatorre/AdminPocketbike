@@ -7,12 +7,22 @@ import { Invoice } from '../models/Invoice.js';
 import deviceServices from '../services/deviceServices.js';
 import companyService from '../services/companyService.js';
 import { sseService } from '../utils/sseService.js';
-import { ENGINESTOP, ENGINERESUME } from '../config/config.js';
+
 import logger from '../utils/logger.js';
 
 const getAllDevices = async (req, res) => {
     try {
-        const devices = await Device.find({ isDeleted: { $ne: true } }).sort({ _id: 1 });
+        const query = { isDeleted: { $ne: true } };
+        
+        // Filter by company for non-superadmin users
+        if (req.auth && !req.auth.isSuperAdmin && req.auth.companyId) {
+            query.companyId = req.auth.companyId;
+        }
+
+        const devices = await Device.find(query)
+            .select('id name status lastUpdate disabled gpsId companyId companyName cutOff ignition batteryLevel queued contractId deviceId hasActiveContract isActive freeDays freeDaysUsed activeContractId monthPaid monthDebt nequiNumber simCardNumber')
+            .lean()
+            .sort({ _id: 1 });
         res.json({
             success: true,
             devices
@@ -102,6 +112,10 @@ const updateDevice = async (req, res) => {
         if (notes !== undefined) device.notes = notes;
         if (model !== undefined) device.model = model;
         if (serialNumber !== undefined) device.serialNumber = serialNumber;
+        if (req.body.DailyPayment !== undefined) {
+            if (!device.attributes) device.attributes = {};
+            device.attributes.DailyPayment = req.body.DailyPayment;
+        }
 
         await device.save();
 

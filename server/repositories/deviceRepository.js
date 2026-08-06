@@ -2,7 +2,7 @@ import { Device } from '../models/Device.js';
 import { DeviceState } from '../entities/deviceEntities.js';
 import logger from '../config/logger.js';
 
-const GPS_CACHE_PROJECTION = '_id name gpsId imei ignition lastUpdate cutOff batteryLevel companyId';
+const GPS_CACHE_PROJECTION = '_id name gpsId imei ignition lastUpdate cutOff queued batteryLevel companyId';
 
 class DeviceRepository {
     async findForGpsCache() {
@@ -41,19 +41,26 @@ class DeviceRepository {
         try {
             if (!devices || devices.length === 0) return { created: 0, updated: 0, errors: 0 };
 
-            const bulkOps = devices.map(mem => ({
-                updateOne: {
-                    filter: { _id: mem._id },
-                    update: {
-                        $set: {
-                            ignition: mem.ignition,
-                            lastUpdate: mem.lastUpdate,
-                            cutOff: mem.cutOff,
-                            batteryLevel: mem.batteryLevel,
-                        }
-                    }
+            const bulkOps = devices.map(mem => {
+                const updateSet = {
+                    ignition: mem.ignition,
+                    lastUpdate: mem.lastUpdate,
+                    cutOff: mem.cutOff,
+                    batteryLevel: mem.batteryLevel,
+                };
+                
+                // Only touch queued if it was cleared by a cutOff change
+                if (mem._cutOffChanged && mem.queued === false) {
+                    updateSet.queued = false;
                 }
-            }));
+
+                return {
+                    updateOne: {
+                        filter: { _id: mem._id },
+                        update: { $set: updateSet }
+                    }
+                };
+            });
 
             const result = await Device.bulkWrite(bulkOps);
             logger.info(`GPS sync upsert: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
@@ -240,6 +247,17 @@ class DeviceRepository {
             );
         } catch (error) {
             logger.error(`Error updating device _id ${objectId} cutOff:`, error);
+            throw error;
+        }
+    }
+    async updateDeviceQueuedStatus(objectId, queued) {
+        try {
+            return await Device.updateOne(
+                { _id: objectId },
+                { $set: { queued: Boolean(queued) } }
+            );
+        } catch (error) {
+            logger.error(`Error updating device _id ${objectId} queued status:`, error);
             throw error;
         }
     }
