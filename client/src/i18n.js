@@ -192,6 +192,8 @@ const resources = {
                 filterAll: 'All Devices',
                 filterActive: 'Active',
                 filterAvailable: 'Available',
+                filterOff: 'Off',
+                filterOn: 'On',
                 table: {
                     name: 'Name',
                     nequi: 'Nequi Number',
@@ -585,6 +587,8 @@ const resources = {
                 filterAll: 'Todos',
                 filterActive: 'Activos',
                 filterAvailable: 'Disponibles',
+                filterOff: 'Apagados',
+                filterOn: 'Encendidos',
                 table: {
                     name: 'Nombre',
                     nequi: 'Nequi',

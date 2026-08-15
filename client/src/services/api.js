@@ -181,4 +181,11 @@ export const generateCompanyInvoice = async (data) => {
     }
 };
 
+// --- Cron & System Jobs ---
+export const getAvailableCronJobs = () => api.get('/cron/available-jobs');
+export const getSystemJobs = () => api.get('/system-jobs');
+export const createSystemJob = (data) => api.post('/system-jobs', data);
+export const updateSystemJob = (id, data) => api.put(`/system-jobs/${id}`, data);
+export const deleteSystemJob = (id) => api.delete(`/system-jobs/${id}`);
+
 export default api;
