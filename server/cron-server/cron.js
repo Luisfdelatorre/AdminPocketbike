@@ -1,8 +1,9 @@
 import nodeCron from "node-cron";
 import { CRON_JOBS, TIMEZONE } from "../config/config.js";
 import log from "../config/logger.js";
-import jobs from "../services/cronJobsServices.js";
 import companyRepository from "../repositories/companyRepository.js";
+import systemJobRepository from "../repositories/systemJobRepository.js";
+import jobRegistry from "./jobRegistry.js";
 
 class Cron {
   constructor() {
@@ -12,39 +13,44 @@ class Cron {
     this.scheduledDynamicJobs = new Map();  //
   }
   async init() {
-    for (const task of this.jobsConfig) {
-      // Static jobs schedule
-
-      if (task.flag && jobs[task.job]) {
-        const scheduled = this.scheduleTask(task, jobs[task.job]);
-        this.scheduledTasks.push({ name: task.name, instance: scheduled });
-        log.info(`⏰ Scheduled job: ${task.name} (${task.time})`);
-      } else {
-        log.warn(`⚠️ Skipping job ${task.name}: disabled or not implemented`);
-      }
-    }
-
-    // Initialize dynamic Curfew + CutOff jobs per company
     try {
-      await this.DynamycJobsSchedule();
+      await jobRegistry.loadJobs();
+      await this.reloadAllJobs();
     } catch (err) {
       log.error(`❌ Failed to initialize dynamic cron jobs:`, err);
     }
-
-    log.info(`✅ ${this.scheduledTasks.length} total cron jobs initialized`);
   }
 
-  async DynamycJobsSchedule() {
+  async reloadAllJobs() {
+    log.info("🔄 Reloading all dynamic cron jobs...");
     const companies = await companyRepository.getCompaniesForDynamicCron();
+    const systemJobs = await systemJobRepository.getActiveSystemJobs();
+
     const newScheduledMap = new Map();
+
+    // Add global system jobs
+    for (const sysJob of systemJobs) {
+      this._addToScheduledMap(newScheduledMap, sysJob.time, 'system', sysJob);
+    }
     for (const c of companies) {
       const id = c._id.toString();
+      
+      // Legacy schedules
       if (c.automaticCutOff && c.cutOffTime) {
-        this._addToScheduledMap(newScheduledMap, c.cutOffTime, 'cutOff', id);
+        this._addToScheduledMap(newScheduledMap, c.cutOffTime, 'performScheduledCutOff', id);
       }
       if (c.curfew?.enabled) {
-        if (c.curfew.startTime) this._addToScheduledMap(newScheduledMap, c.curfew.startTime, 'curfewStart', id);
-        if (c.curfew.endTime) this._addToScheduledMap(newScheduledMap, c.curfew.endTime, 'curfewEnd', id);
+        if (c.curfew.startTime) this._addToScheduledMap(newScheduledMap, c.curfew.startTime, 'performCurfewStart', id);
+        if (c.curfew.endTime) this._addToScheduledMap(newScheduledMap, c.curfew.endTime, 'performCurfewEnd', id);
+      }
+      
+      // New unified schedules
+      if (c.schedules && Array.isArray(c.schedules)) {
+        for (const s of c.schedules) {
+          if (s.enabled && s.time && s.action) {
+            this._addToScheduledMap(newScheduledMap, s.time, s.action, id);
+          }
+        }
       }
     }
 
@@ -71,32 +77,84 @@ class Cron {
     }
   }
 
-  _addToScheduledMap(map, time, kind, companyId) {
-    if (!map.has(time)) {
-      map.set(time, { cutOff: new Set(), curfewStart: new Set(), curfewEnd: new Set() });
+  _timeToCronExpr(timeStr) {
+    if (timeStr.includes(':')) {
+      const [hh, mm] = timeStr.split(':');
+      return `${mm} ${hh} * * *`;
     }
-    map.get(time)[kind].add(companyId);
+    return timeStr; // Already a cron expression
   }
 
-  _createScheduledJob(time) {
-    const [hh, mm] = time.split(':');
-    const cronExpr = `${mm} ${hh} * * *`;
+  _addToScheduledMap(map, timeStr, kind, entity) {
+    const cronExpr = this._timeToCronExpr(timeStr);
 
-    const task = { name: `scheduled_${time}`, time: cronExpr };
-    const instance = this.scheduleTask(task, () =>
-      jobs.performScheduledTasks(time, () => this.scheduledMap.get(time))
-    );
+    if (!map.has(cronExpr)) {
+      map.set(cronExpr, { systemJobs: new Set(), companyActions: new Map() });
+    }
+    
+    if (kind === 'system') {
+      map.get(cronExpr).systemJobs.add(entity);
+    } else {
+      const companyActions = map.get(cronExpr).companyActions;
+      if (!companyActions.has(kind)) {
+        companyActions.set(kind, new Set());
+      }
+      companyActions.get(kind).add(entity);
+    }
+  }
 
-    this.scheduledDynamicJobs.set(time, instance);
-    log.info(`⏰ Job creado: ${time}`);
+  _createScheduledJob(cronExpr) {
+    const task = { name: `scheduled_${cronExpr}`, time: cronExpr };
+    const instance = this.scheduleTask(task, async () => {
+      const entry = this.scheduledMap.get(cronExpr);
+      if (!entry) return;
+
+      // Execute system jobs
+      if (entry.systemJobs && entry.systemJobs.size > 0) {
+        for (const sysJob of entry.systemJobs) {
+          log.info(`⚙️ Executing system job: ${sysJob.name}`);
+          try {
+            const plugin = jobRegistry.get(sysJob.job);
+            if (plugin && typeof plugin.run === 'function') {
+               await plugin.run(cronExpr, []);
+            } else {
+               log.warn(`⚠️ System job handler not found for: ${sysJob.job}`);
+            }
+          } catch (err) {
+            log.error(`❌ Error executing system job ${sysJob.name}:`, err);
+          }
+        }
+      }
+
+      // Execute company actions
+      if (entry.companyActions && entry.companyActions.size > 0) {
+        for (const [action, idsSet] of entry.companyActions.entries()) {
+          const ids = [...idsSet];
+          if (!ids.length) continue;
+          try {
+            const plugin = jobRegistry.get(action);
+            if (plugin && typeof plugin.run === 'function') {
+              await plugin.run(cronExpr, ids);
+            } else {
+              log.warn(`⚠️ No handler found for company action: ${action}`);
+            }
+          } catch (err) {
+            log.error(`❌ Error executing company action ${action} at ${cronExpr}:`, err);
+          }
+        }
+      }
+    });
+
+    this.scheduledDynamicJobs.set(cronExpr, instance);
+    log.info(`⏰ Job creado: ${cronExpr}`);
   }
 
   async execute(jobName) {
     console.log("🚀 Executing job:", jobName);
-    const task = this.jobsConfig.find((t) => t.name === jobName);
-    if (task && jobs[task.job]) {
-      await jobs[task.job]();
-      log.info(`✅ Job executed: ${task.name}`);
+    const plugin = jobRegistry.get(jobName);
+    if (plugin && typeof plugin.run === 'function') {
+      await plugin.run(new Date().toISOString(), []);
+      log.info(`✅ Job executed: ${jobName}`);
     } else {
       log.warn(`⚠️ Job not found or not implemented: ${jobName}`);
     }

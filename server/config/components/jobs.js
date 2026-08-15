@@ -23,7 +23,7 @@ export const CRON_JOBS = [
         name: 'dailyPaymentValidation',
         time: '55 11 * * *', // todos los días a las 11:55
         log: 'Call one time a day payment validation',
-        flag: true, // activado
+        flag: false, // activado
         job: 'validatePayments',
     },
     {
@@ -33,11 +33,11 @@ export const CRON_JOBS = [
         flag: false,
         job: 'DeviceStatusUpdate',
     },
-    {
-        name: 'contractCutOffCheck',
-        time: '*/5 * * * *', // every 5 minutes
-        log: 'Checking and performing custom contract cutoffs',
-        flag: true,
-        job: 'performPollingCutOff',
-    },
+    // {
+    //     name: 'contractCutOffCheck',
+    //     time: '*/5 * * * *', // every 5 minutes
+    //     log: 'Checking and performing custom contract cutoffs',
+    //     flag: false,
+    //     job: 'performPollingCutOff',
+    // },
 ];
