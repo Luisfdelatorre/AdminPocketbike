@@ -1,12 +1,13 @@
 // microcronserver.js
-require("dotenv").config();
-const log = require("../utils/logger");
-const cron = require("./cron");
-const connectDB = require("../config/db");
+import dotenv from "dotenv";
+dotenv.config();
+import log from "../config/logger.js";
+import cron from "./cron.js";
+import connectDB from "../config/db.js";
 
 const initServer = async () => {
   try {
-    logger.info("🔄 Connecting to MongoDB...");
+    log.info("🔄 Connecting to MongoDB...");
     await connectDB();
 
     await cron.init();
