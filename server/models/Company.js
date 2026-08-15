@@ -65,6 +65,11 @@ const companySchema = new mongoose.Schema({
         startTime: { type: String, default: '00:05' }, // formats: "HH:mm"
         endTime: { type: String, default: '04:00' }
     },
+    schedules: [{
+        action: { type: String, required: true }, // e.g., 'cutOff', 'curfewStart', 'curfewEnd', 'generarReporte'
+        time: { type: String, required: true },   // "HH:mm"
+        enabled: { type: Boolean, default: true }
+    }],
     cutOffStrategy: {
         type: Number,
         enum: [1, 2, 3], // 1: Today, 2: Yesterday, 3: Disabled

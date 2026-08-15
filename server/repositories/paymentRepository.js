@@ -88,10 +88,10 @@ export class PaymentRepository {
         }
     }
 
-    async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
+    async createFreePayment(deviceIdName, contract, unpaidInvoice) {
         try {
             const paymentId = helper.generateReferenceFreeDay(unpaidInvoice.invoiceId);
-            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, companyId, PAYMENT_TYPE.FREE);
+            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, contract.companyId, PAYMENT_TYPE.FREE);
         } catch (error) {
             logger.error('Error creating free payment:', error);
             throw error;

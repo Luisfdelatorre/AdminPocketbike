@@ -73,8 +73,8 @@ InvoiceSchema.statics.buildId = function (name, date) {
     return this.generateInvoiceId(name, date);
 };
 
-InvoiceSchema.statics.findLastPaid = function (deviceIdName) {
-    return this.findOne({ deviceIdName, paid: true }).sort({ date: -1 });
+InvoiceSchema.statics.findLastPaid = function (deviceIdName, contractIdFilter = {}) {
+    return this.findOne({ deviceIdName, paid: true, ...contractIdFilter }).sort({ date: -1 });
 };
 InvoiceSchema.statics.findByDate = function (deviceIdName, date) {
     var invoiceId = this.buildId(deviceIdName, date);
@@ -85,12 +85,13 @@ InvoiceSchema.statics.findLastUnPaid = function (deviceIdName) {
     return this.findOne({ deviceIdName, paid: false }).sort({ date: 1 });
 };
 
-// Returns all unpaid non-FREE invoices (oldest first) — used to count available paid slots in a cycle
-InvoiceSchema.statics.findUnpaidCycleInvoices = function (deviceIdName) {
+// Returns all unpaid non-FREE invoices — used to count available paid slots in a cycle
+InvoiceSchema.statics.findUnpaidCycleInvoices = function (deviceIdName, contractIdFilter = {}) {
     return this.find({
         deviceIdName,
         paid: false,
-    }).sort({ date: -1 });
+        ...contractIdFilter
+    }).sort({ date: 1 });
 };
 
 InvoiceSchema.statics.getPaymentUpdatePayload = function (payment) {

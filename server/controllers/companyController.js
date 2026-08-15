@@ -388,17 +388,31 @@ const companyController = {
                 });
             }
 
+            // Map legacy variables to the new schedules array format
+            company.schedules = [];
+            if (company.automaticCutOff && company.cutOffTime) {
+                company.schedules.push({ action: 'performScheduledCutOff', time: company.cutOffTime, enabled: true });
+            }
+            if (company.curfew && company.curfew.enabled) {
+                if (company.curfew.startTime) {
+                    company.schedules.push({ action: 'performCurfewStart', time: company.curfew.startTime, enabled: true });
+                }
+                if (company.curfew.endTime) {
+                    company.schedules.push({ action: 'performCurfewEnd', time: company.curfew.endTime, enabled: true });
+                }
+            }
+
             // Save document so pre-save encryption hooks run
             await company.save();
 
             // Clear cached adapters in companyService
             companyService.clearCache(companyId);
 
-            // Re-schedule dynamic curfew and cut-off cron jobs for this company
+            // Re-schedule dynamic cron jobs for the entire system (selectively triggering updates)
             try {
-                cron.scheduleCompanyCurfew(company);
+                await cron.reloadAllJobs();
             } catch (cronErr) {
-                console.error('Error rescheduling company cron jobs:', cronErr);
+                console.error('Error reloading cron jobs:', cronErr);
             }
 
             res.json({

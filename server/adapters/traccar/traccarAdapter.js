@@ -101,8 +101,7 @@ class MyTraccar {
     // ─────────────────────────────────────────
     changeEngineStatus = async (deviceId, command) => {
         logger.info('ER', { deviceId, command });
-        const commandType = command === ENGINE_COMMANDS.STOP ? ENGINESTOP : ENGINERESUME;
-        return await this._sendCommand(deviceId, commandType);
+        return await this._sendCommand(deviceId, command);
     };
     sendCommands = async (deviceIds = [], command) => {
         const validGpsIds = (deviceIds || []).map(item => typeof item === 'object' ? (item.gpsId || item.id) : item).filter(Boolean);

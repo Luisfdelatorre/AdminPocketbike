@@ -110,32 +110,17 @@ const initializeGpsUpdates = async () => {
  * @param {string} companyId - The ID of the company.
  * @returns {Promise<Object>} Object containing { success: boolean, message?: string, error?: string, cutOff?: boolean }
  */
-const controlEngine = async (id, command, companyId) => {
+const controlEngine = async (gpsId, command, companyId) => {
     try {
-        // 1. Validate device existence and GPS mapping
-        const device = await deviceRepository.getDeviceById(id * 1);
-        if (!device) {
-            return { success: false, error: 'Device not found in local database.' };
-        }
-
-        const gpsId = device.gpsId;
-        if (!gpsId) {
-            return { success: false, error: 'Device does not have a valid GPS ID assigned.' };
-        }
-
-        // 2. Fetch the correct GPS adapter strategy for this company based on the device's company
-        const targetCompanyId = device.companyId || companyId;
-        const gpsAdapter = await companyService.getGpsAdapter(targetCompanyId);
+        const gpsAdapter = await companyService.getGpsAdapter(companyId);
         if (!gpsAdapter) {
-            return { success: false, error: `No GPS adapter configured for company ID: ${targetCompanyId}` };
+            return { success: false, error: `No GPS adapter configured for company ID: ${companyId}` };
         }
 
         // 3. Send command and verify execution with the hardware
-        logger.info(`[EngineControl] Sending command ${command} to device ${id} (GPS ID: ${gpsId}, Company: ${companyId})`);
+        logger.info(`[EngineControl] Sending command ${command} to gpsId ${gpsId}, Company: ${companyId}`);
         const verifyResult = await gpsAdapter.executeAndVerify(gpsId, command);
         let isConfirmed = false;
-        let isOffline = false;
-        let lastUpdate = null;
 
         if (typeof verifyResult === 'object' && verifyResult !== null) {
             isConfirmed = Boolean(verifyResult.confirmed);
@@ -153,17 +138,17 @@ const controlEngine = async (id, command, companyId) => {
         }
 
         // 4. Update the local DB state to indicate the command is queued
-        await deviceRepository.updateDeviceQueuedStatus(device._id, true);
+        // await deviceRepository.updateDeviceQueuedStatus(device._id, true);
 
         return {
             success: true,
             queued: true,
             message: `Command to ${action} engine queued successfully. Awaiting confirmation from device.`,
-            cutOff: Boolean(device.cutOff) // Preserve current unchanged cutOff state until hardware confirms
+            // cutOff: Boolean(device.cutOff) // Preserve current unchanged cutOff state until hardware confirms
         };
 
     } catch (error) {
-        logger.error(`[EngineControl] Error controlling engine for device ${id}:`, error);
+        logger.error(`[EngineControl] Error controlling engine for device ${gpsId}:`, error);
         return {
             success: false,
             error: `Internal server error during engine control: ${error.message}`

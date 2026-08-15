@@ -186,4 +186,19 @@ contractSchema.statics.getBillingMultiplier = function (frequency, freeDayPolicy
     return policyMap[frequency] ?? frequency ?? 1;
 };
 
+// Instance method helper to call getBillingMultiplier without parameters
+contractSchema.methods.getBillingMultiplier = function () {
+    return this.constructor.getBillingMultiplier(this.paymentFrequency || 1, this.freeDayPolicy);
+};
+
+// Instance method to check if a given date (dayjs or Date) falls on the contract's fixed free day
+contractSchema.methods.isFixedFreeDay = function (date) {
+    if (this.freeDayPolicy !== 'FIXED_WEEKDAY') return false;
+    if (this.fixedFreeDayOfWeek === undefined || this.fixedFreeDayOfWeek === null) return false;
+    
+    // Support both dayjs objects (.day()) and standard Date objects (.getDay())
+    const dayOfWeek = typeof date.day === 'function' ? date.day() : date.getDay();
+    return dayOfWeek === this.fixedFreeDayOfWeek;
+};
+
 export const Contract = mongoose.model('Contract', contractSchema);

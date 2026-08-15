@@ -426,59 +426,53 @@ export class InvoiceRepository {
      * Creates missing invoices up to `contract.paymentFrequency` unpaid days ahead.
      * FREE days are created as paid invoices directly — no payment record needed at pre-generation time.
      */
-    async ensureCycleInvoicesExist(deviceIdName, contract, multiplier) {
-        const frequency = contract.paymentFrequency || 1;
-        const targetLimit = typeof multiplier === 'number'
-            ? multiplier
-            : Contract.getBillingMultiplier(frequency, contract.freeDayPolicy);
-
-        // v2+ contracts: filter by contractId for strict isolation per contract
-        // v1 legacy contracts: no contractId on invoices — query by device only
+    async ensureCycleInvoicesExist(deviceIdName, contract) {
+        const targetLimit = contract.getBillingMultiplier();
         const isV2 = (contract.schemaVersion ?? 1) >= 2;
         const contractIdFilter = (isV2 && contract.contractId) ? { contractId: contract.contractId } : {};
-
-        let unpaidInvoices = await Invoice.find({ deviceIdName, paid: false, ...contractIdFilter }).sort({ date: 1 });
+        let unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName, contractIdFilter);
         let coveredDays = unpaidInvoices.length;
-
-        const cycleInvoicesMap = new Map();
-        unpaidInvoices.forEach(inv => cycleInvoicesMap.set(inv._id.toString(), inv));
-
+        if (coveredDays >= targetLimit) {
+            logger.info(`[CYCLE] Already ${unpaidInvoices.length} unpaid invoices for ${deviceIdName}, skipping`);
+            return unpaidInvoices.slice(0, targetLimit);
+        }
         if (coveredDays < targetLimit) {
             // Start from the day after the latest paid invoice in THIS contract, or from contract.startDate
-            const latestPaid = await Invoice.findOne({ deviceIdName, paid: true, ...contractIdFilter }).sort({ date: -1 });
-            let currentDate = latestPaid
-                ? dayjs(latestPaid.date).add(1, 'day')
-                : dayjs(contract.startDate).startOf('day');
+            let currentDate;
+            if (unpaidInvoices.length > 0) {
+                // Since date is sorted ascending (oldest first), we use the last element for the latest date
+                const newestUnpaid = unpaidInvoices[unpaidInvoices.length - 1];
+                currentDate = dayjs(newestUnpaid.date).add(1, 'day');
+            } else {
+                const latestPaid = await Invoice.findLastPaid(deviceIdName, contractIdFilter);
+                currentDate = latestPaid
+                    ? dayjs(latestPaid.date).add(1, 'day')
+                    : dayjs().startOf('day');
+            }
 
             // Loop until exactly `targetLimit` calendar cycle unpaid days are pre-created
             while (coveredDays < targetLimit) {
                 const dateVal = currentDate.toDate();
                 const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
-
-                const isFixedFreeDay = contract.freeDayPolicy === 'FIXED_WEEKDAY' &&
-                    contract.fixedFreeDayOfWeek !== undefined &&
-                    currentDate.day() === contract.fixedFreeDayOfWeek;
-
+                const isFixedFreeDay = contract.isFixedFreeDay(currentDate);
                 if (isFixedFreeDay) {
                     // Create a $0 Payment record for fixed free day audit trail
                     const payment = await paymentRepository.createFreePayment(
                         deviceIdName,
                         contract,
-                        invoice,
-                        contract.companyId
+                        invoice
                     );
                     await invoice.applyPayment(payment);
                     logger.info(`[CYCLE] Pre-created FREE invoice + payment for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
                 } else {
                     coveredDays++;
-                    cycleInvoicesMap.set(invoice._id.toString(), invoice);
                     logger.info(`[CYCLE] Pre-created DEBT invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
                 }
                 currentDate = currentDate.add(1, 'day');
             }
         }
-        const resultInvoices = Array.from(cycleInvoicesMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-        return resultInvoices.slice(0, targetLimit);
+        unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName, contractIdFilter);
+        return unpaidInvoices.slice(0, targetLimit);
     }
 
     /**

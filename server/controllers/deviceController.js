@@ -7,13 +7,14 @@ import { Invoice } from '../models/Invoice.js';
 import deviceServices from '../services/deviceServices.js';
 import companyService from '../services/companyService.js';
 import { sseService } from '../utils/sseService.js';
+import { ENGINERESUME, ENGINESTOP, ENGINE_COMMANDS } from '../config/components/constants.js';
 
 import logger from '../utils/logger.js';
 
 const getAllDevices = async (req, res) => {
     try {
         const query = { isDeleted: { $ne: true } };
-        
+
         // Filter by company for non-superadmin users
         if (req.auth && !req.auth.isSuperAdmin && req.auth.companyId) {
             query.companyId = req.auth.companyId;
@@ -279,38 +280,20 @@ const controlEngine = async (req, res) => {
         const { id } = req.params;
         const { companyId } = req.auth;
         const rawCommand = req.body.command;
-        const command = Number(rawCommand);  // coerce: true→1, false→0, '0'→0, etc.
-        console.log('Control engine request:', id, 'raw:', rawCommand, '→', command);
 
-        if (command !== 0 && command !== 1) {
+        if (rawCommand !== ENGINERESUME && rawCommand !== ENGINESTOP) {
             return res.status(400).json({
                 success: false,
-                error: `Invalid command '${rawCommand}'. Use 0 (stop) or 1 (resume).`
+                error: `Invalid command '${rawCommand}'. Use '${ENGINESTOP}' or '${ENGINERESUME}'.`
             });
         }
-        const response = await deviceServices.controlEngine(id, command, companyId);
+
+        console.log('Control engine request:', id, 'raw:', rawCommand);
+        const numericId = parseInt(id, 10);
+        const response = await deviceServices.controlEngine(numericId, rawCommand, companyId);
 
         if (response && response.success) {
-            if (!response.queued && !response.offline) {
-                sseService.broadcast('payment-updated', {
-                    type: 'engine',
-                    deviceId: id,
-                    command,
-                    timestamp: new Date().toISOString()
-                });
-            } else {
-                sseService.broadcast('payment-updated', {
-                    type: 'engine-queued',
-                    deviceId: id,
-                    command,
-                    queued: true,
-                    timestamp: new Date().toISOString()
-                });
-            }
-            return res.json({
-                success: true,
-                response
-            });
+            return res.json(response);
         } else {
             return res.status(500).json({
                 success: false,
