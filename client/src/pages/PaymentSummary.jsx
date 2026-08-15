@@ -14,6 +14,7 @@ import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
+import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 // Helper to format currency
 // Helper to format currency
@@ -192,7 +193,7 @@ const PaymentSummary = () => {
             if (response.success && Array.isArray(response.data)) {
                 const map = {};
                 response.data.forEach(item => map[item.device.gpsId] = item);
-                
+
                 // Anti-Race Condition: If the API response has older data than our local SSE cache, keep the local SSE device state!
                 setSummaryDataMap(prev => {
                     const next = { ...map };
@@ -233,12 +234,12 @@ const PaymentSummary = () => {
     };
 
 
-    const handleEngineToggle = async (dev) => {
-        const id = dev.deviceId;
-        const command = dev.cutOff ? 1 : 0;
-        setPendingCommands(prev => ({ ...prev, [id]: true }));
+    const handleEngineToggle = async (device) => {
+        const gpsId = device.gpsId;
+        const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
         try {
-            const result = await controlEngine(id, command);
+            const result = await controlEngine(gpsId, command);
             const data = result.data || result;
             const resObj = data.response || data;
 
@@ -246,7 +247,7 @@ const PaymentSummary = () => {
                 showToast(`Comando encolado en Traccar para ${dev.name}`, 'info');
                 setSummaryDataMap(prev => {
                     const next = { ...prev };
-                    const primaryKey = String(dev.gpsId);
+                    const primaryKey = String(gpsId);
                     if (next[primaryKey]) {
                         // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
                         if (next[primaryKey].device.cutOff === !!dev.cutOff) {
@@ -258,13 +259,9 @@ const PaymentSummary = () => {
                     }
                     return next;
                 });
-            } else {
-                showToast(resObj.error || data.error || 'Error controlando motor', 'error');
             }
         } catch (err) {
             showToast(err.message || 'Error', 'error');
-        } finally {
-            setPendingCommands(prev => ({ ...prev, [id]: false }));
         }
     };
 
@@ -516,85 +513,8 @@ const PaymentSummary = () => {
             </div>
 
             {renderViews}
-            {/*<div className="legend">
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#22c55e' }}></div>
-                    <span>Pagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#ef4444' }}></div>
-                    <span>Corte / Apagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f59e0b' }}></div>
-                    <span>Pase Provisional</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#fca5a5' }}></div>
-                    <span>Pendiente / Alerta</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f1f5f9' }}></div>
-                    <span>Sin registro</span>
-                </div>
-            </div>*/}
 
-            {bulkOffModal && (
-                <div
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-                    }}
-                    onClick={() => setBulkOffModal(false)}
-                >
-                    <div
-                        style={{
-                            background: '#fff', borderRadius: '16px', padding: '28px 24px',
-                            maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                            <div style={{
-                                background: '#FEF2F2', borderRadius: '10px', padding: '10px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <ZapOff size={22} style={{ color: '#EF4444' }} />
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111' }}>Apagar veh&iacute;culos morosos</div>
-                                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '2px' }}>
-                                    {morososCount} moto(s) con deuda ser&aacute;n apagadas
-                                </div>
-                            </div>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '20px', lineHeight: 1.5 }}>
-                            Se enviar&aacute; comando de <strong>corte de motor</strong> solo a los dispositivos con <strong style={{ color: '#EF4444' }}>deuda pendiente</strong>. &iquest;Confirmar?
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                onClick={() => setBulkOffModal(false)}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB',
-                                    background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151'
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleBulkEngineOff}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
-                                    background: '#EF4444', color: '#fff', cursor: 'pointer',
-                                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                }}
-                            >
-                                <ZapOff size={15} /> Apagar Todo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 };

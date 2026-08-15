@@ -433,3 +433,307 @@
         display: none !important;
     }
 }
+
+
+/* ──────────────────────────────────────────
+   Global StatCard / devices-stats-ios styles
+   (shared by DeviceSelector, Companies, etc.)
+   ────────────────────────────────────────── */
+.devices-stats-ios {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0 0.75rem;
+}
+
+.stat-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.25rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.stat-content-ios {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+h3.uppercase-title-ios {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #6b7280;
+    margin: 0 0 0.25rem 0;
+    text-align: center;
+    width: 100%;
+    line-height: 1.3;
+}
+
+.stat-value-container-ios {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    width: 100%;
+}
+
+.stat-value-ios {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1a1c1c;
+    letter-spacing: -0.5px;
+    text-align: center;
+    line-height: 1;
+}
+
+/* ──────────────────────────────────────────
+   Global Search Box
+   ────────────────────────────────────────── */
+.search-box {
+    position: relative;
+    max-width: 600px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9CA3AF;
+    pointer-events: none;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.25rem 1rem 0.25rem 2.5rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    font-size: 0.938rem;
+    color: #1F2937 !important;
+    background: white !important;
+    transition: all 0.2s;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
+}
+
+.search-box input::placeholder {
+    color: #9CA3AF;
+}
+
+.clear-search {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6B7280;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.clear-search:hover {
+    color: #EF4444;
+}
+
+/* ──────────────────────────────────────────
+   Global Collapsible Filter Section
+   ────────────────────────────────────────── */
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 0;
+}
+
+.collapsible-content.expanded {
+    max-height: 160px;
+    opacity: 1;
+}
+
+/* ──────────────────────────────────────────
+   Global No-Scrollbar utility
+   ────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ──────────────────────────────────────────
+   Global iOS Search & Filter Bar Styles
+   (used by SearchAndFilterBar component)
+   ────────────────────────────────────────── */
+.devices-filter-row-ios {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0 0.75rem;
+}
+
+.filter-pills-ios {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.filter-pill-ios {
+    padding: 0.35rem 0.875rem;
+    border-radius: 9999px;
+    border: 1px solid #e8e8e8;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: #f3f3f4;
+    color: #414755;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-family: inherit;
+}
+
+.filter-pill-ios:hover {
+    background-color: #e8e8e8;
+}
+
+.filter-pill-ios.active {
+    background-color: #0070eb;
+    color: #ffffff;
+    border: 1.5px solid #005bc5;
+    box-shadow: 0 1px 4px rgba(0, 112, 235, 0.35);
+    font-weight: 600;
+}
+
+.search-ios {
+    position: relative;
+    width: 100%;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.search-ios-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #414755;
+    pointer-events: none;
+}
+
+.search-ios-input {
+    width: 100%;
+    background-color: #f3f3f4;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 2.5rem 0.5rem 2.25rem;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1c1c;
+    outline: none;
+    font-family: inherit;
+    transition: background-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.search-ios-input:focus {
+    background-color: #e8e8e8;
+}
+
+.search-ios-input::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.search-ios-clear {
+    position: absolute;
+    right: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #414755;
+    display: flex;
+    align-items: center;
+    padding: 0.2rem;
+    border-radius: 50%;
+}
+
+.search-ios-clear:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ──────────────────────────────────────────
+   Global Admin Page Layout Container
+   Single general wrapper class used on all pages
+   ────────────────────────────────────────── */
+.admin-page-container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+@media (max-width: 768px) {
+    .admin-page-container {
+        padding: 0.25rem 0.25rem 6rem 0.25rem !important;
+        max-width: 100%;
+    }
+}
+
+/* ──────────────────────────────────────────
+   Global Cards List & Grid System
+   Shared responsive card layout (grid on desktop, stacked flex on mobile)
+   Used by Contracts, Companies, Devices, Payments, etc.
+   ────────────────────────────────────────── */
+.contracts-list,
+.admin-cards-grid,
+.admin-cards-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    justify-content: start;
+    align-items: start;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .contracts-list,
+    .admin-cards-grid,
+    .admin-cards-list {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+        width: 100%;
+    }
+}
+
+
+
+

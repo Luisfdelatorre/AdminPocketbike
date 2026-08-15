@@ -1,34 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, Key, RefreshCw, Check, X, Search, Users, CheckCircle, Circle, Share2, MoreVertical, Battery, BatteryLow, BatteryMedium, BatteryFull, Power, PowerOff, ZapOff, ListFilter } from 'lucide-react';
+import { Edit, RefreshCw, Share2, BatteryLow, BatteryMedium, BatteryFull, Power, ZapOff } from 'lucide-react';
 import { showToast } from '../utils/toast';
-import { formatOfflineTime, formatOfflineTimeShort } from '../utils/helpers';
-import { getAllDevices, updateDevice, createDeviceAccess, getStatusReport, controlEngine, cutoffDebtors, getDashboardStats } from '../services/api';
+import { formatOfflineTimeShort } from '../utils/helpers';
+import { getAllDevices, updateDevice, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSSE } from '../context/SSEContext';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
-
+import StatCard from '../components/StatCard';
+import PageHeader from '../components/PageHeader';
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
 
-const MobileHeaderAction = ({ children }) => {
-    const [container, setContainer] = useState(null);
+import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
-    useEffect(() => {
-        setContainer(document.getElementById('mobile-header-actions'));
-    }, []);
-
-    return container ? createPortal(children, container) : null;
-};
 
 const DeviceManagement = () => {
     const { subscribe } = useSSE();
-    const navigate = useNavigate();
     const { t } = useTranslation();
     const { user } = useAuth();
     const [devices, setDevices] = useState({});
@@ -37,17 +27,10 @@ const DeviceManagement = () => {
     const [editingDevice, setEditingDevice] = useState(null);
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareUrl, setShareUrl] = useState('');
-    const [selectedDeviceId, setSelectedDeviceId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState('all'); // all, active, available
-    const [viewMode, setViewMode] = useState('technical'); // technical, financial
     const [pendingCommands, setPendingCommands] = useState({});
-    const [bulkOffLoading, setBulkOffLoading] = useState(false);
-    const [bulkOffModal, setBulkOffModal] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
-
-    useFilterVisibilityOnScroll(setShowFilters);
-
 
     const [formData, setFormData] = useState({
         _id: '',
@@ -56,7 +39,25 @@ const DeviceManagement = () => {
         simCardNumber: '',
         DailyPayment: false
     });
-
+    const loadDevices = async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
+        try {
+            let result = await getAllDevices();
+            if (result.success) {
+                const deviceArray = result.devices || [];
+                const deviceMap = {};
+                deviceArray.forEach(d => {
+                    if (d.gpsId) deviceMap[String(d.gpsId)] = d;
+                });
+                setDevices(deviceMap);
+            }
+        } catch (err) {
+            console.error('Error fetching devices:', err);
+            if (!isSilent) showToast('Failed to load devices', 'error');
+        } finally {
+            if (!isSilent) setLoading(false);
+        }
+    };
     useEffect(() => {
         loadDevices();
     }, []);
@@ -128,42 +129,6 @@ const DeviceManagement = () => {
         }
     };
 
-    const loadDevices = async (isSilent = false) => {
-        if (!isSilent) setLoading(true);
-        try {
-            let result = await getAllDevices();
-            if (result.success) {
-                const deviceArray = result.devices || [];
-                const deviceMap = {};
-                deviceArray.forEach(d => {
-                    if (d.gpsId) deviceMap[String(d.gpsId)] = d;
-                });
-                setDevices(deviceMap);
-            }
-        } catch (err) {
-            console.error('Error fetching devices:', err);
-            if (!isSilent) showToast('Failed to load devices', 'error');
-        } finally {
-            if (!isSilent) setLoading(false);
-        }
-    };
-
-    // ... rest of handlers ... hiding for brevity ...
-    // ... kept existing handlers ...
-
-
-
-    const handleAddDevice = () => {
-        setEditingDevice(null);
-        setFormData({
-            _id: '',
-            deviceName: '',
-            nequiNumber: '',
-            simCardNumber: '',
-            DailyPayment: false
-        });
-        setShowModal(true);
-    };
 
     const handleEditDevice = (device) => {
         setEditingDevice(device);
@@ -179,10 +144,8 @@ const DeviceManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         try {
             const result = await updateDevice(formData._id, formData);
-
             if (result.success) {
                 setShowModal(false);
                 loadDevices();
@@ -197,79 +160,29 @@ const DeviceManagement = () => {
     };
 
 
-
-
-    const handleToggleActive = async (device) => {
-        try {
-            const result = await updateDevice(device._id, { isActive: !device.isActive });
-
-            if (result.success) {
-                loadDevices();
-            }
-        } catch (err) {
-            console.error('Error toggling device status:', err);
-        }
-    };
-
     const handleEngineToggle = async (device) => {
-        const id = device.id;
-        // cutOff=1 → device stopped → toggle to resume (command=1)
-        // cutOff=0 → device active  → toggle to stop  (command=0)
-        const command = device.cutOff ? 1 : 0;
-        setPendingCommands(prev => ({ ...prev, [id]: true }));
-
+        const gpsId = device.gpsId;
+        const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
+        console.log(command);
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
         try {
-            const result = await controlEngine(id, command);
-            const data = result.data || result;
-            const resObj = data.response || data;
-
-            if (data.success || resObj.success) {
-                const isQueued = Boolean(resObj.queued || resObj.offline || data.queued || data.offline);
-                setDevices(prev => {
-                    const next = { ...prev };
-                    const keyToUpdate = Object.keys(next).find(k => (next[k]._id && next[k]._id === device._id) || (next[k].id && next[k].id === device.id));
-                    if (keyToUpdate) {
-                        // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
-                        if (next[keyToUpdate].cutOff === !!device.cutOff) {
-                            next[keyToUpdate] = { ...next[keyToUpdate], queued: isQueued };
-                        }
+            const data = await controlEngine(gpsId, command);
+            console.log(data);
+            if (data.success) {
+                setDevices((prevDevices) => {
+                    const next = { ...prevDevices };
+                    const targetId = String(gpsId);
+                    if (targetId && next[targetId]) {
+                        next[targetId] = {
+                            ...next[targetId],
+                            ...data
+                        };
                     }
                     return next;
                 });
-
-                if (isQueued) {
-                    const offlineStr = formatOfflineTime(resObj.lastUpdate || device.lastUpdate) || 'offline';
-                    showToast(`Comando encolado en Traccar. El vehículo ${device.name} está inactivo (${offlineStr}). Se aplicará apenas recupere señal.`, 'info');
-                } else {
-                    showToast(resObj.message || data.message || 'Comando enviado exitosamente', 'success');
-                }
-            } else {
-                showToast(resObj.error || data.error || 'Failed to control engine', 'error');
             }
         } catch (err) {
             console.error('Engine control error:', err);
-            showToast(err.message || 'Error controlling engine', 'error');
-        } finally {
-            setPendingCommands(prev => ({ ...prev, [id]: false }));
-        }
-    };
-
-    const handleBulkEngineOff = async () => {
-        setBulkOffModal(false);
-        setBulkOffLoading(true);
-        try {
-            const result = await cutoffDebtors();
-            if (result.success) {
-                showToast(result.message, 'success');
-            } else {
-                showToast(result.error || 'Failed to control engines', 'error');
-            }
-        } catch (err) {
-            console.error('Bulk cutoff error:', err);
-            showToast(err.message || 'Error executing bulk engine off', 'error');
-        } finally {
-            setBulkOffLoading(false);
-            loadDevices();
         }
     };
 
@@ -290,7 +203,8 @@ const DeviceManagement = () => {
         // Status filter
         if (filter === 'active' && !device.hasActiveContract) return false;
         if (filter === 'available' && (device.hasActiveContract || !device.isActive)) return false;
-
+        if (filter === 'off' && !device.cutOff) return false;
+        if (filter === 'on' && device.cutOff) return false;
         return true;
     });
 
@@ -306,62 +220,34 @@ const DeviceManagement = () => {
     }
 
     return (
-        <div className="devices-page ios-devices-page">
+        <div className="admin-page-container ios-devices-page">
             {/* Desktop Header */}
-            <div className="page-header">
-                <div className="desktop-only">
-                    <h1>{t('devices.title')}</h1>
-                </div>
-                <button className="btn-secondary desktop-only" onClick={loadDevices} disabled={loading} style={{ marginRight: '1rem' }}>
-                    <RefreshCw className={loading ? 'spin' : ''} /> {t('payments.refresh')}
-                </button>
-                <MobileHeaderAction>
-                    <button
-                        type="button"
-                        className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        title="Filtros"
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                    <button onClick={loadDevices} className="btn-mobile-header-action">
-                        <RefreshCw size={20} className={loading ? 'spin' : ''} />
-                    </button>
-                </MobileHeaderAction>
-            </div>
+            <PageHeader
+                title={t('devices.title')}
+                onRefresh={loadDevices}
+                loading={loading}
+                refreshText={t('payments.refresh')}
+                onFilterToggle={() => setShowFilters(!showFilters)}
+                showFilters={showFilters}
+            />
 
             {/* Expandable Metrics Section */}
             <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
                 <div className="devices-stats-ios">
-                    <div className="stat-card-ios">
-                        <div className="stat-content-ios">
-                            <h3 className="uppercase-title-ios">{t('devices.totalDevices')}</h3>
-                            <div className="stat-value-container-ios">
-                                <span className="stat-value-ios">{devicesList.length}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="stat-card-ios">
-                        <div className="stat-content-ios">
-                            <h3 className="uppercase-title-ios">{t('devices.activeContracts')}</h3>
-                            <div className="stat-value-container-ios">
-                                <span className="stat-value-ios" style={{ color: '#34C759' }}>
-                                    {devicesList.filter(d => d.hasActiveContract).length}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="stat-card-ios">
-                        <div className="stat-content-ios">
-                            <h3 className="uppercase-title-ios">{t('devices.available')}</h3>
-                            <div className="stat-value-container-ios">
-                                <span className="stat-value-ios" style={{ color: '#FF9500' }}>
-                                    {devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <StatCard
+                        title={t('devices.totalDevices')}
+                        value={devicesList.length}
+                    />
+                    <StatCard
+                        title={t('devices.activeContracts')}
+                        value={devicesList.filter(d => d.hasActiveContract).length}
+                        valueColor={COLORS.SUCCESS}
+                    />
+                    <StatCard
+                        title={t('devices.available')}
+                        value={devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length}
+                        valueColor={COLORS.WARNING}
+                    />
                 </div>
                 <SearchAndFilterBar
                     searchQuery={searchQuery}
@@ -372,9 +258,8 @@ const DeviceManagement = () => {
                     filterOptions={[
                         { value: 'all', label: t('devices.filterAll') },
                         { value: 'active', label: t('devices.filterActive') },
-                        { value: 'available', label: t('devices.filterAvailable') }
+                        { value: 'off', label: t('devices.filterOff') }
                     ]}
-                    filterRowClass="devices-filter-row-ios"
                 />
             </div>
 
@@ -497,38 +382,6 @@ const DeviceManagement = () => {
                     <p>{t('devices.emptyState')}</p>
                 </div>
             )}
-            {/* Bulk Engine Off Confirmation Modal */}
-            {bulkOffModal && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
-                    onClick={() => setBulkOffModal(false)}
-                >
-                    <div className="bulk-off-modal-ios" onClick={e => e.stopPropagation()}>
-                        <div className="bulk-off-modal-header">
-                            <div className="bulk-off-icon-wrap">
-                                <ZapOff size={22} style={{ color: '#FF3B30' }} />
-                            </div>
-                            <div>
-                                <div className="bulk-off-title">Apagar vehículos con deuda</div>
-                                <div className="bulk-off-subtitle">
-                                    {devices.filter(d => d.id && (d.monthDebt || 0) > 0).length} moto(s) con deuda serán apagadas
-                                </div>
-                            </div>
-                        </div>
-                        <p className="bulk-off-body">
-                            Se enviará comando de <strong>corte de motor</strong> solo a dispositivos con{' '}
-                            <strong style={{ color: '#FF3B30' }}>deuda pendiente</strong>. ¿Confirmar?
-                        </p>
-                        <div className="bulk-off-actions">
-                            <button className="bulk-off-btn-cancel" onClick={() => setBulkOffModal(false)}>Cancelar</button>
-                            <button className="bulk-off-btn-confirm" onClick={handleBulkEngineOff}>
-                                <ZapOff size={15} /> Apagar Todo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
 
             <DeviceFormModal
                 isOpen={showModal}

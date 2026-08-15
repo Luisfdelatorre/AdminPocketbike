@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useOutletContext } from 'react-router-dom';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
-import { Building, Plus, Search, X, Pencil, Link } from 'lucide-react';
-import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
+import { Building, Plus, Search, X, Pencil, Link, Settings, ListFilter } from 'lucide-react';
+import CompanyDevicesModal from '../components/modals/CompanyDevicesModal';
 import PageHeader from '../components/PageHeader';
-import './Users.css'; // Reusing Users CSS for consistency
+import SystemJobs from '../components/SystemJobs';
+import StatCard from '../components/StatCard';
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import './Users.css';
 
 const Companies = () => {
+    const { companiesTab, setCompaniesTab } = useOutletContext() || {};
+    const [localActiveTab, setLocalActiveTab] = useState('companies');
+    const activeTab = companiesTab || localActiveTab;
+    const setActiveTab = setCompaniesTab || setLocalActiveTab;
+
     const [companies, setCompanies] = useState([]);
     const [allDevices, setAllDevices] = useState([]); // Store all devices
     const [loading, setLoading] = useState(true);
@@ -15,6 +26,17 @@ const Companies = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editCompanyId, setEditCompanyId] = useState(null);
+    const [fabPortalElement, setFabPortalElement] = useState(null);
+    const [portalElement, setPortalElement] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [invoicingFilter, setInvoicingFilter] = useState('all');
+
+    useFilterVisibilityOnScroll(setShowFilters);
+
+    useEffect(() => {
+        setFabPortalElement(document.body);
+        setPortalElement(document.getElementById('mobile-header-actions'));
+    }, []);
     const [companyForm, setCompanyForm] = useState({
         name: '',
         nit: '',
@@ -94,7 +116,7 @@ const Companies = () => {
                     ivaPercentage: parseFloat(companyForm.ivaPercentage)
                 }
             };
-            
+
             let res;
             if (isEditing) {
                 res = await updateCompany(editCompanyId, payload);
@@ -136,108 +158,243 @@ const Companies = () => {
         }
     };
 
-    const filteredCompanies = companies.filter(company =>
-        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (company.nit && company.nit.includes(searchTerm))
-    );
+    const filteredCompanies = companies.filter(company => {
+        const matchSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (company.nit && company.nit.includes(searchTerm));
+        const matchFilter = invoicingFilter === 'all' ? true : company.automaticInvoicing;
+        return matchSearch && matchFilter;
+    });
 
     return (
-        <div className="users-page">
-            <PageHeader 
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Building className="inline-icon" /> Companies Management
-                    </span>
-                }
-                desktopActions={
-                    <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
-                        <Plus size={16} /> Add Company
-                    </button>
-                }
-            />
+        <div className="admin-page-container">
+            {/* Render filter toggle button in Mobile Top Bar via Portal */}
+            {portalElement && activeTab === 'companies' && createPortal(
+                <button
+                    type="button"
+                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                    onClick={() => setShowFilters(!showFilters)}
+                    id="companyFilterToggle"
+                >
+                    <ListFilter size={20} />
+                </button>,
+                portalElement
+            )}
 
-            {/* Search */}
-            <div className="users-search">
-                <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Search companies..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {/* Desktop Header (Desktop only - same as Contracts) */}
+            <div className="page-header !hidden md:!flex">
+                <div>
+                    <h1>🏢 {activeTab === 'companies' ? 'Gestión de Empresas' : 'Rutinas Globales'}</h1>
+                    <p>{activeTab === 'companies' ? 'Directorio y administración de empresas registradas' : 'Programación y configuración de tareas del sistema'}</p>
                 </div>
-            </div>
-
-            {/* Companies Table */}
-            <div className="users-list">
-                {loading ? (
-                    <div className="loading-state">Loading...</div>
-                ) : (
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>NIT</th>
-                                <th>Phone</th>
-                                <th>Email</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredCompanies.map(company => (
-                                <tr key={company._id}>
-                                    <td>
-                                        <div className="user-name">
-                                            {company.name}
-                                            {company.automaticInvoicing && (
-                                                <span className="badge badge-success" style={{
-                                                    fontSize: '0.7rem',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    background: '#e6fffa',
-                                                    color: '#00C292',
-                                                    marginLeft: '8px',
-                                                    border: '1px solid #00C292'
-                                                }}>
-                                                    Auto-Invoice
-                                                </span>
-                                            )}
-                                        </div>
-                                        <small>{company.address}</small>
-                                    </td>
-                                    <td>{company.nit || '-'}</td>
-                                    <td>{company.phone || '-'}</td>
-                                    <td>{company.email || '-'}</td>
-                                    <td>
-                                        <div className="flex gap-2">
-                                            <button
-                                                className="btn-icon"
-                                                onClick={() => handleManageDevices(company)}
-                                                title="Manage Devices"
-                                            >
-                                                <Link size={16} />
-                                            </button>
-                                            <button
-                                                className="btn-icon"
-                                                onClick={() => handleEditCompany(company)}
-                                                title="Edit Company"
-                                            >
-                                                <Pencil size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {filteredCompanies.length === 0 && (
-                                <tr>
-                                    <td colSpan="5" className="text-center">No companies found</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                {activeTab === 'companies' && (
+                    <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
+                        <Plus size={20} />
+                        <span className="btn-text">Añadir Empresa</span>
+                    </button>
                 )}
             </div>
+
+            {/* Sub Tabs (Desktop only) */}
+            <div className="tabs-container !hidden md:!flex gap-4 px-4 border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
+                <button
+                    className={`tab-btn py-3 px-2 flex items-center gap-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'companies' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveTab('companies')}
+                >
+                    <Building size={18} /> Directorio de Empresas
+                </button>
+                <button
+                    className={`tab-btn py-3 px-2 flex items-center gap-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'systemJobs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setActiveTab('systemJobs')}
+                >
+                    <Settings size={18} /> Rutinas Globales
+                </button>
+            </div>
+
+            {activeTab === 'systemJobs' ? (
+                <SystemJobs />
+            ) : (
+                <>
+                    {/* Expandable Metrics + Search (same global design pattern as DeviceSelector) */}
+                    <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+                        <div className="devices-stats-ios">
+                            <StatCard
+                                title="Total"
+                                value={companies.length}
+                            />
+                            <StatCard
+                                title="Auto-Invoice"
+                                value={companies.filter(c => c.automaticInvoicing).length}
+                                valueColor="#00C292"
+                            />
+                            <StatCard
+                                title="Resultados"
+                                value={filteredCompanies.length}
+                            />
+                        </div>
+                        <SearchAndFilterBar
+                            searchQuery={searchTerm}
+                            setSearchQuery={setSearchTerm}
+                            searchPlaceholder="Buscar empresas por NIT, nombre..."
+                            filter={invoicingFilter}
+                            setFilter={setInvoicingFilter}
+                            filterOptions={[
+                                { value: 'all', label: 'Todas' },
+                                { value: 'auto', label: 'Auto-Invoice' }
+                            ]}
+                        />
+                    </div>
+                    <div className="users-list hidden md:block">
+                        {loading ? (
+                            <div className="loading-state">Loading...</div>
+                        ) : (
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>NIT</th>
+                                        <th>Phone</th>
+                                        <th>Email</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredCompanies.map(company => (
+                                        <tr key={company._id}>
+                                            <td>
+                                                <div className="user-name">
+                                                    {company.name}
+                                                    {company.automaticInvoicing && (
+                                                        <span className="badge badge-success" style={{
+                                                            fontSize: '0.7rem',
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            background: '#e6fffa',
+                                                            color: '#00C292',
+                                                            marginLeft: '8px',
+                                                            border: '1px solid #00C292'
+                                                        }}>
+                                                            Auto-Invoice
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <small>{company.address}</small>
+                                            </td>
+                                            <td>{company.nit || '-'}</td>
+                                            <td>{company.phone || '-'}</td>
+                                            <td>{company.email || '-'}</td>
+                                            <td>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        className="btn-icon"
+                                                        onClick={() => handleManageDevices(company)}
+                                                        title="Manage Devices"
+                                                    >
+                                                        <Link size={16} />
+                                                    </button>
+                                                    <button
+                                                        className="btn-icon"
+                                                        onClick={() => handleEditCompany(company)}
+                                                        title="Edit Company"
+                                                    >
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filteredCompanies.length === 0 && (
+                                        <tr>
+                                            <td colSpan="5" className="text-center">No companies found</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    {/* Companies Cards (Mobile) */}
+                    <div className="md:hidden contracts-list pb-28">
+                        {loading ? (
+                            <div className="loading-state">Loading...</div>
+                        ) : (
+                            <div className="w-full flex flex-col gap-3 items-center">
+                                {filteredCompanies.map(company => (
+                                    <div
+                                        key={company._id}
+                                        className="admin-card shadow-sm max-w-[380px] w-full flex flex-col cursor-pointer hover:shadow-md transition-shadow relative"
+                                        onClick={() => handleEditCompany(company)}
+                                    >
+                                        <header className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-x-2">
+                                                <h1 className="text-[15px] font-bold text-main-dark">{company.name}</h1>
+                                                {company.automaticInvoicing && (
+                                                    <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase" style={{
+                                                        background: '#e6fffa',
+                                                        color: '#00C292',
+                                                        border: '1px solid #00C292'
+                                                    }}>
+                                                        Auto-Invoice
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    className="p-1.5 text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-50 transition-colors"
+                                                    onClick={() => handleManageDevices(company)}
+                                                    title="Dispositivos"
+                                                >
+                                                    <Link size={16} color="#3b82f6" />
+                                                </button>
+                                                <button
+                                                    className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                                    onClick={() => handleEditCompany(company)}
+                                                    title="Editar Empresa"
+                                                >
+                                                    <Pencil size={16} color="#64748b" />
+                                                </button>
+                                            </div>
+                                        </header>
+
+                                        <main className="space-y-2">
+                                            <div className="grid grid-cols-2 gap-2 border-b border-gray-100 pb-2">
+                                                <div>
+                                                    <span className="text-[10px] text-gray-400 font-medium uppercase">NIT</span>
+                                                    <p className="text-[13px] font-semibold text-main-dark">{company.nit || '-'}</p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] text-gray-400 font-medium uppercase">Teléfono</span>
+                                                    <p className="text-[13px] font-medium text-gray-700">{company.phone || '-'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-[12px] text-gray-600 flex items-center gap-1 pt-1">
+                                                <span>✉️ {company.email || '-'}</span>
+                                            </div>
+                                            {company.address && (
+                                                <div className="text-[11px] text-gray-400">
+                                                    📍 {company.address}
+                                                </div>
+                                            )}
+                                        </main>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Floating Action Button (FAB) for Mobile - Companies */}
+                    {fabPortalElement && activeTab === 'companies' && !showCompanyModal && createPortal(
+                        <button
+                            type="button"
+                            className="contracts-add-fab primary-blue"
+                            onClick={() => setShowCompanyModal(true)}
+                            aria-label="Añadir Empresa"
+                        >
+                            <Plus size={32} />
+                        </button>,
+                        fabPortalElement
+                    )}
+                </>
+            )}
 
             {/* Add Company Modal */}
             {showCompanyModal && (

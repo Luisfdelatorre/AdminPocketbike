@@ -326,7 +326,7 @@ const Contracts = () => {
     );
 
     return (
-        <div className="contracts-page">
+        <div className="admin-page-container">
             {/* Render filter toggle button in Mobile Top Bar via Portal */}
             {portalElement && createPortal(
                 <button
@@ -342,7 +342,7 @@ const Contracts = () => {
             )}
 
             {/* Desktop Header (Desktop only) */}
-            <div className="page-header hidden md:flex">
+            <div className="page-header !hidden md:!flex">
                 <div>
                     <h1>📋 {t('contracts.title')}</h1>
                     <p>{t('contracts.subtitle')}</p>

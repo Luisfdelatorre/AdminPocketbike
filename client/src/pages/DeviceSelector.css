@@ -3,12 +3,14 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 1rem); /* Desktop height */
+    height: calc(100vh - 1rem);
+    /* Desktop height */
 }
 
 @media (max-width: 768px) {
     .devices-page {
-        height: calc(100dvh - 135px); /* Mobile height accounting for headers/navs */
+        height: calc(100dvh - 135px);
+        /* Mobile height accounting for headers/navs */
     }
 }
 
@@ -741,19 +743,7 @@
     font-weight: 600;
 }
 
-/* Activos pill — color verde más acentuado */
-.filter-pill-ios[data-filter='active'].active {
-    background-color: #1b9e3e;
-    border-color: #148030;
-    box-shadow: 0 1px 4px rgba(27, 158, 62, 0.35);
-}
 
-/* Libres pill — color naranja más acentuado */
-.filter-pill-ios[data-filter='available'].active {
-    background-color: #c96f00;
-    border-color: #a55900;
-    box-shadow: 0 1px 4px rgba(255, 149, 0, 0.35);
-}
 
 /* Search iOS */
 .search-ios {
@@ -873,9 +863,11 @@
 .devices-table-rows-ios::-webkit-scrollbar {
     width: 6px;
 }
+
 .devices-table-rows-ios::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .devices-table-rows-ios::-webkit-scrollbar-thumb {
     background-color: rgba(198, 198, 200, 0.5);
     border-radius: 10px;
