@@ -2,16 +2,18 @@ import nodeCron from "node-cron";
 import { CRON_JOBS, TIMEZONE } from "../config/config.js";
 import log from "../config/logger.js";
 import jobs from "../services/cronJobsServices.js";
-
+import companyRepository from "../repositories/companyRepository.js";
 
 class Cron {
   constructor() {
     this.jobsConfig = CRON_JOBS;
     this.scheduledTasks = [];
+    this.scheduledMap = new Map();
+    this.scheduledDynamicJobs = new Map();  //
   }
   async init() {
     for (const task of this.jobsConfig) {
-      // Skip the static global contractCutOffCheck — it is handled normally, no need to skip
+      // Static jobs schedule
 
       if (task.flag && jobs[task.job]) {
         const scheduled = this.scheduleTask(task, jobs[task.job]);
@@ -24,15 +26,7 @@ class Cron {
 
     // Initialize dynamic Curfew + CutOff jobs per company
     try {
-      const { Company } = await import('../models/Company.js');
-
-      const companiesWithCurfew = await Company.find({ 'curfew.enabled': true }).lean();
-      for (const company of companiesWithCurfew) {
-        this.scheduleCompanyCurfew(company);
-      }
-      log.info(`✅ Initialized curfews for ${companiesWithCurfew.length} companies`);
-
-      // Cutoff jobs are now handled via a 5-minute polling job (contractCutOffCheck)
+      await this.DynamycJobsSchedule();
     } catch (err) {
       log.error(`❌ Failed to initialize dynamic cron jobs:`, err);
     }
@@ -40,8 +34,62 @@ class Cron {
     log.info(`✅ ${this.scheduledTasks.length} total cron jobs initialized`);
   }
 
-  // ---- SCHEDULED JOB HELPERS ----
+  async DynamycJobsSchedule() {
+    const companies = await companyRepository.getCompaniesForDynamicCron();
+    const newScheduledMap = new Map();
+    for (const c of companies) {
+      const id = c._id.toString();
+      if (c.automaticCutOff && c.cutOffTime) {
+        this._addToScheduledMap(newScheduledMap, c.cutOffTime, 'cutOff', id);
+      }
+      if (c.curfew?.enabled) {
+        if (c.curfew.startTime) this._addToScheduledMap(newScheduledMap, c.curfew.startTime, 'curfewStart', id);
+        if (c.curfew.endTime) this._addToScheduledMap(newScheduledMap, c.curfew.endTime, 'curfewEnd', id);
+      }
+    }
 
+    const oldTimes = new Set(this.scheduledMap.keys());
+    const newTimes = new Set(newScheduledMap.keys());
+
+    // Atomic replacement to prevent race conditions
+    this.scheduledMap = newScheduledMap;
+
+    // Remove obsolete jobs
+    for (const time of oldTimes) {
+      if (!newTimes.has(time)) {
+        this.scheduledDynamicJobs.get(time)?.stop();
+        this.scheduledDynamicJobs.delete(time);
+        log.info(`🛑 Job removido: ${time}`);
+      }
+    }
+
+    // Create new jobs
+    for (const time of newTimes) {
+      if (!this.scheduledDynamicJobs.has(time)) {
+        this._createScheduledJob(time);
+      }
+    }
+  }
+
+  _addToScheduledMap(map, time, kind, companyId) {
+    if (!map.has(time)) {
+      map.set(time, { cutOff: new Set(), curfewStart: new Set(), curfewEnd: new Set() });
+    }
+    map.get(time)[kind].add(companyId);
+  }
+
+  _createScheduledJob(time) {
+    const [hh, mm] = time.split(':');
+    const cronExpr = `${mm} ${hh} * * *`;
+
+    const task = { name: `scheduled_${time}`, time: cronExpr };
+    const instance = this.scheduleTask(task, () =>
+      jobs.performScheduledTasks(time, () => this.scheduledMap.get(time))
+    );
+
+    this.scheduledDynamicJobs.set(time, instance);
+    log.info(`⏰ Job creado: ${time}`);
+  }
 
   async execute(jobName) {
     console.log("🚀 Executing job:", jobName);
@@ -85,49 +133,6 @@ class Cron {
     }
     this.scheduledTasks = [];
     log.info("✅ All cron jobs stopped");
-  }
-
-  // Dynamically schedule or remove a company's curfew jobs
-  scheduleCompanyCurfew(company) {
-    const startJobName = `curfewStart_${company._id}`;
-    const endJobName = `curfewEnd_${company._id}`;
-
-    // 1. Remove existing jobs for this company if they exist
-    this.scheduledTasks = this.scheduledTasks.filter(job => {
-      if (job.name === startJobName || job.name === endJobName) {
-        job.instance.stop();
-        log.info(`🛑 Stopped existing curfew job: ${job.name}`);
-        return false;
-      }
-      return true;
-    });
-
-    // 2. Schedule new jobs if curfew is enabled
-    if (company.curfew?.enabled) {
-      const { startTime, endTime } = company.curfew;
-
-      // Parse HH:mm to cron syntax "mm HH * * *"
-      const [startHH, startMM] = startTime.split(':');
-      const startCronOpts = `${startMM} ${startHH} * * *`;
-
-      const [endHH, endMM] = endTime.split(':');
-      const endCronOpts = `${endMM} ${endHH} * * *`;
-
-      const startTask = { name: startJobName, time: startCronOpts };
-      const endTask = { name: endJobName, time: endCronOpts };
-
-      if (jobs.performCurfewStart && jobs.performCurfewEnd) {
-        const startJobInstance = this.scheduleTask(startTask, () => jobs.performCurfewStart(company._id));
-        this.scheduledTasks.push({ name: startJobName, instance: startJobInstance });
-        log.info(`⏰ Scheduled dynamic job: ${startJobName} (${startCronOpts})`);
-
-        const endJobInstance = this.scheduleTask(endTask, () => jobs.performCurfewEnd(company._id));
-        this.scheduledTasks.push({ name: endJobName, instance: endJobInstance });
-        log.info(`⏰ Scheduled dynamic job: ${endJobName} (${endCronOpts})`);
-      } else {
-        log.error(`❌ Curfew functions missing in jobs service`);
-      }
-    }
   }
 }
 
