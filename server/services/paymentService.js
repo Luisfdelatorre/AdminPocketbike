@@ -85,6 +85,7 @@ export class PaymentService {
             isOverdue,
             cuotasPagadas: paidInvoicesCount,
             cuotasTotal: contract.contractDays || 500,
+            paymentMethod: company?.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH',
             pendingPayment: pendingPayment ? pendingPayment.getPendingFormat() : null
         };
     }
@@ -361,23 +362,29 @@ export class PaymentService {
         return { success: false, message: 'No unpaid invoice found to mark as cutoff' };
     }
     async initiateWompiPaymentTransaction(deviceIdName, phone, companyId) {
-        this.validatePaymentInput(deviceIdName, phone);
+        const paymentMethod = await companyService.getCompanyPaymentMethod(companyId);
+
+        if (paymentMethod === 'NEQUI_PUSH') {
+            this.validatePaymentInput(deviceIdName, phone);
+        } else {
+            if (!deviceIdName) throw new Error('Missing required fields');
+        }
+
         await this.checkDuplicatePayment(deviceIdName);
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
         const multiplier = Contract.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
-        // Pre-generar facturas del ciclo (idempotente) en lugar de crear una sola factura al vuelo
+        // Pre-generar facturas del ciclo (idempotente)
         await invoiceRepository.ensureCycleInvoicesExist(deviceIdName, contract, multiplier);
         const unpaidInvoice = await invoiceRepository.findOrCreateUnpaidInvoice(deviceIdName, contract);
         const wompiAdapter = await companyService.getWompiAdapter(companyId);
-        const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, contract);
+        const paymentData = await wompiAdapter.createTransactionRequest(phone, unpaidInvoice, contract, paymentMethod);
 
-        console.log('paymentData', paymentData);
         const payment = await paymentRepository.upsertPayment(paymentData);
         if (unpaidInvoice) {
             await unpaidInvoice.reserve(payment);
             logger.info(`[PAYMENT] Invoice ${unpaidInvoice.getId()} reserved for plate: ${deviceIdName}`);
         }
-        return { paymentData };
+        return { paymentData, paymentMethod };
     }
     async monitorTransactionStatus(reference, { onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT }) {
         try {
@@ -413,64 +420,84 @@ export class PaymentService {
         }
     };
     async pollPaymentStatus(reference, onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT) {
+        const QR_INTERVAL_MS     = 2000; // Fase QR: polling rápido hasta obtener qr_image
+        const STATUS_INTERVAL_MS = 5000; // Fase estado: polling normal (igual que Nequi)
+
         // If a polling process exists for this reference, join it
         if (activePolls.has(reference)) {
             logger.info(`[PAYMENT] Joining existing poll for reference: ${reference}`);
             const active = activePolls.get(reference);
-            // Add the new listener to receive updates
             active.listeners.push(onUpdate);
             return active.promise;
         }
 
-        let intervalId;
-        const listeners = [onUpdate]; // Array to store all active listeners for this reference
+        const listeners = [onUpdate];
 
         const promise = new Promise(async (resolve, reject) => {
             const startTime = Date.now();
 
-            // We need the companyId to get the correct Wompi config for polling
-            // We can get it from the payment record
-            const payment = await paymentRepository.getPaymentByReference(reference);
+            const payment      = await paymentRepository.getPaymentByReference(reference);
             const wompiAdapter = await companyService.getWompiAdapter(payment?.companyId);
+            const isQrMethod   = payment?.paymentMethod === 'BANCOLOMBIA_QR';
 
-            intervalId = setInterval(async () => {
+            // Intervalo inicial: 2s para QR (esperando imagen), 5s para Nequi (sin cambios)
+            let currentInterval = isQrMethod ? QR_INTERVAL_MS : STATUS_INTERVAL_MS;
+            let qrSent = false;
+
+            const tick = async () => {
                 try {
-                    // Verifica timeout
+                    // Verificar timeout
                     if (Date.now() - startTime > timeout) {
-                        clearInterval(intervalId);
                         activePolls.delete(reference);
-                        listeners.forEach(listener => notifyStateChange(listener, PS.S_TIMEOUT, PM.M_TIMEOUT, reference));
+                        listeners.forEach(l => notifyStateChange(l, PS.S_TIMEOUT, PM.M_TIMEOUT, reference));
                         resolve({ status: PS.S_TIMEOUT, reference });
                         return;
                     }
 
                     // Consulta Wompi
                     const paymentData = await wompiAdapter.getTransactionStatus(reference);
-                    console.log('Payment data:', paymentData);
 
-                    // Si está en estado final
+                    // ── QR: detectar imagen y emitirla UNA SOLA VEZ ──────────────────────────
+                    if (isQrMethod && !qrSent && paymentData.qrImage) {
+                        qrSent = true;
+                        listeners.forEach(l =>
+                            notifyStateChange(l, PS.S_QR_READY, PM.M_QR_READY, {
+                                reference,
+                                qrImage: paymentData.qrImage,
+                                qrId:    paymentData.qrId
+                            })
+                        );
+                        logger.info(`[PAYMENT-QR] QR emitido al cliente para ref: ${reference} → intervalo ${STATUS_INTERVAL_MS}ms`);
+                        currentInterval = STATUS_INTERVAL_MS; // ← cambiar a 5s después del QR
+                    }
+                    // ─────────────────────────────────────────────────────────────────────────
+
+                    // Estado final → resolver
                     if ([PS.S_APPROVED, PS.S_DECLINED, PS.S_VOIDED, PS.S_ERROR].includes(paymentData.status)) {
-                        clearInterval(intervalId);
                         activePolls.delete(reference);
                         resolve(paymentData);
                         return;
                     }
 
-                    // Aún en espera - Notificar a todos los listeners
-                    const message = (Date.now() / 5000 | 0) % 2 === 0 ? PM.M_PENDING_ALT_1 : PM.M_PENDING_ALT_2;
-                    listeners.forEach(listener => notifyStateChange(listener, PS.S_PENDING, message, reference));
+                    // Pendiente → notificar y programar próximo tick con el intervalo actual
+                    const message = qrSent
+                        ? PM.M_PENDING_ALT_QR
+                        : (Date.now() / STATUS_INTERVAL_MS | 0) % 2 === 0 ? PM.M_PENDING_ALT_1 : PM.M_PENDING_ALT_2;
+                    listeners.forEach(l => notifyStateChange(l, PS.S_PENDING, message, reference));
+
+                    setTimeout(tick, currentInterval); // siguiente tick con intervalo dinámico
 
                 } catch (error) {
-                    clearInterval(intervalId);
                     activePolls.delete(reference);
                     logger.error('[PAYMENT] Polling error:', error);
                     reject(error);
                 }
-            }, 5000);
+            };
+
+            setTimeout(tick, currentInterval); // primer tick
         });
 
-        // Store the active polling process
-        activePolls.set(reference, { promise, listeners, intervalId });
+        activePolls.set(reference, { promise, listeners });
         return promise;
     };
 
