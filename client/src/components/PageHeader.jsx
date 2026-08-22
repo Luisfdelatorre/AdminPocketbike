@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import MobileHeaderAction from './MobileHeaderAction';
-import { RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw, Filter } from 'lucide-react';
 
 /**
  * PageHeader Component
@@ -66,7 +66,7 @@ const PageHeader = ({
                             onClick={onFilterToggle}
                             title="Filtros"
                         >
-                            <SlidersHorizontal size={20} />
+                            <Filter size={20} />
                         </button>
                     )}
                     {onRefresh && (
