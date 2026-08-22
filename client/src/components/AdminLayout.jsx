@@ -3,8 +3,9 @@ import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useSSE } from '../context/SSEContext';
-import { Home, Users, FileText, CreditCard, DollarSign, Image as ImageIcon, Settings as SettingsIcon, Database, RefreshCw, ArrowLeft, Menu } from 'lucide-react';
+import { Home, Users, FileText, CreditCard, DollarSign, Image as ImageIcon, Settings as SettingsIcon, Database, RefreshCw, ArrowLeft, Menu, Building } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
+import MobileHeader from './MobileHeader';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
@@ -14,6 +15,7 @@ const AdminLayout = () => {
     const contentRef = useRef(null);
     const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
     const [settingsTab, setSettingsTab] = useState('branding');
+    const [companiesTab, setCompaniesTab] = useState('companies');
 
     useEffect(() => {
         const handleResize = () => {
@@ -83,42 +85,15 @@ const AdminLayout = () => {
 
     const isSettingsPage = location.pathname.startsWith('/settings');
 
-    const getPageTitle = () => {
-        const path = location.pathname;
-        if (path === '/') return t('sidebar.dashboard');
-        if (path.startsWith('/devices')) return t('sidebar.devices');
-        if (path.startsWith('/contracts')) return t('sidebar.contracts');
-        if (path.startsWith('/payments')) return t('sidebar.payments');
-        if (path.startsWith('/invoices')) return t('sidebar.invoices');
-        if (path.startsWith('/settings')) return t('sidebar.settings');
-        if (path.startsWith('/reports')) return t('sidebar.reports');
-        if (path.startsWith('/summary')) return t('sidebar.summary');
-        return 'PocketBike';
-    };
-
     // Only admins can access this layout
     return (
         <div className="admin-layout">
-            <header className="mobile-header">
-                {isSettingsPage ? (
-                    <button className="toggle-btn" onClick={() => navigate(-1)} aria-label="Volver">
-                        <ArrowLeft size={24} />
-                    </button>
-                ) : (
-                    <button className="toggle-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Abrir menú">
-                        <Menu size={24} />
-                    </button>
-                )}
-                <div className="logo-container">
-                    <h2>{getPageTitle()}</h2>
-                </div>
-                <div id="mobile-header-actions" className="mobile-header-actions" />
-            </header>
+            <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
             <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
             <main ref={contentRef} className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                <Outlet context={{ settingsTab, setSettingsTab }} />
+                <Outlet context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
             </main>
 
             {/* Bottom Navigation Bar for Mobile viewports */}
@@ -151,6 +126,31 @@ const AdminLayout = () => {
                     >
                         <RefreshCw size={20} />
                         <span>Sistema</span>
+                    </button>
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="nav-btn"
+                        style={{ color: '#EF4444' }}
+                    >
+                        <ArrowLeft size={20} />
+                        <span>Volver</span>
+                    </button>
+                </nav>
+            ) : isCompaniesPage ? (
+                <nav className="mobile-bottom-nav" aria-label="Navegación de Empresas">
+                    <button
+                        onClick={() => setCompaniesTab('companies')}
+                        className={`nav-btn ${companiesTab === 'companies' ? 'active' : ''}`}
+                    >
+                        <Building size={20} />
+                        <span>Empresas</span>
+                    </button>
+                    <button
+                        onClick={() => setCompaniesTab('systemJobs')}
+                        className={`nav-btn ${companiesTab === 'systemJobs' ? 'active' : ''}`}
+                    >
+                        <SettingsIcon size={20} />
+                        <span>Rutinas</span>
                     </button>
                     <button
                         onClick={() => navigate(-1)}
