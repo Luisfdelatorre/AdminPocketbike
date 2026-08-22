@@ -82,7 +82,7 @@ export const Templates = {
                 </div>
             </div>
 
-            <div class="nequi-guide">
+            <div class="nequi-guide" id="nequiGuide">
                 <div class="screenshots-container">
                     <div class="screenshot-card">
                         <div class="screenshot-number">1</div>
@@ -93,6 +93,13 @@ export const Templates = {
                         <img src="/notification2.jpg" alt="Notificación 2" class="img-full">
                     </div>
                 </div>
+            </div>
+
+            <div class="qr-guide hidden" id="qrGuide" style="text-align: center; margin-top: 15px;">
+                <div style="background: white; padding: 15px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <img id="qrImageDisplay" src="" alt="Código QR Bancolombia" style="max-width: 250px; width: 100%; height: auto; display: block; margin: 0 auto;" />
+                </div>
+                <p style="margin-top: 10px; font-size: 14px; color: #4b5563; font-weight: 500;">Escanea este código desde la app de Bancolombia o Nequi</p>
             </div>
 
             <button class="finish-btn" id="finishBtn">Finalizar proceso</button>

@@ -42,7 +42,8 @@ const Settings = () => {
             publicKey: '',
             privateKey: '',
             integritySecret: '',
-            eventsSecret: ''
+            eventsSecret: '',
+            paymentMethod: 'NEQUI_PUSH'
         }
     });
 
@@ -932,6 +933,19 @@ const Settings = () => {
                                 placeholder="test_events_..."
                                 autoComplete="new-password"
                             />
+                        </div>
+
+                        <div className="setting-item">
+                            <label htmlFor="wPayMethod">Método de Pago</label>
+                            <select
+                                id="wPayMethod"
+                                value={settings.wompiConfig.paymentMethod ?? 'NEQUI_PUSH'}
+                                onChange={(e) => handleNestedChange('wompiConfig', 'paymentMethod', e.target.value)}
+                                className="setting-select"
+                            >
+                                <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
+                                <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
+                            </select>
                         </div>
                     </div>
                 )}

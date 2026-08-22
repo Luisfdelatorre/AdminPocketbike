@@ -101,7 +101,10 @@ class DOMManager {
             message: document.getElementById('loadingMessage'),
             amount: document.getElementById('loadingAmount'),
             statusLabel: document.getElementById('paymentStatusLabelLoading'),
-            progressBar: document.querySelector('#loadingScreen .progress-bar-animated')
+            progressBar: document.querySelector('#loadingScreen .progress-bar-animated'),
+            nequiGuide: document.getElementById('nequiGuide'),
+            qrGuide: document.getElementById('qrGuide'),
+            qrImageDisplay: document.getElementById('qrImageDisplay')
         };
 
         this.elements.pendingPayment = {
@@ -654,6 +657,19 @@ class PaymentManager {
             dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
             dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
 
+            // Adapt UI for BANCOLOMBIA_QR vs NEQUI_PUSH
+            const phoneGroup = dom.get('inputs.phone')?.closest('.phone-input-group');
+            const nequiBtnText = dom.get('buttons.nequiPay')?.querySelector('.nequi-text');
+            const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
+
+            if (isQrMode) {
+                if (phoneGroup) phoneGroup.style.display = 'none';
+                if (nequiBtnText) nequiBtnText.textContent = 'Generar código QR Bancolombia';
+            } else {
+                if (phoneGroup) phoneGroup.style.display = 'flex';
+                if (nequiBtnText) nequiBtnText.textContent = 'Pagar con tu cuenta Nequi';
+            }
+
             const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas') || document.getElementById('cuotasPagadas');
             const totalCuotasDisplay = dom.get('displays.totalCuotas') || document.getElementById('totalCuotas');
 
@@ -883,11 +899,13 @@ class PaymentManager {
     // --- Actions ---
 
     async processNequi() {
-        const phone = this.dom.get('inputs.phone').value.replace(/\D/g, '');
+        const isQrMode = STATE.paymentData?.paymentMethod === 'BANCOLOMBIA_QR';
+        const phoneInput = this.dom.get('inputs.phone')?.value || '';
+        const phone = phoneInput.replace(/\D/g, '');
         const amountStr = this.dom.get('displays.paymentAmount').textContent.replace(/\D/g, '');
         const amount = parseInt(amountStr, 10);
 
-        if (!phone || phone.length !== CONFIG.PHONE_LENGTH) {
+        if (!isQrMode && (!phone || phone.length !== CONFIG.PHONE_LENGTH)) {
             UIUtils.showError(messagesService.get('ERRORS.INVALID_PHONE'));
             return;
         }
@@ -901,7 +919,11 @@ class PaymentManager {
         this.screen.switchScreen(this.dom.elements.screens.loading);
 
         const statusLabel = this.dom.get('loading.statusLabel');
-        if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.REQUESTING_PAYMENT');
+        if (statusLabel) {
+            statusLabel.textContent = isQrMode 
+                ? 'Generando código QR...' 
+                : messagesService.get('STATUS.REQUESTING_PAYMENT');
+        }
 
         try {
             const response = await createNequiPayment({ phone });
@@ -1006,6 +1028,21 @@ class PaymentManager {
 
                 if (loadingLabel) loadingLabel.textContent = data.message;
                 if (pendingLabel) pendingLabel.textContent = data.message;
+            }
+
+            if (data.status === 'QR_READY' && data.qrImage) {
+                const qrGuide = document.getElementById('qrGuide');
+                const nequiGuide = document.getElementById('nequiGuide');
+                const qrImg = document.getElementById('qrImageDisplay');
+
+                if (nequiGuide) nequiGuide.classList.add('hidden');
+                if (qrGuide) qrGuide.classList.remove('hidden');
+
+                if (qrImg) {
+                    qrImg.src = data.qrImage.startsWith('data:')
+                        ? data.qrImage
+                        : `data:image/svg+xml;base64,${data.qrImage}`;
+                }
             }
 
             if (data.status === 'COMPLETED') {

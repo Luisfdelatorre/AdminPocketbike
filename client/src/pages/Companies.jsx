@@ -22,6 +22,7 @@ const Companies = () => {
         address: '',
         automaticInvoicing: false,
         wompiCommission: -0.01785,
+        paymentMethod: 'NEQUI_PUSH',
         transactionFixedFee: 0,
         transactionPercentage: 0,
         ivaPercentage: 0.19
@@ -68,6 +69,7 @@ const Companies = () => {
             address: company.address || '',
             automaticInvoicing: company.automaticInvoicing || false,
             wompiCommission: company.wompiConfig?.wompiCommission ?? -0.01785,
+            paymentMethod: company.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH',
             transactionFixedFee: company.billingConfig?.transactionFixedFee ?? 0,
             transactionPercentage: company.billingConfig?.transactionPercentage ?? 0,
             ivaPercentage: company.billingConfig?.ivaPercentage ?? 0.19
@@ -84,6 +86,7 @@ const Companies = () => {
                 ...companyForm,
                 wompiConfig: {
                     ...selectedCompany?.wompiConfig,
+                    paymentMethod: companyForm.paymentMethod || 'NEQUI_PUSH',
                     wompiCommission: parseFloat(companyForm.wompiCommission)
                 },
                 billingConfig: {
@@ -296,6 +299,17 @@ const Companies = () => {
                                     value={companyForm.wompiCommission}
                                     onChange={e => setCompanyForm({ ...companyForm, wompiCommission: e.target.value })}
                                 />
+                            </div>
+                            <div className="form-group">
+                                <label>Método de Pago Wompi</label>
+                                <select
+                                    value={companyForm.paymentMethod || 'NEQUI_PUSH'}
+                                    onChange={e => setCompanyForm({ ...companyForm, paymentMethod: e.target.value })}
+                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                >
+                                    <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
+                                    <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
+                                </select>
                             </div>
                             <div className="form-group">
                                 <label>Facturación: Cargo Fijo por Tx (Ej: 1500)</label>
