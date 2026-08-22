@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
 import { Building, Plus, Search, X, Pencil, Link } from 'lucide-react';
 import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
-import PageHeader from '../components/PageHeader';
 import './Users.css'; // Reusing Users CSS for consistency
+import './Companies.css';
 
 const Companies = () => {
     const [companies, setCompanies] = useState([]);
@@ -146,18 +146,17 @@ const Companies = () => {
 
     return (
         <div className="users-page">
-            <PageHeader 
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Building className="inline-icon" /> Companies Management
-                    </span>
-                }
-                desktopActions={
+            <div className="page-header">
+                <div>
+                    <h1><Building className="inline-icon" /> Companies Management</h1>
+                    <p>Manage system companies</p>
+                </div>
+                <div className="header-actions">
                     <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
                         <Plus size={16} /> Add Company
                     </button>
-                }
-            />
+                </div>
+            </div>
 
             {/* Search */}
             <div className="users-search">
@@ -172,75 +171,79 @@ const Companies = () => {
                 </div>
             </div>
 
-            {/* Companies Table */}
-            <div className="users-list">
-                {loading ? (
-                    <div className="loading-state">Loading...</div>
-                ) : (
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>NIT</th>
-                                <th>Phone</th>
-                                <th>Email</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredCompanies.map(company => (
-                                <tr key={company._id}>
-                                    <td>
-                                        <div className="user-name">
+            {/* Companies Cards Grid */}
+            {loading ? (
+                <div className="loading-state">Loading...</div>
+            ) : filteredCompanies.length === 0 ? (
+                <div className="empty-state text-center py-8 text-gray-500">No companies found</div>
+            ) : (
+                <div className="companies-grid">
+                    {filteredCompanies.map(company => {
+                        const isQr = company.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR';
+                        return (
+                            <div key={company._id} className="company-card">
+                                <div className="company-card-header">
+                                    <div className="company-avatar">
+                                        <Building size={22} />
+                                    </div>
+                                    <div className="company-title-area">
+                                        <h3 className="company-name">
                                             {company.name}
                                             {company.automaticInvoicing && (
-                                                <span className="badge badge-success" style={{
-                                                    fontSize: '0.7rem',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    background: '#e6fffa',
-                                                    color: '#00C292',
-                                                    marginLeft: '8px',
-                                                    border: '1px solid #00C292'
-                                                }}>
-                                                    Auto-Invoice
-                                                </span>
+                                                <span className="auto-invoice-badge">Auto-Invoice</span>
                                             )}
+                                        </h3>
+                                        {company.address && <p className="company-address">{company.address}</p>}
+                                    </div>
+                                    <div className="company-card-actions">
+                                        <button
+                                            className="btn-icon"
+                                            onClick={() => handleManageDevices(company)}
+                                            title="Manage Devices"
+                                        >
+                                            <Link size={16} />
+                                        </button>
+                                        <button
+                                            className="btn-icon"
+                                            onClick={() => handleEditCompany(company)}
+                                            title="Edit Company"
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="company-card-body">
+                                    <div className="company-info-row">
+                                        <span className="company-info-label">Método Wompi:</span>
+                                        <span className={`payment-method-badge ${isQr ? 'qr' : 'nequi'}`}>
+                                            {isQr ? '📱 BANCOLOMBIA QR' : '🔔 NEQUI PUSH'}
+                                        </span>
+                                    </div>
+                                    {company.nit && (
+                                        <div className="company-info-row">
+                                            <span className="company-info-label">NIT:</span>
+                                            <span className="company-info-value">{company.nit}</span>
                                         </div>
-                                        <small>{company.address}</small>
-                                    </td>
-                                    <td>{company.nit || '-'}</td>
-                                    <td>{company.phone || '-'}</td>
-                                    <td>{company.email || '-'}</td>
-                                    <td>
-                                        <div className="flex gap-2">
-                                            <button
-                                                className="btn-icon"
-                                                onClick={() => handleManageDevices(company)}
-                                                title="Manage Devices"
-                                            >
-                                                <Link size={16} />
-                                            </button>
-                                            <button
-                                                className="btn-icon"
-                                                onClick={() => handleEditCompany(company)}
-                                                title="Edit Company"
-                                            >
-                                                <Pencil size={16} />
-                                            </button>
+                                    )}
+                                    {company.phone && (
+                                        <div className="company-info-row">
+                                            <span className="company-info-label">Teléfono:</span>
+                                            <span className="company-info-value">{company.phone}</span>
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {filteredCompanies.length === 0 && (
-                                <tr>
-                                    <td colSpan="5" className="text-center">No companies found</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+                                    )}
+                                    {company.email && (
+                                        <div className="company-info-row">
+                                            <span className="company-info-label">Email:</span>
+                                            <span className="company-info-value">{company.email}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Add Company Modal */}
             {showCompanyModal && (
