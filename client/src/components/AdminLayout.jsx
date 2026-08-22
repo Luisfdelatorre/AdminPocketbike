@@ -84,6 +84,7 @@ const AdminLayout = () => {
     };
 
     const isSettingsPage = location.pathname.startsWith('/settings');
+    const isCompaniesPage = location.pathname.startsWith('/companies');
 
     // Only admins can access this layout
     return (
