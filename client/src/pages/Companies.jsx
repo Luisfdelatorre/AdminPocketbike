@@ -245,121 +245,200 @@ const Companies = () => {
                 </div>
             )}
 
-            {/* Add Company Modal */}
+            {/* Add/Edit Company iOS Modal Sheet */}
             {showCompanyModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h2>{isEditing ? 'Edit Company' : 'Add New Company'}</h2>
-                            <button className="modal-close" onClick={resetForm}><X /></button>
+                <div className="ios-modal-overlay">
+                    <div className="ios-modal-card">
+                        <div className="ios-modal-header">
+                            <h2 className="ios-modal-title">{isEditing ? 'Edit Company' : 'Add New Company'}</h2>
+                            <button className="modal-close" onClick={resetForm}><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Company Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={companyForm.name}
-                                    onChange={e => setCompanyForm({ ...companyForm, name: e.target.value })}
-                                />
+
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <div className="ios-modal-body">
+                                {/* General Information Section */}
+                                <section>
+                                    <h3 className="ios-section-title">General Information</h3>
+                                    <div className="ios-grouped-container">
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="compName">Company Name</label>
+                                            <input
+                                                id="compName"
+                                                className="ios-input"
+                                                type="text"
+                                                required
+                                                placeholder="Enter company name"
+                                                value={companyForm.name}
+                                                onChange={e => setCompanyForm({ ...companyForm, name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="compNit">
+                                                NIT <span className="ios-label-optional">(Optional)</span>
+                                            </label>
+                                            <input
+                                                id="compNit"
+                                                className="ios-input"
+                                                type="text"
+                                                placeholder="Enter NIT"
+                                                value={companyForm.nit}
+                                                onChange={e => setCompanyForm({ ...companyForm, nit: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Contact Details Section */}
+                                <section>
+                                    <h3 className="ios-section-title">Contact Details</h3>
+                                    <div className="ios-grouped-container">
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="compPhone">
+                                                Phone <span className="ios-label-optional">(Optional)</span>
+                                            </label>
+                                            <input
+                                                id="compPhone"
+                                                className="ios-input"
+                                                type="text"
+                                                placeholder="Enter phone number"
+                                                value={companyForm.phone}
+                                                onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="compEmail">
+                                                Email <span className="ios-label-optional">(Optional)</span>
+                                            </label>
+                                            <input
+                                                id="compEmail"
+                                                className="ios-input"
+                                                type="email"
+                                                placeholder="Enter email address"
+                                                value={companyForm.email}
+                                                onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="compAddress">
+                                                Address <span className="ios-label-optional">(Optional)</span>
+                                            </label>
+                                            <input
+                                                id="compAddress"
+                                                className="ios-input"
+                                                type="text"
+                                                placeholder="Enter physical address"
+                                                value={companyForm.address}
+                                                onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Financial & Billing Section */}
+                                <section>
+                                    <h3 className="ios-section-title">Financial & Billing</h3>
+                                    <div className="ios-grouped-container">
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="wompiCommission">
+                                                Wompi Commission % <span className="ios-label-optional">(e.g. -0.01785)</span>
+                                            </label>
+                                            <input
+                                                id="wompiCommission"
+                                                className="ios-input"
+                                                type="number"
+                                                step="0.00001"
+                                                required
+                                                placeholder="-0.01785"
+                                                value={companyForm.wompiCommission}
+                                                onChange={e => setCompanyForm({ ...companyForm, wompiCommission: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="payMethod">Método de Pago Wompi</label>
+                                            <div className="ios-select-wrapper">
+                                                <select
+                                                    id="payMethod"
+                                                    className="ios-select"
+                                                    value={companyForm.paymentMethod || 'NEQUI_PUSH'}
+                                                    onChange={e => setCompanyForm({ ...companyForm, paymentMethod: e.target.value })}
+                                                >
+                                                    <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
+                                                    <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="cargoFijo">
+                                                Facturación: Cargo Fijo por Tx <span className="ios-label-optional">(Ej: 1500)</span>
+                                            </label>
+                                            <input
+                                                id="cargoFijo"
+                                                className="ios-input"
+                                                type="number"
+                                                step="1"
+                                                required
+                                                placeholder="0"
+                                                value={companyForm.transactionFixedFee}
+                                                onChange={e => setCompanyForm({ ...companyForm, transactionFixedFee: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="txPct">
+                                                Facturación: Porcentaje por Tx <span className="ios-label-optional">(Ej: 0.015 para 1.5%)</span>
+                                            </label>
+                                            <input
+                                                id="txPct"
+                                                className="ios-input"
+                                                type="number"
+                                                step="0.0001"
+                                                required
+                                                placeholder="0.00"
+                                                value={companyForm.transactionPercentage}
+                                                onChange={e => setCompanyForm({ ...companyForm, transactionPercentage: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="ios-input-row">
+                                            <label className="ios-label" htmlFor="ivaPct">
+                                                Facturación: IVA <span className="ios-label-optional">(Ej: 0.19 para 19%)</span>
+                                            </label>
+                                            <input
+                                                id="ivaPct"
+                                                className="ios-input"
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                placeholder="0.19"
+                                                value={companyForm.ivaPercentage}
+                                                onChange={e => setCompanyForm({ ...companyForm, ivaPercentage: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Automation Section */}
+                                <section>
+                                    <h3 className="ios-section-title">Automation</h3>
+                                    <div className="ios-grouped-container">
+                                        <label className="ios-toggle-row">
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                                                Enable Automatic Daily Invoicing
+                                            </span>
+                                            <input
+                                                type="checkbox"
+                                                checked={companyForm.automaticInvoicing}
+                                                onChange={e => setCompanyForm({ ...companyForm, automaticInvoicing: e.target.checked })}
+                                                style={{ width: '18px', height: '18px', accentColor: '#6366f1', cursor: 'pointer' }}
+                                            />
+                                        </label>
+                                    </div>
+                                </section>
                             </div>
-                            <div className="form-group">
-                                <label>NIT (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={companyForm.nit}
-                                    onChange={e => setCompanyForm({ ...companyForm, nit: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Phone (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={companyForm.phone}
-                                    onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Email (Optional)</label>
-                                <input
-                                    type="email"
-                                    value={companyForm.email}
-                                    onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Address (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={companyForm.address}
-                                    onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Wompi Commission % (e.g. -0.01785)</label>
-                                <input
-                                    type="number"
-                                    step="0.00001"
-                                    required
-                                    value={companyForm.wompiCommission}
-                                    onChange={e => setCompanyForm({ ...companyForm, wompiCommission: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Método de Pago Wompi</label>
-                                <select
-                                    value={companyForm.paymentMethod || 'NEQUI_PUSH'}
-                                    onChange={e => setCompanyForm({ ...companyForm, paymentMethod: e.target.value })}
-                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                                >
-                                    <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
-                                    <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label>Facturación: Cargo Fijo por Tx (Ej: 1500)</label>
-                                <input
-                                    type="number"
-                                    step="1"
-                                    required
-                                    value={companyForm.transactionFixedFee}
-                                    onChange={e => setCompanyForm({ ...companyForm, transactionFixedFee: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Facturación: Porcentaje por Tx (Ej: 0.015 para 1.5%)</label>
-                                <input
-                                    type="number"
-                                    step="0.0001"
-                                    required
-                                    value={companyForm.transactionPercentage}
-                                    onChange={e => setCompanyForm({ ...companyForm, transactionPercentage: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Facturación: IVA (Ej: 0.19 para 19%)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    required
-                                    value={companyForm.ivaPercentage}
-                                    onChange={e => setCompanyForm({ ...companyForm, ivaPercentage: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group checkbox-group">
-                                <label className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={companyForm.automaticInvoicing}
-                                        onChange={e => setCompanyForm({ ...companyForm, automaticInvoicing: e.target.checked })}
-                                        style={{ width: 'auto', margin: 0 }}
-                                    />
-                                    <span>Enable Automatic Daily Invoicing</span>
-                                </label>
-                            </div>
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
-                                <button type="submit" className="btn-primary">{isEditing ? 'Update Company' : 'Create Company'}</button>
+
+                            <div className="ios-modal-footer">
+                                <button type="button" className="ios-btn-cancel" onClick={resetForm}>Cancel</button>
+                                <button type="submit" className="ios-btn-submit">
+                                    {isEditing ? 'Update Company' : 'Create Company'}
+                                </button>
                             </div>
                         </form>
                     </div>
