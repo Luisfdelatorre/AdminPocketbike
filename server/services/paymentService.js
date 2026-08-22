@@ -694,7 +694,7 @@ export class PaymentService {
             const [invoices, payments, deviceDocs, activeContracts, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
-                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1 }).lean(),
+                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1 }).lean(),
                 Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean(),
                 Company.find(companyId ? { _id: companyId } : {}, { cutoffTime: 1, autoCutoffEnabled: 1 }).lean()
             ]);
@@ -715,12 +715,17 @@ export class PaymentService {
                 }
             });
 
-            // Build a lookup map: deviceName -> { driverName, deviceId, cutOff }
+            // Build a lookup map: deviceName -> { driverName, deviceId, gpsId, cutOff }
             const deviceInfoMap = {};
             deviceDocs.forEach(d => {
                 if (d.name) {
                     const driver = contractDriverMap[d.name] || getFirstName(d.driverName) || null;
-                    deviceInfoMap[d.name] = { driverName: driver, deviceId: d._id, cutOff: Boolean(d.cutOff) };
+                    deviceInfoMap[d.name] = {
+                        driverName: driver,
+                        deviceId: d._id,
+                        gpsId: d.gpsId || d._id || d.name,
+                        cutOff: Boolean(d.cutOff)
+                    };
                 }
             });
 
@@ -745,6 +750,7 @@ export class PaymentService {
                         device: {
                             name: devName,
                             deviceId: info.deviceId || invoice.deviceId || devName,
+                            gpsId: info.gpsId || info.deviceId || invoice.deviceId || devName,
                             driverName: info.driverName || contractDriverMap[devName] || null,
                             unpaidTotal: 0,
                             cutOff: Boolean(info.cutOff)

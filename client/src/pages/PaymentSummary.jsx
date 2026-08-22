@@ -14,16 +14,7 @@ import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
-
-// Helper to format currency
-// Helper to format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '-';
-    if (amount >= 1000) {
-        return `$${(amount / 1000).toFixed(0)}k`;
-    }
-    return `$${amount}`;
-};
+import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
 
@@ -40,11 +31,8 @@ const PaymentSummary = () => {
     const { subscribe } = useSSE();
     const [loading, setLoading] = useState(false);
     const { t } = useTranslation();
-    const [downloading, setDownloading] = useState(false);
     const [summaryDataMap, setSummaryDataMap] = useState({});
     const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
-    const [bulkOffLoading, setBulkOffLoading] = useState(false);
-    const [bulkOffModal, setBulkOffModal] = useState(false);
     const [pendingCommands, setPendingCommands] = useState({});
     const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
@@ -59,12 +47,7 @@ const PaymentSummary = () => {
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
 
-    useEffect(() => {
-        const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
-        const handleBreakpointChange = (event) => setIsMobile(event.matches);
-        mobileMediaQuery.addEventListener('change', handleBreakpointChange);
-        return () => mobileMediaQuery.removeEventListener('change', handleBreakpointChange);
-    }, []);
+
 
     const handleDesktopViewChange = (view) => {
         setDesktopView(view);
@@ -191,8 +174,13 @@ const PaymentSummary = () => {
 
             if (response.success && Array.isArray(response.data)) {
                 const map = {};
-                response.data.forEach(item => map[item.device.gpsId] = item);
-                
+                response.data.forEach(item => {
+                    const devKey = String(item.device?.gpsId || item.device?.deviceId || item.device?.name || '');
+                    if (devKey && devKey !== 'undefined') {
+                        map[devKey] = item;
+                    }
+                });
+
                 // Anti-Race Condition: If the API response has older data than our local SSE cache, keep the local SSE device state!
                 setSummaryDataMap(prev => {
                     const next = { ...map };
@@ -233,23 +221,23 @@ const PaymentSummary = () => {
     };
 
 
-    const handleEngineToggle = async (dev) => {
-        const id = dev.deviceId;
-        const command = dev.cutOff ? 1 : 0;
-        setPendingCommands(prev => ({ ...prev, [id]: true }));
+    const handleEngineToggle = async (device) => {
+        const gpsId = device.gpsId;
+        const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
         try {
-            const result = await controlEngine(id, command);
+            const result = await controlEngine(gpsId, command);
             const data = result.data || result;
             const resObj = data.response || data;
 
             if (data.success || resObj.success) {
-                showToast(`Comando encolado en Traccar para ${dev.name}`, 'info');
+                showToast(`Comando encolado en Traccar para ${device.name}`, 'info');
                 setSummaryDataMap(prev => {
                     const next = { ...prev };
-                    const primaryKey = String(dev.gpsId);
+                    const primaryKey = String(gpsId);
                     if (next[primaryKey]) {
                         // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
-                        if (next[primaryKey].device.cutOff === !!dev.cutOff) {
+                        if (next[primaryKey].device.cutOff === !!device.cutOff) {
                             next[primaryKey] = {
                                 ...next[primaryKey],
                                 device: { ...next[primaryKey].device, queued: true }
@@ -258,13 +246,15 @@ const PaymentSummary = () => {
                     }
                     return next;
                 });
-            } else {
-                showToast(resObj.error || data.error || 'Error controlando motor', 'error');
             }
         } catch (err) {
             showToast(err.message || 'Error', 'error');
         } finally {
-            setPendingCommands(prev => ({ ...prev, [id]: false }));
+            setPendingCommands(prev => {
+                const next = { ...prev };
+                delete next[gpsId];
+                return next;
+            });
         }
     };
 
@@ -306,8 +296,8 @@ const PaymentSummary = () => {
                     const next = { ...prev };
                     let matchFound = false;
                     updates.forEach(u => {
-                        const key = String(u.gpsId);
-                        if (next[key]) {
+                        const key = String(u.gpsId || u.deviceId || u.name || '');
+                        if (key && next[key]) {
                             matchFound = true;
                             next[key] = {
                                 ...next[key],
@@ -372,18 +362,20 @@ const PaymentSummary = () => {
         const dev = item.device;
         const devId = dev.deviceId;
         const isOff = !!dev.cutOff;
-        const isPending = !!pendingCommands[devId] || dev.queued;
+        const isPendingCommand = !!pendingCommands[devId];
+        const isQueued = !!dev.queued;
+        const isDisabled = isPendingCommand || isQueued;
 
         return (
             <button
                 onClick={() => handleEngineToggle(dev)}
-                disabled={isPending}
-                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
-                title={isOff ? 'Activar Moto' : 'Desactivar Moto'}
+                disabled={isDisabled}
+                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPendingCommand ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                title={isQueued ? 'Comando en cola (esperando señal GPS)' : (isOff ? 'Activar Moto' : 'Desactivar Moto')}
                 style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
-                    {isPending
+                    {isPendingCommand
                         ? <RefreshCw size={10} className="spin" />
                         : <Power size={10} />}
                 </div>
@@ -466,15 +458,13 @@ const PaymentSummary = () => {
                     </div>
                 }
             />
-            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`} >
-
-                {/* ── Controles: mes / año / acciones ────────────────────────────── */}
-                <div className="dashboard-controls-row">
-                    <div className="select-wrapper-month">
+            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
+                <div className="summary-date-card">
+                    <div className="summary-date-field has-border">
                         <select
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="select-control-ios"
+                            className="summary-select-ios"
                         >
                             {Array.from({ length: 12 }, (_, i) => (
                                 <option key={i + 1} value={i + 1}>
@@ -482,18 +472,24 @@ const PaymentSummary = () => {
                                 </option>
                             ))}
                         </select>
+                        <div className="summary-select-arrow">
+                            <ChevronDown size={16} />
+                        </div>
                     </div>
 
-                    <div className="select-wrapper-year">
+                    <div className="summary-date-field">
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="select-control-ios"
+                            className="summary-select-ios"
                         >
                             <option value={2025}>2025</option>
                             <option value={2026}>2026</option>
                             <option value={2027}>2027</option>
                         </select>
+                        <div className="summary-select-arrow">
+                            <ChevronDown size={16} />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -516,85 +512,8 @@ const PaymentSummary = () => {
             </div>
 
             {renderViews}
-            {/*<div className="legend">
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#22c55e' }}></div>
-                    <span>Pagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#ef4444' }}></div>
-                    <span>Corte / Apagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f59e0b' }}></div>
-                    <span>Pase Provisional</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#fca5a5' }}></div>
-                    <span>Pendiente / Alerta</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f1f5f9' }}></div>
-                    <span>Sin registro</span>
-                </div>
-            </div>*/}
 
-            {bulkOffModal && (
-                <div
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-                    }}
-                    onClick={() => setBulkOffModal(false)}
-                >
-                    <div
-                        style={{
-                            background: '#fff', borderRadius: '16px', padding: '28px 24px',
-                            maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                            <div style={{
-                                background: '#FEF2F2', borderRadius: '10px', padding: '10px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <ZapOff size={22} style={{ color: '#EF4444' }} />
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111' }}>Apagar veh&iacute;culos morosos</div>
-                                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '2px' }}>
-                                    {morososCount} moto(s) con deuda ser&aacute;n apagadas
-                                </div>
-                            </div>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '20px', lineHeight: 1.5 }}>
-                            Se enviar&aacute; comando de <strong>corte de motor</strong> solo a los dispositivos con <strong style={{ color: '#EF4444' }}>deuda pendiente</strong>. &iquest;Confirmar?
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                onClick={() => setBulkOffModal(false)}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB',
-                                    background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151'
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleBulkEngineOff}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
-                                    background: '#EF4444', color: '#fff', cursor: 'pointer',
-                                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                }}
-                            >
-                                <ZapOff size={15} /> Apagar Todo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 };
