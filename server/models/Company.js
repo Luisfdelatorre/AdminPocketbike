@@ -89,7 +89,12 @@ const companySchema = new mongoose.Schema({
         privateKey: { type: String, trim: true },
         integritySecret: { type: String, trim: true },
         eventsSecret: { type: String, trim: true },
-        wompiCommission: { type: Number, default: -0.01785 }
+        wompiCommission: { type: Number, default: -0.01785 },
+        paymentMethod: {
+            type: String,
+            enum: ['NEQUI_PUSH', 'BANCOLOMBIA_QR'],
+            default: 'NEQUI_PUSH'
+        }
     },
     // Company Billing Settings (Invoices generated for the company)
     billingConfig: {

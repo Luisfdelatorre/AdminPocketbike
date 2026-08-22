@@ -106,9 +106,10 @@ const companyController = {
             company.email = email;
             if (typeof automaticInvoicing !== 'undefined') company.automaticInvoicing = automaticInvoicing;
             
-            if (wompiConfig?.wompiCommission !== undefined) {
+            if (wompiConfig) {
                 if (!company.wompiConfig) company.wompiConfig = {};
-                company.wompiConfig.wompiCommission = wompiConfig.wompiCommission;
+                if (wompiConfig.wompiCommission !== undefined) company.wompiConfig.wompiCommission = wompiConfig.wompiCommission;
+                if (wompiConfig.paymentMethod !== undefined) company.wompiConfig.paymentMethod = wompiConfig.paymentMethod;
             }
 
             if (billingConfig) {
@@ -353,7 +354,7 @@ const companyController = {
             // Update wompiConfig safely (handle masking)
             if (updates.wompiConfig) {
                 if (!company.wompiConfig) company.wompiConfig = {};
-                const wompiFields = ['publicKey', 'privateKey', 'integritySecret', 'eventsSecret', 'wompiCommission'];
+                const wompiFields = ['publicKey', 'privateKey', 'integritySecret', 'eventsSecret', 'wompiCommission', 'paymentMethod'];
                 wompiFields.forEach(field => {
                     const newVal = updates.wompiConfig[field];
                     if (newVal !== undefined) {

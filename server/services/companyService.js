@@ -26,6 +26,12 @@ class CompanyService {
         return await Company.findById(companyId).lean();
     }
 
+    async getCompanyPaymentMethod(companyId) {
+        const company = await Company.findById(companyId)
+            .select('wompiConfig.paymentMethod').lean();
+        return company?.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH';
+    }
+
     isCurfewActive(curfew, now = dayjs()) {
         if (!curfew?.enabled || !curfew.startTime || !curfew.endTime) {
             return false;
@@ -162,8 +168,16 @@ class CompanyService {
             return adapter;
         } catch (error) {
             logger.error(`[CompanyService] Error getting GPS adapter for company ${companyId}:`, error);
-            return new GpsService(null); // fallback to default
+            return new GpsService({ gpsService: 'traccar' });
         }
+    }
+
+    async getGpsAdapterByCompany(companyId) {
+        return this.getGpsAdapter(companyId);
+    }
+
+    async getGpsAdapterByCompanyId(companyId) {
+        return this.getGpsAdapter(companyId);
     }
 }
 

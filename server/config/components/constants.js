@@ -14,6 +14,8 @@ export const PAYMENTMESSAGES = {
     M_TIMEOUT: 'La verificación ha tardado demasiado.',
     M_PENDING_ALT_1: 'Verificando estado del pago...',
     M_PENDING_ALT_2: 'Por favor, confirma la transacción en Nequi...',
+    M_PENDING_ALT_QR: 'Esperando confirmación de pago QR...',
+    M_QR_READY: 'Escanea el código QR con tu app de Bancolombia o Nequi',
     M_PROCESSING: 'Procesando tu pago...',
     M_INVOICE_NOT_FOUND: 'Factura no encontrada',
     M_ERROR_ACTIVATING_DEVICE: 'Error al activar el dispositivo',
@@ -25,7 +27,8 @@ export const PAYMENTMESSAGES = {
     M_DEVICE_QUEUED: 'Dispositivo en cola de activación',
     M_COMPLETED: 'Transacción completada exitosamente',
     M_DECLINED: 'El pago fue rechazado',
-    M_PAYMENT_PROCESSED_ACTIVE: 'Pago procesado y dispositivo activo'
+    M_PAYMENT_PROCESSED_ACTIVE: 'Pago procesado y dispositivo activo',
+    M_REQUEST_SENT: 'Solicitud de pago enviada'
 };
 
 export const WOMPI_EVENTS = {

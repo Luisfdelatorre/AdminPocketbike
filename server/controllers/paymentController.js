@@ -32,18 +32,20 @@ const paymentController = {
     /*Create payment*/
     async createPayment(req, res) {
         try {
-            const { phone } = req.body;
+            const { phone } = req.body; // optional for BANCOLOMBIA_QR
             // SECURITY: Force use of authenticated deviceId from token
             const { deviceIdName, companyId } = req.paymentAuth;
 
-            if (!phone || !deviceIdName) {
+            if (!deviceIdName) {
                 return res.status(400).json({ success: false, message: "Missing required fields" });
             }
             const result = await paymentService.initiateWompiPaymentTransaction(deviceIdName, phone, companyId);
             return res.status(200).json({
                 success: true,
                 message: M_REQUEST_SENT,
-                paymentData: result.paymentData,
+                paymentData:   result.paymentData,
+                paymentMethod: result.paymentMethod,
+                // QR image arrives via SSE (QR_READY event) — not in this HTTP response
             });
 
         } catch (error) {

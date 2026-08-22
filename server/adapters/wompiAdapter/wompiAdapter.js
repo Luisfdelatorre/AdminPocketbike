@@ -28,14 +28,14 @@ class WompiAdapter {
 
   //requests
 
-  async createTransactionRequest(phone, unpaidInvoice, contract) {
+  async createTransactionRequest(phone, unpaidInvoice, contract, paymentMethod = 'NEQUI_PUSH') {
     const daysToPrepay = Contract.getBillingMultiplier(contract.paymentFrequency, contract.freeDayPolicy);
     const targetAmount = contract.dailyRate * daysToPrepay;
     const invoicePayload = unpaidInvoice.toObject();
     invoicePayload.amount = targetAmount;
     const acceptanceToken = await this.getMerchantData();
     const reference = helper.generateReference(unpaidInvoice._id);
-    const body = this.buildTransactionBody(phone, invoicePayload, reference, acceptanceToken);
+    const body = this.buildTransactionBody(phone, invoicePayload, reference, acceptanceToken, paymentMethod);
     let transactionData;
     try {
       const response = await this.api.createTransaction(body);
@@ -57,6 +57,7 @@ class WompiAdapter {
       billingMultiplier: daysToPrepay,
       type: PAYMENT_TYPE.WOMPI,
       amount: transactionData.amount_in_cents / 100,
+      paymentMethod,
     });
     this.init(paymentData);
     return paymentData;
@@ -82,12 +83,17 @@ class WompiAdapter {
 
     // Convert Wompi's UTC timestamp to local timezone (default: America/Bogota)
     const finalizedAt = data?.finalized_at ? dayjs(data.finalized_at).toDate() : null;
+    const extra = data?.payment_method?.extra;
 
     const paymentDataUpdate = {
       _id: data?.id,
       status: data?.status,
       finalized_at: finalizedAt,
-      reference: data?.reference
+      reference: data?.reference,
+      // QR fields — null until Wompi generates them (async, appears after 1-3 polls at 2s)
+      qrImage: extra?.qr_image           ?? null,
+      qrId:    extra?.qr_id              ?? null,
+      externalIdentifier: extra?.external_identifier ?? null,
     };
     return paymentDataUpdate;
   }
@@ -274,24 +280,36 @@ class WompiAdapter {
     return crypto.createHash('sha256').update(dataString).digest('hex');
   }
 
-  buildTransactionBody(phone, invoicePayload, reference, acceptanceToken) {
-    const now = Date.now();
-    const amountInCents = invoicePayload.amount * 100; // Corrected: Use actual amount
-    return {
+  buildTransactionBody(phone, invoicePayload, reference, acceptanceToken, paymentMethod = 'NEQUI_PUSH') {
+    const amountInCents = invoicePayload.amount * 100;
+    const isSandbox = this.api.publicKey?.includes('_test_') ?? false;
+
+    const base = {
       acceptance_token: acceptanceToken,
       amount_in_cents: amountInCents,
       currency: 'COP',
       signature: this._generateSignature(reference, amountInCents, 'COP'),
       customer_email: helper.generateEmail(invoicePayload.deviceIdName),
       reference: reference,
-      payment_method: { type: 'NEQUI', phone_number: phone },
       redirect_url: Url.redirectUrl,
       customer_data: {
-        phone_number: phone,
         full_name: `${invoicePayload.deviceIdName} ${defaultCustomer.nameSuffix}`
       },
-
     };
+
+    if (paymentMethod === 'BANCOLOMBIA_QR') {
+      base.payment_method = {
+        type: 'BANCOLOMBIA_QR',
+        payment_description: 'Pago cuota PocketBike',
+        ...(isSandbox && { sandbox_status: 'APPROVED' })
+      };
+    } else {
+      // NEQUI_PUSH — default, sin cambios al comportamiento actual
+      base.payment_method = { type: 'NEQUI', phone_number: phone };
+      base.customer_data.phone_number = phone;
+    }
+
+    return base;
   }
 
 

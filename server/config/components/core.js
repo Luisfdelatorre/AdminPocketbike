@@ -108,6 +108,7 @@ export const Transaction = {
         S_DEVICE_QUEUED: 'DEVICE_QUEUED',
         S_DEVICE_CHECKING: 'DEVICE_CHECKING',
         S_COMPLETED: 'COMPLETED',
+        S_QR_READY: 'QR_READY',
     },
     INVOICE_LIMIT: 30,
     MAX_NEQUI_PAYMENT_TIMEOUT: 45 * 60 * 1000,
