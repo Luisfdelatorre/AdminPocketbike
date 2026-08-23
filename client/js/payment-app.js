@@ -691,22 +691,22 @@ class PaymentManager {
             dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
 
             // Adapt UI for BANCOLOMBIA_QR vs NEQUI_PUSH
-            const phoneGroup = dom.get('inputs.phone')?.closest('.phone-input-group');
-            const nequiBtnText = dom.get('buttons.nequiPay')?.querySelector('.nequi-text');
-            const nequiIcon = dom.get('buttons.nequiPay')?.querySelector('.nequi-icon-box img');
-            const normalReminder = dom.get('pendingPayment.normal');
+            const phoneGroup = document.getElementById('phoneInputGroup') || dom.get('inputs.phone')?.closest('.phone-input-group');
+            const nequiBtnText = document.getElementById('paymentBtnText') || dom.get('buttons.nequiPay')?.querySelector('.nequi-text');
+            const nequiIcon = document.getElementById('paymentBtnIcon') || dom.get('buttons.nequiPay')?.querySelector('.nequi-icon-box img');
+            const normalReminder = document.getElementById('normalReminder') || dom.get('pendingPayment.normal');
             const normalTitle = normalReminder?.querySelector('.reminder-title');
             const normalText = normalReminder?.querySelector('.reminder-text');
             const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
 
             if (isQrMode) {
-                if (phoneGroup) phoneGroup.style.display = 'none';
+                if (phoneGroup) phoneGroup.style.setProperty('display', 'none', 'important');
                 if (nequiBtnText) nequiBtnText.textContent = 'Generar código QR Bancolombia / Nequi';
                 if (nequiIcon) nequiIcon.src = '/wompi.svg';
                 if (normalTitle) normalTitle.textContent = 'Pago con Código QR';
                 if (normalText) normalText.textContent = 'Haz clic en "Generar código QR" para obtener el código QR y escanearlo desde la app de Bancolombia o Nequi.';
             } else {
-                if (phoneGroup) phoneGroup.style.display = 'flex';
+                if (phoneGroup) phoneGroup.style.setProperty('display', 'flex', 'important');
                 if (nequiBtnText) nequiBtnText.textContent = 'Pagar con tu cuenta Nequi';
                 if (nequiIcon) nequiIcon.src = '/nequi.png';
                 if (normalTitle) normalTitle.textContent = 'Cómo pagar';
