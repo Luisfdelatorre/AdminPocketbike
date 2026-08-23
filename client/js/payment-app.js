@@ -651,8 +651,9 @@ class PaymentManager {
 
             if (loadingDateEl) {
                 const invoiceDate = STATE.paymentData.pendingInvoiceDate || new Date();
-                const nowTime = UIUtils.formatDateTime(new Date()).split(' ')[1] || dayjs().format('hh:mm A');
-                loadingDateEl.textContent = `📅 ${UIUtils.formatDate(invoiceDate)} - ${nowTime}`;
+                const invoiceDateStr = UIUtils.formatDate(invoiceDate);
+                const timeOnlyStr = dayjs().format('hh:mm A');
+                loadingDateEl.textContent = `📅 ${invoiceDateStr} (${timeOnlyStr})`;
             }
 
             if (loadingCuotaEl) {
