@@ -488,6 +488,15 @@ export class InvoiceRepository {
                 const dateVal = currentDate.toDate();
                 const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
                 const isFixedFreeDay = contract.isFixedFreeDay(currentDate);
+
+                if (invoice.paid) {
+                    // This date's invoice already exists and is paid (e.g. from a previous contract
+                    // or a re-run). Skip it and move forward — don't count as a new unpaid cycle day.
+                    logger.info(`[CYCLE] Invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')} already PAID — skipping`);
+                    currentDate = currentDate.add(1, 'day');
+                    continue;
+                }
+
                 if (isFixedFreeDay) {
                     // Create a $0 Payment record for fixed free day audit trail
                     const payment = await paymentRepository.createFreePayment(
@@ -502,6 +511,12 @@ export class InvoiceRepository {
                     logger.info(`[CYCLE] Pre-created DEBT invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
                 }
                 currentDate = currentDate.add(1, 'day');
+
+                // Safety cap — prevent infinite loop if something goes wrong with date iteration
+                if (dayjs(currentDate).diff(dayjs(), 'day') > 30) {
+                    logger.error(`[CYCLE] Safety cap hit — currentDate exceeded 30 days ahead for ${deviceIdName}. Breaking.`);
+                    break;
+                }
             }
         }
         unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName, contractIdFilter);
