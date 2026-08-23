@@ -665,30 +665,38 @@ class PaymentManager {
                 }
             }
             const dueDate = dom.get('displays.paymentDueDate');
-            dueDate.classList.add('text-muted');
-            dueDate.textContent = "   ";
+            if (dueDate) {
+                dueDate.classList.add('text-muted');
+                dueDate.textContent = "   ";
 
-            // Handle Due Date
-            if (STATE.paymentData.pendingInvoiceDate) {
-                dueDate.textContent = UIUtils.formatDate(STATE.paymentData.pendingInvoiceDate);
+                // Handle Due Date
+                if (STATE.paymentData.pendingInvoiceDate) {
+                    dueDate.textContent = UIUtils.formatDate(STATE.paymentData.pendingInvoiceDate);
 
-                if (STATE.paymentData.isOverdue) {
-                    dueDate.classList.remove('text-muted');
-                    dueDate.classList.add('text-danger');
-                    if (dom.get('displays.paymentAmount')?.parentElement) {
-                        dom.get('displays.paymentAmount').parentElement.classList.add('text-danger');
-                    }
-                } else {
-                    dueDate.classList.remove('text-danger');
-                    if (dom.get('displays.paymentAmount')?.parentElement) {
-                        dom.get('displays.paymentAmount').parentElement.classList.remove('text-danger');
+                    if (STATE.paymentData.isOverdue) {
+                        dueDate.classList.remove('text-muted');
+                        dueDate.classList.add('text-danger');
+                        if (dom.get('displays.paymentAmount')?.parentElement) {
+                            dom.get('displays.paymentAmount').parentElement.classList.add('text-danger');
+                        }
+                    } else {
+                        dueDate.classList.remove('text-danger');
+                        if (dom.get('displays.paymentAmount')?.parentElement) {
+                            dom.get('displays.paymentAmount').parentElement.classList.remove('text-danger');
+                        }
                     }
                 }
             }
-            console.log(STATE.paymentData);
+
             // Update Amounts & Phone
-            dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
-            dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
+            const amountDisplay = dom.get('displays.paymentAmount');
+            if (amountDisplay) {
+                amountDisplay.textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
+            }
+            const phoneInput = dom.get('inputs.phone') || document.getElementById('phoneNumber');
+            if (phoneInput) {
+                phoneInput.value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
+            }
 
             // Adapt UI for BANCOLOMBIA_QR vs NEQUI_PUSH
             const phoneGroup = document.getElementById('phoneInputGroup') || dom.get('inputs.phone')?.closest('.phone-input-group');
