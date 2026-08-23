@@ -763,11 +763,17 @@ class PaymentManager {
                 const normal = dom.get('pendingPayment.normal');
 
                 if (pending && normal) {
-                    dom.get('pendingPayment.reference').textContent = STATE.paymentData.pendingPayment.reference;
-                    dom.get('pendingPayment.amount').textContent = UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount);
-                    dom.get('pendingPayment.time').textContent = UIUtils.formatDateTime(STATE.paymentData.pendingPayment.createdAt, true);
+                    const pendingRefEl = dom.get('pendingPayment.reference') || document.getElementById('pendingPaymentRef');
+                    const pendingAmtEl = dom.get('pendingPayment.amount') || document.getElementById('pendingPaymentAmount');
+                    const pendingTimeEl = dom.get('pendingPayment.time') || document.getElementById('pendingPaymentTime');
 
-                    this._updatePendingProgress(STATE.paymentData.pendingPayment.createdAt);
+                    if (pendingRefEl) pendingRefEl.textContent = STATE.paymentData.pendingPayment.reference || '';
+                    if (pendingAmtEl) pendingAmtEl.textContent = UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount || 0);
+                    if (pendingTimeEl) pendingTimeEl.textContent = UIUtils.formatDateTime(STATE.paymentData.pendingPayment.createdAt || new Date(), true);
+
+                    if (typeof this._updatePendingProgress === 'function') {
+                        this._updatePendingProgress(STATE.paymentData.pendingPayment.createdAt);
+                    }
 
                     pending.dataset.shouldShow = 'true';
                     normal.dataset.shouldShow = 'false';
