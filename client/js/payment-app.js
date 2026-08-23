@@ -725,6 +725,14 @@ class PaymentManager {
                     normal.style.display = 'none';
                 }
 
+                const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
+                if (isQrMode) {
+                    this.screen.switchScreen(this.dom.elements.screens.loading);
+                    if (STATE.paymentData.pendingPayment.qrImage) {
+                        this._displayQrCode(STATE.paymentData.pendingPayment.qrImage);
+                    }
+                }
+
                 // Update loading screen amount just in case
                 const loadingAmount = dom.get('loading.amount');
                 if (loadingAmount) {

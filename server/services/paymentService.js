@@ -457,18 +457,24 @@ export class PaymentService {
                     // Consulta Wompi
                     const paymentData = await wompiAdapter.getTransactionStatus(reference);
 
-                    // ── QR: detectar imagen y emitirla UNA SOLA VEZ ──────────────────────────
-                    if (isQrMethod && !qrSent && paymentData.qrImage) {
-                        qrSent = true;
+                    // ── QR: detectar imagen y emitirla ─────────────────────────────────────────
+                    const targetQrImage = paymentData.qrImage || payment?.qrImage;
+                    if (isQrMethod && targetQrImage) {
+                        if (!qrSent) {
+                            qrSent = true;
+                            if (paymentData.qrImage) {
+                                await paymentRepository.upsertPayment({ _id: paymentData._id || payment?._id || reference, qrImage: paymentData.qrImage, qrId: paymentData.qrId });
+                            }
+                            logger.info(`[PAYMENT-QR] QR emitido al cliente para ref: ${reference} → intervalo ${STATUS_INTERVAL_MS}ms`);
+                            currentInterval = STATUS_INTERVAL_MS; // cambiar a 5s después del QR
+                        }
                         listeners.forEach(l =>
                             notifyStateChange(l, PS.S_QR_READY, PM.M_QR_READY, {
                                 reference,
-                                qrImage: paymentData.qrImage,
-                                qrId:    paymentData.qrId
+                                qrImage: targetQrImage,
+                                qrId: paymentData.qrId || payment?.qrId
                             })
                         );
-                        logger.info(`[PAYMENT-QR] QR emitido al cliente para ref: ${reference} → intervalo ${STATUS_INTERVAL_MS}ms`);
-                        currentInterval = STATUS_INTERVAL_MS; // ← cambiar a 5s después del QR
                     }
                     // ─────────────────────────────────────────────────────────────────────────
 
@@ -494,7 +500,7 @@ export class PaymentService {
                 }
             };
 
-            setTimeout(tick, currentInterval); // primer tick
+            tick(); // primer tick inmediato
         });
 
         activePolls.set(reference, { promise, listeners });

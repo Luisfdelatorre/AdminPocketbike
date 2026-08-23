@@ -35,8 +35,8 @@ const paymentSchema = new mongoose.Schema({
     billingMultiplier: { type: Number },
     adjustmentType: { type: String, default: null },
     adjustmentReference: { type: String, default: null },
-
-
+    qrImage: { type: String, default: null },
+    qrId: { type: String, default: null },
 
 }, {
     timestamps: true,
@@ -133,8 +133,9 @@ paymentSchema.methods.getPendingFormat = function () {
     return {
         transactionId: this._id,
         reference: this.reference,
-        amount: (this.amount || 0) / 100, // Assuming cents logic from user? check paymentRepo
+        amount: this.amount,
         status: this.status,
+        qrImage: this.qrImage || null,
         createdAt: this.created_at || this.createdAt
     };
 };
