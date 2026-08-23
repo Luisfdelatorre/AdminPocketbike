@@ -643,6 +643,26 @@ class PaymentManager {
             if (loadingMsg && STATE.paymentData.deviceIdName) {
                 loadingMsg.textContent = STATE.paymentData.deviceIdName;
             }
+
+            // Update loading screen metadata (Date, Time, Cuota Number)
+            const loadingDateEl = document.getElementById('loadingDate');
+            const loadingCuotaEl = document.getElementById('loadingCuota');
+            const metaSeparatorEl = document.getElementById('loadingMetaSeparator');
+
+            if (loadingDateEl) {
+                const invoiceDate = STATE.paymentData.pendingInvoiceDate || new Date();
+                const nowTime = UIUtils.formatDateTime(new Date()).split(' ')[1] || dayjs().format('hh:mm A');
+                loadingDateEl.textContent = `📅 ${UIUtils.formatDate(invoiceDate)} - ${nowTime}`;
+            }
+
+            if (loadingCuotaEl) {
+                const pagadas = STATE.paymentData.cuotasPagadas !== undefined ? STATE.paymentData.cuotasPagadas : null;
+                const total = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 500;
+                if (pagadas !== null) {
+                    loadingCuotaEl.textContent = `🏷️ Cuota ${pagadas + 1} de ${total}`;
+                    if (metaSeparatorEl) metaSeparatorEl.style.display = 'inline';
+                }
+            }
             const dueDate = dom.get('displays.paymentDueDate');
             dueDate.classList.add('text-muted');
             dueDate.textContent = "   ";

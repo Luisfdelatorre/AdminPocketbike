@@ -62,6 +62,11 @@ export const Templates = {
         <div class="loading-content">
             <h2 class="app-title">Pago a {{COMPANY_NAME}}</h2>
             <p class="loading-message" id="loadingMessage">{{VEHICLE_PLATE}}</p>
+            <div class="loading-meta" id="loadingMeta" style="font-size: 13px; color: #4b5563; margin-top: -4px; margin-bottom: 12px; font-weight: 500; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; align-items: center;">
+                <span id="loadingDate"></span>
+                <span id="loadingMetaSeparator" style="display:none; opacity: 0.5;">•</span>
+                <span id="loadingCuota"></span>
+            </div>
             <p class="text-center" id="companyLogoContainer">
                 <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-lg">
             </p>
