@@ -13,7 +13,7 @@ export const PAYMENTMESSAGES = {
     M_APPROVED: 'Pago aprobado',
     M_TIMEOUT: 'La verificación ha tardado demasiado.',
     M_PENDING_ALT_1: 'Verificando estado del pago...',
-    M_PENDING_ALT_2: 'Por favor, confirma la transacción en Nequi...',
+    M_PENDING_ALT_2: 'Esperando confirmación de pago...',
     M_PENDING_ALT_QR: 'Esperando confirmación de pago QR...',
     M_QR_READY: 'Escanea el código QR con tu app de Bancolombia o Nequi',
     M_PROCESSING: 'Procesando tu pago...',

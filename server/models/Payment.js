@@ -33,6 +33,7 @@ const paymentSchema = new mongoose.Schema({
     processing: { type: Boolean, default: false }, // Reserva de procesamiento en curso
     paymentFrequency: { type: Number },
     billingMultiplier: { type: Number },
+    paymentMethod: { type: String, default: null }, // e.g. 'NEQUI_PUSH' | 'BANCOLOMBIA_QR'
     adjustmentType: { type: String, default: null },
     adjustmentReference: { type: String, default: null },
     qrImage: { type: String, default: null },
