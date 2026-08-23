@@ -319,6 +319,12 @@ class UIUtils {
         return `<div class="fecha-pago"><div class="fecha">${dateStr}</div><div class="hora">${timeStr}</div></div>`;
     }
     static updateDeviceStatusUI(statusData) {
+        const deviceData = statusData?.data || statusData;
+        const loadingMsg = document.getElementById('loadingMessage');
+        if (loadingMsg && deviceData?.name) {
+            loadingMsg.textContent = deviceData.name;
+        }
+
         const statusRing = document.getElementById('deviceStatusRing');
         const batterySvg = document.getElementById('batteryStatusSvg');
         const motorSvg = document.getElementById('motorStatusSvg');
@@ -628,9 +634,15 @@ class PaymentManager {
 
             // Update UI
             const deviceIdName = dom.get('displays.device');
-            deviceIdName.textContent = STATE.paymentData.deviceIdName;
-            deviceIdName.classList.remove('text-muted');
-            deviceIdName.classList.add('text-primary');
+            if (deviceIdName) {
+                deviceIdName.textContent = STATE.paymentData.deviceIdName;
+                deviceIdName.classList.remove('text-muted');
+                deviceIdName.classList.add('text-primary');
+            }
+            const loadingMsg = dom.get('loading.message') || document.getElementById('loadingMessage');
+            if (loadingMsg && STATE.paymentData.deviceIdName) {
+                loadingMsg.textContent = STATE.paymentData.deviceIdName;
+            }
             const dueDate = dom.get('displays.paymentDueDate');
             dueDate.classList.add('text-muted');
             dueDate.textContent = "   ";
