@@ -61,10 +61,18 @@ export const Templates = {
     <div class="container">
         <div class="loading-content">
             <h2 class="app-title">Pago a {{COMPANY_NAME}}</h2>
-            <p class="loading-message" id="loadingMessage">MTJ17H - Mensajería</p>
-            <p class="text-center">
+            <p class="loading-message" id="loadingMessage">{{VEHICLE_PLATE}}</p>
+            <p class="text-center" id="companyLogoContainer">
                 <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-lg">
             </p>
+            <div class="qr-guide hidden" id="qrGuide" style="text-align: center; margin: 20px auto 0; max-width: 300px;">
+                <div style="background: #ffffff; padding: 20px; border-radius: 16px; display: inline-block; box-shadow: 0 8px 24px rgba(0,0,0,0.15); border: 2px solid #e5e7eb;">
+                    <img id="qrImageDisplay" src="" alt="Código QR Bancolombia" style="max-width: 260px; width: 100%; height: auto; display: block; margin: 0 auto;" />
+                </div>
+                <p style="margin-top: 12px; font-size: 14px; color: #374151; font-weight: 600; letter-spacing: 0.01em;">
+                    📱 Escanea con Bancolombia o Nequi
+                </p>
+            </div>
             <div class="amount-display">
                 <div class="amount-value" id="loadingAmount"><span class="text-black">COP</span></div>
             </div>
@@ -80,16 +88,7 @@ export const Templates = {
                     <div class="reminder-text">Recuerda completar tu transacción en el centro de notificaciones de Nequi.
                     </div>
                 </div>
-            </div>
-
-            <div class="qr-guide hidden" id="qrGuide" style="text-align: center; margin: 20px auto 0; max-width: 300px;">
-                <div style="background: #ffffff; padding: 20px; border-radius: 16px; display: inline-block; box-shadow: 0 8px 24px rgba(0,0,0,0.15); border: 2px solid #e5e7eb;">
-                    <img id="qrImageDisplay" src="" alt="Código QR Bancolombia" style="max-width: 260px; width: 100%; height: auto; display: block; margin: 0 auto;" />
-                </div>
-                <p style="margin-top: 12px; font-size: 14px; color: #374151; font-weight: 600; letter-spacing: 0.01em;">
-                    📱 Escanea con Bancolombia o Nequi
-                </p>
-            </div>
+            </div>  
 
             <div class="nequi-guide" id="nequiGuide">
                 <div class="screenshots-container">

@@ -963,10 +963,12 @@ class PaymentManager {
         if (!qrImage) return;
         const qrGuide = document.getElementById('qrGuide');
         const nequiGuide = document.getElementById('nequiGuide');
+        const logoContainer = document.getElementById('companyLogoContainer');
         const qrImg = document.getElementById('qrImageDisplay');
         const statusLabel = this.dom.get('loading.statusLabel');
 
         if (nequiGuide) nequiGuide.classList.add('hidden');
+        if (logoContainer) logoContainer.classList.add('hidden');
         if (qrGuide) qrGuide.classList.remove('hidden');
         if (statusLabel) statusLabel.textContent = 'Escanea el código QR con Bancolombia o Nequi';
 
@@ -1061,6 +1063,13 @@ class PaymentManager {
                 if (loadingLabel) loadingLabel.textContent = data.message;
                 if (pendingLabel) pendingLabel.textContent = data.message;
             }
+
+            // ── DIAGNOSTIC ──────────────────────────────────────────────────
+            console.log('[SSE]', data.status, data.message || '');
+            if (data.qrImage) {
+                console.log('[SSE-QR] qrImage prefix (80 chars):', String(data.qrImage).substring(0, 80));
+            }
+            // ────────────────────────────────────────────────────────────────
 
             if (data.status === 'QR_READY' && data.qrImage) {
                 this._displayQrCode(data.qrImage);
