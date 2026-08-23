@@ -693,14 +693,24 @@ class PaymentManager {
             // Adapt UI for BANCOLOMBIA_QR vs NEQUI_PUSH
             const phoneGroup = dom.get('inputs.phone')?.closest('.phone-input-group');
             const nequiBtnText = dom.get('buttons.nequiPay')?.querySelector('.nequi-text');
+            const nequiIcon = dom.get('buttons.nequiPay')?.querySelector('.nequi-icon-box img');
+            const normalReminder = dom.get('pendingPayment.normal');
+            const normalTitle = normalReminder?.querySelector('.reminder-title');
+            const normalText = normalReminder?.querySelector('.reminder-text');
             const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
 
             if (isQrMode) {
                 if (phoneGroup) phoneGroup.style.display = 'none';
-                if (nequiBtnText) nequiBtnText.textContent = 'Generar código QR Bancolombia';
+                if (nequiBtnText) nequiBtnText.textContent = 'Generar código QR Bancolombia / Nequi';
+                if (nequiIcon) nequiIcon.src = '/wompi.svg';
+                if (normalTitle) normalTitle.textContent = 'Pago con Código QR';
+                if (normalText) normalText.textContent = 'Haz clic en "Generar código QR" para obtener el código QR y escanearlo desde la app de Bancolombia o Nequi.';
             } else {
                 if (phoneGroup) phoneGroup.style.display = 'flex';
                 if (nequiBtnText) nequiBtnText.textContent = 'Pagar con tu cuenta Nequi';
+                if (nequiIcon) nequiIcon.src = '/nequi.png';
+                if (normalTitle) normalTitle.textContent = 'Cómo pagar';
+                if (normalText) normalText.textContent = 'Después de hacer clic en "Pagar", completa tu transacción en el centro de notificaciones de Nequi.';
             }
 
             const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas') || document.getElementById('cuotasPagadas');
