@@ -438,7 +438,17 @@ export class PaymentService {
 
             const payment      = await paymentRepository.getPaymentByReference(reference);
             const wompiAdapter = await companyService.getWompiAdapter(payment?.companyId);
-            const isQrMethod   = payment?.paymentMethod === 'BANCOLOMBIA_QR';
+
+            // Detect QR method — check multiple sources for robustness
+            // (old Payment docs may lack paymentMethod field; payment_method_type always saved)
+            const companyPaymentMethod = payment?.companyId
+                ? await companyService.getCompanyPaymentMethod(payment.companyId)
+                : null;
+            const isQrMethod = payment?.paymentMethod === 'BANCOLOMBIA_QR'
+                || payment?.payment_method_type === 'BANCOLOMBIA_QR'
+                || companyPaymentMethod === 'BANCOLOMBIA_QR';
+
+            logger.info(`[PAYMENT-QR] isQrMethod=${isQrMethod} | paymentMethod=${payment?.paymentMethod} | payment_method_type=${payment?.payment_method_type} | companyMethod=${companyPaymentMethod} | ref=${reference}`);
 
             // Intervalo inicial: 2s para QR (esperando imagen), 5s para Nequi (sin cambios)
             let currentInterval = isQrMethod ? QR_INTERVAL_MS : STATUS_INTERVAL_MS;
