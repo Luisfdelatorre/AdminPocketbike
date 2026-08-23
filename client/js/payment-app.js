@@ -929,11 +929,17 @@ class PaymentManager {
             const response = await createNequiPayment({ phone });
             const data = response.data;
 
-            if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.WAITING_NEQUI');
-            // Wait 10s simulation
-            // await new Promise(resolve => setTimeout(resolve, 5000));
+            if (statusLabel) {
+                statusLabel.textContent = isQrMode 
+                    ? 'Generando código QR...' 
+                    : messagesService.get('STATUS.WAITING_NEQUI');
+            }
 
-            if (data.paymentData.id) {
+            if (data.paymentData?.qrImage) {
+                this._displayQrCode(data.paymentData.qrImage);
+            }
+
+            if (data.paymentData?.id) {
                 this.monitorStatus(data.paymentData.id);
             } else {
                 this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
@@ -942,6 +948,24 @@ class PaymentManager {
             const msg = error.response?.data?.error || error.response?.data?.message || messagesService.get('ERRORS.PAYMENT_INIT_ERROR');
             UIUtils.showError(msg);
             this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
+        }
+    }
+
+    _displayQrCode(qrImage) {
+        if (!qrImage) return;
+        const qrGuide = document.getElementById('qrGuide');
+        const nequiGuide = document.getElementById('nequiGuide');
+        const qrImg = document.getElementById('qrImageDisplay');
+        const statusLabel = this.dom.get('loading.statusLabel');
+
+        if (nequiGuide) nequiGuide.classList.add('hidden');
+        if (qrGuide) qrGuide.classList.remove('hidden');
+        if (statusLabel) statusLabel.textContent = 'Escanea el código QR con Bancolombia o Nequi';
+
+        if (qrImg) {
+            qrImg.src = qrImage.startsWith('data:')
+                ? qrImage
+                : `data:image/svg+xml;base64,${qrImage}`;
         }
     }
 
@@ -1031,18 +1055,7 @@ class PaymentManager {
             }
 
             if (data.status === 'QR_READY' && data.qrImage) {
-                const qrGuide = document.getElementById('qrGuide');
-                const nequiGuide = document.getElementById('nequiGuide');
-                const qrImg = document.getElementById('qrImageDisplay');
-
-                if (nequiGuide) nequiGuide.classList.add('hidden');
-                if (qrGuide) qrGuide.classList.remove('hidden');
-
-                if (qrImg) {
-                    qrImg.src = data.qrImage.startsWith('data:')
-                        ? data.qrImage
-                        : `data:image/svg+xml;base64,${data.qrImage}`;
-                }
+                this._displayQrCode(data.qrImage);
             }
 
             if (data.status === 'COMPLETED') {

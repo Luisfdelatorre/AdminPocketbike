@@ -64,11 +64,15 @@ class WompiAdapter {
   }
   formatPaymentResponse(data, additionalFields = {}) {
     try {
+      const extra = data?.payment_method?.extra;
       const paymentPayload = {
         ...data,
         _id: data?.id,
         paymentId: data?.id,
         used: false,
+        qrImage: extra?.qr_image ?? null,
+        qrId: extra?.qr_id ?? null,
+        externalIdentifier: extra?.external_identifier ?? null,
         ...additionalFields
       };
       return paymentPayload;
