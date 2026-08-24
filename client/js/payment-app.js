@@ -710,7 +710,7 @@ class PaymentManager {
             if (isQrMode) {
                 if (phoneGroup) phoneGroup.style.setProperty('display', 'none', 'important');
                 if (nequiBtnText) nequiBtnText.textContent = 'Generar código QR Bancolombia / Nequi';
-                if (nequiIcon) nequiIcon.src = '/wompi.svg';
+                if (nequiIcon) nequiIcon.src = '/nequi.png';
                 if (normalTitle) normalTitle.textContent = 'Pago con Código QR';
                 if (normalText) normalText.textContent = 'Haz clic en "Generar código QR" para obtener el código QR y escanearlo desde la app de Bancolombia o Nequi.';
             } else {
