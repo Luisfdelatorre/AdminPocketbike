@@ -60,6 +60,7 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
             amount: 1,
             dayType: 1,
             adjustmentType: 1,
+            adjustmentReference: 1,
             paidAmount: 1,
             "transaction.finalized_at": 1,
             "transaction.reference": 1,
@@ -70,11 +71,12 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
     const adjustmentTypes = await settingRepository.getAdjustmentTypes();
 
     invoices.forEach(invoice => {
-        const rawKey = invoice.adjustmentType || invoice.dayType || '';
+        const rawKey = invoice.adjustmentType || (invoice.dayType === 'ADJUSTMENT' ? 'OFFICE' : invoice.dayType) || '';
         const keyUpper = String(rawKey).toUpperCase();
         const cfg = adjustmentTypes[keyUpper] || adjustmentTypes[rawKey] || adjustmentTypes[invoice.dayType] || {};
 
         const badgeLabel = cfg.badgeLabel || invoice.dayType;
+        invoice.adjustmentType = invoice.adjustmentType || (invoice.dayType === 'ADJUSTMENT' ? 'OFFICE' : null);
         invoice.status = badgeLabel;
         invoice.badgeLabel = badgeLabel;
         invoice.color = cfg.color || '#6b7280';
