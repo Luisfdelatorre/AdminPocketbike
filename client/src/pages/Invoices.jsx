@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import './Payments.css';
 import './Invoices.css';
-import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
+import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 
 const Invoices = () => {
@@ -60,76 +60,27 @@ const Invoices = () => {
     const [manualPayLoading, setManualPayLoading] = useState(false);
     const [manualPayError, setManualPayError] = useState('');
 
-    // Config per adjustment / payment type
-    const ADJUSTMENT_CONFIG = {
-        NEQUI: {
-            label: 'Pago Real - Nequi',
-            color: '#E11D48',
-            bg: '#FFF1F2',
-            description: 'Pago real recibido vía Nequi.',
-            autoAmount: null,
-            autoReference: 'Pago Nequi recibido por Admin',
-            isRealPayment: true,
-        },
-        EFECTIVO: {
-            label: 'Pago Real - Efectivo',
-            color: '#16A34A',
-            bg: '#F0FDF4',
-            description: 'Pago real recibido en efectivo.',
-            autoAmount: null,
-            autoReference: 'Pago en Efectivo recibido por Admin',
-            isRealPayment: true,
-        },
-        TRANSFERENCIA: {
-            label: 'Pago Real - Transferencia Bancaria',
-            color: '#2563EB',
-            bg: '#EFF6FF',
-            description: 'Pago real recibido por transferencia bancaria.',
-            autoAmount: null,
-            autoReference: 'Transferencia Bancaria recibida por Admin',
-            isRealPayment: true,
-        },
-        REPAIR: {
-            label: 'Ajuste - Reparación ($0)',
-            color: '#FB9678',
-            bg: '#FFF4EF',
-            description: 'El dispositivo estaba en reparación — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'REPARACIÓN - Día ajustado automáticamente',
-        },
-        INCAPACITY: {
-            label: 'Ajuste - Incapacidad ($0)',
-            color: '#3b82f6',
-            bg: '#EFF6FF',
-            description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
-        },
-        MAINTENANCE: {
-            label: 'Ajuste - Mantenimiento ($0)',
-            color: '#7460EE',
-            bg: '#F5F3FF',
-            description: 'Mantenimiento programado — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
-        },
-        OFFICE: {
-            label: 'Ajuste - Oficina ($0)',
-            color: '#0891B2',
-            bg: '#ECFEFF',
-            description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'OFICINA - Día ajustado automáticamente',
-        },
-        WORKSHOP: {
-            label: 'Ajuste - Taller ($0)',
-            color: '#A3A3A3',
-            bg: '#F5F5F5',
-            description: 'Dispositivo en taller — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'TALLER - Día ajustado automáticamente',
-        },
-    };
+    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({
+        NEQUI: { label: 'Pago Real - Nequi', color: '#E11D48', bg: '#FFF1F2', description: 'Pago real recibido vía Nequi.', autoAmount: null, autoReference: 'Pago Nequi recibido por Admin', isRealPayment: true },
+        EFECTIVO: { label: 'Pago Real - Efectivo', color: '#16A34A', bg: '#F0FDF4', description: 'Pago real recibido en efectivo.', autoAmount: null, autoReference: 'Pago en Efectivo recibido por Admin', isRealPayment: true },
+        TRANSFERENCIA: { label: 'Pago Real - Transferencia Bancaria', color: '#2563EB', bg: '#EFF6FF', description: 'Pago real recibido por transferencia bancaria.', autoAmount: null, autoReference: 'Transferencia Bancaria recibida por Admin', isRealPayment: true },
+        ACCIDENT_TRANSIT: { label: 'Ajuste - Retenida en tránsito por accidente ($0)', badgeLabel: 'TRANSITO', color: '#FB9678', bg: '#FFF4EF', description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.', autoAmount: 0, autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente' },
+        REPAIR: { label: 'Ajuste - Retenida en tránsito por accidente ($0)', badgeLabel: 'RETENIDA', color: '#FB9678', bg: '#FFF4EF', description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.', autoAmount: 0, autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente', hidden: true },
+        INCAPACITY: { label: 'Ajuste - Incapacidad ($0)', color: '#3b82f6', bg: '#EFF6FF', description: 'Incapacidad médica del cliente — día sin cobro al cliente.', autoAmount: 0, autoReference: 'INCAPACIDAD - Día ajustado automáticamente' },
+        MAINTENANCE: { label: 'Ajuste - Mantenimiento ($0)', color: '#7460EE', bg: '#F5F3FF', description: 'Mantenimiento programado — día sin cobro al cliente.', autoAmount: 0, autoReference: 'MANTENIMIENTO - Día ajustado automáticamente' },
+        OFFICE: { label: 'Ajuste - Oficina ($0)', color: '#0891B2', bg: '#ECFEFF', description: 'Ajuste realizado en oficina — día sin cobro al cliente.', autoAmount: 0, autoReference: 'OFICINA - Día ajustado automáticamente' },
+        WORKSHOP: { label: 'Ajuste - Taller ($0)', color: '#A3A3A3', bg: '#F5F5F5', description: 'Dispositivo en taller — día sin cobro al cliente.', autoAmount: 0, autoReference: 'TALLER - Día ajustado automáticamente' },
+    });
+
+    useEffect(() => {
+        getAdjustmentTypes()
+            .then(res => {
+                if (res && res.success && res.data) {
+                    setAdjustmentConfig(res.data);
+                }
+            })
+            .catch(err => console.warn('No se pudo cargar la configuración de tipos de ajuste:', err));
+    }, []);
 
     const openManualPayModal = (invoice) => {
         const reason = invoice.adjustmentType || null;
@@ -730,7 +681,7 @@ const Invoices = () => {
                                             {(() => {
                                                 const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
                                                 if (adjType && ADJUSTMENT_CONFIG[adjType]) {
-                                                    return ADJUSTMENT_CONFIG[adjType].label.replace(/(\(\$0\)|Pago Real - |Ajuste - )/g, '').trim().toUpperCase();
+                                                    return (ADJUSTMENT_CONFIG[adjType].badgeLabel || ADJUSTMENT_CONFIG[adjType].label.replace(/(\(\$0\)|Pago Real - |Ajuste - )/g, '')).trim().toUpperCase();
                                                 }
                                                 return invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType;
                                             })()}
@@ -780,8 +731,7 @@ const Invoices = () => {
                         }>
                             <div className="modal-header-left">
                                 {!manualPayForm.adjustmentType && <HandCoins size={20} />}
-                                {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={20} />}
-                                {(manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={20} />}
+                                {(manualPayForm.adjustmentType === 'ACCIDENT_TRANSIT' || manualPayForm.adjustmentType === 'REPAIR' || manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={20} />}
                                 {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={20} />}
                                 {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={20} />}
                                 <span>
@@ -817,8 +767,7 @@ const Invoices = () => {
                                 const cfg = ADJUSTMENT_CONFIG[manualPayForm.adjustmentType];
                                 return (
                                     <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: cfg.color + '50', color: cfg.color }}>
-                                        {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={14} />}
-                                        {(manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={14} />}
+                                        {(manualPayForm.adjustmentType === 'ACCIDENT_TRANSIT' || manualPayForm.adjustmentType === 'REPAIR' || manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={14} />}
                                         {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={14} />}
                                         {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={14} />}
                                         <span>{cfg.description}</span>

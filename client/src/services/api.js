@@ -150,6 +150,8 @@ export const exportPaymentsCSV = async (month, year) => {
 // --- settings ---
 export const getSettings = () => api.get('/companies/settings');
 export const updateSettings = (data) => api.put('/companies/settings', data);
+export const getAdjustmentTypes = () => api.get('/settings/adjustment-types');
+export const updateAdjustmentTypes = (data) => api.put('/settings/adjustment-types', data);
 
 // --- SSE ---
 export const createSSEConnection = (clientId) => {

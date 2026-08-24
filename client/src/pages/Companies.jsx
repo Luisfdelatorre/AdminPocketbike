@@ -1,42 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
-import { Building, Plus, Search, X, Pencil, Link, Settings, ListFilter } from 'lucide-react';
-import CompanyDevicesModal from '../components/modals/CompanyDevicesModal';
-import PageHeader from '../components/PageHeader';
+import { Building, Plus, Search, X, Pencil, Link, ChevronLeft, User, Save, Sliders } from 'lucide-react';
+import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
+import AdjustmentTypesModal from '../components/modals/AdjustmentTypesModal';
 import SystemJobs from '../components/SystemJobs';
-import StatCard from '../components/StatCard';
-import SearchAndFilterBar from '../components/SearchAndFilterBar';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
-import './Users.css';
+import './Users.css'; // Reusing Users CSS for consistency
+import './Companies.css';
 
 const Companies = () => {
-    const { companiesTab, setCompaniesTab } = useOutletContext() || {};
-    const [localActiveTab, setLocalActiveTab] = useState('companies');
-    const activeTab = companiesTab || localActiveTab;
-    const setActiveTab = setCompaniesTab || setLocalActiveTab;
-
     const [companies, setCompanies] = useState([]);
     const [allDevices, setAllDevices] = useState([]); // Store all devices
     const [loading, setLoading] = useState(true);
     const [showCompanyModal, setShowCompanyModal] = useState(false);
     const [showDeviceModal, setShowDeviceModal] = useState(false); // State for device modal
+    const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState(null); // Company being edited for devices
     const [searchTerm, setSearchTerm] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editCompanyId, setEditCompanyId] = useState(null);
-    const [fabPortalElement, setFabPortalElement] = useState(null);
-    const [portalElement, setPortalElement] = useState(null);
-    const [showFilters, setShowFilters] = useState(false);
-    const [invoicingFilter, setInvoicingFilter] = useState('all');
-
-    useFilterVisibilityOnScroll(setShowFilters);
-
-    useEffect(() => {
-        setFabPortalElement(document.body);
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
+    const [isSlidingOut, setIsSlidingOut] = useState(false);
     const [companyForm, setCompanyForm] = useState({
         name: '',
         nit: '',
@@ -45,6 +28,7 @@ const Companies = () => {
         address: '',
         automaticInvoicing: false,
         wompiCommission: -0.01785,
+        paymentMethod: 'NEQUI_PUSH',
         transactionFixedFee: 0,
         transactionPercentage: 0,
         ivaPercentage: 0.19
@@ -76,10 +60,18 @@ const Companies = () => {
     };
 
     const resetForm = () => {
-        setCompanyForm({ name: '', nit: '', phone: '', email: '', address: '', automaticInvoicing: false, wompiCommission: -0.01785 });
+        setCompanyForm({ name: '', nit: '', phone: '', email: '', address: '', automaticInvoicing: false, wompiCommission: -0.01785, paymentMethod: 'NEQUI_PUSH', transactionFixedFee: 0, transactionPercentage: 0, ivaPercentage: 0.19 });
         setIsEditing(false);
         setEditCompanyId(null);
         setShowCompanyModal(false);
+    };
+
+    const handleCloseDetail = () => {
+        setIsSlidingOut(true);
+        setTimeout(() => {
+            setIsSlidingOut(false);
+            resetForm();
+        }, 250);
     };
 
     const handleEditCompany = (company) => {
@@ -91,6 +83,7 @@ const Companies = () => {
             address: company.address || '',
             automaticInvoicing: company.automaticInvoicing || false,
             wompiCommission: company.wompiConfig?.wompiCommission ?? -0.01785,
+            paymentMethod: company.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH',
             transactionFixedFee: company.billingConfig?.transactionFixedFee ?? 0,
             transactionPercentage: company.billingConfig?.transactionPercentage ?? 0,
             ivaPercentage: company.billingConfig?.ivaPercentage ?? 0.19
@@ -107,6 +100,7 @@ const Companies = () => {
                 ...companyForm,
                 wompiConfig: {
                     ...selectedCompany?.wompiConfig,
+                    paymentMethod: companyForm.paymentMethod || 'NEQUI_PUSH',
                     wompiCommission: parseFloat(companyForm.wompiCommission)
                 },
                 billingConfig: {
@@ -158,351 +152,329 @@ const Companies = () => {
         }
     };
 
-    const filteredCompanies = companies.filter(company => {
-        const matchSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (company.nit && company.nit.includes(searchTerm));
-        const matchFilter = invoicingFilter === 'all' ? true : company.automaticInvoicing;
-        return matchSearch && matchFilter;
-    });
+    const outletContext = useOutletContext() || {};
+    const currentTab = outletContext.companiesTab || 'companies';
+
+    const filteredCompanies = companies.filter(company =>
+        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (company.nit && company.nit.includes(searchTerm))
+    );
 
     return (
-        <div className="admin-page-container">
-            {/* Render filter toggle button in Mobile Top Bar via Portal */}
-            {portalElement && activeTab === 'companies' && createPortal(
-                <button
-                    type="button"
-                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                    onClick={() => setShowFilters(!showFilters)}
-                    id="companyFilterToggle"
-                >
-                    <ListFilter size={20} />
-                </button>,
-                portalElement
-            )}
-
-            {/* Desktop Header (Desktop only - same as Contracts) */}
-            <div className="page-header !hidden md:!flex">
+        <div className="users-page">
+            <div className="page-header">
                 <div>
-                    <h1>🏢 {activeTab === 'companies' ? 'Gestión de Empresas' : 'Rutinas Globales'}</h1>
-                    <p>{activeTab === 'companies' ? 'Directorio y administración de empresas registradas' : 'Programación y configuración de tareas del sistema'}</p>
+                    <h1><Building className="inline-icon" /> Companies Management</h1>
+                    <p>Manage system companies & adjustment settings</p>
                 </div>
-                {activeTab === 'companies' && (
-                    <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
-                        <Plus size={20} />
-                        <span className="btn-text">Añadir Empresa</span>
-                    </button>
-                )}
+                <div className="header-actions flex gap-2">
+                    {currentTab === 'companies' && (
+                        <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
+                            <Plus size={16} /> Add Company
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Sub Tabs (Desktop only) */}
-            <div className="tabs-container !hidden md:!flex gap-4 px-4 border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
-                <button
-                    className={`tab-btn py-3 px-2 flex items-center gap-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'companies' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    onClick={() => setActiveTab('companies')}
-                >
-                    <Building size={18} /> Directorio de Empresas
-                </button>
-                <button
-                    className={`tab-btn py-3 px-2 flex items-center gap-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'systemJobs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    onClick={() => setActiveTab('systemJobs')}
-                >
-                    <Settings size={18} /> Rutinas Globales
-                </button>
-            </div>
-
-            {activeTab === 'systemJobs' ? (
+            {currentTab === 'adjustmentTypes' ? (
+                <AdjustmentTypesModal isEmbedded={true} />
+            ) : currentTab === 'systemJobs' ? (
                 <SystemJobs />
             ) : (
                 <>
-                    {/* Expandable Metrics + Search (same global design pattern as DeviceSelector) */}
-                    <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
-                        <div className="devices-stats-ios">
-                            <StatCard
-                                title="Total"
-                                value={companies.length}
-                            />
-                            <StatCard
-                                title="Auto-Invoice"
-                                value={companies.filter(c => c.automaticInvoicing).length}
-                                valueColor="#00C292"
-                            />
-                            <StatCard
-                                title="Resultados"
-                                value={filteredCompanies.length}
+                    {/* Search */}
+                    <div className="users-search">
+                        <div className="search-box">
+                            <Search className="search-icon" />
+                            <input
+                                type="text"
+                                placeholder="Search companies..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <SearchAndFilterBar
-                            searchQuery={searchTerm}
-                            setSearchQuery={setSearchTerm}
-                            searchPlaceholder="Buscar empresas por NIT, nombre..."
-                            filter={invoicingFilter}
-                            setFilter={setInvoicingFilter}
-                            filterOptions={[
-                                { value: 'all', label: 'Todas' },
-                                { value: 'auto', label: 'Auto-Invoice' }
-                            ]}
-                        />
-                    </div>
-                    <div className="users-list hidden md:block">
-                        {loading ? (
-                            <div className="loading-state">Loading...</div>
-                        ) : (
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>NIT</th>
-                                        <th>Phone</th>
-                                        <th>Email</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredCompanies.map(company => (
-                                        <tr key={company._id}>
-                                            <td>
-                                                <div className="user-name">
-                                                    {company.name}
-                                                    {company.automaticInvoicing && (
-                                                        <span className="badge badge-success" style={{
-                                                            fontSize: '0.7rem',
-                                                            padding: '2px 6px',
-                                                            borderRadius: '4px',
-                                                            background: '#e6fffa',
-                                                            color: '#00C292',
-                                                            marginLeft: '8px',
-                                                            border: '1px solid #00C292'
-                                                        }}>
-                                                            Auto-Invoice
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <small>{company.address}</small>
-                                            </td>
-                                            <td>{company.nit || '-'}</td>
-                                            <td>{company.phone || '-'}</td>
-                                            <td>{company.email || '-'}</td>
-                                            <td>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        className="btn-icon"
-                                                        onClick={() => handleManageDevices(company)}
-                                                        title="Manage Devices"
-                                                    >
-                                                        <Link size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn-icon"
-                                                        onClick={() => handleEditCompany(company)}
-                                                        title="Edit Company"
-                                                    >
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredCompanies.length === 0 && (
-                                        <tr>
-                                            <td colSpan="5" className="text-center">No companies found</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
                     </div>
 
-                    {/* Companies Cards (Mobile) */}
-                    <div className="md:hidden contracts-list pb-28">
-                        {loading ? (
-                            <div className="loading-state">Loading...</div>
-                        ) : (
-                            <div className="w-full flex flex-col gap-3 items-center">
-                                {filteredCompanies.map(company => (
-                                    <div
-                                        key={company._id}
-                                        className="admin-card shadow-sm max-w-[380px] w-full flex flex-col cursor-pointer hover:shadow-md transition-shadow relative"
-                                        onClick={() => handleEditCompany(company)}
-                                    >
-                                        <header className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-x-2">
-                                                <h1 className="text-[15px] font-bold text-main-dark">{company.name}</h1>
-                                                {company.automaticInvoicing && (
-                                                    <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase" style={{
-                                                        background: '#e6fffa',
-                                                        color: '#00C292',
-                                                        border: '1px solid #00C292'
-                                                    }}>
-                                                        Auto-Invoice
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                                <button
-                                                    className="p-1.5 text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-50 transition-colors"
-                                                    onClick={() => handleManageDevices(company)}
-                                                    title="Dispositivos"
-                                                >
-                                                    <Link size={16} color="#3b82f6" />
-                                                </button>
-                                                <button
-                                                    className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                                    onClick={() => handleEditCompany(company)}
-                                                    title="Editar Empresa"
-                                                >
-                                                    <Pencil size={16} color="#64748b" />
-                                                </button>
-                                            </div>
-                                        </header>
-
-                                        <main className="space-y-2">
-                                            <div className="grid grid-cols-2 gap-2 border-b border-gray-100 pb-2">
-                                                <div>
-                                                    <span className="text-[10px] text-gray-400 font-medium uppercase">NIT</span>
-                                                    <p className="text-[13px] font-semibold text-main-dark">{company.nit || '-'}</p>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-gray-400 font-medium uppercase">Teléfono</span>
-                                                    <p className="text-[13px] font-medium text-gray-700">{company.phone || '-'}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-[12px] text-gray-600 flex items-center gap-1 pt-1">
-                                                <span>✉️ {company.email || '-'}</span>
-                                            </div>
-                                            {company.address && (
-                                                <div className="text-[11px] text-gray-400">
-                                                    📍 {company.address}
-                                                </div>
-                                            )}
-                                        </main>
+                    {/* Companies Cards Grid */}
+                    {loading ? (
+                        <div className="loading-state">Loading...</div>
+                    ) : filteredCompanies.length === 0 ? (
+                        <div className="empty-state text-center py-8 text-gray-500">No companies found</div>
+                    ) : (
+                        <div className="companies-grid">
+                            {filteredCompanies.map(company => {
+                        const isQr = company.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR';
+                        return (
+                            <div key={company._id} className="glass-panel rounded-[24px] overflow-hidden p-5 flex flex-col gap-5 relative group">
+                                {/* Header */}
+                                <div className="flex items-start gap-4">
+                                    <div className="flex-1 min-w-0 flex flex-col gap-1.5 pt-0.5">
+                                        <h3 className="font-semibold text-xl text-slate-900 truncate tracking-wide">{company.name}</h3>
+                                        <p className="text-xs text-slate-500 truncate tracking-wide">{company.address || 'Sin dirección registrada'}</p>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                    <div className="flex gap-2 opacity-100 transition-opacity">
+                                        <button
+                                            className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors border border-black/5"
+                                            onClick={() => handleManageDevices(company)}
+                                            title="Manage Devices"
+                                        >
+                                            <Link size={18} />
+                                        </button>
+                                        <button
+                                            className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors border border-black/5"
+                                            onClick={() => handleEditCompany(company)}
+                                            title="Edit Company"
+                                        >
+                                            <Pencil size={18} />
+                                        </button>
+                                    </div>
+                                </div>
 
-                    {/* Floating Action Button (FAB) for Mobile - Companies */}
-                    {fabPortalElement && activeTab === 'companies' && !showCompanyModal && createPortal(
-                        <button
-                            type="button"
-                            className="contracts-add-fab primary-blue"
-                            onClick={() => setShowCompanyModal(true)}
-                            aria-label="Añadir Empresa"
-                        >
-                            <Plus size={32} />
-                        </button>,
-                        fabPortalElement
-                    )}
-                </>
+                                {/* Bento Grid Details */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2 bg-slate-50/50 rounded-2xl p-4 border border-black/5 flex justify-between items-center backdrop-blur-sm">
+                                        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-widest">Payment Method</span>
+                                        <div className="flex items-center gap-2">
+                                            {company.automaticInvoicing && (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-md bg-white border border-black/5 text-[10px] text-slate-600 uppercase tracking-widest shadow-sm font-semibold">
+                                                    Auto-Invoice
+                                                </span>
+                                            )}
+                                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold tracking-widest ${isQr ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'}`}>
+                                                <span>{isQr ? '📱' : '🔔'}</span>
+                                                <span className="uppercase">{isQr ? 'BANCOLOMBIA QR' : 'NEQUI PUSH'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-black/5 backdrop-blur-sm flex flex-col gap-1">
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">NIT</span>
+                                        <span className="text-sm font-medium text-slate-800">{company.nit || 'N/A'}</span>
+                                    </div>
+                                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-black/5 backdrop-blur-sm flex flex-col gap-1">
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Phone</span>
+                                        <span className="text-sm font-medium text-slate-800">{company.phone || 'N/A'}</span>
+                                    </div>
+                                    <div className="col-span-2 bg-slate-50/50 rounded-2xl p-4 border border-black/5 backdrop-blur-sm flex flex-col gap-1">
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Email</span>
+                                        <span className="text-sm font-medium text-slate-800 truncate">{company.email || 'N/A'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+            </>
             )}
 
-            {/* Add Company Modal */}
+            {/* Full-Page iOS Sub-View for Add/Edit Company */}
             {showCompanyModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h2>{isEditing ? 'Edit Company' : 'Add New Company'}</h2>
-                            <button className="modal-close" onClick={resetForm}><X /></button>
+                <div className={`company-detail-page ${isSlidingOut ? 'sliding-out' : ''}`}>
+                    {/* Header Bar with Back Chevron & Title */}
+                    <header className="ios-detail-header">
+                        <div className="ios-detail-nav">
+                            <button type="button" className="ios-back-btn" onClick={handleCloseDetail}>
+                                <ChevronLeft size={22} />
+                                <span>Company Detail</span>
+                            </button>
+                            <div className="ios-user-badge">
+                                <User size={18} />
+                            </div>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Company Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={companyForm.name}
-                                    onChange={e => setCompanyForm({ ...companyForm, name: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>NIT (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={companyForm.nit}
-                                    onChange={e => setCompanyForm({ ...companyForm, nit: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Phone (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={companyForm.phone}
-                                    onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Email (Optional)</label>
-                                <input
-                                    type="email"
-                                    value={companyForm.email}
-                                    onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Address (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={companyForm.address}
-                                    onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Wompi Commission % (e.g. -0.01785)</label>
-                                <input
-                                    type="number"
-                                    step="0.00001"
-                                    required
-                                    value={companyForm.wompiCommission}
-                                    onChange={e => setCompanyForm({ ...companyForm, wompiCommission: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Facturación: Cargo Fijo por Tx (Ej: 1500)</label>
-                                <input
-                                    type="number"
-                                    step="1"
-                                    required
-                                    value={companyForm.transactionFixedFee}
-                                    onChange={e => setCompanyForm({ ...companyForm, transactionFixedFee: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Facturación: Porcentaje por Tx (Ej: 0.015 para 1.5%)</label>
-                                <input
-                                    type="number"
-                                    step="0.0001"
-                                    required
-                                    value={companyForm.transactionPercentage}
-                                    onChange={e => setCompanyForm({ ...companyForm, transactionPercentage: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Facturación: IVA (Ej: 0.19 para 19%)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    required
-                                    value={companyForm.ivaPercentage}
-                                    onChange={e => setCompanyForm({ ...companyForm, ivaPercentage: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group checkbox-group">
-                                <label className="flex items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={companyForm.automaticInvoicing}
-                                        onChange={e => setCompanyForm({ ...companyForm, automaticInvoicing: e.target.checked })}
-                                        style={{ width: 'auto', margin: 0 }}
-                                    />
-                                    <span>Enable Automatic Daily Invoicing</span>
-                                </label>
-                            </div>
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
-                                <button type="submit" className="btn-primary">{isEditing ? 'Update Company' : 'Create Company'}</button>
-                            </div>
-                        </form>
-                    </div>
+                    </header>
+
+                    {/* Form Container */}
+                    <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div className="ios-detail-body">
+                            {/* General Information Section */}
+                            <section>
+                                <h3 className="ios-section-title">General Information</h3>
+                                <div className="ios-grouped-container">
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="compName">Company Name</label>
+                                        <input
+                                            id="compName"
+                                            className="ios-input"
+                                            type="text"
+                                            required
+                                            placeholder="Enter company name"
+                                            value={companyForm.name}
+                                            onChange={e => setCompanyForm({ ...companyForm, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="compNit">
+                                            NIT <span className="ios-label-optional">(Optional)</span>
+                                        </label>
+                                        <input
+                                            id="compNit"
+                                            className="ios-input"
+                                            type="text"
+                                            placeholder="Enter NIT"
+                                            value={companyForm.nit}
+                                            onChange={e => setCompanyForm({ ...companyForm, nit: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Contact Details Section */}
+                            <section>
+                                <h3 className="ios-section-title">Contact Details</h3>
+                                <div className="ios-grouped-container">
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="compPhone">
+                                            Phone <span className="ios-label-optional">(Optional)</span>
+                                        </label>
+                                        <input
+                                            id="compPhone"
+                                            className="ios-input"
+                                            type="text"
+                                            placeholder="Enter phone number"
+                                            value={companyForm.phone}
+                                            onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="compEmail">
+                                            Email <span className="ios-label-optional">(Optional)</span>
+                                        </label>
+                                        <input
+                                            id="compEmail"
+                                            className="ios-input"
+                                            type="email"
+                                            placeholder="Enter email address"
+                                            value={companyForm.email}
+                                            onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="compAddress">
+                                            Address <span className="ios-label-optional">(Optional)</span>
+                                        </label>
+                                        <input
+                                            id="compAddress"
+                                            className="ios-input"
+                                            type="text"
+                                            placeholder="Enter physical address"
+                                            value={companyForm.address}
+                                            onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Financial & Billing Section */}
+                            <section>
+                                <h3 className="ios-section-title">Financial & Billing</h3>
+                                <div className="ios-grouped-container">
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="wompiCommission">
+                                            Wompi Commission % <span className="ios-label-optional">(e.g. -0.01785)</span>
+                                        </label>
+                                        <input
+                                            id="wompiCommission"
+                                            className="ios-input"
+                                            type="number"
+                                            step="0.00001"
+                                            required
+                                            placeholder="-0.01785"
+                                            value={companyForm.wompiCommission}
+                                            onChange={e => setCompanyForm({ ...companyForm, wompiCommission: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="payMethod">Método de Pago Wompi</label>
+                                        <div className="ios-select-wrapper">
+                                            <select
+                                                id="payMethod"
+                                                className="ios-select"
+                                                value={companyForm.paymentMethod || 'NEQUI_PUSH'}
+                                                onChange={e => setCompanyForm({ ...companyForm, paymentMethod: e.target.value })}
+                                            >
+                                                <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
+                                                <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="cargoFijo">
+                                            Facturación: Cargo Fijo por Tx <span className="ios-label-optional">(Ej: 1500)</span>
+                                        </label>
+                                        <input
+                                            id="cargoFijo"
+                                            className="ios-input"
+                                            type="number"
+                                            step="1"
+                                            required
+                                            placeholder="0"
+                                            value={companyForm.transactionFixedFee}
+                                            onChange={e => setCompanyForm({ ...companyForm, transactionFixedFee: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="txPct">
+                                            Facturación: Porcentaje por Tx <span className="ios-label-optional">(Ej: 0.015 para 1.5%)</span>
+                                        </label>
+                                        <input
+                                            id="txPct"
+                                            className="ios-input"
+                                            type="number"
+                                            step="0.0001"
+                                            required
+                                            placeholder="0.00"
+                                            value={companyForm.transactionPercentage}
+                                            onChange={e => setCompanyForm({ ...companyForm, transactionPercentage: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="ios-input-row">
+                                        <label className="ios-label" htmlFor="ivaPct">
+                                            Facturación: IVA <span className="ios-label-optional">(Ej: 0.19 para 19%)</span>
+                                        </label>
+                                        <input
+                                            id="ivaPct"
+                                            className="ios-input"
+                                            type="number"
+                                            step="0.01"
+                                            required
+                                            placeholder="0.19"
+                                            value={companyForm.ivaPercentage}
+                                            onChange={e => setCompanyForm({ ...companyForm, ivaPercentage: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Automation Section */}
+                            <section>
+                                <h3 className="ios-section-title">Automation</h3>
+                                <div className="ios-grouped-container">
+                                    <label className="ios-toggle-row">
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1a1b1f' }}>
+                                            Enable Automatic Daily Invoicing
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={companyForm.automaticInvoicing}
+                                            onChange={e => setCompanyForm({ ...companyForm, automaticInvoicing: e.target.checked })}
+                                            style={{ width: '18px', height: '18px', accentColor: '#6366f1', cursor: 'pointer' }}
+                                        />
+                                    </label>
+                                </div>
+                            </section>
+                        </div>
+
+                        {/* Sticky Bottom Actions */}
+                        <div className="ios-sticky-actions">
+                            <button type="button" className="ios-btn-cancel" onClick={handleCloseDetail}>
+                                Cancel
+                            </button>
+                            <button type="submit" className="ios-btn-submit">
+                                <Save size={18} />
+                                <span>{isEditing ? 'Save Changes' : 'Create Company'}</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
             {/* Device Management Modal */}
@@ -512,6 +484,11 @@ const Companies = () => {
                 company={selectedCompany}
                 allDevices={allDevices}
                 onSave={handleSaveDevices}
+            />
+            {/* Adjustment Types Settings Modal */}
+            <AdjustmentTypesModal
+                isOpen={showAdjustmentModal}
+                onClose={() => setShowAdjustmentModal(false)}
             />
         </div>
     );
