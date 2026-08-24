@@ -19,18 +19,18 @@ let CONFIG = {
 };
 
 const STATUS_CLASS_MAP = {
-    'PAID': 'status-paid',
-    'FREE': 'status-free',
-    'FREEPASS': 'status-free',
-    'ADJUSTMENT': 'status-free',
-    'VERIFYING': 'status-verifying',
-    'CONFIRMING': 'status-verifying',
-    'PENDING': 'status-pending',
-    'DEBT': 'status-debt',
-    'LOAN': 'status-loan',
-    'DECLINED': 'status-rejected',
-    'ERROR': 'status-rejected',
-    'VOIDED': 'status-rejected'
+    'PAID': { textClass: 'status-paid', badgeClass: 'badge-paid', rowClass: 'row-paid' },
+    'FREE': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
+    'FREEPASS': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
+    'ADJUSTMENT': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
+    'VERIFYING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '' },
+    'CONFIRMING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '' },
+    'PENDING': { textClass: 'status-pending', badgeClass: 'badge-pending', rowClass: 'row-pending' },
+    'DEBT': { textClass: 'status-debt', badgeClass: 'badge-debt', rowClass: 'row-debt' },
+    'LOAN': { textClass: 'status-loan', badgeClass: 'badge-loan', rowClass: '' },
+    'DECLINED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' },
+    'ERROR': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' },
+    'VOIDED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' }
 };
 
 // ============================================================================
@@ -894,7 +894,7 @@ class PaymentManager {
     }
 
     renderHistory(history) {
-        const historyBody = this.dom.get('tables.historyBody');
+            const historyBody = this.dom.get('tables.historyBody');
         if (!historyBody) return;
 
         if (!history || history.length === 0) {
@@ -903,13 +903,29 @@ class PaymentManager {
         }
 
         historyBody.innerHTML = history.map(item => {
-            const statusClass = STATUS_CLASS_MAP[item.dayType] || 'status-pending';
+            const config = STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
+            let paymentTimeHtml = '<span style="color: #9ca3af; font-size: 13px;">---</span>';
+
+            if (item.paymentDate) {
+                const pDate = new Date(item.paymentDate);
+                const pDateStr = UIUtils.formatDate(pDate);
+                const pTimeStr = pDate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+                paymentTimeHtml = `
+                    <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1f2937;">${pDateStr}</span>
+                        <span style="font-size: 10px; color: #6b7280;">${pTimeStr}</span>
+                    </div>
+                `;
+            }
+
             return `
-            <tr>
-                <td>${UIUtils.formatDate(item.date)}</td>
-                <td>$${UIUtils.formatMoney(item.paidAmount)}</td>
-                <td class="no-padding">${item.paymentDate ? UIUtils.formatDateTime(item.paymentDate) : '---'}</td>
-                <td class="${statusClass} no-padding">${item.status}</td>
+            <tr class="${config.rowClass || ''}">
+                <td style="font-weight: 600; color: #374151;">${UIUtils.formatDate(item.date)}</td>
+                <td style="font-weight: 700; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
+                <td style="text-align: center;">${paymentTimeHtml}</td>
+                <td style="text-align: right; padding-right: 8px;">
+                    <span class="badge-status ${config.badgeClass || 'badge-pending'}">${item.status}</span>
+                </td>
             </tr>
             `;
         }).join('');
