@@ -67,16 +67,15 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
             _id: 0
         }
     ).sort({ date: -1 }).limit(62).lean();
-
     const adjustmentTypes = await settingRepository.getAdjustmentTypes();
 
     invoices.forEach(invoice => {
-        const rawKey = invoice.adjustmentType || (invoice.dayType === 'ADJUSTMENT' ? 'OFFICE' : invoice.dayType) || '';
-        const keyUpper = String(rawKey).toUpperCase();
-        const cfg = adjustmentTypes[keyUpper] || adjustmentTypes[rawKey] || adjustmentTypes[invoice.dayType] || {};
+        const effectiveType = invoice.adjustmentType || (invoice.dayType === 'ADJUSTMENT' ? 'OFFICE' : invoice.dayType) || 'PENDING';
+        const keyUpper = String(effectiveType).toUpperCase();
+        const cfg = adjustmentTypes[keyUpper] || adjustmentTypes[effectiveType] || adjustmentTypes[invoice.dayType] || {};
 
         const badgeLabel = cfg.badgeLabel || invoice.dayType;
-        invoice.adjustmentType = invoice.adjustmentType || (invoice.dayType === 'ADJUSTMENT' ? 'OFFICE' : null);
+        invoice.adjustmentType = effectiveType;
         invoice.status = badgeLabel;
         invoice.badgeLabel = badgeLabel;
         invoice.color = cfg.color || '#6b7280';
