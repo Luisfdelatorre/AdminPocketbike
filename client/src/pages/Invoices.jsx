@@ -91,6 +91,7 @@ const Invoices = () => {
         },
         ACCIDENT_TRANSIT: {
             label: 'Ajuste - Retenida en tránsito por accidente ($0)',
+            badgeLabel: 'RETENIDA',
             color: '#FB9678',
             bg: '#FFF4EF',
             description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
@@ -99,6 +100,7 @@ const Invoices = () => {
         },
         REPAIR: {
             label: 'Ajuste - Retenida en tránsito por accidente ($0)',
+            badgeLabel: 'RETENIDA',
             color: '#FB9678',
             bg: '#FFF4EF',
             description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
@@ -739,7 +741,7 @@ const Invoices = () => {
                                             {(() => {
                                                 const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
                                                 if (adjType && ADJUSTMENT_CONFIG[adjType]) {
-                                                    return ADJUSTMENT_CONFIG[adjType].label.replace(/(\(\$0\)|Pago Real - |Ajuste - )/g, '').trim().toUpperCase();
+                                                    return (ADJUSTMENT_CONFIG[adjType].badgeLabel || ADJUSTMENT_CONFIG[adjType].label.replace(/(\(\$0\)|Pago Real - |Ajuste - )/g, '')).trim().toUpperCase();
                                                 }
                                                 return invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType;
                                             })()}
