@@ -89,13 +89,22 @@ const Invoices = () => {
             autoReference: 'Transferencia Bancaria recibida por Admin',
             isRealPayment: true,
         },
-        REPAIR: {
-            label: 'Ajuste - Reparación ($0)',
+        ACCIDENT_TRANSIT: {
+            label: 'Ajuste - Retenida en tránsito por accidente ($0)',
             color: '#FB9678',
             bg: '#FFF4EF',
-            description: 'El dispositivo estaba en reparación — día sin cobro al cliente.',
+            description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
             autoAmount: 0,
-            autoReference: 'REPARACIÓN - Día ajustado automáticamente',
+            autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+        },
+        REPAIR: {
+            label: 'Ajuste - Retenida en tránsito por accidente ($0)',
+            color: '#FB9678',
+            bg: '#FFF4EF',
+            description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+            hidden: true,
         },
         INCAPACITY: {
             label: 'Ajuste - Incapacidad ($0)',
@@ -780,8 +789,7 @@ const Invoices = () => {
                         }>
                             <div className="modal-header-left">
                                 {!manualPayForm.adjustmentType && <HandCoins size={20} />}
-                                {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={20} />}
-                                {(manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={20} />}
+                                {(manualPayForm.adjustmentType === 'ACCIDENT_TRANSIT' || manualPayForm.adjustmentType === 'REPAIR' || manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={20} />}
                                 {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={20} />}
                                 {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={20} />}
                                 <span>
@@ -817,8 +825,7 @@ const Invoices = () => {
                                 const cfg = ADJUSTMENT_CONFIG[manualPayForm.adjustmentType];
                                 return (
                                     <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: cfg.color + '50', color: cfg.color }}>
-                                        {manualPayForm.adjustmentType === 'REPAIR' && <Wrench size={14} />}
-                                        {(manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={14} />}
+                                        {(manualPayForm.adjustmentType === 'ACCIDENT_TRANSIT' || manualPayForm.adjustmentType === 'REPAIR' || manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={14} />}
                                         {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={14} />}
                                         {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={14} />}
                                         <span>{cfg.description}</span>

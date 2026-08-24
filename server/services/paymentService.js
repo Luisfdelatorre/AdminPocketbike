@@ -245,8 +245,8 @@ export class PaymentService {
             throw new Error('Active contract not found for this device');
         }
 
-        // REPAIR/MAINTENANCE/WORKSHOP/OFFICE/INCAPACITY → $0 (free day for customer), DAMAGE → full invoice amount
-        const isFreeAdjustment = ['REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
+        // ACCIDENT_TRANSIT/REPAIR/MAINTENANCE/WORKSHOP/OFFICE/INCAPACITY → $0 (free day for customer), DAMAGE → full invoice amount
+        const isFreeAdjustment = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
         const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
 
         const payment = await paymentRepository.createManualPayment({
