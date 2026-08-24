@@ -44,18 +44,20 @@ export class PaymentService {
     async calculatePaymentStatus(contract) {
         const deviceIdName = contract.deviceIdName;
 
+        const company = await companyService.getCompanyById(contract.companyId);
+        const isQrMethod = company?.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR';
+        const pendingTimeout = isQrMethod ? (24 * 60 * 60 * 1000) : MAX_NEQUI_PAYMENT_TIMEOUT;
+
         // Run independent database queries in parallel to drastically reduce TTFB/latency
         const [
-            company,
             latestPaid,
             oldestUnpaidInvoice,
             pendingPayment,
             paidInvoicesCount
         ] = await Promise.all([
-            companyService.getCompanyById(contract.companyId),
             invoiceRepository.findLastPaid(deviceIdName),
             invoiceRepository.findLastUnPaid(deviceIdName),
-            paymentRepository.findPendingPayment(deviceIdName, MAX_NEQUI_PAYMENT_TIMEOUT),
+            paymentRepository.findPendingPayment(deviceIdName, pendingTimeout),
             Invoice.countDocuments({ deviceIdName, paid: true })
         ]);
 

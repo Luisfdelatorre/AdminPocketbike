@@ -88,10 +88,10 @@ export class PaymentRepository {
         }
     }
 
-    async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
+    async createFreePayment(deviceIdName, contract, unpaidInvoice) {
         try {
             const paymentId = helper.generateReferenceFreeDay(unpaidInvoice.invoiceId);
-            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, companyId, PAYMENT_TYPE.FREE);
+            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, contract.companyId, PAYMENT_TYPE.FREE);
         } catch (error) {
             logger.error('Error creating free payment:', error);
             throw error;
@@ -308,8 +308,11 @@ export class PaymentRepository {
             const pendingPayment = await Payment.findOne({
                 deviceIdName: deviceName,
                 status: PAYMENT_STATUS.S_PENDING,
-                createdAt: { $gte: cutoffTime }
-            }).sort({ createdAt: -1 });
+                $or: [
+                    { createdAt: { $gte: cutoffTime } },
+                    { created_at: { $gte: cutoffTime } }
+                ]
+            }).sort({ created_at: -1, createdAt: -1 });
             return pendingPayment;
         } catch (error) {
             logger.error(`Error finding pending payment for ${deviceName}:`, error);
