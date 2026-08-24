@@ -116,6 +116,17 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         isRealPayment: false,
         isFree: true
     },
+    ADJUSTMENT: {
+        label: 'Ajuste - Oficina ($0)',
+        badgeLabel: 'OFICINA',
+        color: '#0891B2',
+        bg: '#ECFEFF',
+        description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
+        autoAmount: 0,
+        autoReference: 'OFICINA - Día ajustado automáticamente',
+        isRealPayment: false,
+        isFree: true
+    },
     OFFICE: {
         label: 'Ajuste - Oficina ($0)',
         badgeLabel: 'OFICINA',
@@ -127,6 +138,18 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         isRealPayment: false,
         isFree: true
     },
+    OFICINA: {
+        label: 'Ajuste - Oficina ($0)',
+        badgeLabel: 'OFICINA',
+        color: '#0891B2',
+        bg: '#ECFEFF',
+        description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
+        autoAmount: 0,
+        autoReference: 'OFICINA - Día ajustado automáticamente',
+        hidden: true,
+        isRealPayment: false,
+        isFree: true
+    },
     WORKSHOP: {
         label: 'Ajuste - Taller ($0)',
         badgeLabel: 'TALLER',
@@ -135,6 +158,54 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         description: 'Dispositivo en taller — día sin cobro al cliente.',
         autoAmount: 0,
         autoReference: 'TALLER - Día ajustado automáticamente',
+        isRealPayment: false,
+        isFree: true
+    },
+    TALLER: {
+        label: 'Ajuste - Taller ($0)',
+        badgeLabel: 'TALLER',
+        color: '#A3A3A3',
+        bg: '#F5F5F5',
+        description: 'Dispositivo en taller — día sin cobro al cliente.',
+        autoAmount: 0,
+        autoReference: 'TALLER - Día ajustado automáticamente',
+        hidden: true,
+        isRealPayment: false,
+        isFree: true
+    },
+    MANTENIMIENTO: {
+        label: 'Ajuste - Mantenimiento ($0)',
+        badgeLabel: 'MANTENIMIENTO',
+        color: '#7460EE',
+        bg: '#F5F3FF',
+        description: 'Mantenimiento programado — día sin cobro al cliente.',
+        autoAmount: 0,
+        autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
+        hidden: true,
+        isRealPayment: false,
+        isFree: true
+    },
+    INCAPACIDAD: {
+        label: 'Ajuste - Incapacidad ($0)',
+        badgeLabel: 'INCAPACIDAD',
+        color: '#3b82f6',
+        bg: '#EFF6FF',
+        description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
+        autoAmount: 0,
+        autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
+        hidden: true,
+        isRealPayment: false,
+        isFree: true
+    },
+    TRANSITO: {
+        label: 'Ajuste - Retenida en tránsito por accidente ($0)',
+        badgeLabel: 'TRANSITO',
+        color: '#FB9678',
+        bg: '#FFF4EF',
+        description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
+        autoAmount: 0,
+        autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+        hidden: true,
         isRealPayment: false,
         isFree: true
     }

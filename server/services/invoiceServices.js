@@ -70,8 +70,9 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
     const adjustmentTypes = await settingRepository.getAdjustmentTypes();
 
     invoices.forEach(invoice => {
-        const key = invoice.adjustmentType || invoice.dayType;
-        const cfg = adjustmentTypes[key] || adjustmentTypes[invoice.dayType] || {};
+        const rawKey = invoice.adjustmentType || invoice.dayType || '';
+        const keyUpper = String(rawKey).toUpperCase();
+        const cfg = adjustmentTypes[keyUpper] || adjustmentTypes[rawKey] || adjustmentTypes[invoice.dayType] || {};
 
         const defaultTranslation = INVOICE_DAYTYPE_TRANSLATION[invoice.dayType] || invoice.dayType;
         const isFree = cfg.isFree !== undefined ? cfg.isFree : (invoice.dayType === 'FREE' || invoice.dayType === 'FREEPASS' || invoice.dayType === 'ADJUSTMENT');
