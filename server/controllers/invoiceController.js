@@ -166,7 +166,8 @@ const getInvoiceHistory = async (req, res) => {
             data: {
                 history: result.invoices,
                 month: result.month,
-                year: result.year
+                year: result.year,
+                adjustmentTypes: result.adjustmentTypes
             }
         });
     } catch (error) {

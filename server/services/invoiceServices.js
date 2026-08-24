@@ -90,7 +90,7 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
         invoice.badgeClass = badgeClass;
         invoice.paymentDate = invoice.transaction?.finalized_at;
     });
-    return { invoices, month: targetMonth, year: targetYear };
+    return { invoices, month: targetMonth, year: targetYear, adjustmentTypes };
 };
 
 const getStatusReportData = async (isSystemAdmin, companyId) => {
