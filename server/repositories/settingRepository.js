@@ -2,6 +2,42 @@ import Setting from '../models/Setting.js';
 import logger from '../utils/logger.js';
 
 const DEFAULT_ADJUSTMENT_TYPES = {
+    PAID: {
+        label: 'Día Pagado',
+        badgeLabel: 'Pagado',
+        color: '#0ea5e9',
+        bg: 'rgba(14,165,233,0.08)',
+        description: 'Factura pagada.',
+        isRealPayment: true,
+        isFree: false
+    },
+    FREE: {
+        label: 'Día Gratis',
+        badgeLabel: 'Gratis',
+        color: '#22c55e',
+        bg: 'rgba(34,197,94,0.05)',
+        description: 'Día libre de cobro.',
+        isRealPayment: false,
+        isFree: true
+    },
+    PENDING: {
+        label: 'Día Pendiente',
+        badgeLabel: 'Pendiente',
+        color: '#eab308',
+        bg: 'rgba(234,179,8,0.05)',
+        description: 'Factura pendiente por cobro.',
+        isRealPayment: false,
+        isFree: false
+    },
+    DEBT: {
+        label: 'Día en Deuda',
+        badgeLabel: 'Deuda',
+        color: '#ef4444',
+        bg: 'rgba(239,68,68,0.03)',
+        description: 'Día no pagado en mora / deuda.',
+        isRealPayment: false,
+        isFree: false
+    },
     NEQUI: {
         label: 'Pago Real - Nequi',
         badgeLabel: 'NEQUI',
