@@ -615,27 +615,6 @@ class PaymentManager {
                 const response = await getPaymentStatus();
                 STATE.paymentData = response.data;
             }
-            console.log("Loading data", STATE.paymentData);
-
-            try {
-                const typesRes = await getAdjustmentTypes();
-                if (typesRes && typesRes.data) {
-                    Object.entries(typesRes.data).forEach(([k, cfg]) => {
-                        const isFree = cfg.isFree !== undefined ? cfg.isFree : (cfg.autoAmount === 0 || !cfg.isRealPayment);
-                        STATUS_CLASS_MAP[k] = {
-                            textClass: isFree ? 'status-free' : 'status-paid',
-                            badgeClass: isFree ? 'badge-free' : 'badge-paid',
-                            rowClass: isFree ? 'row-free' : 'row-paid',
-                            color: cfg.color,
-                            bg: cfg.bg,
-                            badgeLabel: cfg.badgeLabel
-                        };
-                    });
-                }
-            } catch (e) {
-                // Ignore API fetch errors on client side, fallbacks remain intact
-            }
-
             const dom = this.dom;
 
             // Update UI
@@ -914,13 +893,11 @@ class PaymentManager {
 
         historyBody.innerHTML = history.map(item => {
             const key = item.adjustmentType || item.dayType;
-            const fallbackConfig = STATUS_CLASS_MAP[key] || STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
+            const fallbackConfig = STATUS_CLASS_MAP[key] || {};
 
-            const rowClass = item.rowClass || fallbackConfig.rowClass || '';
-            const badgeClass = item.badgeClass || fallbackConfig.badgeClass || 'badge-pending';
+            const color = item.color || fallbackConfig.color || '#6b7280';
+            const bg = item.bg || fallbackConfig.bg || 'transparent';
             const badgeLabel = item.badgeLabel || item.status || fallbackConfig.badgeLabel || 'Pendiente';
-            const color = item.color || fallbackConfig.color;
-            const bg = item.bg || fallbackConfig.bg;
 
             let paymentTimeHtml = '<span style="color: #9ca3af; font-size: 13px;">---</span>';
 
@@ -936,15 +913,16 @@ class PaymentManager {
                 `;
             }
 
-            const customStyle = (color && bg) ? `color: ${color}; background-color: ${bg};` : '';
+            const rowStyle = bg ? `style="background-color: ${bg};"` : '';
+            const badgeStyle = `style="color: ${color}; background-color: ${bg}; display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; white-space: nowrap;"`;
 
             return `
-            <tr class="${rowClass}">
+            <tr ${rowStyle}>
                 <td style="font-weight: 600; color: #374151;">${UIUtils.formatDate(item.date)}</td>
                 <td style="font-weight: 400; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
                 <td style="text-align: center;">${paymentTimeHtml}</td>
                 <td style="text-align: right; padding-right: 8px;">
-                    <span class="badge-status ${badgeClass}" style="${customStyle}">${badgeLabel}</span>
+                    <span ${badgeStyle}>${badgeLabel}</span>
                 </td>
             </tr>
             `;
