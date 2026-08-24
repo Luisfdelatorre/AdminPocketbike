@@ -26,7 +26,7 @@ const STATUS_CLASS_MAP = {
     'VERIFYING': 'status-verifying',
     'CONFIRMING': 'status-verifying',
     'PENDING': 'status-pending',
-    'DEBT': 'status-pending',
+    'DEBT': 'status-debt',
     'LOAN': 'status-loan',
     'DECLINED': 'status-rejected',
     'ERROR': 'status-rejected',

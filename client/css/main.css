@@ -578,29 +578,34 @@
 }
 
 .status-paid {
-    color: #2563eb;
-    font-weight: 500;
+    color: #0ea5e9; /* Azul (Sky-500) */
+    font-weight: 600;
 }
 
 .status-free,
 .status-freepass {
-    color: var(--color-success);
-    font-weight: 500;
+    color: #22c55e; /* Verde (Green-500) */
+    font-weight: 600;
+}
+
+.status-debt {
+    color: #ef4444; /* Rojo (Red-500) */
+    font-weight: 600;
 }
 
 .status-verifying {
     color: #d97706;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .status-pending {
-    color: #dc2626;
-    font-weight: 500;
+    color: #eab308; /* Amarillo (Yellow-500) */
+    font-weight: 600;
 }
 
 .status-loan {
     color: #ea580c;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .fecha,
