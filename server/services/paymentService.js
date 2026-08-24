@@ -45,8 +45,7 @@ export class PaymentService {
         const deviceIdName = contract.deviceIdName;
 
         const company = await companyService.getCompanyById(contract.companyId);
-        const isQrMethod = company?.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR';
-        const pendingTimeout = isQrMethod ? (24 * 60 * 60 * 1000) : MAX_NEQUI_PAYMENT_TIMEOUT;
+        const pendingTimeout = MAX_NEQUI_PAYMENT_TIMEOUT; // 15 minutos para todos los métodos
 
         // Run independent database queries in parallel to drastically reduce TTFB/latency
         const [

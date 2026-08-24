@@ -67,6 +67,11 @@ export const Templates = {
                 <span id="loadingMetaSeparator" style="display:none; opacity: 0.5;">•</span>
                 <span id="loadingCuota"></span>
             </div>
+            <div id="loadingTimerBadge" style="margin-bottom: 12px; text-align: center;">
+                <span style="background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 600; letter-spacing: -0.2px; display: inline-flex; align-items: center; gap: 6px;">
+                    ⏱️ Tiempo restante: <span id="loadingTimerVal">15:00</span>
+                </span>
+            </div>
             <p class="text-center" id="companyLogoContainer">
                 <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-lg">
             </p>

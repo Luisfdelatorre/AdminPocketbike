@@ -9,7 +9,7 @@ import { Templates } from './templates.js';
 // ============================================================================
 let CONFIG = {
     TIMEZONE: 'America/Bogota',
-    MAX_TIMEOUT: 45 * 60 * 1000,
+    MAX_TIMEOUT: 15 * 60 * 1000, // 15 minutos
     PIN_LENGTH: 4,
     PHONE_LENGTH: 10,
     PROGRESS_WARNING: 75,
@@ -796,6 +796,7 @@ class PaymentManager {
                     loadingAmount.textContent = `$${UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount)} COP`;
                 }
 
+                this._startCountdownTimer(STATE.paymentData.pendingPayment.createdAt);
                 this.monitorStatus(STATE.paymentData.pendingPayment.transactionId);
             } else {
                 // No pending payment
@@ -1005,6 +1006,7 @@ class PaymentManager {
             }
 
             if (data.paymentData?.id) {
+                this._startCountdownTimer(new Date());
                 this.monitorStatus(data.paymentData.id);
             } else {
                 this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
@@ -1164,7 +1166,50 @@ class PaymentManager {
         }
     }
 
+    _startCountdownTimer(createdAt) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
+
+        const startTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+        const durationMs = CONFIG.MAX_TIMEOUT; // 15 minutos = 900,000 ms
+
+        const updateTimer = () => {
+            const now = Date.now();
+            const elapsedMs = now - startTime;
+            const remainingMs = Math.max(0, durationMs - elapsedMs);
+            const remainingSeconds = Math.floor(remainingMs / 1000);
+
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            const timerValEl = document.getElementById('loadingTimerVal');
+            if (timerValEl) {
+                timerValEl.textContent = formattedTime;
+            }
+
+            if (remainingSeconds <= 0) {
+                if (STATE.countdownInterval) {
+                    clearInterval(STATE.countdownInterval);
+                    STATE.countdownInterval = null;
+                }
+                if (timerValEl) {
+                    timerValEl.textContent = 'Expirado';
+                }
+            }
+        };
+
+        updateTimer();
+        STATE.countdownInterval = setInterval(updateTimer, 1000);
+    }
+
     async _handlePaymentSuccess(data) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1190,6 +1235,10 @@ class PaymentManager {
     }
 
     async _handlePaymentFailure(data) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1199,6 +1248,10 @@ class PaymentManager {
     }
 
     async _handlePaymentTimeout() {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
