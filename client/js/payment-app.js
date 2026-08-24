@@ -18,23 +18,8 @@ let CONFIG = {
     TRANSITION_DURATION: 500
 };
 
-// Dynamic status class mapping initialized from database settings
-let DEFAULT_STATUS_CLASS_MAP = {
-    'PAID': { textClass: 'status-paid', badgeClass: 'badge-paid', rowClass: 'row-paid', color: '#0ea5e9', bg: 'rgba(14,165,233,0.08)', badgeLabel: 'Pagado' },
-    'FREE': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', badgeLabel: 'Gratis' },
-    'FREEPASS': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', badgeLabel: 'Gratis' },
-    'ADJUSTMENT': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', badgeLabel: 'Gratis' },
-    'VERIFYING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '', color: '#3b82f6', bg: '#eff6ff', badgeLabel: 'Verificando' },
-    'CONFIRMING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '', color: '#3b82f6', bg: '#eff6ff', badgeLabel: 'Confirmando' },
-    'PENDING': { textClass: 'status-pending', badgeClass: 'badge-pending', rowClass: 'row-pending', color: '#eab308', bg: 'rgba(234,179,8,0.05)', badgeLabel: 'Pendiente' },
-    'DEBT': { textClass: 'status-debt', badgeClass: 'badge-debt', rowClass: 'row-debt', color: '#ef4444', bg: 'rgba(239,68,68,0.03)', badgeLabel: 'En Deuda' },
-    'LOAN': { textClass: 'status-loan', badgeClass: 'badge-loan', rowClass: '', color: '#8b5cf6', bg: '#f5f3ff', badgeLabel: 'Préstamo' },
-    'DECLINED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '', color: '#ef4444', bg: '#fef2f2', badgeLabel: 'Rechazado' },
-    'ERROR': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '', color: '#ef4444', bg: '#fef2f2', badgeLabel: 'Error' },
-    'VOIDED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '', color: '#ef4444', bg: '#fef2f2', badgeLabel: 'Anulado' }
-};
-
-let STATUS_CLASS_MAP = { ...DEFAULT_STATUS_CLASS_MAP };
+// Dynamic status class mapping loaded dynamically from DB API (/apinode/invoices/history)
+let STATUS_CLASS_MAP = {};
 
 // ============================================================================
 // State Management
@@ -876,7 +861,11 @@ class PaymentManager {
             }
 
             const response = await getInvoiceHistory({ month, year });
-            const { history, month: resMonth, year: resYear } = response.data?.data || {};
+            const { history, month: resMonth, year: resYear, adjustmentTypes } = response.data?.data || {};
+
+            if (adjustmentTypes && typeof adjustmentTypes === 'object') {
+                STATUS_CLASS_MAP = adjustmentTypes;
+            }
 
             // Sync STATE with server-confirmed values
             STATE.historyMonth = resMonth;
