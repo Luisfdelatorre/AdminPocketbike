@@ -90,7 +90,21 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
         invoice.badgeClass = badgeClass;
         invoice.paymentDate = invoice.transaction?.finalized_at;
     });
-    return { invoices, month: targetMonth, year: targetYear, adjustmentTypes };
+
+    const clientAdjustmentTypes = {};
+    Object.entries(adjustmentTypes).forEach(([k, cfg]) => {
+        if (cfg.hidden) return;
+        const isFree = cfg.isFree !== undefined ? cfg.isFree : (cfg.autoAmount === 0 || !cfg.isRealPayment);
+        clientAdjustmentTypes[k] = {
+            badgeLabel: cfg.badgeLabel || cfg.label || k,
+            color: cfg.color || (isFree ? '#22c55e' : '#0ea5e9'),
+            bg: cfg.bg || (isFree ? 'rgba(34,197,94,0.05)' : 'rgba(14,165,233,0.08)'),
+            rowClass: isFree ? 'row-free' : 'row-paid',
+            badgeClass: isFree ? 'badge-free' : 'badge-paid'
+        };
+    });
+
+    return { invoices, month: targetMonth, year: targetYear, adjustmentTypes: clientAdjustmentTypes };
 };
 
 const getStatusReportData = async (isSystemAdmin, companyId) => {
