@@ -174,7 +174,9 @@ class SettingRepository {
     }
 
     async getAdjustmentTypes() {
-        return this.getSetting('adjustment_types', DEFAULT_ADJUSTMENT_TYPES);
+        const stored = await this.getSetting('adjustment_types', DEFAULT_ADJUSTMENT_TYPES);
+        const merged = { ...DEFAULT_ADJUSTMENT_TYPES, ...(stored || {}) };
+        return merged;
     }
 
     async updateAdjustmentTypes(typesData) {
