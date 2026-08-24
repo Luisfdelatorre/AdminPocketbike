@@ -74,34 +74,21 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
         const keyUpper = String(rawKey).toUpperCase();
         const cfg = adjustmentTypes[keyUpper] || adjustmentTypes[rawKey] || adjustmentTypes[invoice.dayType] || {};
 
-        const defaultTranslation = INVOICE_DAYTYPE_TRANSLATION[invoice.dayType] || invoice.dayType;
-        const isFree = cfg.isFree !== undefined ? cfg.isFree : (invoice.dayType === 'FREE' || invoice.dayType === 'FREEPASS' || invoice.dayType === 'ADJUSTMENT');
-
-        const badgeLabel = cfg.badgeLabel || defaultTranslation;
-        const color = cfg.color || (invoice.dayType === 'PAID' ? '#0ea5e9' : (isFree ? '#22c55e' : (invoice.dayType === 'DEBT' ? '#ef4444' : '#eab308')));
-        const bg = cfg.bg || (invoice.dayType === 'PAID' ? 'rgba(14,165,233,0.08)' : (isFree ? 'rgba(34,197,94,0.05)' : (invoice.dayType === 'DEBT' ? 'rgba(239,68,68,0.03)' : 'rgba(234,179,8,0.05)')));
-        const rowClass = isFree ? 'row-free' : (invoice.dayType === 'PAID' ? 'row-paid' : (invoice.dayType === 'PENDING' ? 'row-pending' : (invoice.dayType === 'DEBT' ? 'row-debt' : '')));
-        const badgeClass = isFree ? 'badge-free' : (invoice.dayType === 'PAID' ? 'badge-paid' : (invoice.dayType === 'PENDING' ? 'badge-pending' : (invoice.dayType === 'DEBT' ? 'badge-debt' : '')));
-
+        const badgeLabel = cfg.badgeLabel || invoice.dayType;
         invoice.status = badgeLabel;
         invoice.badgeLabel = badgeLabel;
-        invoice.color = color;
-        invoice.bg = bg;
-        invoice.rowClass = rowClass;
-        invoice.badgeClass = badgeClass;
+        invoice.color = cfg.color || '#6b7280';
+        invoice.bg = cfg.bg || 'transparent';
         invoice.paymentDate = invoice.transaction?.finalized_at;
     });
 
     const clientAdjustmentTypes = {};
     Object.entries(adjustmentTypes).forEach(([k, cfg]) => {
         if (cfg.hidden) return;
-        const isFree = cfg.isFree !== undefined ? cfg.isFree : (cfg.autoAmount === 0 || !cfg.isRealPayment);
         clientAdjustmentTypes[k] = {
             badgeLabel: cfg.badgeLabel || cfg.label || k,
-            color: cfg.color || (isFree ? '#22c55e' : '#0ea5e9'),
-            bg: cfg.bg || (isFree ? 'rgba(34,197,94,0.05)' : 'rgba(14,165,233,0.08)'),
-            rowClass: isFree ? 'row-free' : 'row-paid',
-            badgeClass: isFree ? 'badge-free' : 'badge-paid'
+            color: cfg.color || '#6b7280',
+            bg: cfg.bg || 'transparent'
         };
     });
 
