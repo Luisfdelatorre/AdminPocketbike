@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Sliders, Plus, Trash2, Save, X, RefreshCw, CheckCircle, AlertCircle, Pencil } from 'lucide-react';
+import { Sliders, Plus, Trash2, Save, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ShieldAlert } from 'lucide-react';
 import { getAdjustmentTypes, updateAdjustmentTypes } from '../../services/api';
+
+const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'ADJUSTMENT', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
 
 const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) => {
     const [types, setTypes] = useState({});
+    const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'statuses' | 'adjustments'
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
@@ -107,6 +110,11 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             return;
         }
 
+        if (SYSTEM_STATUS_KEYS.includes(formattedKey)) {
+            setMessage({ type: 'error', text: `La clave "${formattedKey}" pertenece a un estado base reservado del sistema.` });
+            return;
+        }
+
         setSaving(true);
         setMessage(null);
 
@@ -142,6 +150,11 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
     };
 
     const handleDeleteType = async (key) => {
+        if (SYSTEM_STATUS_KEYS.includes(key)) {
+            setMessage({ type: 'error', text: `El estado del sistema "${key}" no puede ser eliminado, sólo configurado.` });
+            return;
+        }
+
         if (!window.confirm(`¿Estás seguro de eliminar el tipo de ajuste "${key}"?`)) return;
 
         setSaving(true);
@@ -192,7 +205,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
                 <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <span className="text-xs font-medium text-slate-500">
-                        {Object.keys(types).length} tipos de ajuste registrados
+                        {Object.keys(types).length} registros en total
                     </span>
                     <button
                         className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 shadow-sm transition-all"
@@ -201,6 +214,28 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                     >
                         <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
                         Recargar
+                    </button>
+                </div>
+
+                {/* Category Filter Tabs */}
+                <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-1">
+                    <button
+                        className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'all' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => setFilterCategory('all')}
+                    >
+                        Todos ({Object.keys(types).length})
+                    </button>
+                    <button
+                        className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'adjustments' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => setFilterCategory('adjustments')}
+                    >
+                        Tipos de Ajuste y Cobro ({Object.keys(types).filter(k => !SYSTEM_STATUS_KEYS.includes(k)).length})
+                    </button>
+                    <button
+                        className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'statuses' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => setFilterCategory('statuses')}
+                    >
+                        Estados de Factura ({Object.keys(types).filter(k => SYSTEM_STATUS_KEYS.includes(k)).length})
                     </button>
                 </div>
 
@@ -304,143 +339,171 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                     <div className="text-center py-8 text-slate-500 text-sm">Cargando tipos de ajuste...</div>
                 ) : (
                     <div className="flex flex-col gap-3">
-                        {Object.entries(types).map(([key, item]) => {
-                            const isEditingThis = editingKey === key;
+                        {Object.entries(types)
+                            .filter(([key]) => {
+                                const isSystemStatus = SYSTEM_STATUS_KEYS.includes(key);
+                                if (filterCategory === 'statuses') return isSystemStatus;
+                                if (filterCategory === 'adjustments') return !isSystemStatus;
+                                return true;
+                            })
+                            .map(([key, item]) => {
+                                const isEditingThis = editingKey === key;
+                                const isSystemStatus = SYSTEM_STATUS_KEYS.includes(key);
 
-                            if (isEditingThis) {
+                                if (isEditingThis) {
+                                    return (
+                                        <div key={key} className="bg-slate-100 p-4 rounded-xl border border-indigo-300 flex flex-col gap-3">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-indigo-900 font-mono">Editando: {key}</span>
+                                                    {isSystemStatus && (
+                                                        <span className="text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full font-bold">
+                                                            Estado Base Sistema
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <button onClick={() => setEditingKey(null)} className="text-slate-400 hover:text-slate-600">
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-xs font-semibold text-slate-700">Etiqueta Larga</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editForm.label}
+                                                        onChange={e => setEditForm({ ...editForm, label: e.target.value })}
+                                                        className="w-full text-xs p-2 rounded-lg border border-slate-300"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-semibold text-slate-700">Insignia Corta (Badge)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editForm.badgeLabel}
+                                                        onChange={e => setEditForm({ ...editForm, badgeLabel: e.target.value })}
+                                                        className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono"
+                                                    />
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-xs font-semibold text-slate-700">Color Texto</label>
+                                                        <input
+                                                            type="color"
+                                                            value={editForm.color}
+                                                            onChange={e => setEditForm({ ...editForm, color: e.target.value })}
+                                                            className="w-full h-8 p-1 rounded-lg border border-slate-300 cursor-pointer"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="text-xs font-semibold text-slate-700">Color Fondo</label>
+                                                        <input
+                                                            type="color"
+                                                            value={editForm.bg}
+                                                            onChange={e => setEditForm({ ...editForm, bg: e.target.value })}
+                                                            className="w-full h-8 p-1 rounded-lg border border-slate-300 cursor-pointer"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="md:col-span-2">
+                                                    <label className="text-xs font-semibold text-slate-700">Descripción</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editForm.description}
+                                                        onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                                                        className="w-full text-xs p-2 rounded-lg border border-slate-300"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`editIsFree_${key}`}
+                                                        checked={editForm.isFree}
+                                                        onChange={e => setEditForm({ ...editForm, isFree: e.target.checked })}
+                                                    />
+                                                    <label htmlFor={`editIsFree_${key}`} className="text-xs font-semibold text-slate-700 cursor-pointer">
+                                                        Día sin cobro ($0)
+                                                    </label>
+                                                </div>
+                                                {!isSystemStatus && (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`editHidden_${key}`}
+                                                            checked={editForm.hidden}
+                                                            onChange={e => setEditForm({ ...editForm, hidden: e.target.checked })}
+                                                        />
+                                                        <label htmlFor={`editHidden_${key}`} className="text-xs font-semibold text-slate-700 cursor-pointer">
+                                                            Ocultar del menú de selección
+                                                        </label>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => setEditingKey(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600">
+                                                    Cancelar
+                                                </button>
+                                                <button onClick={handleSaveEdit} disabled={saving} className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold flex items-center gap-1">
+                                                    <Save size={13} /> Guardar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
                                 return (
-                                    <div key={key} className="bg-slate-100 p-4 rounded-xl border border-indigo-300 flex flex-col gap-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-indigo-900 font-mono">Editando: {key}</span>
-                                            <button onClick={() => setEditingKey(null)} className="text-slate-400 hover:text-slate-600">
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-xs font-semibold text-slate-700">Etiqueta Larga</label>
-                                                <input
-                                                    type="text"
-                                                    value={editForm.label}
-                                                    onChange={e => setEditForm({ ...editForm, label: e.target.value })}
-                                                    className="w-full text-xs p-2 rounded-lg border border-slate-300"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-semibold text-slate-700">Insignia Corta</label>
-                                                <input
-                                                    type="text"
-                                                    value={editForm.badgeLabel}
-                                                    onChange={e => setEditForm({ ...editForm, badgeLabel: e.target.value })}
-                                                    className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono"
-                                                />
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <div className="flex-1">
-                                                    <label className="text-xs font-semibold text-slate-700">Color Texto</label>
-                                                    <input
-                                                        type="color"
-                                                        value={editForm.color}
-                                                        onChange={e => setEditForm({ ...editForm, color: e.target.value })}
-                                                        className="w-full h-8 p-1 rounded-lg border border-slate-300 cursor-pointer"
-                                                    />
+                                    <div key={key} className="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <span
+                                                className="px-2.5 py-1 rounded-full text-xs font-bold font-mono tracking-wide flex-shrink-0"
+                                                style={{ color: item.color, backgroundColor: item.bg }}
+                                            >
+                                                {item.badgeLabel || key}
+                                            </span>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-xs font-bold text-slate-800 truncate">{item.label}</span>
+                                                    {isSystemStatus && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold border border-slate-200">
+                                                            Estado Sistema
+                                                        </span>
+                                                    )}
+                                                    {item.hidden && <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-semibold">Oculto</span>}
+                                                    {item.isFree ? (
+                                                        <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded font-semibold border border-emerald-200">$0 Gratis</span>
+                                                    ) : (
+                                                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-semibold border border-blue-200">Pago Real</span>
+                                                    )}
                                                 </div>
-                                                <div className="flex-1">
-                                                    <label className="text-xs font-semibold text-slate-700">Color Fondo</label>
-                                                    <input
-                                                        type="color"
-                                                        value={editForm.bg}
-                                                        onChange={e => setEditForm({ ...editForm, bg: e.target.value })}
-                                                        className="w-full h-8 p-1 rounded-lg border border-slate-300 cursor-pointer"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <label className="text-xs font-semibold text-slate-700">Descripción</label>
-                                                <input
-                                                    type="text"
-                                                    value={editForm.description}
-                                                    onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                                                    className="w-full text-xs p-2 rounded-lg border border-slate-300"
-                                                />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id={`editIsFree_${key}`}
-                                                    checked={editForm.isFree}
-                                                    onChange={e => setEditForm({ ...editForm, isFree: e.target.checked })}
-                                                />
-                                                <label htmlFor={`editIsFree_${key}`} className="text-xs font-semibold text-slate-700 cursor-pointer">
-                                                    Día sin cobro ($0)
-                                                </label>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id={`editHidden_${key}`}
-                                                    checked={editForm.hidden}
-                                                    onChange={e => setEditForm({ ...editForm, hidden: e.target.checked })}
-                                                />
-                                                <label htmlFor={`editHidden_${key}`} className="text-xs font-semibold text-slate-700 cursor-pointer">
-                                                    Ocultar del menú de selección
-                                                </label>
+                                                <p className="text-[11px] text-slate-500 truncate">{item.description}</p>
                                             </div>
                                         </div>
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => setEditingKey(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600">
-                                                Cancelar
+
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                            <button
+                                                className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors"
+                                                onClick={() => handleStartEdit(key, item)}
+                                                title="Editar etiquetas y colores"
+                                            >
+                                                <Pencil size={15} />
                                             </button>
-                                            <button onClick={handleSaveEdit} disabled={saving} className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold flex items-center gap-1">
-                                                <Save size={13} /> Guardar
-                                            </button>
+                                            {isSystemStatus ? (
+                                                <span className="p-1.5 text-slate-300 cursor-not-allowed" title="Los estados base del sistema no se pueden eliminar">
+                                                    <ShieldAlert size={15} />
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-slate-100 transition-colors"
+                                                    onClick={() => handleDeleteType(key)}
+                                                    title="Eliminar tipo"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 );
-                            }
-
-                            return (
-                                <div key={key} className="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <span
-                                            className="px-2.5 py-1 rounded-full text-xs font-bold font-mono tracking-wide flex-shrink-0"
-                                            style={{ color: item.color, backgroundColor: item.bg }}
-                                        >
-                                            {item.badgeLabel || key}
-                                        </span>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-slate-800 truncate">{item.label}</span>
-                                                {item.hidden && <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-semibold">Oculto</span>}
-                                                {item.isFree ? (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded font-semibold border border-emerald-200">$0 Gratis</span>
-                                                ) : (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-semibold border border-blue-200">Pago Real</span>
-                                                )}
-                                            </div>
-                                            <p className="text-[11px] text-slate-500 truncate">{item.description}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                        <button
-                                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors"
-                                            onClick={() => handleStartEdit(key, item)}
-                                            title="Editar tipo"
-                                        >
-                                            <Pencil size={15} />
-                                        </button>
-                                        <button
-                                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-slate-100 transition-colors"
-                                            onClick={() => handleDeleteType(key)}
-                                            title="Eliminar tipo"
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                            })}
                     </div>
                 )}
             </div>
