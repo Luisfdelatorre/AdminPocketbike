@@ -1,4 +1,5 @@
 import invoiceRepository from '../repositories/invoiceRepository.js';
+import settingRepository from '../repositories/settingRepository.js';
 import { Invoice } from '../models/Invoice.js';
 import { Contract } from '../models/Contract.js';
 import { Transaction, PAYMENTMESSAGES as PM } from '../config/config.js';
@@ -58,6 +59,7 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
             date: 1,
             amount: 1,
             dayType: 1,
+            adjustmentType: 1,
             paidAmount: 1,
             "transaction.finalized_at": 1,
             "transaction.reference": 1,
@@ -65,8 +67,27 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
         }
     ).sort({ date: -1 }).limit(62).lean();
 
+    const adjustmentTypes = await settingRepository.getAdjustmentTypes();
+
     invoices.forEach(invoice => {
-        invoice.status = INVOICE_DAYTYPE_TRANSLATION[invoice.dayType];
+        const key = invoice.adjustmentType || invoice.dayType;
+        const cfg = adjustmentTypes[key] || adjustmentTypes[invoice.dayType] || {};
+
+        const defaultTranslation = INVOICE_DAYTYPE_TRANSLATION[invoice.dayType] || invoice.dayType;
+        const isFree = cfg.isFree !== undefined ? cfg.isFree : (invoice.dayType === 'FREE' || invoice.dayType === 'FREEPASS' || invoice.dayType === 'ADJUSTMENT');
+
+        const badgeLabel = cfg.badgeLabel || defaultTranslation;
+        const color = cfg.color || (invoice.dayType === 'PAID' ? '#0ea5e9' : (isFree ? '#22c55e' : (invoice.dayType === 'DEBT' ? '#ef4444' : '#eab308')));
+        const bg = cfg.bg || (invoice.dayType === 'PAID' ? 'rgba(14,165,233,0.08)' : (isFree ? 'rgba(34,197,94,0.05)' : (invoice.dayType === 'DEBT' ? 'rgba(239,68,68,0.03)' : 'rgba(234,179,8,0.05)')));
+        const rowClass = isFree ? 'row-free' : (invoice.dayType === 'PAID' ? 'row-paid' : (invoice.dayType === 'PENDING' ? 'row-pending' : (invoice.dayType === 'DEBT' ? 'row-debt' : '')));
+        const badgeClass = isFree ? 'badge-free' : (invoice.dayType === 'PAID' ? 'badge-paid' : (invoice.dayType === 'PENDING' ? 'badge-pending' : (invoice.dayType === 'DEBT' ? 'badge-debt' : '')));
+
+        invoice.status = badgeLabel;
+        invoice.badgeLabel = badgeLabel;
+        invoice.color = color;
+        invoice.bg = bg;
+        invoice.rowClass = rowClass;
+        invoice.badgeClass = badgeClass;
         invoice.paymentDate = invoice.transaction?.finalized_at;
     });
     return { invoices, month: targetMonth, year: targetYear };
