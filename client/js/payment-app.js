@@ -18,20 +18,23 @@ let CONFIG = {
     TRANSITION_DURATION: 500
 };
 
-const STATUS_CLASS_MAP = {
-    'PAID': { textClass: 'status-paid', badgeClass: 'badge-paid', rowClass: 'row-paid' },
-    'FREE': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
-    'FREEPASS': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
-    'ADJUSTMENT': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
-    'VERIFYING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '' },
-    'CONFIRMING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '' },
-    'PENDING': { textClass: 'status-pending', badgeClass: 'badge-pending', rowClass: 'row-pending' },
-    'DEBT': { textClass: 'status-debt', badgeClass: 'badge-debt', rowClass: '' },
-    'LOAN': { textClass: 'status-loan', badgeClass: 'badge-loan', rowClass: '' },
-    'DECLINED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' },
-    'ERROR': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' },
-    'VOIDED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' }
+// Dynamic status class mapping initialized from database settings
+let DEFAULT_STATUS_CLASS_MAP = {
+    'PAID': { textClass: 'status-paid', badgeClass: 'badge-paid', rowClass: 'row-paid', color: '#0ea5e9', bg: 'rgba(14,165,233,0.08)', badgeLabel: 'Pagado' },
+    'FREE': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', badgeLabel: 'Gratis' },
+    'FREEPASS': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', badgeLabel: 'Gratis' },
+    'ADJUSTMENT': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', badgeLabel: 'Gratis' },
+    'VERIFYING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '', color: '#3b82f6', bg: '#eff6ff', badgeLabel: 'Verificando' },
+    'CONFIRMING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '', color: '#3b82f6', bg: '#eff6ff', badgeLabel: 'Confirmando' },
+    'PENDING': { textClass: 'status-pending', badgeClass: 'badge-pending', rowClass: 'row-pending', color: '#eab308', bg: 'rgba(234,179,8,0.05)', badgeLabel: 'Pendiente' },
+    'DEBT': { textClass: 'status-debt', badgeClass: 'badge-debt', rowClass: 'row-debt', color: '#ef4444', bg: 'rgba(239,68,68,0.03)', badgeLabel: 'En Deuda' },
+    'LOAN': { textClass: 'status-loan', badgeClass: 'badge-loan', rowClass: '', color: '#8b5cf6', bg: '#f5f3ff', badgeLabel: 'Préstamo' },
+    'DECLINED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '', color: '#ef4444', bg: '#fef2f2', badgeLabel: 'Rechazado' },
+    'ERROR': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '', color: '#ef4444', bg: '#fef2f2', badgeLabel: 'Error' },
+    'VOIDED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '', color: '#ef4444', bg: '#fef2f2', badgeLabel: 'Anulado' }
 };
+
+let STATUS_CLASS_MAP = { ...DEFAULT_STATUS_CLASS_MAP };
 
 // ============================================================================
 // State Management
@@ -922,7 +925,14 @@ class PaymentManager {
 
         historyBody.innerHTML = history.map(item => {
             const key = item.adjustmentType || item.dayType;
-            const config = STATUS_CLASS_MAP[key] || STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
+            const fallbackConfig = STATUS_CLASS_MAP[key] || STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
+
+            const rowClass = item.rowClass || fallbackConfig.rowClass || '';
+            const badgeClass = item.badgeClass || fallbackConfig.badgeClass || 'badge-pending';
+            const badgeLabel = item.badgeLabel || item.status || fallbackConfig.badgeLabel || 'Pendiente';
+            const color = item.color || fallbackConfig.color;
+            const bg = item.bg || fallbackConfig.bg;
+
             let paymentTimeHtml = '<span style="color: #9ca3af; font-size: 13px;">---</span>';
 
             if (item.paymentDate) {
@@ -937,16 +947,15 @@ class PaymentManager {
                 `;
             }
 
-            const customStyle = (config.color && config.bg) ? `color: ${config.color}; background-color: ${config.bg};` : '';
-            const badgeLabel = config.badgeLabel || item.status;
+            const customStyle = (color && bg) ? `color: ${color}; background-color: ${bg};` : '';
 
             return `
-            <tr class="${config.rowClass || ''}">
+            <tr class="${rowClass}">
                 <td style="font-weight: 600; color: #374151;">${UIUtils.formatDate(item.date)}</td>
                 <td style="font-weight: 400; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
                 <td style="text-align: center;">${paymentTimeHtml}</td>
                 <td style="text-align: right; padding-right: 8px;">
-                    <span class="badge-status ${config.badgeClass || 'badge-pending'}" style="${customStyle}">${badgeLabel}</span>
+                    <span class="badge-status ${badgeClass}" style="${customStyle}">${badgeLabel}</span>
                 </td>
             </tr>
             `;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Sliders, Plus, Trash2, Save, X, RefreshCw, CheckCircle, AlertCircle, Pencil } from 'lucide-react';
 import { getAdjustmentTypes, updateAdjustmentTypes } from '../../services/api';
 
@@ -190,23 +191,17 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 )}
 
                 <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <div className="flex gap-2">
-                        <button
-                            className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"
-                            onClick={loadTypes}
-                            disabled={loading}
-                        >
-                            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-                            Recargar
-                        </button>
-                        <button
-                            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 flex items-center gap-1.5"
-                            onClick={() => setShowAddForm(true)}
-                        >
-                            <Plus size={13} />
-                            Agregar Tipo
-                        </button>
-                    </div>
+                    <span className="text-xs font-medium text-slate-500">
+                        {Object.keys(types).length} tipos de ajuste registrados
+                    </span>
+                    <button
+                        className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 shadow-sm transition-all"
+                        onClick={loadTypes}
+                        disabled={loading}
+                    >
+                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                        Recargar
+                    </button>
                 </div>
 
                 {/* Add Form Collapsible */}
@@ -452,11 +447,45 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         </div>
     );
 
-    if (isEmbedded) return content;
+    const fabPortalElement = typeof document !== 'undefined' ? document.getElementById('fab-portal') : null;
+
+    const fabButton = !showAddForm && (
+        fabPortalElement ? (
+            createPortal(
+                <button
+                    type="button"
+                    className="contracts-add-fab primary-blue"
+                    onClick={() => setShowAddForm(true)}
+                    aria-label="Agregar Tipo de Ajuste"
+                >
+                    <Plus size={32} />
+                </button>,
+                fabPortalElement
+            )
+        ) : (
+            <button
+                type="button"
+                className="contracts-add-fab primary-blue"
+                style={{ display: 'flex' }}
+                onClick={() => setShowAddForm(true)}
+                aria-label="Agregar Tipo de Ajuste"
+            >
+                <Plus size={32} />
+            </button>
+        )
+    );
+
+    if (isEmbedded) return (
+        <>
+            {content}
+            {fabButton}
+        </>
+    );
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             {content}
+            {fabButton}
         </div>
     );
 };
