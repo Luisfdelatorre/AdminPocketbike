@@ -1360,7 +1360,7 @@ class EventHandler {
             STATE.fromLogin = true;
             this.screen.switchScreen(this.dom.get('screens.payment'));
 
-            await this.loadData(false, data.paymentData);
+            await this.payment.loadData(false, data.paymentData);
         } catch (error) {
             // Rollback: Go back to login screen on error
             // this.screen.switchScreen(this.dom.get('screens.login'));
