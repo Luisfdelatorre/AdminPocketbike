@@ -652,7 +652,7 @@ class PaymentManager {
             if (loadingDateEl) {
                 const invoiceDate = STATE.paymentData.pendingInvoiceDate || new Date();
                 const invoiceDateStr = UIUtils.formatDate(invoiceDate);
-                const timeOnlyStr = dayjs().format('hh:mm A');
+                const timeOnlyStr = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
                 loadingDateEl.textContent = `📅 ${invoiceDateStr} (${timeOnlyStr})`;
             }
 
