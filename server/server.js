@@ -25,6 +25,7 @@ import cronRoutes from './routes/cronRoutes.js';
 import systemJobsRoutes from './routes/systemJobsRoutes.js';
 import cron from "./cron-server/cron.js";
 import jobRegistry from "./cron-server/jobRegistry.js";
+import syncYesterdayKm from './cron-server/jobs/syncYesterdayKm.js';
 const { default: seedSuperAdmin } = await import('./utils/seedSuperAdmin.js');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,6 +57,8 @@ app.use((req, res, next) => {
     next();
 });
 
+import settingsRoutes from './routes/settingsRoutes.js';
+
 // API Routes
 app.use('/apinode/users', usersRoutes);
 app.use('/apinode/companies', companiesRoutes);
@@ -71,6 +74,7 @@ app.use('/apinode/devices', devicesRouter);
 app.use('/apinode/company-invoices', companyBillingRouter);
 app.use('/apinode/cron', cronRoutes);
 app.use('/apinode/system-jobs', systemJobsRoutes);
+app.use('/apinode/settings', settingsRoutes);
 
 // Serve static files from dist directory (Production Build) - PRIORITY
 app.use(express.static(path.join(__dirname, '../dist')));
@@ -87,6 +91,11 @@ app.use('/p', paymentPageRouter);
 
 // Health check
 app.get('/apinode/health', (req, res) => {
+    if (typeof syncYesterdayKm === 'function') {
+        syncYesterdayKm().catch(err => console.error('Error running syncYesterdayKm:', err));
+    } else if (typeof syncYesterdayKm?.run === 'function') {
+        syncYesterdayKm.run().catch(err => console.error('Error running syncYesterdayKm:', err));
+    }
     res.json({
         success: true,
         message: 'Server is running',
