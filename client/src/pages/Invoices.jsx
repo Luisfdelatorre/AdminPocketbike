@@ -16,7 +16,20 @@ const Invoices = () => {
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+
+    const handleSearchSubmit = (e) => {
+        if (e) e.preventDefault();
+        setSearchQuery(searchInput.trim());
+        setCurrentPage(1);
+    };
+
+    const handleClearSearch = () => {
+        setSearchInput('');
+        setSearchQuery('');
+        setCurrentPage(1);
+    };
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalInvoices, setTotalInvoices] = useState(0);
@@ -384,24 +397,33 @@ const Invoices = () => {
             <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
                 <div className="pt-2 pb-1">
                     {/* Search Box */}
-                    <div className="search-box" style={{ maxWidth: 'none', marginBottom: '.5rem' }}>
-                        <Search className="search-icon" size={18} />
+                    <form onSubmit={handleSearchSubmit} className="search-box" style={{ maxWidth: 'none', marginBottom: '.5rem' }}>
+                        <button
+                            type="submit"
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                            title="Buscar (Enter o clic)"
+                        >
+                            <Search className="search-icon" size={18} />
+                        </button>
                         <input
                             type="text"
                             placeholder={t('invoices.searchPlaceholder')}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSearchSubmit(e);
+                            }}
                         />
-                        {searchQuery && (
+                        {(searchInput || searchQuery) && (
                             <button
                                 type="button"
                                 className="clear-search"
-                                onClick={() => setSearchQuery('')}
+                                onClick={handleClearSearch}
                             >
                                 <X size={16} />
                             </button>
                         )}
-                    </div>
+                    </form>
 
                     {/* Filter Badges (Horizontal scroll, compact) */}
                     <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
@@ -602,21 +624,30 @@ const Invoices = () => {
                 >
                     Deudas
                 </button>
-                <div className="search-box" style={{ marginLeft: 'auto', width: '300px' }}>
-                    <Search className="search-icon" size={18} />
+                <form onSubmit={handleSearchSubmit} className="search-box" style={{ marginLeft: 'auto', width: '300px' }}>
+                    <button
+                        type="submit"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', zIndex: 2 }}
+                        title="Buscar (Enter o clic)"
+                    >
+                        <Search className="search-icon" size={18} style={{ position: 'static' }} />
+                    </button>
                     <input
                         type="text"
                         placeholder="Buscar por ID, dispositivo..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSearchSubmit(e);
+                        }}
                         style={{ paddingLeft: '2.5rem' }}
                     />
-                    {searchQuery && (
-                        <button className="clear-search" onClick={() => setSearchQuery('')}>
+                    {(searchInput || searchQuery) && (
+                        <button type="button" className="clear-search" onClick={handleClearSearch}>
                             <X size={16} />
                         </button>
                     )}
-                </div>
+                </form>
             </div>
 
             {/* Invoices List */}
