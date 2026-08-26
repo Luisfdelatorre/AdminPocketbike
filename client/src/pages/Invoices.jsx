@@ -140,8 +140,11 @@ const Invoices = () => {
     });
 
     useEffect(() => {
-        loadInvoices(currentPage);
         loadStats();
+    }, [selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        loadInvoices(currentPage);
     }, [currentPage, selectedMonth, selectedYear, searchQuery, filter]);
 
     const loadStats = async () => {
