@@ -71,7 +71,11 @@ const createInvoice = async (req, res) => {
 const getAllInvoices = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
+        const search = req.query.search ? req.query.search.trim() : null;
+        const status = req.query.status ? req.query.status.trim() : null;
+        let limit = parseInt(req.query.limit) || (search ? 500 : 50);
+        if (search && limit < 500) limit = 500;
+
         const month = req.query.month ? parseInt(req.query.month) : null;
         const year = req.query.year ? parseInt(req.query.year) : null;
         const skip = (page - 1) * limit;
@@ -85,6 +89,29 @@ const getAllInvoices = async (req, res) => {
             const startOfMonth = new Date(year, month - 1, 1);
             const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
             query.date = { $gte: startOfMonth, $lte: endOfMonth };
+        }
+
+        // Apply search filter (plate / deviceIdName, invoiceId, contractId, paymentReference, adjustmentReference)
+        if (search) {
+            const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+            query.$or = [
+                { deviceIdName: searchRegex },
+                { invoiceId: searchRegex },
+                { contractId: searchRegex },
+                { paymentReference: searchRegex },
+                { adjustmentReference: searchRegex }
+            ];
+        }
+
+        // Apply status filter
+        if (status && status !== 'all') {
+            const statusMap = {
+                'completed': 'PAID',
+                'pending': 'PENDING',
+                'failed': 'DEBT'
+            };
+            const mappedStatus = statusMap[status] || status.toUpperCase();
+            query.dayType = mappedStatus;
         }
 
         // Apply company filter if not system admin

@@ -142,7 +142,7 @@ const Invoices = () => {
     useEffect(() => {
         loadInvoices(currentPage);
         loadStats();
-    }, [currentPage, selectedMonth, selectedYear]);
+    }, [currentPage, selectedMonth, selectedYear, searchQuery, filter]);
 
     const loadStats = async () => {
         try {
@@ -158,7 +158,16 @@ const Invoices = () => {
     const loadInvoices = async (page = 1) => {
         setLoading(true);
         try {
-            const result = await getAllInvoices({ page, limit: PAGE_SIZE, month: selectedMonth, year: selectedYear });
+            const params = {
+                page,
+                limit: searchQuery ? 500 : PAGE_SIZE,
+                month: selectedMonth,
+                year: selectedYear
+            };
+            if (searchQuery) params.search = searchQuery.trim();
+            if (filter !== 'all') params.status = filter;
+
+            const result = await getAllInvoices(params);
             if (result.success) {
                 setInvoices(result.invoices || []);
                 setTotalPages(result.pagination?.totalPages || 1);
@@ -260,10 +269,12 @@ const Invoices = () => {
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             return (
-                invoice.invoiceId.toLowerCase().includes(query) ||
-                invoice.deviceId.toLowerCase().includes(query) ||
+                invoice.invoiceId?.toLowerCase().includes(query) ||
+                invoice.deviceIdName?.toLowerCase().includes(query) ||
+                invoice.deviceId?.toLowerCase().includes(query) ||
                 invoice.contractId?.toLowerCase().includes(query) ||
-                invoice.paymentReference?.toLowerCase().includes(query)
+                invoice.paymentReference?.toLowerCase().includes(query) ||
+                invoice.adjustmentReference?.toLowerCase().includes(query)
             );
         }
         return true;
