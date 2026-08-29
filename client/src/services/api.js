@@ -130,10 +130,11 @@ export const getPaymentHistory = (deviceId, params) => api.get(`/payments/histor
 export const verifyTransaction = (reference) => api.post(`/payments/verify/${reference}`);
 export const registerManualAdjustment = (data) => api.post('/payments/admin/manual', data);
 
-export const exportPaymentsCSV = async (month, year) => {
+export const exportPaymentsCSV = async (month, year, companyId = '') => {
     const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
         || localStorage.getItem('token') || localStorage.getItem('adminToken');
-    const res = await fetch(`${API_URL}/payments/export?month=${month}&year=${year}`, {
+    const compParam = companyId ? `&companyId=${companyId}` : '';
+    const res = await fetch(`${API_URL}/payments/export?month=${month}&year=${year}${compParam}`, {
         headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) throw new Error(`Export failed: ${res.status}`);

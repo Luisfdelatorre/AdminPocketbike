@@ -177,13 +177,17 @@ const PaymentSummary = () => {
         }
     }, [isSystemAdmin]);
 
+    const activeCompanyId = (selectedCompany && selectedCompany !== 'all')
+        ? selectedCompany
+        : (user?.companyId && user?.companyName !== 'System' ? user.companyId : undefined);
+
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
             const response = await getPaymentSummary({
                 month: selectedMonth,
                 year: selectedYear,
-                companyId: isSystemAdmin && selectedCompany !== 'all' ? selectedCompany : undefined
+                companyId: activeCompanyId
             });
 
             if (response.success && Array.isArray(response.data)) {
@@ -220,7 +224,7 @@ const PaymentSummary = () => {
     const handleExport = async () => {
         setDownloading(true);
         try {
-            await exportPaymentsCSV(selectedMonth, selectedYear);
+            await exportPaymentsCSV(selectedMonth, selectedYear, activeCompanyId);
         } catch (err) {
             console.error('CSV export error:', err);
             alert('Error al descargar el CSV: ' + err.message);
