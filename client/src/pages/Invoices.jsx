@@ -86,15 +86,15 @@ const Invoices = () => {
     }, []);
 
     const openManualPayModal = (invoice) => {
-        const reason = invoice.adjustmentType || null;
-        const cfg = reason ? ADJUSTMENT_CONFIG[reason] : null;
+        const reason = invoice.adjustmentType || 'NEQUI';
+        const cfg = ADJUSTMENT_CONFIG[reason] || ADJUSTMENT_CONFIG['NEQUI'] || null;
         const autoAmount = cfg
             ? (cfg.autoAmount !== null ? cfg.autoAmount : invoice.amount)
             : invoice.amount;
 
         setManualPayForm({
             amount: autoAmount,
-            reference: cfg ? cfg.autoReference : '',
+            reference: cfg ? cfg.autoReference : 'Pago Nequi recibido por Admin',
             note: invoice.adjustmentComment || '',
             paymentDate: new Date().toISOString().split('T')[0],
             adjustmentType: reason,
@@ -828,7 +828,6 @@ const Invoices = () => {
                                     }}
                                     style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}
                                 >
-                                    <option value="" style={{ color: '#1a1a2e', background: '#fff' }}>-- Pago normal --</option>
                                     {Object.entries(ADJUSTMENT_CONFIG)
                                         .filter(([key, cfg]) => !cfg.hidden && cfg.category !== 'STATUS')
                                         .map(([key, cfg]) => (
