@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Sliders, Plus, Trash2, Save, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ShieldAlert } from 'lucide-react';
 import { getAdjustmentTypes, updateAdjustmentTypes } from '../../services/api';
 
-const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'ADJUSTMENT', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
+const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
 
 const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) => {
     const [types, setTypes] = useState({});
