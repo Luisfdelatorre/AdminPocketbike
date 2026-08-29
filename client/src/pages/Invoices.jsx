@@ -87,14 +87,14 @@ const Invoices = () => {
 
     const openManualPayModal = (invoice) => {
         const reason = invoice.adjustmentType || 'ADJUSTMENT';
-        const cfg = ADJUSTMENT_CONFIG[reason] || ADJUSTMENT_CONFIG['ADJUSTMENT'] || null;
+        const cfg = ADJUSTMENT_CONFIG[reason] || null;
         const autoAmount = cfg
-            ? (cfg.autoAmount !== null ? cfg.autoAmount : invoice.amount)
+            ? (cfg.autoAmount !== null && cfg.autoAmount !== undefined ? cfg.autoAmount : invoice.amount)
             : invoice.amount;
 
         setManualPayForm({
             amount: autoAmount,
-            reference: cfg ? cfg.autoReference : 'OFICINA - Día ajustado automáticamente',
+            reference: cfg?.autoReference || '',
             note: invoice.adjustmentComment || '',
             paymentDate: new Date().toISOString().split('T')[0],
             adjustmentType: reason,
