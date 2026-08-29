@@ -88,9 +88,7 @@ const Invoices = () => {
     const openManualPayModal = (invoice) => {
         const reason = invoice.adjustmentType || 'ADJUSTMENT';
         const cfg = ADJUSTMENT_CONFIG[reason] || null;
-        const autoAmount = cfg
-            ? (cfg.autoAmount !== null && cfg.autoAmount !== undefined ? cfg.autoAmount : invoice.amount)
-            : invoice.amount;
+        const autoAmount = cfg?.autoAmount ?? invoice.amount;
 
         setManualPayForm({
             amount: autoAmount,
@@ -820,10 +818,8 @@ const Invoices = () => {
                                         setManualPayForm(f => ({
                                             ...f,
                                             adjustmentType: reason,
-                                            amount: cfg
-                                                ? (cfg.autoAmount !== null ? cfg.autoAmount : invoice.amount)
-                                                : invoice.amount,
-                                            reference: cfg ? cfg.autoReference : '',
+                                            amount: cfg?.autoAmount ?? invoice.amount,
+                                            reference: cfg?.autoReference || '',
                                         }));
                                     }}
                                     style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}
