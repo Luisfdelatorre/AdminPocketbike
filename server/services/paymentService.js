@@ -746,6 +746,7 @@ export class PaymentService {
                         driverName: driver,
                         deviceId: d._id,
                         gpsId: d.gpsId || d._id || d.name,
+                        companyId: d.companyId,
                         cutOff: Boolean(d.cutOff)
                     };
                 }
@@ -786,7 +787,9 @@ export class PaymentService {
                 const latestPaymentAt = typeof paymentData === 'object' ? (paymentData.latestPaymentAt || null) : null;
 
                 // Centralised debt rule: delegate to companyService.isInvoiceDue()
-                const company = companyCutoffMap[invoice.companyId?.toString()];
+                const devInfo = deviceInfoMap[devName];
+                const compIdStr = invoice.companyId?.toString() || devInfo?.companyId?.toString() || companyId?.toString();
+                const company = companyCutoffMap[compIdStr];
                 const isDue = companyService.isInvoiceDue(company, invoice.date);
 
                 if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && isDue) {
