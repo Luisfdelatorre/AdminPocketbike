@@ -86,15 +86,15 @@ const Invoices = () => {
     }, []);
 
     const openManualPayModal = (invoice) => {
-        const reason = invoice.adjustmentType || 'NEQUI';
-        const cfg = ADJUSTMENT_CONFIG[reason] || ADJUSTMENT_CONFIG['NEQUI'] || null;
+        const reason = invoice.adjustmentType || 'ADJUSTMENT';
+        const cfg = ADJUSTMENT_CONFIG[reason] || ADJUSTMENT_CONFIG['ADJUSTMENT'] || null;
         const autoAmount = cfg
             ? (cfg.autoAmount !== null ? cfg.autoAmount : invoice.amount)
             : invoice.amount;
 
         setManualPayForm({
             amount: autoAmount,
-            reference: cfg ? cfg.autoReference : 'Pago Nequi recibido por Admin',
+            reference: cfg ? cfg.autoReference : 'OFICINA - Día ajustado automáticamente',
             note: invoice.adjustmentComment || '',
             paymentDate: new Date().toISOString().split('T')[0],
             adjustmentType: reason,
