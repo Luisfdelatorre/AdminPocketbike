@@ -248,6 +248,12 @@ class SettingRepository {
     async getAdjustmentTypes() {
         const stored = await this.getSetting('adjustment_types', DEFAULT_ADJUSTMENT_TYPES);
         const merged = { ...DEFAULT_ADJUSTMENT_TYPES, ...(stored || {}) };
+        const statusKeys = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
+        Object.keys(merged).forEach(key => {
+            if (!merged[key].category) {
+                merged[key].category = statusKeys.includes(key) ? 'STATUS' : 'ADJUSTMENT';
+            }
+        });
         return merged;
     }
 

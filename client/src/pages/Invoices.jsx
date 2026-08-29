@@ -830,7 +830,7 @@ const Invoices = () => {
                                 >
                                     <option value="" style={{ color: '#1a1a2e', background: '#fff' }}>-- Pago normal --</option>
                                     {Object.entries(ADJUSTMENT_CONFIG)
-                                        .filter(([key, cfg]) => !cfg.hidden && !['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'].includes(key))
+                                        .filter(([key, cfg]) => !cfg.hidden && cfg.category !== 'STATUS')
                                         .map(([key, cfg]) => (
                                             <option key={key} value={key} style={{ color: cfg.color, background: cfg.bg, fontWeight: 600 }}>{cfg.label}</option>
                                         ))

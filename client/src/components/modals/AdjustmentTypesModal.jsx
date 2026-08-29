@@ -205,8 +205,8 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
                 {(() => {
                     const visibleKeys = Object.keys(types).filter(k => !types[k]?.hidden);
-                    const adjustmentKeys = visibleKeys.filter(k => !SYSTEM_STATUS_KEYS.includes(k));
-                    const statusKeys = visibleKeys.filter(k => SYSTEM_STATUS_KEYS.includes(k));
+                    const adjustmentKeys = visibleKeys.filter(k => types[k]?.category === 'ADJUSTMENT' || (!types[k]?.category && !SYSTEM_STATUS_KEYS.includes(k)));
+                    const statusKeys = visibleKeys.filter(k => types[k]?.category === 'STATUS' || (!types[k]?.category && SYSTEM_STATUS_KEYS.includes(k)));
                     return (
                         <>
                             {/* Category Filter Tabs */}
@@ -453,17 +453,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="text-xs font-bold text-slate-800 truncate">{item.label}</span>
-                                                    {isSystemStatus && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold border border-slate-200">
-                                                            Estado Sistema
-                                                        </span>
-                                                    )}
                                                     {item.hidden && <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-semibold">Oculto</span>}
-                                                    {item.isFree ? (
-                                                        <span className="text-[10px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded font-semibold border border-emerald-200">$0 Gratis</span>
-                                                    ) : (
-                                                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-semibold border border-blue-200">Pago Real</span>
-                                                    )}
                                                 </div>
                                                 <p className="text-[11px] text-slate-500 truncate">{item.description}</p>
                                             </div>
