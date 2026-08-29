@@ -203,41 +203,44 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                     </div>
                 )}
 
-                <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <span className="text-xs font-medium text-slate-500">
-                        {Object.keys(types).length} registros en total
-                    </span>
-                    <button
-                        className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 shadow-sm transition-all"
-                        onClick={loadTypes}
-                        disabled={loading}
-                    >
-                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-                        Recargar
-                    </button>
-                </div>
+                {(() => {
+                    const visibleKeys = Object.keys(types).filter(k => !types[k]?.hidden);
+                    const adjustmentKeys = visibleKeys.filter(k => !SYSTEM_STATUS_KEYS.includes(k));
+                    const statusKeys = visibleKeys.filter(k => SYSTEM_STATUS_KEYS.includes(k));
+                    return (
+                        <>
+                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <span className="text-xs font-medium text-slate-500">
+                                    {visibleKeys.length} tipos en total
+                                </span>
+                                <button
+                                    className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 shadow-sm transition-all"
+                                    onClick={loadTypes}
+                                    disabled={loading}
+                                >
+                                    <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                                    Recargar
+                                </button>
+                            </div>
 
-                {/* Category Filter Tabs */}
-                <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-1">
-                    <button
-                        className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'all' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        onClick={() => setFilterCategory('all')}
-                    >
-                        Todos ({Object.keys(types).length})
-                    </button>
-                    <button
-                        className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'adjustments' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        onClick={() => setFilterCategory('adjustments')}
-                    >
-                        Tipos de Ajuste y Cobro ({Object.keys(types).filter(k => !SYSTEM_STATUS_KEYS.includes(k)).length})
-                    </button>
-                    <button
-                        className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'statuses' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        onClick={() => setFilterCategory('statuses')}
-                    >
-                        Estados de Factura ({Object.keys(types).filter(k => SYSTEM_STATUS_KEYS.includes(k)).length})
-                    </button>
-                </div>
+                            {/* Category Filter Tabs */}
+                            <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-1">
+                                <button
+                                    className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'adjustments' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                    onClick={() => setFilterCategory('adjustments')}
+                                >
+                                    Tipos de Ajuste y Cobro ({adjustmentKeys.length})
+                                </button>
+                                <button
+                                    className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'statuses' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                    onClick={() => setFilterCategory('statuses')}
+                                >
+                                    Estados de Factura ({statusKeys.length})
+                                </button>
+                            </div>
+                        </>
+                    );
+                })()}
 
                 {/* Add Form Collapsible */}
                 {showAddForm && (
@@ -340,7 +343,8 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 ) : (
                     <div className="flex flex-col gap-3">
                         {Object.entries(types)
-                            .filter(([key]) => {
+                            .filter(([key, item]) => {
+                                if (item?.hidden) return false; // Hide internal backward-compatibility alias keys
                                 const isSystemStatus = SYSTEM_STATUS_KEYS.includes(key);
                                 if (filterCategory === 'statuses') return isSystemStatus;
                                 if (filterCategory === 'adjustments') return !isSystemStatus;

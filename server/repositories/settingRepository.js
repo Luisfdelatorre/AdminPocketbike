@@ -135,6 +135,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
         autoAmount: 0,
         autoReference: 'OFICINA - Día ajustado automáticamente',
+        hidden: true,
         isRealPayment: false,
         isFree: true
     },
