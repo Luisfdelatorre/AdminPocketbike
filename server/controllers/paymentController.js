@@ -32,18 +32,20 @@ const paymentController = {
     /*Create payment*/
     async createPayment(req, res) {
         try {
-            const { phone } = req.body;
+            const { phone } = req.body; // optional for BANCOLOMBIA_QR
             // SECURITY: Force use of authenticated deviceId from token
             const { deviceIdName, companyId } = req.paymentAuth;
 
-            if (!phone || !deviceIdName) {
+            if (!deviceIdName) {
                 return res.status(400).json({ success: false, message: "Missing required fields" });
             }
             const result = await paymentService.initiateWompiPaymentTransaction(deviceIdName, phone, companyId);
             return res.status(200).json({
                 success: true,
                 message: M_REQUEST_SENT,
-                paymentData: result.paymentData,
+                paymentData:   result.paymentData,
+                paymentMethod: result.paymentMethod,
+                // QR image arrives via SSE (QR_READY event) — not in this HTTP response
             });
 
         } catch (error) {
@@ -89,21 +91,24 @@ const paymentController = {
         }
     },
 
-    /*Get monthly payment summary grid*/
     async getPaymentSummary(req, res) {
         try {
-            const { month, year } = req.query;
+            const { month, year, companyId: queryCompanyId } = req.query;
             const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
             if (!month || !year) {
                 return res.status(400).json({ success: false, error: 'Month and Year are required' });
             }
+
             let targetCompanyId = null;
             if (req.auth) {
                 const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
                 if (!isSystemAdmin) {
                     targetCompanyId = companyId;
+                } else if (queryCompanyId && queryCompanyId !== 'all') {
+                    targetCompanyId = queryCompanyId;
                 }
             }
+
             const summary = await paymentService.getPaymentSummary({
                 month,
                 year,
@@ -364,7 +369,7 @@ const paymentController = {
             if (!invoiceId || !adjustmentType) {
                 return res.status(400).json({ success: false, error: 'invoiceId and adjustmentReason are required' });
             }
-            const VALID_REASONS = ['REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA'];
+            const VALID_REASONS = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA'];
             if (!VALID_REASONS.includes(adjustmentType)) {
                 return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${VALID_REASONS.join(', ')}` });
             }
