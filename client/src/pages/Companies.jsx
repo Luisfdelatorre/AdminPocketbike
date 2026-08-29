@@ -479,7 +479,7 @@ const Companies = () => {
                 onClose={() => setShowDeviceModal(false)}
                 company={selectedCompany}
                 allDevices={allDevices}
-                onSave={handleSaveDevices}
+                onSave={(companyId, deviceIds) => handleSaveDeviceAssignment(deviceIds)}
             />
             {/* Adjustment Types Settings Modal */}
             <AdjustmentTypesModal
