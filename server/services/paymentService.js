@@ -716,9 +716,9 @@ export class PaymentService {
             const [invoices, payments, deviceDocs, activeContracts, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
-                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1 }).lean(),
+                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1, companyId: 1, companyName: 1 }).lean(),
                 Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean(),
-                Company.find(companyId ? { _id: companyId } : {}, { cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
+                Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
 
@@ -737,25 +737,27 @@ export class PaymentService {
                 }
             });
 
-            // Build a lookup map: deviceName -> { driverName, deviceId, gpsId, cutOff }
-            const deviceInfoMap = {};
-            deviceDocs.forEach(d => {
-                if (d.name) {
-                    const driver = contractDriverMap[d.name] || getFirstName(d.driverName) || null;
-                    deviceInfoMap[d.name] = {
-                        driverName: driver,
-                        deviceId: d._id,
-                        gpsId: d.gpsId || d._id || d.name,
-                        companyId: d.companyId,
-                        cutOff: Boolean(d.cutOff)
-                    };
-                }
-            });
-
             // Build company config map keyed by companyId string for isInvoiceDue lookup
             const companyCutoffMap = {};
             companyDocs.forEach(c => {
                 companyCutoffMap[c._id.toString()] = c;
+            });
+
+            // Build a lookup map: deviceName -> { driverName, deviceId, gpsId, companyId, companyName, cutOff }
+            const deviceInfoMap = {};
+            deviceDocs.forEach(d => {
+                if (d.name) {
+                    const driver = contractDriverMap[d.name] || getFirstName(d.driverName) || null;
+                    const compObj = d.companyId ? companyCutoffMap[d.companyId.toString()] : null;
+                    deviceInfoMap[d.name] = {
+                        driverName: driver,
+                        deviceId: d._id,
+                        gpsId: d.gpsId || d._id || d.name,
+                        companyId: d.companyId || null,
+                        companyName: d.companyName || compObj?.name || null,
+                        cutOff: Boolean(d.cutOff)
+                    };
+                }
             });
 
             const paymentsObj = payments.length > 0 ? payments[0] : {};
@@ -769,12 +771,16 @@ export class PaymentService {
 
                 if (!deviceMap[devName]) {
                     const info = deviceInfoMap[devName] || {};
+                    const compId = info.companyId || invoice.companyId || null;
+                    const compObj = compId ? companyCutoffMap[compId.toString()] : null;
                     deviceMap[devName] = {
                         device: {
                             name: devName,
                             deviceId: info.deviceId || invoice.deviceId || devName,
                             gpsId: info.gpsId || info.deviceId || invoice.deviceId || devName,
                             driverName: info.driverName || contractDriverMap[devName] || null,
+                            companyId: compId,
+                            companyName: info.companyName || compObj?.name || null,
                             unpaidTotal: 0,
                             cutOff: Boolean(info.cutOff)
                         },
