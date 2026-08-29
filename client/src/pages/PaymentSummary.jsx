@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 're
 import { createPortal } from 'react-dom';
 import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
+import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine, getAllCompanies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, DollarSign, Activity, FileText, ChevronDown, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone } from 'lucide-react';
 import MobileHeaderAction from '../components/MobileHeaderAction';
@@ -15,16 +15,6 @@ import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
-
-// Helper to format currency
-// Helper to format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '-';
-    if (amount >= 1000) {
-        return `$${(amount / 1000).toFixed(0)}k`;
-    }
-    return `$${amount}`;
-};
 
 const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
 
@@ -41,11 +31,8 @@ const PaymentSummary = () => {
     const { subscribe } = useSSE();
     const [loading, setLoading] = useState(false);
     const { t } = useTranslation();
-    const [downloading, setDownloading] = useState(false);
     const [summaryDataMap, setSummaryDataMap] = useState({});
     const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
-    const [bulkOffLoading, setBulkOffLoading] = useState(false);
-    const [bulkOffModal, setBulkOffModal] = useState(false);
     const [pendingCommands, setPendingCommands] = useState({});
     const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
@@ -60,12 +47,11 @@ const PaymentSummary = () => {
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
 
-    useEffect(() => {
-        const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
-        const handleBreakpointChange = (event) => setIsMobile(event.matches);
-        mobileMediaQuery.addEventListener('change', handleBreakpointChange);
-        return () => mobileMediaQuery.removeEventListener('change', handleBreakpointChange);
-    }, []);
+    const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
+    const [companies, setCompanies] = useState([]);
+    const [selectedCompany, setSelectedCompany] = useState('all');
+
+
 
     const handleDesktopViewChange = (view) => {
         setDesktopView(view);
@@ -182,17 +168,32 @@ const PaymentSummary = () => {
         return () => observer.disconnect();
     }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
 
+    useEffect(() => {
+        if (isSystemAdmin) {
+            getAllCompanies().then(res => {
+                const list = Array.isArray(res) ? res : (res.data || res.companies || []);
+                setCompanies(list);
+            }).catch(err => console.error('Failed to load companies list:', err));
+        }
+    }, [isSystemAdmin]);
+
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
             const response = await getPaymentSummary({
                 month: selectedMonth,
-                year: selectedYear
+                year: selectedYear,
+                companyId: isSystemAdmin && selectedCompany !== 'all' ? selectedCompany : undefined
             });
 
             if (response.success && Array.isArray(response.data)) {
                 const map = {};
-                response.data.forEach(item => map[item.device.gpsId] = item);
+                response.data.forEach(item => {
+                    const devKey = String(item.device?.gpsId || item.device?.deviceId || item.device?.name || '');
+                    if (devKey && devKey !== 'undefined') {
+                        map[devKey] = item;
+                    }
+                });
 
                 // Anti-Race Condition: If the API response has older data than our local SSE cache, keep the local SSE device state!
                 setSummaryDataMap(prev => {
@@ -244,13 +245,13 @@ const PaymentSummary = () => {
             const resObj = data.response || data;
 
             if (data.success || resObj.success) {
-                showToast(`Comando encolado en Traccar para ${dev.name}`, 'info');
+                showToast(`Comando encolado en Traccar para ${device.name}`, 'info');
                 setSummaryDataMap(prev => {
                     const next = { ...prev };
                     const primaryKey = String(gpsId);
                     if (next[primaryKey]) {
                         // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
-                        if (next[primaryKey].device.cutOff === !!dev.cutOff) {
+                        if (next[primaryKey].device.cutOff === !!device.cutOff) {
                             next[primaryKey] = {
                                 ...next[primaryKey],
                                 device: { ...next[primaryKey].device, queued: true }
@@ -262,12 +263,18 @@ const PaymentSummary = () => {
             }
         } catch (err) {
             showToast(err.message || 'Error', 'error');
+        } finally {
+            setPendingCommands(prev => {
+                const next = { ...prev };
+                delete next[gpsId];
+                return next;
+            });
         }
     };
 
     useEffect(() => {
         fetchData();
-    }, [selectedMonth, selectedYear]);
+    }, [selectedMonth, selectedYear, selectedCompany]);
 
     const handleBulkEngineOff = async () => {
         setBulkOffModal(false);
@@ -303,8 +310,8 @@ const PaymentSummary = () => {
                     const next = { ...prev };
                     let matchFound = false;
                     updates.forEach(u => {
-                        const key = String(u.gpsId);
-                        if (next[key]) {
+                        const key = String(u.gpsId || u.deviceId || u.name || '');
+                        if (key && next[key]) {
                             matchFound = true;
                             next[key] = {
                                 ...next[key],
@@ -369,18 +376,20 @@ const PaymentSummary = () => {
         const dev = item.device;
         const devId = dev.deviceId;
         const isOff = !!dev.cutOff;
-        const isPending = !!pendingCommands[devId] || dev.queued;
+        const isPendingCommand = !!pendingCommands[devId];
+        const isQueued = !!dev.queued;
+        const isDisabled = isPendingCommand || isQueued;
 
         return (
             <button
                 onClick={() => handleEngineToggle(dev)}
-                disabled={isPending}
-                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
-                title={isOff ? 'Activar Moto' : 'Desactivar Moto'}
+                disabled={isDisabled}
+                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPendingCommand ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                title={isQueued ? 'Comando en cola (esperando señal GPS)' : (isOff ? 'Activar Moto' : 'Desactivar Moto')}
                 style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
-                    {isPending
+                    {isPendingCommand
                         ? <RefreshCw size={10} className="spin" />
                         : <Power size={10} />}
                 </div>
@@ -463,15 +472,13 @@ const PaymentSummary = () => {
                     </div>
                 }
             />
-            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`} >
-
-                {/* ── Controles: mes / año / acciones ────────────────────────────── */}
-                <div className="dashboard-controls-row">
-                    <div className="select-wrapper-month">
+            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
+                <div className="summary-date-card">
+                    <div className="summary-date-field has-border">
                         <select
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="select-control-ios"
+                            className="summary-select-ios"
                         >
                             {Array.from({ length: 12 }, (_, i) => (
                                 <option key={i + 1} value={i + 1}>
@@ -479,19 +486,45 @@ const PaymentSummary = () => {
                                 </option>
                             ))}
                         </select>
+                        <div className="summary-select-arrow">
+                            <ChevronDown size={16} />
+                        </div>
                     </div>
 
-                    <div className="select-wrapper-year">
+                    <div className="summary-date-field has-border">
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="select-control-ios"
+                            className="summary-select-ios"
                         >
                             <option value={2025}>2025</option>
                             <option value={2026}>2026</option>
                             <option value={2027}>2027</option>
                         </select>
+                        <div className="summary-select-arrow">
+                            <ChevronDown size={16} />
+                        </div>
                     </div>
+
+                    {isSystemAdmin && companies.length > 0 && (
+                        <div className="summary-date-field has-border">
+                            <select
+                                value={selectedCompany}
+                                onChange={(e) => setSelectedCompany(e.target.value)}
+                                className="summary-select-ios"
+                            >
+                                <option value="all">Todas las empresas</option>
+                                {companies.map(c => (
+                                    <option key={c._id} value={c._id}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="summary-select-arrow">
+                                <ChevronDown size={16} />
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
