@@ -177,9 +177,9 @@ const PaymentSummary = () => {
         }
     }, [isSystemAdmin]);
 
-    const activeCompanyId = (selectedCompany && selectedCompany !== 'all')
-        ? selectedCompany
-        : (user?.companyId && user?.companyName !== 'System' ? user.companyId : undefined);
+    const activeCompanyId = isSystemAdmin
+        ? (selectedCompany !== 'all' ? selectedCompany : undefined)
+        : undefined;
 
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
