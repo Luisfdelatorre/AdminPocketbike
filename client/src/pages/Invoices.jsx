@@ -10,6 +10,7 @@ import './Payments.css';
 import './Invoices.css';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
 
 const Invoices = () => {
     const { t } = useTranslation();
@@ -384,102 +385,24 @@ const Invoices = () => {
             {/* Mobile Collapsible Filter Section (Mobile only) */}
             <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
                 <div className="pt-2 pb-1">
-                    {/* Search Box */}
-                    <form onSubmit={handleSearchSubmit} className="search-box" style={{ maxWidth: 'none', marginBottom: '.5rem' }}>
-                        <button
-                            type="submit"
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-                            title="Buscar (Enter o clic)"
-                        >
-                            <Search className="search-icon" size={18} />
-                        </button>
-                        <input
-                            type="text"
-                            placeholder={t('invoices.searchPlaceholder')}
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSearchSubmit(e);
-                            }}
-                        />
-                        {(searchInput || searchQuery) && (
-                            <button
-                                type="button"
-                                className="clear-search"
-                                onClick={handleClearSearch}
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
-                    </form>
-
-                    {/* Filter Badges (Horizontal scroll, compact) */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'all' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'all' ? '#2563eb' : 'white',
-                                color: filter === 'all' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('all')}
-                        >
-                            {t('payments.filters.all')}
-                        </button>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'completed' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'completed' ? '#2563eb' : 'white',
-                                color: filter === 'completed' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('completed')}
-                        >
-                            Pagadas
-                        </button>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'pending' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'pending' ? '#2563eb' : 'white',
-                                color: filter === 'pending' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('pending')}
-                        >
-                            Pendientes
-                        </button>
-                        <button
-                            type="button"
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'failed' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'failed' ? '#2563eb' : 'white',
-                                color: filter === 'failed' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('failed')}
-                        >
-                            Deudas
-                        </button>
-                    </div>
+                    <SearchAndFilterBar
+                        searchQuery={searchInput}
+                        setSearchQuery={(val) => {
+                            setSearchInput(val);
+                            setSearchQuery(val);
+                            setCurrentPage(1);
+                        }}
+                        searchPlaceholder={t('invoices.searchPlaceholder')}
+                        filter={filter}
+                        setFilter={(val) => handleFilterChange(val)}
+                        filterOptions={[
+                            { value: 'all', label: t('payments.filters.all') || 'Todas' },
+                            { value: 'completed', label: 'Pagadas' },
+                            { value: 'pending', label: 'Pendientes' },
+                            { value: 'failed', label: 'Deudas' }
+                        ]}
+                        filterRowClass="summary-filter-row-ios"
+                    />
 
                     {/* Action Items for Mobile */}
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
