@@ -229,13 +229,13 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                     className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'adjustments' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                                     onClick={() => setFilterCategory('adjustments')}
                                 >
-                                    Tipos de Ajuste y Cobro ({adjustmentKeys.length})
+                                    Ajustes ({adjustmentKeys.length})
                                 </button>
                                 <button
                                     className={`px-3 py-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${filterCategory === 'statuses' ? 'border-indigo-600 text-indigo-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                                     onClick={() => setFilterCategory('statuses')}
                                 >
-                                    Estados de Factura ({statusKeys.length})
+                                    Estados ({statusKeys.length})
                                 </button>
                             </div>
                         </>
