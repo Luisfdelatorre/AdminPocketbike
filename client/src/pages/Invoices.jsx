@@ -73,17 +73,7 @@ const Invoices = () => {
     const [manualPayLoading, setManualPayLoading] = useState(false);
     const [manualPayError, setManualPayError] = useState('');
 
-    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({
-        NEQUI: { label: 'Pago Real - Nequi', color: '#E11D48', bg: '#FFF1F2', description: 'Pago real recibido vía Nequi.', autoAmount: null, autoReference: 'Pago Nequi recibido por Admin', isRealPayment: true },
-        EFECTIVO: { label: 'Pago Real - Efectivo', color: '#16A34A', bg: '#F0FDF4', description: 'Pago real recibido en efectivo.', autoAmount: null, autoReference: 'Pago en Efectivo recibido por Admin', isRealPayment: true },
-        TRANSFERENCIA: { label: 'Pago Real - Transferencia Bancaria', color: '#2563EB', bg: '#EFF6FF', description: 'Pago real recibido por transferencia bancaria.', autoAmount: null, autoReference: 'Transferencia Bancaria recibida por Admin', isRealPayment: true },
-        ACCIDENT_TRANSIT: { label: 'Ajuste - Retenida en tránsito por accidente ($0)', badgeLabel: 'TRANSITO', color: '#FB9678', bg: '#FFF4EF', description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.', autoAmount: 0, autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente' },
-        REPAIR: { label: 'Ajuste - Retenida en tránsito por accidente ($0)', badgeLabel: 'RETENIDA', color: '#FB9678', bg: '#FFF4EF', description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.', autoAmount: 0, autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente', hidden: true },
-        INCAPACITY: { label: 'Ajuste - Incapacidad ($0)', color: '#3b82f6', bg: '#EFF6FF', description: 'Incapacidad médica del cliente — día sin cobro al cliente.', autoAmount: 0, autoReference: 'INCAPACIDAD - Día ajustado automáticamente' },
-        MAINTENANCE: { label: 'Ajuste - Mantenimiento ($0)', color: '#7460EE', bg: '#F5F3FF', description: 'Mantenimiento programado — día sin cobro al cliente.', autoAmount: 0, autoReference: 'MANTENIMIENTO - Día ajustado automáticamente' },
-        OFFICE: { label: 'Ajuste - Oficina ($0)', color: '#0891B2', bg: '#ECFEFF', description: 'Ajuste realizado en oficina — día sin cobro al cliente.', autoAmount: 0, autoReference: 'OFICINA - Día ajustado automáticamente' },
-        WORKSHOP: { label: 'Ajuste - Taller ($0)', color: '#A3A3A3', bg: '#F5F5F5', description: 'Dispositivo en taller — día sin cobro al cliente.', autoAmount: 0, autoReference: 'TALLER - Día ajustado automáticamente' },
-    });
+    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({});
 
     useEffect(() => {
         getAdjustmentTypes()
