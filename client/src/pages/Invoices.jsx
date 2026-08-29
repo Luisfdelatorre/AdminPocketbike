@@ -11,6 +11,7 @@ import './Invoices.css';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import StatCard from '../components/StatCard';
 
 const Invoices = () => {
     const { t } = useTranslation();
@@ -446,63 +447,39 @@ const Invoices = () => {
 
             {/* Summary Stats */}
             <div className="payment-stats">
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
-                        <DollarSign size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">Recaudación Total</div>
-                        <div className="stat-value-container">
-                            <span className="stat-number">
-                                <span className="desktop-only">{formatCurrency(stats.totalAmount)}</span>
-                                <span className="mobile-only">{formatCompact(stats.totalAmount)}</span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#00C292' }}>
-                        <Check size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">Pagadas</div>
-                        <div className="stat-value-container">
-                            <span className="stat-number">{stats.paid}</span>
-                            {paidPercentage > 0 && (
-                                <span className="stat-change-inline positive">
-                                    <TrendingUp size={14} />
-                                    {paidPercentage}%
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#EF4444' }}>
-                        <X size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">Deudas / Impagas</div>
-                        <div className="stat-value-container">
-                            <span className="stat-number">{stats.unpaid}</span>
-                            {unpaidPercentage > 0 && (
-                                <span className="stat-change-inline negative">
-                                    <TrendingDown size={14} />
-                                    {unpaidPercentage}%
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#7460EE' }}>
-                        <FileText size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">Total Facturas</div>
-                        <div className="stat-number">{stats.total}</div>
-                    </div>
-                </div>
+                <StatCard
+                    title="Recaudación Total"
+                    value={
+                        <>
+                            <span className="desktop-only">{formatCurrency(stats.totalAmount)}</span>
+                            <span className="mobile-only">{formatCompact(stats.totalAmount)}</span>
+                        </>
+                    }
+                    icon={DollarSign}
+                    iconBg="var(--brand-teal)"
+                />
+                <StatCard
+                    title="Pagadas"
+                    value={stats.paid}
+                    change={paidPercentage > 0 ? `${paidPercentage}%` : null}
+                    changeType="positive"
+                    icon={Check}
+                    iconBg="#00C292"
+                />
+                <StatCard
+                    title="Deudas / Impagas"
+                    value={stats.unpaid}
+                    change={unpaidPercentage > 0 ? `${unpaidPercentage}%` : null}
+                    changeType="negative"
+                    icon={X}
+                    iconBg="#EF4444"
+                />
+                <StatCard
+                    title="Total Facturas"
+                    value={stats.total}
+                    icon={FileText}
+                    iconBg="#7460EE"
+                />
             </div>
 
             {/* Desktop Filters (Desktop only) */}
