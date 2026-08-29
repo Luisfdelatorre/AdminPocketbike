@@ -718,7 +718,7 @@ export class PaymentService {
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
                 Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1 }).lean(),
                 Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean(),
-                Company.find(companyId ? { _id: companyId } : {}, { cutoffTime: 1, autoCutoffEnabled: 1 }).lean()
+                Company.find(companyId ? { _id: companyId } : {}, { cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
 
