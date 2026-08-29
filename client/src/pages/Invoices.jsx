@@ -829,9 +829,12 @@ const Invoices = () => {
                                     style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}
                                 >
                                     <option value="" style={{ color: '#1a1a2e', background: '#fff' }}>-- Pago normal --</option>
-                                    {Object.entries(ADJUSTMENT_CONFIG).filter(([_, cfg]) => !cfg.hidden).map(([key, cfg]) => (
-                                        <option key={key} value={key} style={{ color: cfg.color, background: cfg.bg, fontWeight: 600 }}>{cfg.label}</option>
-                                    ))}
+                                    {Object.entries(ADJUSTMENT_CONFIG)
+                                        .filter(([key, cfg]) => !cfg.hidden && !['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'].includes(key))
+                                        .map(([key, cfg]) => (
+                                            <option key={key} value={key} style={{ color: cfg.color, background: cfg.bg, fontWeight: 600 }}>{cfg.label}</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
 
