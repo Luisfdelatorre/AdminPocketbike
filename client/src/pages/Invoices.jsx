@@ -800,11 +800,10 @@ const Invoices = () => {
                         <form className="modal-form" onSubmit={handleManualPaySubmit}>
                             {manualPayForm.adjustmentType && (() => {
                                 const cfg = ADJUSTMENT_CONFIG[manualPayForm.adjustmentType];
+                                if (!cfg) return null;
                                 return (
-                                    <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: cfg.color + '50', color: cfg.color }}>
-                                        {(manualPayForm.adjustmentType === 'ACCIDENT_TRANSIT' || manualPayForm.adjustmentType === 'REPAIR' || manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={14} />}
-                                        {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={14} />}
-                                        {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={14} />}
+                                    <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: (cfg.color || '#3b82f6') + '50', color: cfg.color || '#3b82f6' }}>
+                                        <AlertTriangle size={14} />
                                         <span>{cfg.description}</span>
                                     </div>
                                 );
