@@ -209,20 +209,6 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                     const statusKeys = visibleKeys.filter(k => SYSTEM_STATUS_KEYS.includes(k));
                     return (
                         <>
-                            <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                <span className="text-xs font-medium text-slate-500">
-                                    {visibleKeys.length} tipos en total
-                                </span>
-                                <button
-                                    className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 shadow-sm transition-all"
-                                    onClick={loadTypes}
-                                    disabled={loading}
-                                >
-                                    <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-                                    Recargar
-                                </button>
-                            </div>
-
                             {/* Category Filter Tabs */}
                             <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-1">
                                 <button

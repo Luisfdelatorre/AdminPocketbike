@@ -5,6 +5,7 @@ import { Building, Plus, Search, X, Pencil, Link, ChevronLeft, User, Save, Slide
 import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
 import AdjustmentTypesModal from '../components/modals/AdjustmentTypesModal';
 import SystemJobs from '../components/SystemJobs';
+import PageHeader from '../components/PageHeader';
 import './Users.css'; // Reusing Users CSS for consistency
 import './Companies.css';
 
@@ -99,35 +100,31 @@ const Companies = () => {
             const payload = {
                 ...companyForm,
                 wompiConfig: {
-                    ...selectedCompany?.wompiConfig,
-                    paymentMethod: companyForm.paymentMethod || 'NEQUI_PUSH',
-                    wompiCommission: parseFloat(companyForm.wompiCommission)
+                    wompiCommission: companyForm.wompiCommission,
+                    paymentMethod: companyForm.paymentMethod
                 },
                 billingConfig: {
-                    ...selectedCompany?.billingConfig,
-                    transactionFixedFee: parseFloat(companyForm.transactionFixedFee),
-                    transactionPercentage: parseFloat(companyForm.transactionPercentage),
-                    ivaPercentage: parseFloat(companyForm.ivaPercentage)
+                    transactionFixedFee: companyForm.transactionFixedFee,
+                    transactionPercentage: companyForm.transactionPercentage,
+                    ivaPercentage: companyForm.ivaPercentage
                 }
             };
+            delete payload.wompiCommission;
+            delete payload.paymentMethod;
+            delete payload.transactionFixedFee;
+            delete payload.transactionPercentage;
+            delete payload.ivaPercentage;
 
-            let res;
             if (isEditing) {
-                res = await updateCompany(editCompanyId, payload);
+                await updateCompany(editCompanyId, payload);
             } else {
-                res = await createCompany(payload);
+                await createCompany(payload);
             }
-
-            if (res.success) {
-                alert(`Company ${isEditing ? 'updated' : 'created'} successfully`);
-                resetForm();
-                loadData();
-            } else {
-                alert(res.error || `Failed to ${isEditing ? 'update' : 'create'} company`);
-            }
+            handleCloseDetail();
+            loadData();
         } catch (error) {
-            console.error(error);
-            alert(`Error ${isEditing ? 'updating' : 'creating'} company`);
+            console.error('Error saving company:', error);
+            alert('Error saving company');
         }
     };
 
@@ -136,16 +133,11 @@ const Companies = () => {
         setShowDeviceModal(true);
     };
 
-    const handleSaveDevices = async (companyId, deviceIds) => {
+    const handleSaveDeviceAssignment = async (assignedDeviceIds) => {
         try {
-            const res = await assignDevicesToCompany(companyId, deviceIds);
-            if (res.success) {
-                alert('Devices assigned successfully');
-                setShowDeviceModal(false);
-                loadData(); // Reload to refresh counts if we add them later or refresh device list
-            } else {
-                alert(res.error || 'Failed to assign devices');
-            }
+            await assignDevicesToCompany(selectedCompany._id, assignedDeviceIds);
+            setShowDeviceModal(false);
+            loadData(); // Refresh data to show updated counts
         } catch (error) {
             console.error(error);
             alert('Error assigning devices');
@@ -162,19 +154,23 @@ const Companies = () => {
 
     return (
         <div className="users-page">
-            <div className="page-header">
-                <div>
-                    <h1><Building className="inline-icon" /> Companies Management</h1>
-                    <p>Manage system companies & adjustment settings</p>
-                </div>
-                <div className="header-actions flex gap-2">
-                    {currentTab === 'companies' && (
+            <PageHeader
+                title={
+                    <div>
+                        <h1><Building className="inline-icon" /> Gestión de Empresas</h1>
+                    </div>
+                }
+                onRefresh={loadData}
+                loading={loading}
+                refreshText="Actualizar"
+                desktopActions={
+                    currentTab === 'companies' && (
                         <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
-                            <Plus size={16} /> Add Company
+                            <Plus size={16} /> Agregar Empresa
                         </button>
-                    )}
-                </div>
-            </div>
+                    )
+                }
+            />
 
             {currentTab === 'adjustmentTypes' ? (
                 <AdjustmentTypesModal isEmbedded={true} />
