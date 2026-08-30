@@ -12,26 +12,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
     const [editingKey, setEditingKey] = useState(null);
-    const [editForm, setEditForm] = useState({
-        label: '',
-        badgeLabel: '',
-        color: '#FB9678',
-        bg: '#FFF4EF',
-        description: '',
-        isFree: true,
-        hidden: false
-    });
-
+    const [editForm, setEditForm] = useState({});
     const [showAddForm, setShowAddForm] = useState(false);
     const [newKey, setNewKey] = useState('');
-    const [newForm, setNewForm] = useState({
-        label: 'Ajuste - Novedad ($0)',
-        badgeLabel: 'NOVEDAD',
-        color: '#6366F1',
-        bg: '#EEF2FF',
-        description: 'Día ajustado por novedad — día sin cobro al cliente.',
-        isFree: true
-    });
+    const [newForm, setNewForm] = useState({});
 
     useEffect(() => {
         if (isOpen || isEmbedded) {
@@ -56,15 +40,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const handleStartEdit = (key, item) => {
         setEditingKey(key);
-        setEditForm({
-            label: item.label || '',
-            badgeLabel: item.badgeLabel || key,
-            color: item.color || '#3b82f6',
-            bg: item.bg || '#eff6ff',
-            description: item.description || '',
-            isFree: item.isFree !== undefined ? item.isFree : (item.autoAmount === 0 || !item.isRealPayment),
-            hidden: !!item.hidden
-        });
+        setEditForm({ ...item });
     };
 
     const handleSaveEdit = async () => {
