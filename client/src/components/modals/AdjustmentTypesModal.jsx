@@ -48,19 +48,15 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         setSaving(true);
         setMessage(null);
 
+        const cleanBadge = (editForm.badgeLabel || '').toUpperCase().trim();
         const updatedTypes = {
             ...types,
             [editingKey]: {
                 ...types[editingKey],
-                label: editForm.label,
-                badgeLabel: editForm.badgeLabel.toUpperCase().trim(),
-                color: editForm.color,
-                bg: editForm.bg,
-                description: editForm.description,
-                isFree: editForm.isFree,
+                ...editForm,
+                badgeLabel: cleanBadge,
                 autoAmount: editForm.isFree ? 0 : null,
-                autoReference: `${editForm.badgeLabel.toUpperCase().trim()} - Día ajustado automáticamente`,
-                hidden: editForm.hidden
+                autoReference: `${cleanBadge} - Día ajustado automáticamente`
             }
         };
 
