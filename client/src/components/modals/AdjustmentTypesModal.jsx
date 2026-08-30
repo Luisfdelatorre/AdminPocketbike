@@ -46,12 +46,6 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
     const handleSaveEdit = async () => {
         if (!editingKey) return;
 
-        const cleanBadge = (editForm.badgeLabel || '').toUpperCase().trim();
-        if (!cleanBadge) {
-            setMessage({ type: 'error', text: 'La insignia corta (Badge) es obligatoria.' });
-            return;
-        }
-
         setSaving(true);
         setMessage(null);
 
@@ -60,9 +54,8 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             [editingKey]: {
                 ...types[editingKey],
                 ...editForm,
-                badgeLabel: cleanBadge,
                 autoAmount: editForm.isFree ? 0 : null,
-                autoReference: `${cleanBadge} - Día ajustado automáticamente`
+                autoReference: `${editForm.badgeLabel} - Día ajustado automáticamente`
             }
         };
 
@@ -100,12 +93,12 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             ...types,
             [formattedKey]: {
                 label: newForm.label,
-                badgeLabel: newForm.badgeLabel.toUpperCase().trim(),
+                badgeLabel: newForm.badgeLabel,
                 color: newForm.color,
                 bg: newForm.bg,
                 description: newForm.description,
                 autoAmount: newForm.isFree ? 0 : null,
-                autoReference: `${newForm.badgeLabel.toUpperCase().trim()} - Día ajustado automáticamente`,
+                autoReference: `${newForm.badgeLabel} - Día ajustado automáticamente`,
                 isRealPayment: !newForm.isFree,
                 isFree: newForm.isFree,
                 hidden: false
