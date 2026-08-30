@@ -45,10 +45,16 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const handleSaveEdit = async () => {
         if (!editingKey) return;
+
+        const cleanBadge = (editForm.badgeLabel || '').toUpperCase().trim();
+        if (!cleanBadge) {
+            setMessage({ type: 'error', text: 'La insignia corta (Badge) es obligatoria.' });
+            return;
+        }
+
         setSaving(true);
         setMessage(null);
 
-        const cleanBadge = (editForm.badgeLabel || '').toUpperCase().trim();
         const updatedTypes = {
             ...types,
             [editingKey]: {
@@ -238,9 +244,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                 <input
                                     type="text"
                                     required
-                                    value={newForm.badgeLabel}
-                                    onChange={e => setNewForm({ ...newForm, badgeLabel: e.target.value })}
-                                    className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono"
+                                    value={newForm.badgeLabel || ''}
+                                    onChange={e => setNewForm({ ...newForm, badgeLabel: e.target.value.toUpperCase() })}
+                                    className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono uppercase"
+                                    style={{ textTransform: 'uppercase' }}
                                 />
                             </div>
                             <div className="flex gap-2">
@@ -342,9 +349,11 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                                     <label className="text-xs font-semibold text-slate-700">Insignia Corta (Badge)</label>
                                                     <input
                                                         type="text"
-                                                        value={editForm.badgeLabel}
-                                                        onChange={e => setEditForm({ ...editForm, badgeLabel: e.target.value })}
-                                                        className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono"
+                                                        required
+                                                        value={editForm.badgeLabel || ''}
+                                                        onChange={e => setEditForm({ ...editForm, badgeLabel: e.target.value.toUpperCase() })}
+                                                        className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono uppercase"
+                                                        style={{ textTransform: 'uppercase' }}
                                                     />
                                                 </div>
                                                 <div className="flex gap-2">
