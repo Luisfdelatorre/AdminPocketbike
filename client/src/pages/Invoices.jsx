@@ -87,6 +87,27 @@ const Invoices = () => {
             .catch(err => console.warn('No se pudo cargar la configuración de tipos de ajuste:', err));
     }, []);
 
+    const buildAutoReference = (cfg, invoice) => {
+        if (!cfg) return '';
+        const badge = cfg.badgeLabel || '';
+        const deviceName = invoice?.deviceName || invoice?.deviceIdName || invoice?.plate || invoice?.device?.name || '';
+        const rawDate = invoice?.date || invoice?.invoiceDate || invoice?.dueDate;
+        const dateStr = rawDate ? new Date(rawDate).toISOString().split('T')[0] : '';
+
+        if (cfg.autoReference) {
+            let ref = cfg.autoReference;
+            if (ref.includes('{deviceName}') || ref.includes('{date}') || ref.includes('{type}')) {
+                return ref
+                    .replace(/{type}/g, badge)
+                    .replace(/{deviceName}/g, deviceName)
+                    .replace(/{date}/g, dateStr);
+            }
+        }
+
+        const parts = [badge, deviceName, dateStr ? `(${dateStr})` : ''].filter(Boolean);
+        return parts.join(' - ');
+    };
+
     const openManualPayModal = (invoice) => {
         const reason = invoice.adjustmentType || 'ADJUSTMENT';
         const cfg = ADJUSTMENT_CONFIG[reason] || null;
@@ -94,7 +115,7 @@ const Invoices = () => {
 
         setManualPayForm({
             amount: autoAmount,
-            reference: cfg?.autoReference || '',
+            reference: buildAutoReference(cfg, invoice),
             note: invoice.adjustmentComment || '',
             paymentDate: new Date().toISOString().split('T')[0],
             adjustmentType: reason,
@@ -335,8 +356,7 @@ const Invoices = () => {
 
             <div className="page-header hidden md:flex">
                 <div>
-                    <h1>📄 {t('invoices.title')}</h1>
-                    <p>Historial y registro de cobros diarios por dispositivo</p>
+                    <h1>{t('invoices.title')}</h1>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <select
@@ -455,7 +475,7 @@ const Invoices = () => {
                             <span className="mobile-only">{formatCompact(stats.totalAmount)}</span>
                         </>
                     }
-                    icon={DollarSign}
+
                     iconBg="var(--brand-teal)"
                 />
                 <StatCard
@@ -463,7 +483,7 @@ const Invoices = () => {
                     value={stats.paid}
                     change={paidPercentage > 0 ? `${paidPercentage}%` : null}
                     changeType="positive"
-                    icon={Check}
+
                     iconBg="#00C292"
                 />
                 <StatCard
@@ -471,13 +491,13 @@ const Invoices = () => {
                     value={stats.unpaid}
                     change={unpaidPercentage > 0 ? `${unpaidPercentage}%` : null}
                     changeType="negative"
-                    icon={X}
+
                     iconBg="#EF4444"
                 />
                 <StatCard
                     title="Total Facturas"
                     value={stats.total}
-                    icon={FileText}
+
                     iconBg="#7460EE"
                 />
             </div>
@@ -719,7 +739,7 @@ const Invoices = () => {
                                             ...f,
                                             adjustmentType: reason,
                                             amount: cfg?.autoAmount ?? invoice.amount,
-                                            reference: cfg?.autoReference || '',
+                                            reference: buildAutoReference(cfg, invoice),
                                         }));
                                     }}
                                     style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}

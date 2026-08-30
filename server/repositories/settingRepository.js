@@ -45,7 +45,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#FFF1F2',
         description: 'Pago real recibido vía Nequi.',
         autoAmount: null,
-        autoReference: 'Pago Nequi recibido por Admin',
+        autoReference: 'NEQUI - {deviceName} ({date})',
         isRealPayment: true,
         isFree: false
     },
@@ -56,7 +56,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#F0FDF4',
         description: 'Pago real recibido en efectivo.',
         autoAmount: null,
-        autoReference: 'Pago en Efectivo recibido por Admin',
+        autoReference: 'EFECTIVO - {deviceName} ({date})',
         isRealPayment: true,
         isFree: false
     },
@@ -67,7 +67,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#EFF6FF',
         description: 'Pago real recibido por transferencia bancaria.',
         autoAmount: null,
-        autoReference: 'Transferencia Bancaria recibida por Admin',
+        autoReference: 'TRANSFERENCIA - {deviceName} ({date})',
         isRealPayment: true,
         isFree: false
     },
@@ -78,7 +78,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#FFF4EF',
         description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+        autoReference: 'TRANSITO - {deviceName} ({date})',
         isRealPayment: false,
         isFree: true
     },
@@ -89,7 +89,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#FFF4EF',
         description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+        autoReference: 'RETENIDA - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true
@@ -101,7 +101,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#EFF6FF',
         description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
+        autoReference: 'INCAPACIDAD - {deviceName} ({date})',
         isRealPayment: false,
         isFree: true
     },
@@ -112,7 +112,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#F5F3FF',
         description: 'Mantenimiento programado — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
+        autoReference: 'MANTENIMIENTO - {deviceName} ({date})',
         isRealPayment: false,
         isFree: true
     },
@@ -123,7 +123,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#ECFEFF',
         description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'OFICINA - Día ajustado automáticamente',
+        autoReference: 'OFICINA - {deviceName} ({date})',
         isRealPayment: false,
         isFree: true
     },
@@ -134,7 +134,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#ECFEFF',
         description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'OFICINA - Día ajustado automáticamente',
+        autoReference: 'OFICINA - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true
@@ -146,7 +146,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#ECFEFF',
         description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'OFICINA - Día ajustado automáticamente',
+        autoReference: 'OFICINA - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true
@@ -158,7 +158,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#F5F5F5',
         description: 'Dispositivo en taller — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'TALLER - Día ajustado automáticamente',
+        autoReference: 'TALLER - {deviceName} ({date})',
         isRealPayment: false,
         isFree: true
     },
@@ -169,7 +169,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#F5F5F5',
         description: 'Dispositivo en taller — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'TALLER - Día ajustado automáticamente',
+        autoReference: 'TALLER - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true
@@ -181,7 +181,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#F5F3FF',
         description: 'Mantenimiento programado — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
+        autoReference: 'MANTENIMIENTO - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true
@@ -193,7 +193,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#EFF6FF',
         description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
+        autoReference: 'INCAPACIDAD - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true
@@ -205,7 +205,7 @@ const DEFAULT_ADJUSTMENT_TYPES = {
         bg: '#FFF4EF',
         description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
         autoAmount: 0,
-        autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+        autoReference: 'TRANSITO - {deviceName} ({date})',
         hidden: true,
         isRealPayment: false,
         isFree: true

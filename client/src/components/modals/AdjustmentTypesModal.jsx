@@ -55,7 +55,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 ...types[editingKey],
                 ...editForm,
                 autoAmount: editForm.isFree ? 0 : null,
-                autoReference: `${editForm.badgeLabel} - Día ajustado automáticamente`
+                autoReference: `${editForm.badgeLabel} - {deviceName} ({date})`
             }
         };
 
@@ -98,7 +98,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 bg: newForm.bg,
                 description: newForm.description,
                 autoAmount: newForm.isFree ? 0 : null,
-                autoReference: `${newForm.badgeLabel} - Día ajustado automáticamente`,
+                autoReference: `${newForm.badgeLabel} - {deviceName} ({date})`,
                 isRealPayment: !newForm.isFree,
                 isFree: newForm.isFree,
                 hidden: false
