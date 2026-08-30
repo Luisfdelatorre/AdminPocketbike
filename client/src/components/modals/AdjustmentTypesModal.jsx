@@ -92,15 +92,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         const updatedTypes = {
             ...types,
             [formattedKey]: {
-                label: newForm.label,
-                badgeLabel: newForm.badgeLabel,
-                color: newForm.color,
-                bg: newForm.bg,
-                description: newForm.description,
+                ...newForm,
                 autoAmount: newForm.isFree ? 0 : null,
-                autoReference: `${newForm.badgeLabel} - {deviceName} ({date})`,
+                autoReference: `${newForm.badgeLabel}-{deviceName}({date})`,
                 isRealPayment: !newForm.isFree,
-                isFree: newForm.isFree,
                 hidden: false
             }
         };
