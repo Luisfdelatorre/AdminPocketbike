@@ -1,0 +1,350 @@
+/* AdjustmentTypesModal.css */
+.adj-modal-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.adj-modal-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.adj-modal-body--embedded {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.adj-modal-alert {
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.adj-modal-alert--success {
+    background-color: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.adj-modal-alert--error {
+    background-color: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.adj-modal-tabs {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+}
+
+.adj-modal-tab-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    color: #64748b;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    cursor: pointer;
+}
+
+.adj-modal-tab-btn:hover {
+    color: #334155;
+}
+
+.adj-modal-tab-btn--active {
+    border-bottom-color: #4f46e5;
+    color: #4f46e5;
+    font-weight: 800;
+}
+
+.adj-modal-add-card {
+    background-color: rgba(238, 242, 255, 0.6);
+    border: 1px solid #c7d2fe;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.adj-modal-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.adj-modal-card-title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #312e81;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.adj-modal-close-icon-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.adj-modal-close-icon-btn:hover {
+    color: #475569;
+}
+
+.adj-modal-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+    .adj-modal-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .adj-modal-col-span-2 {
+        grid-column: span 2 / span 2;
+    }
+}
+
+.adj-modal-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.adj-modal-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.adj-modal-input {
+    width: 100%;
+    font-size: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1;
+    box-sizing: border-box;
+}
+
+.adj-modal-input-mono {
+    font-family: monospace;
+}
+
+.adj-modal-input-uppercase {
+    text-transform: uppercase;
+}
+
+.adj-modal-color-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.adj-modal-color-picker {
+    width: 100%;
+    height: 2rem;
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.adj-modal-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.adj-modal-checkbox-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+}
+
+.adj-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+.adj-modal-btn-cancel {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.adj-modal-btn-save {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    background-color: #4f46e5;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+}
+
+.adj-modal-btn-save:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.adj-modal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.adj-modal-item-row {
+    background-color: #ffffff;
+    padding: 0.875rem;
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    transition: border-color 0.2s ease;
+}
+
+.adj-modal-item-row:hover {
+    border-color: #cbd5e1;
+}
+
+.adj-modal-item-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.adj-modal-badge {
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: monospace;
+    letter-spacing: 0.025em;
+    flex-shrink: 0;
+}
+
+.adj-modal-item-details {
+    min-width: 0;
+}
+
+.adj-modal-item-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.adj-modal-item-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.adj-modal-badge-hidden {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+    background-color: #f1f5f9;
+    color: #64748b;
+    border-radius: 0.25rem;
+    font-weight: 600;
+}
+
+.adj-modal-item-desc {
+    font-size: 0.6875rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.adj-modal-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.adj-modal-icon-btn {
+    padding: 0.375rem;
+    color: #94a3b8;
+    border-radius: 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.adj-modal-icon-btn:hover {
+    color: #4f46e5;
+    background-color: #f1f5f9;
+}
+
+.adj-modal-icon-btn--delete:hover {
+    color: #dc2626;
+    background-color: #f1f5f9;
+}
+
+.adj-modal-icon-disabled {
+    padding: 0.375rem;
+    color: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.adj-modal-edit-card {
+    background-color: #f8fafc;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #a5b4fc;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.adj-modal-system-badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.5rem;
+    background-color: #e0e7ff;
+    color: #3730a3;
+    border-radius: 9999px;
+    font-weight: 700;
+}
