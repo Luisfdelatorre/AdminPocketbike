@@ -3,12 +3,12 @@ import dotenv from "dotenv";
 dotenv.config();
 import log from "../config/logger.js";
 import cron from "./cron.js";
-import connectDB from "../config/db.js";
+import { connectDatabase } from "../database/connection.js";
 
 const initServer = async () => {
   try {
     log.info("🔄 Connecting to MongoDB...");
-    await connectDB();
+    await connectDatabase();
 
     await cron.init();
     log.info("✅ Cron jobs initialized");
