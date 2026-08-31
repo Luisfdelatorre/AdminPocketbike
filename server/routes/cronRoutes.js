@@ -10,9 +10,11 @@ const router = express.Router();
  */
 router.get('/available-jobs', async (req, res) => {
   try {
-    // Always re-scan the jobs directory so newly added plugin files show up
-    await jobRegistry.loadJobs();
-    const jobs = jobRegistry.getAll();
+    let jobs = jobRegistry.getAll();
+    if (!jobs || jobs.length === 0) {
+      await jobRegistry.loadJobs();
+      jobs = jobRegistry.getAll();
+    }
     return res.status(200).json({ success: true, count: jobs.length, data: jobs });
   } catch (error) {
     console.error('Error fetching available cron jobs:', error);
