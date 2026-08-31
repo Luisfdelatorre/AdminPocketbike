@@ -1,11 +1,6 @@
-// microcronserver.js
-import dotenv from "dotenv";
-dotenv.config();
 import log from "../config/logger.js";
 import cron from "./cron.js";
 import { connectDatabase } from "../database/connection.js";
-import { SystemJob } from "../models/SystemJob.js";
-import { Company } from "../models/Company.js";
 
 const initServer = async () => {
   try {
@@ -15,24 +10,14 @@ const initServer = async () => {
     await cron.init();
     log.info("✅ Cron jobs initialized");
 
-    // Watch DB changes to reactively reload cron schedules across separate processes
-    try {
-      SystemJob.watch().on('change', () => {
-        log.info("🔔 SystemJob change detected in DB. Reloading dynamic cron jobs...");
-        cron.reloadAllJobs();
-      });
-      Company.watch().on('change', () => {
-        log.info("🔔 Company schedule change detected in DB. Reloading dynamic cron jobs...");
-        cron.reloadAllJobs();
-      });
-    } catch (csErr) {
-      log.warn("⚠️ ChangeStreams not active on standalone Mongo. Using periodic sync interval.");
-    }
-
-    // Periodic sync every 30 seconds to catch changes across processes
-    setInterval(() => {
-      cron.reloadAllJobs();
-    }, 30000);
+    // Periodic sync every 10 seconds to catch changes made from API/UI across processes
+    setInterval(async () => {
+      try {
+        await cron.reloadAllJobs();
+      } catch (err) {
+        log.error("❌ Error during periodic cron reload:", err.message);
+      }
+    }, 10000);
   } catch (error) {
     // 3️⃣ Incluye stack trace para debug más útil
     log.error("❌ Error initializing cron jobs:", error.stack || error);
