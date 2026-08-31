@@ -85,7 +85,8 @@ class Cron {
       if (!newTimes.has(time)) {
         this.scheduledDynamicJobs.get(time)?.stop();
         this.scheduledDynamicJobs.delete(time);
-        log.info(`🛑 Job removido: ${time}`);
+        const humanTime = formatHumanCron(time);
+        log.info(`🛑 Job removido: ${time} (${humanTime})`);
       }
     }
 
