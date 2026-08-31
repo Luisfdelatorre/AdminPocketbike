@@ -96,6 +96,8 @@ class Cron {
         this._createScheduledJob(time);
       }
     }
+
+    log.info(`✅ Dynamic cron jobs reloaded (${this.scheduledDynamicJobs.size} active schedules)`);
   }
 
   _timeToCronExpr(timeStr) {
