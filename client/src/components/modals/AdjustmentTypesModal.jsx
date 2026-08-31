@@ -147,8 +147,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const content = (
         <div
-            className={isEmbedded ? "bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4" : "modal-card"}
-            style={isEmbedded ? {} : { maxWidth: '850px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}
+            className={isEmbedded ? "bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4" : "modal-card max-w-[850px] w-[95%] max-h-[90vh] overflow-y-auto"}
             onClick={e => e.stopPropagation()}
         >
             <div className="modal-header flex items-center justify-between">
@@ -233,7 +232,6 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                     value={newForm.badgeLabel || ''}
                                     onChange={e => setNewForm({ ...newForm, badgeLabel: e.target.value.toUpperCase() })}
                                     className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono uppercase"
-                                    style={{ textTransform: 'uppercase' }}
                                 />
                             </div>
                             <div className="flex gap-2">
@@ -339,7 +337,6 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                                         value={editForm.badgeLabel || ''}
                                                         onChange={e => setEditForm({ ...editForm, badgeLabel: e.target.value.toUpperCase() })}
                                                         className="w-full text-xs p-2 rounded-lg border border-slate-300 font-mono uppercase"
-                                                        style={{ textTransform: 'uppercase' }}
                                                     />
                                                 </div>
                                                 <div className="flex gap-2">
@@ -475,8 +472,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         ) : (
             <button
                 type="button"
-                className="contracts-add-fab primary-blue"
-                style={{ display: 'flex' }}
+                className="contracts-add-fab primary-blue flex"
                 onClick={() => setShowAddForm(true)}
                 aria-label="Agregar Tipo de Ajuste"
             >
