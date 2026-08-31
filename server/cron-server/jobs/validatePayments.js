@@ -3,10 +3,22 @@ import dayjs from "../../config/dayjs.js";
 import companyRepository from "../../repositories/companyRepository.js";
 import companyService from "../../services/companyService.js";
 import deviceServices from "../../services/deviceServices.js";
+import webhookService from "../../services/webhookService.js";
 
 const runValidatePayments = async (time, companyIds = []) => {
     try {
         logger.info(`[Cron] Execution started: Validación Diaria de Pagos${time ? ` at ${time}` : ''}`);
+        
+        // 1. Audit pending Wompi payments older than 5 minutes
+        try {
+            logger.info("[Cron] Checking for pending Wompi payments...");
+            const recoveryResults = await webhookService.recoverPendingPayments(5);
+            logger.info(`[Cron] Wompi pending payment recovery completed: ${recoveryResults?.length || 0} payments checked`);
+        } catch (wompiErr) {
+            logger.error(`[Cron] Error recovering pending Wompi payments: ${wompiErr.message}`);
+        }
+
+        // 2. Audit daily invoice debt status for active companies
         const executionTime = dayjs();
         const allActive = await companyRepository.getActiveCompanies();
         const companies = Array.isArray(companyIds) && companyIds.length > 0
@@ -41,7 +53,7 @@ const runValidatePayments = async (time, companyIds = []) => {
 export default {
     id: 'validatePayments',
     name: 'Validar Pagos',
-    description: 'Valida los pagos diarios y actualiza los estados de cuenta respetando el horario de corte de cada empresa.',
+    description: 'Concilia pagos pendientes con Wompi y valida estados de cuenta respetando el horario de corte de cada empresa.',
     type: 'system',
     run: runValidatePayments
 };

@@ -20,9 +20,9 @@ const seedData = [
     },
     {
         name: 'dailyPaymentValidation',
-        time: '55 11 * * *',
-        log: 'Call one time a day payment validation',
-        flag: false,
+        time: '*/5 * * * *',
+        log: 'Call payment validation every 5 minutes',
+        flag: true,
         job: 'validatePayments',
     },
     {
@@ -31,6 +31,13 @@ const seedData = [
         log: 'Call Device Status Review every 30 minutes',
         flag: false,
         job: 'DeviceStatusUpdate',
+    },
+    {
+        name: 'syncYesterdayKm',
+        time: '30 0 * * *',
+        log: 'Call one time a day yesterday km sync',
+        flag: true,
+        job: 'syncYesterdayKm',
     },
 ];
 
@@ -42,7 +49,7 @@ const seedDB = async () => {
         for (const job of seedData) {
             await SystemJob.findOneAndUpdate(
                 { job: job.job }, // find by job function to avoid duplicate entries with same name
-                { 
+                {
                     name: job.name,
                     time: job.time,
                     log: job.log,
