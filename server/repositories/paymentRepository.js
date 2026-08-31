@@ -291,13 +291,13 @@ export class PaymentRepository {
     /**
      * Get pending payments older than N minutes
      */
-    async getPendingPaymentsOlderThan(minutes = 30) {
-        const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    async getPendingPaymentsOlderThan(minutes = 0) {
+        const filter = { status: PAYMENT_STATUS.PENDING };
+        if (minutes > 0) {
+            filter.createdAt = { $lt: new Date(Date.now() - minutes * 60 * 1000) };
+        }
 
-        return await Payment.find({
-            status: PAYMENT_STATUS.PENDING,
-            createdAt: { $lt: cutoffTime },
-        })
+        return await Payment.find(filter)
             .sort({ createdAt: 1 })
             .lean();
     }
@@ -308,8 +308,11 @@ export class PaymentRepository {
             const pendingPayment = await Payment.findOne({
                 deviceIdName: deviceName,
                 status: PAYMENT_STATUS.S_PENDING,
-                createdAt: { $gte: cutoffTime }
-            }).sort({ createdAt: -1 });
+                $or: [
+                    { createdAt: { $gte: cutoffTime } },
+                    { created_at: { $gte: cutoffTime } }
+                ]
+            }).sort({ created_at: -1, createdAt: -1 });
             return pendingPayment;
         } catch (error) {
             logger.error(`Error finding pending payment for ${deviceName}:`, error);

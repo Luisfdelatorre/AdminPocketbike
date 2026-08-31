@@ -5,8 +5,8 @@ const runValidatePayments = async (time) => {
     try {
         logger.info(`[Cron] Execution started: Conciliación de Pagos Pendientes Wompi${time ? ` at ${time}` : ''}`);
         
-        // Audit and reconcile pending Wompi payments older than 5 minutes
-        const recoveryResults = await webhookService.recoverPendingPayments(5);
+        // Audit and reconcile all pending Wompi payments (regardless of age)
+        const recoveryResults = await webhookService.recoverPendingPayments(0);
         logger.info(`[Cron] Wompi pending payment recovery completed: ${recoveryResults?.length || 0} payments processed`);
 
         logger.info("[Cron] Execution finished: Conciliación de Pagos Pendientes Wompi");
