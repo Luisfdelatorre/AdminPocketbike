@@ -4,11 +4,11 @@ import { Company } from "../../models/Company.js";
 import companyService from "../../services/companyService.js";
 import deviceServices from "../../services/deviceServices.js";
 
-const runValidatePayments = async (time, companyIds) => {
+const runValidatePayments = async (time, companyIds = []) => {
     try {
         logger.info(`[Cron] Execution started: Validación Diaria de Pagos${time ? ` at ${time}` : ''}`);
         const executionTime = dayjs();
-        const filter = companyIds && companyIds.length > 0 ? { _id: { $in: companyIds } } : { isActive: { $ne: false } };
+        const filter = Array.isArray(companyIds) && companyIds.length > 0 ? { _id: { $in: companyIds } } : { isActive: { $ne: false } };
         const companies = await Company.find(filter).lean();
 
         for (const company of companies) {
