@@ -394,6 +394,36 @@ const resources = {
                     hint: 'Drag to reposition • Use slider to zoom',
                     cancel: 'Cancel',
                     save: 'Crop & Save'
+                },
+                adjustments: {
+                    title: 'Adjustment & Payment Types',
+                    errorLoading: 'Error loading adjustment types from server.',
+                    updatedSuccess: 'Adjustment type updated successfully.',
+                    errorSaving: 'Error saving changes to server.',
+                    keyRequired: 'The adjustment type key code is required.',
+                    systemKeyReserved: 'The key "{{key}}" belongs to a reserved system status.',
+                    createdSuccess: 'New adjustment type ({{key}}) created successfully.',
+                    errorCreating: 'Error creating new adjustment type.',
+                    cannotDeleteSystem: 'System status "{{key}}" cannot be deleted, only configured.',
+                    deletedSuccess: 'Adjustment type {{key}} deleted.',
+                    errorDeleting: 'Error deleting adjustment type.',
+                    badgeRequired: 'Short badge label is required.',
+                    confirmDelete: 'Are you sure you want to delete adjustment type "{{key}}"?',
+                    loadingTypes: 'Loading adjustment types...',
+                    editing: 'Editing: {{key}}',
+                    systemBaseStatus: 'System Base Status',
+                    longLabel: 'Long Label',
+                    shortBadge: 'Short Badge Label',
+                    textColor: 'Text Color',
+                    bgColor: 'Background Color',
+                    description: 'Description',
+                    isFreeDay: 'This is a free day ($0 for customer)',
+                    saveChanges: 'Save Changes',
+                    cancel: 'Cancel',
+                    createType: 'Create Type',
+                    addTypeBtn: 'Add Adjustment Type',
+                    tabAdjustments: 'Adjustments ({{count}})',
+                    tabStatuses: 'Statuses ({{count}})'
                 }
             }
         }
@@ -802,7 +832,23 @@ const resources = {
                     cannotDeleteSystem: 'El estado del sistema "{{key}}" no puede ser eliminado, sólo configurado.',
                     deletedSuccess: 'Tipo de ajuste {{key}} eliminado.',
                     errorDeleting: 'Error al eliminar el tipo de ajuste.',
-                    badgeRequired: 'La insignia corta (Badge) es obligatoria.'
+                    badgeRequired: 'La insignia corta (Badge) es obligatoria.',
+                    confirmDelete: '¿Estás seguro de eliminar el tipo de ajuste "{{key}}"?',
+                    loadingTypes: 'Cargando tipos de ajuste...',
+                    editing: 'Editando: {{key}}',
+                    systemBaseStatus: 'Estado Base Sistema',
+                    longLabel: 'Etiqueta Larga',
+                    shortBadge: 'Insignia Corta (Badge)',
+                    textColor: 'Color Texto',
+                    bgColor: 'Color Fondo',
+                    description: 'Descripción',
+                    isFreeDay: 'Es un día sin cobro ($0 para el cliente)',
+                    saveChanges: 'Guardar Cambios',
+                    cancel: 'Cancelar',
+                    createType: 'Crear Tipo',
+                    addTypeBtn: 'Agregar Tipo de Ajuste',
+                    tabAdjustments: 'Ajustes ({{count}})',
+                    tabStatuses: 'Estados ({{count}})'
                 }
             }
         }

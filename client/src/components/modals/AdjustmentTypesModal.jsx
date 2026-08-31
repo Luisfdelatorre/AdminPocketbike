@@ -34,7 +34,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 setTypes(res.data);
             }
         } catch (err) {
-            setMessage({ type: 'error', text: t('adjustments.errorLoading', 'Error al cargar tipos de ajuste desde el servidor.') });
+            setMessage({ type: 'error', text: t('adjustments.errorLoading') });
         } finally {
             setLoading(false);
         }
@@ -66,10 +66,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             if (res && res.success) {
                 setTypes(res.data || updatedTypes);
                 setEditingKey(null);
-                setMessage({ type: 'success', text: t('adjustments.updatedSuccess', 'Tipo de ajuste actualizado exitosamente.') });
+                setMessage({ type: 'success', text: t('adjustments.updatedSuccess') });
             }
         } catch (err) {
-            setMessage({ type: 'error', text: t('adjustments.errorSaving', 'Error al guardar los cambios en el servidor.') });
+            setMessage({ type: 'error', text: t('adjustments.errorSaving') });
         } finally {
             setSaving(false);
         }
@@ -79,12 +79,12 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         e.preventDefault();
         const formattedKey = newKey.toUpperCase().trim().replace(/[^A-Z0-9_]/g, '_');
         if (!formattedKey) {
-            setMessage({ type: 'error', text: t('adjustments.keyRequired', 'El código / clave del tipo de ajuste es requerido.') });
+            setMessage({ type: 'error', text: t('adjustments.keyRequired') });
             return;
         }
 
         if (SYSTEM_STATUS_KEYS.includes(formattedKey)) {
-            setMessage({ type: 'error', text: t('adjustments.systemKeyReserved', { key: formattedKey, defaultValue: `La clave "${formattedKey}" pertenece a un estado base reservado del sistema.` }) });
+            setMessage({ type: 'error', text: t('adjustments.systemKeyReserved', { key: formattedKey }) });
             return;
         }
 
@@ -108,10 +108,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 setTypes(res.data || updatedTypes);
                 setShowAddForm(false);
                 setNewKey('');
-                setMessage({ type: 'success', text: t('adjustments.createdSuccess', { key: formattedKey, defaultValue: `Nuevo tipo de ajuste (${formattedKey}) creado exitosamente.` }) });
+                setMessage({ type: 'success', text: t('adjustments.createdSuccess', { key: formattedKey }) });
             }
         } catch (err) {
-            setMessage({ type: 'error', text: t('adjustments.errorCreating', 'Error al crear el nuevo tipo de ajuste.') });
+            setMessage({ type: 'error', text: t('adjustments.errorCreating') });
         } finally {
             setSaving(false);
         }
@@ -119,11 +119,11 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const handleDeleteType = async (key) => {
         if (SYSTEM_STATUS_KEYS.includes(key)) {
-            setMessage({ type: 'error', text: t('adjustments.cannotDeleteSystem', { key, defaultValue: `El estado del sistema "${key}" no puede ser eliminado, sólo configurado.` }) });
+            setMessage({ type: 'error', text: t('adjustments.cannotDeleteSystem', { key }) });
             return;
         }
 
-        if (!window.confirm(`¿Estás seguro de eliminar el tipo de ajuste "${key}"?`)) return;
+        if (!window.confirm(t('adjustments.confirmDelete', { key }))) return;
 
         setSaving(true);
         setMessage(null);
@@ -134,10 +134,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             const res = await updateAdjustmentTypes(updatedTypes);
             if (res && res.success) {
                 setTypes(res.data || updatedTypes);
-                setMessage({ type: 'success', text: t('adjustments.deletedSuccess', { key, defaultValue: `Tipo de ajuste ${key} eliminado.` }) });
+                setMessage({ type: 'success', text: t('adjustments.deletedSuccess', { key }) });
             }
         } catch (err) {
-            setMessage({ type: 'error', text: t('adjustments.errorDeleting', 'Error al eliminar el tipo de ajuste.') });
+            setMessage({ type: 'error', text: t('adjustments.errorDeleting') });
         } finally {
             setSaving(false);
         }
