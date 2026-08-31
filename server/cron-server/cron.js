@@ -104,6 +104,21 @@ class Cron {
   }
 
   _createScheduledJob(cronExpr) {
+    const entry = this.scheduledMap.get(cronExpr);
+    const jobNames = [];
+    if (entry) {
+      if (entry.systemJobs && entry.systemJobs.size > 0) {
+        for (const sysJob of entry.systemJobs) {
+          jobNames.push(`Sistema: ${sysJob.name || sysJob.job}`);
+        }
+      }
+      if (entry.companyActions && entry.companyActions.size > 0) {
+        for (const [action, idsSet] of entry.companyActions.entries()) {
+          jobNames.push(`Empresas (${idsSet.size}): ${action}`);
+        }
+      }
+    }
+    const description = jobNames.length > 0 ? ` [${jobNames.join(', ')}]` : '';
     const task = { name: `scheduled_${cronExpr}`, time: cronExpr };
     const instance = this.scheduleTask(task, async () => {
       const entry = this.scheduledMap.get(cronExpr);
@@ -146,7 +161,7 @@ class Cron {
     });
 
     this.scheduledDynamicJobs.set(cronExpr, instance);
-    log.info(`⏰ Job creado: ${cronExpr}`);
+    log.info(`⏰ Job creado: ${cronExpr}${description}`);
   }
 
   async execute(jobName) {
