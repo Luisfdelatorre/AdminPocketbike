@@ -136,6 +136,10 @@
     --modal-max-width: 420px;
 }
 
+.modal-surface--adjustment-types {
+    --modal-max-width: 850px;
+}
+
 .modal-surface--contract,
 .modal-surface--invoice {
     padding: 0;
@@ -313,7 +317,7 @@
 
 .engine-toggle-slider.queued {
     background-color: #FF9500 !important;
-    border: 2px dashed #FFFFFF !important;
+    border: 2px #FFFFFF !important;
     box-shadow: 0 0 10px rgba(255, 149, 0, 0.8) !important;
     animation: queued-pulse 1.6s infinite ease-in-out !important;
 }
@@ -349,6 +353,21 @@
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin,
+.spinning {
+    animation: spin 1s linear infinite;
+}
+
 .engine-toggle-slider.pending .spin {
     animation: spin 1s linear infinite;
 }
@@ -358,15 +377,18 @@
         box-shadow: 0 0 3px rgba(255, 149, 0, 0.4);
         opacity: 0.85;
     }
+
     50% {
         box-shadow: 0 0 12px rgba(255, 149, 0, 0.95);
         opacity: 1;
     }
+
     100% {
         box-shadow: 0 0 3px rgba(255, 149, 0, 0.4);
         opacity: 0.85;
     }
 }
+
 /* Expandable Metrics Container */
 .expandable-metrics-container {
     overflow: hidden;
@@ -384,26 +406,44 @@
     pointer-events: none;
 }
 
-/* Global Page Header Styles */
+/* ──────────────────────────────────────────
+   Global Page Header Design System
+   Single source of truth for PageHeader component across all pages
+   ────────────────────────────────────────── */
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-top: 0rem;
-    padding-bottom: .5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0rem;
 }
 
 .page-header h1 {
     font-size: 1.875rem;
     font-weight: 700;
     color: #1F2937;
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.25rem 0;
+    line-height: 1.2;
 }
 
+.page-header p {
+    font-size: 0.938rem;
+    color: #6B7280;
+    margin: 0;
+}
+
+.header-actions,
 .header-actions-desktop {
     display: flex;
+    gap: 0.75rem;
     align-items: center;
-    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        display: none !important;
+    }
 }
 
 .btn-mobile-header-action {
@@ -723,6 +763,7 @@ h3.uppercase-title-ios {
 }
 
 @media (max-width: 768px) {
+
     .contracts-list,
     .admin-cards-grid,
     .admin-cards-list {
@@ -734,6 +775,53 @@ h3.uppercase-title-ios {
     }
 }
 
+/* ──────────────────────────────────────────
+   Global Date Selector Component (iOS Style)
+   Used in PaymentSummary, AdminDashboard, etc.
+   ────────────────────────────────────────── */
+.summary-date-card {
+    display: flex;
+    gap: 0.75rem;
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 0.25rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e5e5ea;
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto;
+}
 
+.summary-date-field {
+    position: relative;
+    flex: 1;
+}
 
+.summary-date-field.has-border {
+    border-right: 1px solid #e5e5ea;
+}
 
+.summary-select-ios {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    color: #000000;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.summary-select-arrow {
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    color: #c7c7cc;
+    display: flex;
+    align-items: center;
+}

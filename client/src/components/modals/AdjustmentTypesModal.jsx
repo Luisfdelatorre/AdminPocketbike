@@ -147,7 +147,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const content = (
         <div
-            className={isEmbedded ? "bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4" : "modal-card max-w-[850px] w-[95%] max-h-[90vh] overflow-y-auto"}
+            className={isEmbedded ? "bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4" : "modal-card modal-surface--adjustment-types"}
             onClick={e => e.stopPropagation()}
         >
             <div className="modal-header flex items-center justify-between">
