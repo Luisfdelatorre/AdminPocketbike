@@ -14,6 +14,7 @@
         "preview": "vite preview",
         "start": "node server/server.js",
         "cron": "node server/cron-server/microCronServer.js",
+        "cron:dev": "npx nodemon server/cron-server/microCronServer.js",
         "cron:watch": "node --watch server/cron-server/microCronServer.js",
         "cron:pm2": "pm2 start server/cron-server/ecosystem.config.js",
         "init-db": "node server/database/init.js",
