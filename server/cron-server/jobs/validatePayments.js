@@ -1,6 +1,6 @@
 import logger from "../../config/logger.js";
 import dayjs from "../../config/dayjs.js";
-import { Company } from "../../models/Company.js";
+import companyRepository from "../../repositories/companyRepository.js";
 import companyService from "../../services/companyService.js";
 import deviceServices from "../../services/deviceServices.js";
 
@@ -8,8 +8,10 @@ const runValidatePayments = async (time, companyIds = []) => {
     try {
         logger.info(`[Cron] Execution started: Validación Diaria de Pagos${time ? ` at ${time}` : ''}`);
         const executionTime = dayjs();
-        const filter = Array.isArray(companyIds) && companyIds.length > 0 ? { _id: { $in: companyIds } } : { isActive: { $ne: false } };
-        const companies = await Company.find(filter).lean();
+        const allActive = await companyRepository.getActiveCompanies();
+        const companies = Array.isArray(companyIds) && companyIds.length > 0
+            ? allActive.filter(c => companyIds.includes(c._id.toString()))
+            : allActive;
 
         for (const company of companies) {
             try {

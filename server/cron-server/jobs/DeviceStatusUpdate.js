@@ -1,11 +1,24 @@
 import logger from "../../config/logger.js";
-import { Company } from "../../models/Company.js";
+import companyRepository from "../../repositories/companyRepository.js";
+import companyService from "../../services/companyService.js";
 
 const runDeviceStatusUpdate = async () => {
     try {
-        logger.info("[Cron] Execution started: Revisión de Estado de Dispositivos (Fallback Audit - Primary is WebSocket)");
-        const companies = await Company.find({ isActive: true }).lean();
-        logger.info(`[Cron] Heartbeat check complete for ${companies.length} active companies (Live events streaming via WebSocket).`);
+        logger.info("[Cron] Execution started: Revisión de Estado de Dispositivos (Telemetría y Conexión GPS)");
+        const companies = await companyRepository.getActiveCompanies();
+
+        for (const company of companies) {
+            try {
+                const gpsAdapter = await companyService.getGpsAdapterByCompany(company._id);
+                if (gpsAdapter && typeof gpsAdapter.getDevices === 'function') {
+                    const devices = await gpsAdapter.getDevices();
+                    logger.info(`[Cron] Fetched status for ${devices?.length || 0} GPS devices in Company "${company.name}"`);
+                }
+            } catch (err) {
+                logger.error(`[Cron] Error updating device statuses for company ${company._id}: ${err.message}`);
+            }
+        }
+
         logger.info("[Cron] Execution finished: Revisión de Estado de Dispositivos");
     } catch (error) {
         logger.error(`[Cron] Error in DeviceStatusUpdate: ${error.message}`);
@@ -15,7 +28,7 @@ const runDeviceStatusUpdate = async () => {
 export default {
     id: 'DeviceStatusUpdate',
     name: 'Revisión Dispositivos',
-    description: 'Auditoría de respaldo para verificar el estado de los dispositivos (el flujo principal opera en tiempo real vía WebSocket).',
+    description: 'Actualiza el estado de conexión GPS (online/offline) y telemetría de los dispositivos periódicamente.',
     type: 'system',
     run: runDeviceStatusUpdate
 };
