@@ -23,6 +23,27 @@ const formatJobTime = (time) => {
     if (time === '*/15 * * * *') return 'Cada 15 minutos';
     if (time === '0,30 * * * *' || time === '*/30 * * * *') return 'Cada 30 minutos';
     if (time === '0 * * * *') return 'Cada hora';
+    if (time.includes(':')) {
+        const [hhStr, mmStr] = time.split(':');
+        const hh = parseInt(hhStr, 10);
+        if (!isNaN(hh)) {
+            const ampm = hh >= 12 ? 'PM' : 'AM';
+            const displayHh = (hh % 12 || 12).toString().padStart(2, '0');
+            return `Todos los días a las ${displayHh}:${mmStr || '00'} ${ampm}`;
+        }
+        return `Todos los días a las ${time}`;
+    }
+
+    const parts = time.trim().split(/\s+/);
+    if (parts.length === 5 && parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+        const mm = parts[0].padStart(2, '0');
+        const hh = parseInt(parts[1], 10);
+        if (!isNaN(hh)) {
+            const ampm = hh >= 12 ? 'PM' : 'AM';
+            const displayHh = (hh % 12 || 12).toString().padStart(2, '0');
+            return `Todos los días a las ${displayHh}:${mm} ${ampm}`;
+        }
+    }
     return time;
 };
 

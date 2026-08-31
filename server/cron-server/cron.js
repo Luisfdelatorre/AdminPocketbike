@@ -5,6 +5,26 @@ import companyRepository from "../repositories/companyRepository.js";
 import systemJobRepository from "../repositories/systemJobRepository.js";
 import jobRegistry from "./jobRegistry.js";
 
+const formatHumanCron = (cronExpr) => {
+  if (!cronExpr) return '';
+  if (cronExpr === '*/5 * * * *') return 'Cada 5 minutos';
+  if (cronExpr === '*/15 * * * *') return 'Cada 15 minutos';
+  if (cronExpr === '0,30 * * * *' || cronExpr === '*/30 * * * *') return 'Cada 30 minutos';
+  if (cronExpr === '0 * * * *') return 'Cada hora';
+  
+  const parts = cronExpr.trim().split(/\s+/);
+  if (parts.length === 5 && parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+    const mm = parts[0].padStart(2, '0');
+    const hh = parseInt(parts[1], 10);
+    if (!isNaN(hh)) {
+      const ampm = hh >= 12 ? 'PM' : 'AM';
+      const displayHh = (hh % 12 || 12).toString().padStart(2, '0');
+      return `Todos los días a las ${displayHh}:${mm} ${ampm}`;
+    }
+  }
+  return cronExpr;
+};
+
 class Cron {
   constructor() {
     this.jobsConfig = CRON_JOBS;
@@ -160,8 +180,9 @@ class Cron {
       }
     });
 
+    const humanTime = formatHumanCron(cronExpr);
     this.scheduledDynamicJobs.set(cronExpr, instance);
-    log.info(`⏰ Job creado: ${cronExpr}${description}`);
+    log.info(`⏰ Job creado: ${cronExpr} (${humanTime})${description}`);
   }
 
   async execute(jobName) {
