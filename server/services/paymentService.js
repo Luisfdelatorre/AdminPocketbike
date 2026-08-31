@@ -15,6 +15,7 @@ import { Payment, Reconciliation, Contract } from '../models/index.js';
 import { Company } from '../models/Company.js';
 import companyService from './companyService.js';
 import GpsService from './gpsServices.js';
+import { sseService } from '../utils/sseService.js';
 import mongoose from 'mongoose';
 
 
@@ -1028,6 +1029,72 @@ export class PaymentService {
 
 
 
+    /**
+     * Reconcile pending payments (check status with Wompi API per company)
+     */
+    async reconcilePendingPayments(olderThanMinutes = 0) {
+        const pendingPayments = await paymentRepository.getPendingPaymentsOlderThan(olderThanMinutes);
+        logger.info(`[PAYMENT-RECONCILE] Found ${pendingPayments.length} pending payments to reconcile`);
+
+        const results = [];
+
+        for (const payment of pendingPayments) {
+            const txId = payment.wompiTransactionId || payment._id;
+            if (!txId) {
+                logger.info(`[PAYMENT-RECONCILE] Skipping payment ${payment.paymentReference || payment._id} - no transaction ID`);
+                continue;
+            }
+
+            try {
+                const wompiAdapter = await companyService.getWompiAdapter(payment.companyId);
+                const paymentData = await wompiAdapter.getTransactionStatus(txId);
+                const wompiStatus = paymentData.status;
+
+                if (wompiStatus && wompiStatus !== payment.status) {
+                    logger.info(`[PAYMENT-RECONCILE] Status mismatch for ${payment.paymentReference || payment._id}: local=${payment.status}, wompi=${wompiStatus}`);
+
+                    const paymentInstance = await paymentRepository.upsertPayment(paymentData);
+
+                    if (wompiStatus === PS.S_APPROVED) {
+                        const dummyOnUpdate = () => {};
+                        await this.processApprovedPayment(paymentInstance, dummyOnUpdate);
+                        sseService.broadcast('payment-updated', {
+                            type: 'payment',
+                            reference: paymentData.reference || payment.paymentReference,
+                            amount: paymentData.amountInCents ? paymentData.amountInCents / 100 : paymentData.amount,
+                            status: wompiStatus,
+                            timestamp: new Date().toISOString()
+                        });
+                    } else if ([PS.S_DECLINED, PS.S_VOIDED, PS.S_ERROR].includes(wompiStatus)) {
+                        if (paymentData.invoiceId || payment.invoiceId) {
+                            await invoiceRepository.unreserveInvoice(paymentData.invoiceId || payment.invoiceId);
+                        }
+                    }
+
+                    results.push({
+                        paymentReference: payment.paymentReference || payment._id,
+                        oldStatus: payment.status,
+                        newStatus: wompiStatus,
+                        updated: true
+                    });
+                } else {
+                    results.push({
+                        paymentReference: payment.paymentReference || payment._id,
+                        status: payment.status,
+                        updated: false
+                    });
+                }
+            } catch (error) {
+                logger.error(`[PAYMENT-RECONCILE] Error reconciling payment ${payment._id}:`, error.message);
+                results.push({
+                    paymentReference: payment.paymentReference || payment._id,
+                    error: error.message
+                });
+            }
+        }
+
+        return results;
+    }
 }
 
 export default new PaymentService();
