@@ -53,29 +53,6 @@ const handleWompiWebhook = async (req, res) => {
 
 };
 
-/**
- * Manually trigger recovery of pending payments
- */
-const recoverPending = async (req, res) => {
-    try {
-        const { olderThanMinutes = 30 } = req.body;
-
-        const results = await webhookService.recoverPendingPayments(olderThanMinutes);
-
-        res.json({
-            success: true,
-            data: results,
-        });
-    } catch (error) {
-        console.error('Recover pending payments error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
-    }
-};
-
 export default {
-    handleWompiWebhook,
-    recoverPending
+    handleWompiWebhook
 };
