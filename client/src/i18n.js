@@ -789,6 +789,20 @@ const resources = {
                     hint: 'Arrastra para mover • Usa el control de zoom',
                     cancel: 'Cancelar',
                     save: 'Recortar y Guardar'
+                },
+                adjustments: {
+                    title: 'Tipos de Ajuste y Pagos',
+                    errorLoading: 'Error al cargar tipos de ajuste desde el servidor.',
+                    updatedSuccess: 'Tipo de ajuste actualizado exitosamente.',
+                    errorSaving: 'Error al guardar los cambios en el servidor.',
+                    keyRequired: 'El código / clave del tipo de ajuste es requerido.',
+                    systemKeyReserved: 'La clave "{{key}}" pertenece a un estado base reservado del sistema.',
+                    createdSuccess: 'Nuevo tipo de ajuste ({{key}}) creado exitosamente.',
+                    errorCreating: 'Error al crear el nuevo tipo de ajuste.',
+                    cannotDeleteSystem: 'El estado del sistema "{{key}}" no puede ser eliminado, sólo configurado.',
+                    deletedSuccess: 'Tipo de ajuste {{key}} eliminado.',
+                    errorDeleting: 'Error al eliminar el tipo de ajuste.',
+                    badgeRequired: 'La insignia corta (Badge) es obligatoria.'
                 }
             }
         }

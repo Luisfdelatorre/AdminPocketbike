@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { Sliders, Plus, Trash2, Save, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ShieldAlert } from 'lucide-react';
 import { getAdjustmentTypes, updateAdjustmentTypes } from '../../services/api';
 
 const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
 
 const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) => {
+    const { t } = useTranslation();
     const [types, setTypes] = useState({});
     const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'statuses' | 'adjustments'
     const [loading, setLoading] = useState(false);
@@ -32,7 +34,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 setTypes(res.data);
             }
         } catch (err) {
-            setMessage({ type: 'error', text: 'Error al cargar tipos de ajuste desde el servidor.' });
+            setMessage({ type: 'error', text: t('adjustments.errorLoading', 'Error al cargar tipos de ajuste desde el servidor.') });
         } finally {
             setLoading(false);
         }
@@ -64,10 +66,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             if (res && res.success) {
                 setTypes(res.data || updatedTypes);
                 setEditingKey(null);
-                setMessage({ type: 'success', text: 'Tipo de ajuste actualizado exitosamente.' });
+                setMessage({ type: 'success', text: t('adjustments.updatedSuccess', 'Tipo de ajuste actualizado exitosamente.') });
             }
         } catch (err) {
-            setMessage({ type: 'error', text: 'Error al guardar los cambios en el servidor.' });
+            setMessage({ type: 'error', text: t('adjustments.errorSaving', 'Error al guardar los cambios en el servidor.') });
         } finally {
             setSaving(false);
         }
@@ -75,14 +77,14 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const handleAddType = async (e) => {
         e.preventDefault();
-        const formattedKey = newKey.toUpperCase().trim().replace(/[^A_Z0-9_]/g, '_');
+        const formattedKey = newKey.toUpperCase().trim().replace(/[^A-Z0-9_]/g, '_');
         if (!formattedKey) {
-            setMessage({ type: 'error', text: 'El código / clave del tipo de ajuste es requerido.' });
+            setMessage({ type: 'error', text: t('adjustments.keyRequired', 'El código / clave del tipo de ajuste es requerido.') });
             return;
         }
 
         if (SYSTEM_STATUS_KEYS.includes(formattedKey)) {
-            setMessage({ type: 'error', text: `La clave "${formattedKey}" pertenece a un estado base reservado del sistema.` });
+            setMessage({ type: 'error', text: t('adjustments.systemKeyReserved', { key: formattedKey, defaultValue: `La clave "${formattedKey}" pertenece a un estado base reservado del sistema.` }) });
             return;
         }
 
@@ -106,10 +108,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                 setTypes(res.data || updatedTypes);
                 setShowAddForm(false);
                 setNewKey('');
-                setMessage({ type: 'success', text: `Nuevo tipo de ajuste (${formattedKey}) creado exitosamente.` });
+                setMessage({ type: 'success', text: t('adjustments.createdSuccess', { key: formattedKey, defaultValue: `Nuevo tipo de ajuste (${formattedKey}) creado exitosamente.` }) });
             }
         } catch (err) {
-            setMessage({ type: 'error', text: 'Error al crear el nuevo tipo de ajuste.' });
+            setMessage({ type: 'error', text: t('adjustments.errorCreating', 'Error al crear el nuevo tipo de ajuste.') });
         } finally {
             setSaving(false);
         }
@@ -117,7 +119,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
     const handleDeleteType = async (key) => {
         if (SYSTEM_STATUS_KEYS.includes(key)) {
-            setMessage({ type: 'error', text: `El estado del sistema "${key}" no puede ser eliminado, sólo configurado.` });
+            setMessage({ type: 'error', text: t('adjustments.cannotDeleteSystem', { key, defaultValue: `El estado del sistema "${key}" no puede ser eliminado, sólo configurado.` }) });
             return;
         }
 
@@ -132,10 +134,10 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             const res = await updateAdjustmentTypes(updatedTypes);
             if (res && res.success) {
                 setTypes(res.data || updatedTypes);
-                setMessage({ type: 'success', text: `Tipo de ajuste ${key} eliminado.` });
+                setMessage({ type: 'success', text: t('adjustments.deletedSuccess', { key, defaultValue: `Tipo de ajuste ${key} eliminado.` }) });
             }
         } catch (err) {
-            setMessage({ type: 'error', text: 'Error al eliminar el tipo de ajuste.' });
+            setMessage({ type: 'error', text: t('adjustments.errorDeleting', 'Error al eliminar el tipo de ajuste.') });
         } finally {
             setSaving(false);
         }
@@ -150,10 +152,6 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
             onClick={e => e.stopPropagation()}
         >
             <div className="modal-header flex items-center justify-between">
-                <div className="modal-header-left flex items-center gap-2">
-                    <Sliders size={20} />
-                    <span className="font-bold text-slate-800">Tipos de Ajuste y Pagos</span>
-                </div>
                 {!isEmbedded && onClose && (
                     <button className="modal-close" onClick={onClose}>
                         <X size={18} />
