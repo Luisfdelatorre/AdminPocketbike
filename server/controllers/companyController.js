@@ -106,9 +106,10 @@ const companyController = {
             company.email = email;
             if (typeof automaticInvoicing !== 'undefined') company.automaticInvoicing = automaticInvoicing;
             
-            if (wompiConfig?.wompiCommission !== undefined) {
+            if (wompiConfig) {
                 if (!company.wompiConfig) company.wompiConfig = {};
-                company.wompiConfig.wompiCommission = wompiConfig.wompiCommission;
+                if (wompiConfig.wompiCommission !== undefined) company.wompiConfig.wompiCommission = wompiConfig.wompiCommission;
+                if (wompiConfig.paymentMethod !== undefined) company.wompiConfig.paymentMethod = wompiConfig.paymentMethod;
             }
 
             if (billingConfig) {
@@ -353,7 +354,7 @@ const companyController = {
             // Update wompiConfig safely (handle masking)
             if (updates.wompiConfig) {
                 if (!company.wompiConfig) company.wompiConfig = {};
-                const wompiFields = ['publicKey', 'privateKey', 'integritySecret', 'eventsSecret', 'wompiCommission'];
+                const wompiFields = ['publicKey', 'privateKey', 'integritySecret', 'eventsSecret', 'wompiCommission', 'paymentMethod'];
                 wompiFields.forEach(field => {
                     const newVal = updates.wompiConfig[field];
                     if (newVal !== undefined) {
@@ -388,31 +389,17 @@ const companyController = {
                 });
             }
 
-            // Map legacy variables to the new schedules array format
-            company.schedules = [];
-            if (company.automaticCutOff && company.cutOffTime) {
-                company.schedules.push({ action: 'performScheduledCutOff', time: company.cutOffTime, enabled: true });
-            }
-            if (company.curfew && company.curfew.enabled) {
-                if (company.curfew.startTime) {
-                    company.schedules.push({ action: 'performCurfewStart', time: company.curfew.startTime, enabled: true });
-                }
-                if (company.curfew.endTime) {
-                    company.schedules.push({ action: 'performCurfewEnd', time: company.curfew.endTime, enabled: true });
-                }
-            }
-
             // Save document so pre-save encryption hooks run
             await company.save();
 
             // Clear cached adapters in companyService
             companyService.clearCache(companyId);
 
-            // Re-schedule dynamic cron jobs for the entire system (selectively triggering updates)
+            // Re-schedule dynamic curfew and cut-off cron jobs for companies
             try {
                 await cron.reloadAllJobs();
             } catch (cronErr) {
-                console.error('Error reloading cron jobs:', cronErr);
+                console.error('Error rescheduling company cron jobs:', cronErr);
             }
 
             res.json({
