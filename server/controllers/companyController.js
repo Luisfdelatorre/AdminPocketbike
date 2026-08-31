@@ -2,6 +2,7 @@ import { Company } from '../models/Company.js';
 import authService from '../services/authService.js';
 import companyService from '../services/companyService.js';
 import cron from '../cron-server/cron.js';
+import { triggerCronReload } from '../utils/cronClient.js';
 import { GPS_SERVICES } from '../config/components/constants.js';
 
 const companyController = {
@@ -398,6 +399,7 @@ const companyController = {
             // Re-schedule dynamic curfew and cut-off cron jobs for companies
             try {
                 await cron.reloadAllJobs();
+                await triggerCronReload();
             } catch (cronErr) {
                 console.error('Error rescheduling company cron jobs:', cronErr);
             }
