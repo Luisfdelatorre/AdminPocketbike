@@ -10,11 +10,8 @@ const router = express.Router();
  */
 router.get('/available-jobs', async (req, res) => {
   try {
-    let jobs = jobRegistry.getAll();
-    if (!jobs || jobs.length === 0) {
-      await jobRegistry.loadJobs();
-      jobs = jobRegistry.getAll();
-    }
+    await jobRegistry.loadJobs();
+    const jobs = jobRegistry.getAll();
     return res.status(200).json({ success: true, count: jobs.length, data: jobs });
   } catch (error) {
     console.error('Error fetching available cron jobs:', error);

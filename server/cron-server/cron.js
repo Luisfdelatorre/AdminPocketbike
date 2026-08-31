@@ -43,6 +43,7 @@ class Cron {
 
   async reloadAllJobs() {
     log.info("🔄 Reloading all dynamic cron jobs...");
+    await jobRegistry.loadJobs();
     const companies = await companyRepository.getCompaniesForDynamicCron();
     const systemJobs = await systemJobRepository.getActiveSystemJobs();
 

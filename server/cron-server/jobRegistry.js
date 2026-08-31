@@ -23,10 +23,10 @@ class JobRegistry {
 
       for (const file of files) {
         const filePath = path.join(jobsDir, file);
-        // Using file:// URL for dynamic import in ES Modules
-        const moduleURL = new URL(`file://${filePath}`).href;
+        const mtime = fs.statSync(filePath).mtimeMs;
+        // Using file:// URL with mtime query for dynamic import hot-reloading in ES Modules
+        const moduleURL = new URL(`file://${filePath}?v=${mtime}`).href;
         try {
-          // In real production with hot-reloading you might append a timestamp query
           const module = await import(moduleURL);
           const job = module.default;
           if (job && job.id && typeof job.run === 'function') {
