@@ -1034,7 +1034,9 @@ export class PaymentService {
      */
     async reconcilePendingPayments(olderThanMinutes = 0) {
         const pendingPayments = await paymentRepository.getPendingPaymentsOlderThan(olderThanMinutes);
-        logger.info(`[PAYMENT-RECONCILE] Found ${pendingPayments.length} pending payments to reconcile`);
+        if (pendingPayments && pendingPayments.length > 0) {
+            logger.info(`[PAYMENT-RECONCILE] Found ${pendingPayments.length} pending payments to reconcile`);
+        }
 
         const results = [];
 

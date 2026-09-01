@@ -3,13 +3,10 @@ import paymentService from "../../services/paymentService.js";
 
 const runValidatePayments = async (time) => {
     try {
-        logger.info(`[Cron] Execution started: Conciliación de Pagos Pendientes Wompi${time ? ` at ${time}` : ''}`);
-        
-        // Audit and reconcile all pending Wompi payments (regardless of age)
         const recoveryResults = await paymentService.reconcilePendingPayments(0);
-        logger.info(`[Cron] Wompi pending payment recovery completed: ${recoveryResults?.length || 0} payments processed`);
-
-        logger.info("[Cron] Execution finished: Conciliación de Pagos Pendientes Wompi");
+        if (recoveryResults && recoveryResults.length > 0) {
+            logger.info(`[Cron] Wompi pending payment recovery completed: ${recoveryResults.length} payments processed`);
+        }
     } catch (error) {
         logger.error(`[Cron] Error in validatePayments: ${error.message}`);
     }
