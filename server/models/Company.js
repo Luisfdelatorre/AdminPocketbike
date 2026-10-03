@@ -30,6 +30,11 @@ const companySchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    type: {
+        type: String,
+        enum: ['system', 'company'],
+        default: 'company'
+    },
     automaticInvoicing: {
         type: Boolean,
         default: false
@@ -58,18 +63,13 @@ const companySchema = new mongoose.Schema({
     },
     cutOffTime: {
         type: String,
-        default: '18:00' // HH:mm format — time of day when daily engine cut-off runs
+        default: '23:59' // HH:mm format — time of day when daily engine cut-off runs
     },
     curfew: {
         enabled: { type: Boolean, default: false },
         startTime: { type: String, default: '00:05' }, // formats: "HH:mm"
         endTime: { type: String, default: '04:00' }
     },
-    schedules: [{
-        action: { type: String, required: true }, // e.g., 'cutOff', 'curfewStart', 'curfewEnd', 'generarReporte'
-        time: { type: String, required: true },   // "HH:mm"
-        enabled: { type: Boolean, default: true }
-    }],
     cutOffStrategy: {
         type: Number,
         enum: [1, 2, 3], // 1: Today, 2: Yesterday, 3: Disabled
@@ -86,15 +86,22 @@ const companySchema = new mongoose.Schema({
         port: { type: Number },
         user: { type: String, trim: true },
         password: { type: String, trim: true },
-        token: { type: String, trim: true }
+        token: { type: String, trim: true },
+        groupId: { type: Number }
     },
+    traccarGroupId: { type: Number },
     // Wompi Service Integration
     wompiConfig: {
         publicKey: { type: String, trim: true },
         privateKey: { type: String, trim: true },
         integritySecret: { type: String, trim: true },
         eventsSecret: { type: String, trim: true },
-        wompiCommission: { type: Number, default: -0.01785 }
+        wompiCommission: { type: Number, default: -0.01785 },
+        paymentMethod: {
+            type: String,
+            enum: ['NEQUI_PUSH', 'BANCOLOMBIA_QR'],
+            default: 'NEQUI_PUSH'
+        }
     },
     // Company Billing Settings (Invoices generated for the company)
     billingConfig: {
@@ -140,12 +147,23 @@ function setDeepValue(obj, path, value) {
     target[last] = value;
 }
 
+export function decryptCompanyFields(doc) {
+    if (!doc) return doc;
+    sensitiveFields.forEach(path => {
+        const val = getDeepValue(doc, path);
+        if (val && typeof val === 'string' && val.includes(':')) {
+            setDeepValue(doc, path, decrypt(val));
+        }
+    });
+    return doc;
+}
+
 companySchema.pre('save', function (next) {
     const company = this;
     sensitiveFields.forEach(path => {
         if (company.isModified(path)) {
             const val = getDeepValue(company, path);
-            if (val && !val.includes(':')) { // Only encrypt if not already encrypted
+            if (val && typeof val === 'string' && !val.includes(':') && val !== '********') { // Only encrypt if not already encrypted
                 setDeepValue(company, path, encrypt(val));
             }
         }
@@ -155,12 +173,7 @@ companySchema.pre('save', function (next) {
 
 // Decrypt sensitive fields after loading from DB
 companySchema.post('init', function (doc) {
-    sensitiveFields.forEach(path => {
-        const val = getDeepValue(doc, path);
-        if (val && val.includes(':')) {
-            setDeepValue(doc, path, decrypt(val));
-        }
-    });
+    decryptCompanyFields(doc);
 });
 
 export const Company = mongoose.model('Company', companySchema);
