@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { getSystemJobs, createSystemJob, updateSystemJob, deleteSystemJob, getAvailableCronJobs } from '../services/api';
-import { Clock, Plus, Trash2, Edit2, PlayCircle, ToggleRight, ToggleLeft, Power } from 'lucide-react';
-import PageHeader from './PageHeader';
+import { Clock, Plus, Trash2, Edit2, PlayCircle, ToggleRight, ToggleLeft, Power, X, Save } from 'lucide-react';
+import './modals/AdjustmentTypesModal.css';
 
 const formatJobName = (name) => {
     const names = {
@@ -47,19 +46,24 @@ const formatJobTime = (time) => {
     return time;
 };
 
-const SystemJobs = () => {
+const SystemJobs = forwardRef((props, ref) => {
     const [jobs, setJobs] = useState([]);
     const [availablePlugins, setAvailablePlugins] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ name: '', job: '', time: '', flag: true });
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
-    const [fabPortalElement, setFabPortalElement] = useState(null);
 
-    useEffect(() => {
-        setFabPortalElement(document.body);
-    }, []);
+    useImperativeHandle(ref, () => ({
+        triggerAdd() {
+            setForm({ name: '', job: '', time: '', flag: true });
+            setIsEditing(false);
+            setEditId(null);
+            setShowForm(true);
+        }
+    }));
 
     useEffect(() => {
         loadData();
@@ -84,21 +88,32 @@ const SystemJobs = () => {
         }
     };
 
+    const handleStartEdit = (job) => {
+        setForm({ name: job.name, job: job.job, time: job.time, flag: job.flag });
+        setIsEditing(true);
+        setEditId(job._id);
+        setShowForm(true);
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
+        setSaving(true);
         try {
             if (isEditing) {
                 await updateSystemJob(editId, form);
             } else {
                 await createSystemJob(form);
             }
-            setShowModal(false);
+            setShowForm(false);
             setForm({ name: '', job: '', time: '', flag: true });
             setIsEditing(false);
+            setEditId(null);
             loadData();
         } catch (error) {
             console.error('Error saving job:', error);
             alert('Error guardando la rutina global');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -127,11 +142,117 @@ const SystemJobs = () => {
                 <button className="btn-primary" onClick={() => {
                     setForm({ name: '', job: '', time: '', flag: true });
                     setIsEditing(false);
-                    setShowModal(true);
+                    setEditId(null);
+                    setShowForm(true);
                 }}>
                     <Plus size={16} /> Añadir Rutina
                 </button>
             </div>
+
+            {/* Add / Edit Form Embedded */}
+            {showForm && (
+                <form onSubmit={handleSave} className="adj-modal-add-card" style={{ marginBottom: '1.5rem' }}>
+                    <div className="adj-modal-card-header">
+                        <h4 className="adj-modal-card-title">
+                            {isEditing ? <Edit2 size={15} /> : <Plus size={15} />}
+                            {isEditing ? 'Editar Rutina Global' : 'Nueva Rutina Global'}
+                        </h4>
+                        <button 
+                            type="button" 
+                            onClick={() => { setShowForm(false); setIsEditing(false); }} 
+                            className="adj-modal-close-icon-btn"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+
+                    <div className="adj-modal-form-grid">
+                        <div className="adj-modal-form-group">
+                            <label className="adj-modal-label">Nombre Descriptivo</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={form.name} 
+                                onChange={e => setForm({...form, name: e.target.value})}
+                                placeholder="Ej. Generar Facturas Diarias"
+                                className="adj-modal-input"
+                            />
+                        </div>
+
+                        <div className="adj-modal-form-group">
+                            <label className="adj-modal-label">Plugin a Ejecutar</label>
+                            <select 
+                                required 
+                                value={form.job} 
+                                onChange={e => setForm({...form, job: e.target.value})}
+                                className="adj-modal-input"
+                                style={{ background: '#fff' }}
+                            >
+                                <option value="">Seleccione un plugin...</option>
+                                {availablePlugins.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="adj-modal-col-span-2 adj-modal-form-group">
+                            <label className="adj-modal-label">Programación / Hora de Ejecución</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={form.time} 
+                                onChange={e => setForm({...form, time: e.target.value})}
+                                placeholder="HH:mm (ej. 00:01) o Cron (ej. */5 * * * *)"
+                                className="adj-modal-input adj-modal-input-mono"
+                            />
+                            <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Frecuencias rápidas:</span>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setForm({...form, time: '*/5 * * * *'})}
+                                    style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: form.time === '*/5 * * * *' ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
+                                >
+                                    Cada 5 min
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setForm({...form, time: '*/15 * * * *'})}
+                                    style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: form.time === '*/15 * * * *' ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
+                                >
+                                    Cada 15 min
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setForm({...form, time: '0,30 * * * *'})}
+                                    style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: (form.time === '0,30 * * * *' || form.time === '*/30 * * * *') ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
+                                >
+                                    Cada 30 min
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setForm({...form, time: '00:01'})}
+                                    style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: form.time === '00:01' ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
+                                >
+                                    Diario 00:01
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="adj-modal-actions">
+                        <button 
+                            type="button" 
+                            onClick={() => { setShowForm(false); setIsEditing(false); }} 
+                            className="adj-modal-btn-cancel"
+                        >
+                            Cancelar
+                        </button>
+                        <button type="submit" disabled={saving} className="adj-modal-btn-save">
+                            <Save size={13} /> {isEditing ? 'Guardar Cambios' : 'Crear Rutina'}
+                        </button>
+                    </div>
+                </form>
+            )}
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '2rem' }}>Cargando rutinas...</div>
@@ -179,15 +300,10 @@ const SystemJobs = () => {
                                     </td>
                                     <td>
                                         <div className="action-buttons">
-                                            <button className="btn-icon" onClick={() => {
-                                                setForm({ name: job.name, job: job.job, time: job.time, flag: job.flag });
-                                                setIsEditing(true);
-                                                setEditId(job._id);
-                                                setShowModal(true);
-                                            }}>
+                                            <button className="btn-icon" onClick={() => handleStartEdit(job)} title="Editar">
                                                 <Edit2 size={16} />
                                             </button>
-                                            <button className="btn-icon" style={{ color: '#ef4444' }} onClick={() => handleDelete(job._id)}>
+                                            <button className="btn-icon" style={{ color: '#ef4444' }} onClick={() => handleDelete(job._id)} title="Eliminar">
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
@@ -239,12 +355,7 @@ const SystemJobs = () => {
                                     <div className="flex items-center gap-1">
                                         <button
                                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                            onClick={() => {
-                                                setForm({ name: job.name, job: job.job, time: job.time, flag: job.flag });
-                                                setIsEditing(true);
-                                                setEditId(job._id);
-                                                setShowModal(true);
-                                            }}
+                                            onClick={() => handleStartEdit(job)}
                                             title="Editar"
                                         >
                                             <Edit2 size={16} />
@@ -272,106 +383,8 @@ const SystemJobs = () => {
                 </div>
                 </>
             )}
-
-            {/* Floating Action Button (FAB) for Mobile - SystemJobs */}
-            {fabPortalElement && !showModal && createPortal(
-                <button
-                    type="button"
-                    className="contracts-add-fab primary-blue"
-                    onClick={() => {
-                        setForm({ name: '', job: '', time: '', flag: true });
-                        setIsEditing(false);
-                        setShowModal(true);
-                    }}
-                    aria-label="Añadir Rutina"
-                >
-                    <Plus size={32} />
-                </button>,
-                fabPortalElement
-            )}
-
-            {showModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '500px' }}>
-                        <div className="modal-header">
-                            <h2>{isEditing ? 'Editar Rutina' : 'Nueva Rutina Global'}</h2>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleSave} className="modal-body">
-                            <div className="form-group">
-                                <label>Nombre Descriptivo</label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    value={form.name} 
-                                    onChange={e => setForm({...form, name: e.target.value})}
-                                    placeholder="Ej. Generar Facturas Diarias"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Plugin a Ejecutar</label>
-                                <select 
-                                    required 
-                                    value={form.job} 
-                                    onChange={e => setForm({...form, job: e.target.value})}
-                                >
-                                    <option value="">Seleccione un plugin...</option>
-                                    {availablePlugins.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label>Programación / Hora de Ejecución</label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    value={form.time} 
-                                    onChange={e => setForm({...form, time: e.target.value})}
-                                    placeholder="HH:mm (ej. 00:01) o Cron (ej. */5 * * * *)"
-                                />
-                                <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b', alignSelf: 'center' }}>Frecuencias rápidas:</span>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setForm({...form, time: '*/5 * * * *'})}
-                                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: form.time === '*/5 * * * *' ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
-                                    >
-                                        Cada 5 min
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setForm({...form, time: '*/15 * * * *'})}
-                                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: form.time === '*/15 * * * *' ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
-                                    >
-                                        Cada 15 min
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setForm({...form, time: '0,30 * * * *'})}
-                                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: (form.time === '0,30 * * * *' || form.time === '*/30 * * * *') ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
-                                    >
-                                        Cada 30 min
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setForm({...form, time: '00:01'})}
-                                        style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', background: form.time === '00:01' ? '#e0f2fe' : '#f8fafc', color: '#0369a1', cursor: 'pointer' }}
-                                    >
-                                        Diario 00:01
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="modal-footer" style={{ marginTop: '2rem' }}>
-                                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-                                <button type="submit" className="btn-primary">Guardar Rutina</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
-};
+});
 
 export default SystemJobs;

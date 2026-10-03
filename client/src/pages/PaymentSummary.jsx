@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
+import { RefreshCw, Download, PowerOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine, getAllCompanies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -280,14 +280,17 @@ const PaymentSummary = () => {
         fetchData();
     }, [selectedMonth, selectedYear, selectedCompany]);
 
+    const [bulkOffLoading, setBulkOffLoading] = useState(false);
+    const [showBulkOffModal, setShowBulkOffModal] = useState(false);
+
     const handleBulkEngineOff = async () => {
-        setBulkOffModal(false);
+        setShowBulkOffModal(false);
         setBulkOffLoading(true);
         try {
             const result = await cutoffDebtors();
-            const msg = result?.message || (result?.success ? 'Listo' : 'Error');
+            const msg = result?.message || (result?.success ? 'Comandos de apagado encolados para vehículos morosos' : 'Error al apagar morosos');
             showToast(msg, result?.success ? 'success' : 'error');
-            fetchData(); // Reload to reflect new cutoff state in table
+            await fetchData(true);
         } catch (err) {
             showToast(err.message || 'Error al apagar morosos', 'error');
         } finally {
@@ -363,7 +366,7 @@ const PaymentSummary = () => {
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             const nameMatch = item.device.name?.toLowerCase().includes(q);
-            const driverMatch = item.device.driverName?.toLowerCase().includes(q);
+            const driverMatch = (item.device.customerName || item.device.driverName)?.toLowerCase().includes(q);
             if (!nameMatch && !driverMatch) return false;
         }
         // Status pill filter
@@ -442,10 +445,22 @@ const PaymentSummary = () => {
         loading, user, pendingCommands, matrixGeometry
     ]);
 
+    const autoOffButton = (
+        <button
+            type="button"
+            className="select-control auto-cutoff-btn"
+            title={`Apagar motor de vehículos morosos (${morososCount})`}
+            onClick={() => setShowBulkOffModal(true)}
+            disabled={bulkOffLoading || morososCount === 0}
+        >
+            <Power size={19} className={bulkOffLoading ? 'spin' : ''} aria-hidden="true" />
+        </button>
+    );
+
     return (
         <div className="payment-summary-container" style={{ '--summary-header-height': `${summaryHeaderHeight}px` }} >
 
-            {/* Desktop Header */}
+            {/* Desktop & Mobile Header */}
             <PageHeader
                 title={<h1>Estatus de Pagos</h1>}
                 onRefresh={fetchData}
@@ -453,26 +468,30 @@ const PaymentSummary = () => {
                 refreshText="Actualizar"
                 onFilterToggle={handleFilterToggle}
                 showFilters={showFilters}
+                mobileActions={autoOffButton}
                 desktopActions={
-                    <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
-                        <button
-                            type="button"
-                            className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
-                            onClick={() => handleDesktopViewChange('bike')}
-                            aria-pressed={desktopView === 'bike'}
-                        >
-                            <LayoutList size={16} aria-hidden="true" />
-                            <span>Por moto</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
-                            onClick={() => handleDesktopViewChange('matrix')}
-                            aria-pressed={desktopView === 'matrix'}
-                        >
-                            <Table2 size={16} aria-hidden="true" />
-                            <span>Matriz</span>
-                        </button>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        {autoOffButton}
+                        <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
+                            <button
+                                type="button"
+                                className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
+                                onClick={() => handleDesktopViewChange('bike')}
+                                aria-pressed={desktopView === 'bike'}
+                            >
+                                <LayoutList size={16} aria-hidden="true" />
+                                <span>Por moto</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
+                                onClick={() => handleDesktopViewChange('matrix')}
+                                aria-pressed={desktopView === 'matrix'}
+                            >
+                                <Table2 size={16} aria-hidden="true" />
+                                <span>Matriz</span>
+                            </button>
+                        </div>
                     </div>
                 }
             />
@@ -551,6 +570,38 @@ const PaymentSummary = () => {
 
             {renderViews}
 
+            {showBulkOffModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content bulk-cutoff-modal">
+                        <div className="bulk-cutoff-modal-icon">
+                            <PowerOff size={24} />
+                        </div>
+                        <h3 className="bulk-cutoff-modal-title">
+                            ¿Apagar motor de morosos?
+                        </h3>
+                        <p className="bulk-cutoff-modal-desc">
+                            Se enviará la orden de apagado de motor a los <strong>{morososCount}</strong> vehículos que presentan saldo pendiente.
+                        </p>
+                        <div className="bulk-cutoff-modal-actions">
+                            <button
+                                type="button"
+                                className="bulk-cutoff-modal-btn-cancel"
+                                onClick={() => setShowBulkOffModal(false)}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="bulk-cutoff-modal-btn-confirm"
+                                onClick={handleBulkEngineOff}
+                                disabled={bulkOffLoading}
+                            >
+                                {bulkOffLoading ? 'Enviando…' : 'Sí, Apagar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

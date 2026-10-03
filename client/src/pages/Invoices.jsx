@@ -8,10 +8,23 @@ import {
 } from 'lucide-react';
 import './Payments.css';
 import './Invoices.css';
-import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes } from '../services/api';
+import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes, getPaymentStatuses } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import StatCard from '../components/StatCard';
+import StatusBadge from '../components/StatusBadge';
+
+const ADJUSTMENT_ICONS = {
+    REPAIR: Wrench,
+    MAINTENANCE: Hammer,
+    ACCIDENT_TRANSIT: AlertTriangle,
+    DAMAGE: AlertTriangle,
+    INCAPACITY: AlertTriangle,
+    INCAPACIDAD: AlertTriangle,
+    WORKSHOP: Building2,
+    OFFICE: Building2,
+    OFICINA: Building2,
+};
 
 const Invoices = () => {
     const { t } = useTranslation();
@@ -78,11 +91,13 @@ const Invoices = () => {
     const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({});
 
     useEffect(() => {
-        getAdjustmentTypes()
-            .then(res => {
-                if (res && res.success && res.data) {
-                    setAdjustmentConfig(res.data);
-                }
+        Promise.all([getAdjustmentTypes(), getPaymentStatuses()])
+            .then(([adjRes, payRes]) => {
+                const combined = {
+                    ...(payRes?.data || {}),
+                    ...(adjRes?.data || {})
+                };
+                setAdjustmentConfig(combined);
             })
             .catch(err => console.warn('No se pudo cargar la configuración de tipos de ajuste:', err));
     }, []);
@@ -140,7 +155,7 @@ const Invoices = () => {
         setManualPayError('');
         try {
             await registerManualAdjustment({
-                invoiceId: manualPayModal.invoice._id,
+                invoiceId: manualPayModal.invoice.invoiceId || manualPayModal.invoice._id,
                 adjustmentType: manualPayForm.adjustmentType || 'NEQUI',
                 amount: Number(manualPayForm.amount),
                 adjustmentReference: manualPayForm.reference || 'Pago manual Nequi / Registro directo por Admin',
@@ -185,14 +200,16 @@ const Invoices = () => {
     const loadInvoices = async (page = 1) => {
         setLoading(true);
         try {
-            const params = {
-                page,
-                limit: searchQuery ? 500 : PAGE_SIZE,
-                month: selectedMonth,
-                year: selectedYear
-            };
-            if (searchQuery) params.search = searchQuery.trim();
-            if (filter !== 'all') params.status = filter;
+            const params = {};
+            if (page > 1) params.page = page;
+            if (searchQuery) {
+                params.search = searchQuery.trim();
+                params.limit = 500;
+            } else {
+                if (selectedMonth) params.month = selectedMonth;
+                if (selectedYear) params.year = selectedYear;
+            }
+            if (filter && filter !== 'all') params.status = filter;
 
             const result = await getAllInvoices(params);
             if (result.success) {
@@ -239,9 +256,9 @@ const Invoices = () => {
             hours = hours ? hours : 12;
 
             return (
-                <div style={{ lineHeight: '1.2' }}>
+                <div className="date-cell">
                     <div>{day} {month}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>{hours}:{minutes}{ampm}</div>
+                    <div className="date-sub">{hours}:{minutes}{ampm}</div>
                 </div>
             );
         }
@@ -254,42 +271,10 @@ const Invoices = () => {
         });
     };
 
-    const formatInvoiceId = (invoiceId) => {
-        if (!invoiceId) return 'N/A';
-        const parts = invoiceId.split('-');
-        if (parts.length >= 4) {
-            const deviceName = parts[0];
-            const year = parts[1];
-            const month = parts[2];
-            const day = parts[3];
-            const dateObj = new Date(`${year}-${month}-${day}T12:00:00`);
-            const monthName = dateObj.toLocaleDateString('es-ES', { month: 'short' });
-            return `${deviceName}-${monthName.replace('.', '')}-${parseInt(day)}`;
-        }
-        return invoiceId;
-    };
-
-    const getStatusColor = (status) => {
-        const colors = {
-            'PAID': '#3b64c6',
-            'DEBT': '#EF4444',
-            'LOAN': '#00c292',
-            'FREE': '#00c292',
-            'PENDING': '#FB9678',
-            'CANCELLED': '#6B7280'
-        };
-        return colors[status] || '#6B7280';
-    };
-
     const filteredInvoices = invoices.filter(invoice => {
         if (filter !== 'all') {
-            const statusMap = {
-                'completed': 'PAID',
-                'pending': 'PENDING',
-                'failed': 'DEBT'
-            };
-            const mappedStatus = statusMap[filter] || filter;
-            if (invoice.dayType.toUpperCase() !== mappedStatus.toUpperCase()) {
+            const activeFilter = String(filter).trim().toUpperCase();
+            if (invoice.dayType?.toUpperCase() !== activeFilter && invoice.adjustmentType?.toUpperCase() !== activeFilter) {
                 return false;
             }
         }
@@ -319,14 +304,15 @@ const Invoices = () => {
     return (
         <div className="payments-page">
             {portalElement && createPortal(
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="invoices-portal-actions">
                     {totalPages > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563' }}>
+                        <div className="portal-pagination-pill">
                             <button
                                 type="button"
                                 onClick={() => setCurrentPage(p => p - 1)}
                                 disabled={currentPage <= 1}
-                                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage > 1 ? '#1f2937' : '#9ca3af' }}
+                                className="portal-pagination-arrow"
+                                aria-label="Página anterior"
                             >
                                 <ChevronLeft size={14} />
                             </button>
@@ -335,7 +321,8 @@ const Invoices = () => {
                                 type="button"
                                 onClick={() => setCurrentPage(p => p + 1)}
                                 disabled={currentPage >= totalPages}
-                                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage < totalPages ? '#1f2937' : '#9ca3af' }}
+                                className="portal-pagination-arrow"
+                                aria-label="Página siguiente"
                             >
                                 <ChevronRight size={14} />
                             </button>
@@ -343,10 +330,10 @@ const Invoices = () => {
                     )}
                     <button
                         type="button"
-                        className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                        className={`portal-filter-toggle ${showFilters ? 'active' : ''}`}
                         onClick={() => setShowFilters(!showFilters)}
                         id="filterToggle"
-                        style={{ border: 'none', background: 'none', padding: '8px' }}
+                        aria-label="Filtros"
                     >
                         <ListFilter size={20} />
                     </button>
@@ -358,15 +345,14 @@ const Invoices = () => {
                 <div>
                     <h1>{t('invoices.title')}</h1>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className="invoices-header-actions">
                     <select
                         value={selectedMonth}
                         onChange={e => {
                             setSelectedMonth(Number(e.target.value));
                             setCurrentPage(1);
                         }}
-                        className="select-control"
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        className="select-control header-date-select"
                     >
                         {Array.from({ length: 12 }, (_, i) => (
                             <option key={i + 1} value={i + 1}>
@@ -380,8 +366,7 @@ const Invoices = () => {
                             setSelectedYear(Number(e.target.value));
                             setCurrentPage(1);
                         }}
-                        className="select-control"
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        className="select-control header-date-select"
                     >
                         <option value={2025}>2025</option>
                         <option value={2026}>2026</option>
@@ -418,23 +403,22 @@ const Invoices = () => {
                         setFilter={(val) => handleFilterChange(val)}
                         filterOptions={[
                             { value: 'all', label: t('payments.filters.all') || 'Todas' },
-                            { value: 'completed', label: 'Pagadas' },
-                            { value: 'pending', label: 'Pendientes' },
-                            { value: 'failed', label: 'Deudas' }
+                            { value: 'PAID', label: ADJUSTMENT_CONFIG.PAID?.badgeLabel || 'Pagadas' },
+                            { value: 'PENDING', label: ADJUSTMENT_CONFIG.PENDING?.badgeLabel || 'Pendientes' },
+                            { value: 'DEBT', label: ADJUSTMENT_CONFIG.DEBT?.badgeLabel || 'Deudas' }
                         ]}
                         filterRowClass="summary-filter-row-ios"
                     />
 
                     {/* Action Items for Mobile */}
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                    <div className="invoices-mobile-actions">
                         <select
                             value={selectedMonth}
                             onChange={e => {
                                 setSelectedMonth(Number(e.target.value));
                                 setCurrentPage(1);
                             }}
-                            className="sort-select"
-                            style={{ flexGrow: 1, padding: '8px 12px' }}
+                            className="sort-select mobile-select-month"
                         >
                             {Array.from({ length: 12 }, (_, i) => (
                                 <option key={i + 1} value={i + 1}>
@@ -448,17 +432,16 @@ const Invoices = () => {
                                 setSelectedYear(Number(e.target.value));
                                 setCurrentPage(1);
                             }}
-                            className="sort-select"
-                            style={{ padding: '8px 12px' }}
+                            className="sort-select mobile-select-year"
                         >
                             <option value={2025}>2025</option>
                             <option value={2026}>2026</option>
                             <option value={2027}>2027</option>
                         </select>
-                        <button className="filter-action-btn" onClick={() => loadInvoices(currentPage)} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Actualizar">
+                        <button className="filter-action-btn filter-action-btn-icon" onClick={() => loadInvoices(currentPage)} title="Actualizar">
                             <RefreshCw size={18} />
                         </button>
-                        <button className="filter-action-btn" onClick={handleExport} style={{ height: '38px', width: '38px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Descargar CSV">
+                        <button className="filter-action-btn filter-action-btn-icon" onClick={handleExport} title="Descargar CSV">
                             <Download size={18} />
                         </button>
                     </div>
@@ -468,7 +451,7 @@ const Invoices = () => {
             {/* Summary Stats */}
             <div className="payment-stats">
                 <StatCard
-                    title="Recaudación Total"
+                    title={t('invoices.stats.total')}
                     value={
                         <>
                             <span className="desktop-only">{formatCurrency(stats.totalAmount)}</span>
@@ -479,7 +462,7 @@ const Invoices = () => {
                     iconBg="var(--brand-teal)"
                 />
                 <StatCard
-                    title="Pagadas"
+                    title={t('invoices.stats.paid')}
                     value={stats.paid}
                     change={paidPercentage > 0 ? `${paidPercentage}%` : null}
                     changeType="positive"
@@ -487,7 +470,7 @@ const Invoices = () => {
                     iconBg="#00C292"
                 />
                 <StatCard
-                    title="Deudas / Impagas"
+                    title={t('invoices.stats.unpaid')}
                     value={stats.unpaid}
                     change={unpaidPercentage > 0 ? `${unpaidPercentage}%` : null}
                     changeType="negative"
@@ -495,7 +478,7 @@ const Invoices = () => {
                     iconBg="#EF4444"
                 />
                 <StatCard
-                    title="Total Facturas"
+                    title={t('invoices.stats.invoices')}
                     value={stats.total}
 
                     iconBg="#7460EE"
@@ -507,48 +490,44 @@ const Invoices = () => {
                 <button
                     className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                     onClick={() => handleFilterChange('all')}
-                    style={{ border: filter === 'all' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'all' ? 'var(--brand-teal)' : 'white', color: filter === 'all' ? 'white' : '#6B7280' }}
                 >
                     <Filter size={16} /> Todos
                 </button>
                 <button
-                    className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-                    onClick={() => handleFilterChange('completed')}
-                    style={{ border: filter === 'completed' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'completed' ? 'var(--brand-teal)' : 'white', color: filter === 'completed' ? 'white' : '#6B7280' }}
+                    className={`filter-btn ${filter === 'PAID' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('PAID')}
                 >
-                    Pagadas
+                    {ADJUSTMENT_CONFIG.PAID?.badgeLabel || 'Pagadas'}
                 </button>
                 <button
-                    className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
-                    onClick={() => handleFilterChange('pending')}
-                    style={{ border: filter === 'pending' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'pending' ? 'var(--brand-teal)' : 'white', color: filter === 'pending' ? 'white' : '#6B7280' }}
+                    className={`filter-btn ${filter === 'PENDING' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('PENDING')}
                 >
-                    Pendientes
+                    {ADJUSTMENT_CONFIG.PENDING?.badgeLabel || 'Pendientes'}
                 </button>
                 <button
-                    className={`filter-btn ${filter === 'failed' ? 'active' : ''}`}
-                    onClick={() => handleFilterChange('failed')}
-                    style={{ border: filter === 'failed' ? '1px solid var(--brand-teal)' : '1px solid #E5E7EB', background: filter === 'failed' ? 'var(--brand-teal)' : 'white', color: filter === 'failed' ? 'white' : '#6B7280' }}
+                    className={`filter-btn ${filter === 'DEBT' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('DEBT')}
                 >
-                    Deudas
+                    {ADJUSTMENT_CONFIG.DEBT?.badgeLabel || 'Deudas'}
                 </button>
-                <form onSubmit={handleSearchSubmit} className="search-box" style={{ marginLeft: 'auto', width: '300px' }}>
+                <form onSubmit={handleSearchSubmit} className="search-box invoices-search-form">
                     <button
                         type="submit"
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', zIndex: 2 }}
+                        className="invoices-search-submit-btn"
                         title="Buscar (Enter o clic)"
                     >
-                        <Search className="search-icon" size={18} style={{ position: 'static' }} />
+                        <Search className="search-icon" size={18} />
                     </button>
                     <input
                         type="text"
+                        className="invoices-search-input"
                         placeholder="Buscar por ID, dispositivo..."
                         value={searchInput}
                         onChange={(e) => setSearchInput(e.target.value)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSearchSubmit(e);
                         }}
-                        style={{ paddingLeft: '2.5rem' }}
                     />
                     {(searchInput || searchQuery) && (
                         <button type="button" className="clear-search" onClick={handleClearSearch}>
@@ -576,72 +555,53 @@ const Invoices = () => {
                         <div className="invoices-table-header-ios">
                             <span>ID Factura</span>
                             <span className="desktop-col">{t('login.deviceId')}</span>
-                            <span className="col-center">Monto</span>
-                            <span className="col-center">Fecha Pago</span>
-                            <span className="col-center">{t('common.status')}</span>
+                            <span>Monto</span>
+                            <span>Fecha Pago</span>
+                            <span>{t('common.status')}</span>
                         </div>
                         <div className="devices-table-rows-ios">
-                            {filteredInvoices.map((invoice) => (
-                                <div key={invoice.invoiceId} className="invoices-row-ios">
-                                    <div className="device-name-col">
-                                        <div style={{ lineHeight: '1.2' }}>
-                                            {(() => {
-                                                const formatted = formatInvoiceId(invoice.invoiceId);
-                                                const dashIndex = formatted.indexOf('-');
-                                                if (dashIndex !== -1) {
-                                                    return (
-                                                        <>
-                                                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1c1c' }}>{formatted.slice(0, dashIndex)}</div>
-                                                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>{formatted.slice(dashIndex + 1)}</div>
-                                                        </>
-                                                    );
-                                                }
-                                                return <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1c1c' }}>{formatted}</div>;
-                                            })()}
+                            {filteredInvoices.map((invoice) => {
+                                const { isPayable, isPaidOrFree, statusClass, label, invoiceIdSub, deviceIdName } = invoice;
+                                const BadgeIcon = invoice.adjustmentType ? ADJUSTMENT_ICONS[invoice.adjustmentType] : null;
+                                const mainId = deviceIdName || invoice.invoiceId || 'N/A';
+
+                                return (
+                                    <div key={invoice.invoiceId} className="invoices-row-ios">
+                                        <div className="device-name-col">
+                                            <div className="invoice-id-cell">
+                                                {invoiceIdSub ? (
+                                                    <>
+                                                        <div className="invoice-id-main">{mainId}</div>
+                                                        <div className="invoice-id-sub">{invoiceIdSub}</div>
+                                                    </>
+                                                ) : (
+                                                    <div className="invoice-id-main">{mainId}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="desktop-col device-name-text">
+                                            {deviceIdName}
+                                        </div>
+                                        <div className={`amount-col ${isPaidOrFree ? 'amount-paid' : 'amount-debt'}`}>
+                                            <span className="desktop-only">{formatCurrency(invoice.paidAmount, false)}</span>
+                                            <span className="mobile-only">{formatCurrency(invoice.paidAmount, true)}</span>
+                                        </div>
+                                        <div className="date-col">
+                                            <span className="desktop-only">{formatDate(invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
+                                            <span className="mobile-only">{formatDate(invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
+                                        </div>
+                                        <div className="status-col">
+                                            <StatusBadge
+                                                status={invoice.dayType}
+                                                adjustmentType={invoice.adjustmentType}
+                                                label={label}
+                                                clickable={isPayable}
+                                                onClick={isPayable ? () => openManualPayModal(invoice) : undefined}
+                                            />
                                         </div>
                                     </div>
-                                    <div className="desktop-col" style={{ fontSize: '13px', fontWeight: 600, color: '#4b5563', alignItems: 'center' }}>
-                                        {invoice.deviceIdName}
-                                    </div>
-                                    <div className="col-center" style={{ color: invoice.dayType === 'PAID' || invoice.dayType === 'FREE' ? '#059669' : '#FF3B30', fontWeight: 700, fontSize: '13px' }}>
-                                        <span className="desktop-only">{formatCurrency(invoice.paidAmount, false)}</span>
-                                        <span className="mobile-only">{formatCurrency(invoice.paidAmount, true)}</span>
-                                    </div>
-                                    <div className="col-center" style={{ fontSize: '12px', color: '#4b5563' }}>
-                                        <span className="desktop-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
-                                        <span className="mobile-only">{formatDate(invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
-                                    </div>
-                                    <div className="col-center">
-                                        <span
-                                            className="status-badge"
-                                            onClick={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? () => openManualPayModal(invoice) : undefined}
-                                            style={{
-                                                background: `${getStatusColor(invoice.dayType)}20`,
-                                                color: getStatusColor(invoice.dayType),
-                                                cursor: (invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? 'pointer' : 'default',
-                                                padding: '4px 10px',
-                                                borderRadius: '9999px',
-                                                fontSize: '11px',
-                                                fontWeight: 700,
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '4px'
-                                            }}
-                                            title={(invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') ? "Registrar pago manual / ajuste" : undefined}
-                                        >
-                                            {invoice.adjustmentType === 'REPAIR' && <Wrench size={13} />}
-                                            {invoice.adjustmentType === 'MAINTENANCE' && <Hammer size={13} />}
-                                            {(() => {
-                                                const adjType = invoice.adjustmentType === 'OFICINA' ? 'OFFICE' : (invoice.adjustmentType === 'INCAPACIDAD' ? 'INCAPACITY' : invoice.adjustmentType);
-                                                if (adjType && ADJUSTMENT_CONFIG[adjType]) {
-                                                    return (ADJUSTMENT_CONFIG[adjType].badgeLabel || ADJUSTMENT_CONFIG[adjType].label.replace(/(\(\$0\)|Pago Real - |Ajuste - )/g, '')).trim().toUpperCase();
-                                                }
-                                                return invoice.dayType === 'PAID' ? 'PAGADO' : invoice.dayType === 'DEBT' ? 'DEUDA' : invoice.dayType === 'FREE' ? 'GRATIS' : invoice.dayType;
-                                            })()}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -652,21 +612,27 @@ const Invoices = () => {
                     {totalPages > 1 && (
                         <div className="pagination">
                             <button
-                                className="pagination-btn"
+                                className="pagination-circle-btn"
                                 onClick={() => setCurrentPage(p => p - 1)}
                                 disabled={currentPage <= 1}
+                                aria-label="Página anterior"
+                                title="Página anterior"
                             >
-                                ← Anterior
+                                <ChevronLeft size={18} />
                             </button>
-                            <span className="pagination-info">
-                                Página {currentPage} de {totalPages}
-                            </span>
+                            <div className="pagination-circle-page">
+                                <span className="pagination-circle-page-current">{currentPage}</span>
+                                <span className="pagination-circle-page-divider">/</span>
+                                <span className="pagination-circle-page-total">{totalPages}</span>
+                            </div>
                             <button
-                                className="pagination-btn"
+                                className="pagination-circle-btn"
                                 onClick={() => setCurrentPage(p => p + 1)}
                                 disabled={currentPage >= totalPages}
+                                aria-label="Página siguiente"
+                                title="Página siguiente"
                             >
-                                Siguiente →
+                                <ChevronRight size={18} />
                             </button>
                         </div>
                     )}
@@ -683,13 +649,15 @@ const Invoices = () => {
                                 : {}
                         }>
                             <div className="modal-header-left">
-                                {!manualPayForm.adjustmentType && <HandCoins size={20} />}
-                                {(manualPayForm.adjustmentType === 'ACCIDENT_TRANSIT' || manualPayForm.adjustmentType === 'REPAIR' || manualPayForm.adjustmentType === 'DAMAGE' || manualPayForm.adjustmentType === 'INCAPACITY' || manualPayForm.adjustmentType === 'INCAPACIDAD') && <AlertTriangle size={20} />}
-                                {manualPayForm.adjustmentType === 'MAINTENANCE' && <Hammer size={20} />}
-                                {(manualPayForm.adjustmentType === 'WORKSHOP' || manualPayForm.adjustmentType === 'OFFICE' || manualPayForm.adjustmentType === 'OFICINA') && <Building2 size={20} />}
+                                {(() => {
+                                    const ModalIcon = manualPayForm.adjustmentType
+                                        ? (ADJUSTMENT_ICONS[manualPayForm.adjustmentType] || HandCoins)
+                                        : HandCoins;
+                                    return <ModalIcon size={20} />;
+                                })()}
                                 <span>
                                     {manualPayForm.adjustmentType
-                                        ? ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].label
+                                        ? ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.label || manualPayForm.adjustmentType
                                         : 'Pago Manual'}
                                 </span>
                             </div>

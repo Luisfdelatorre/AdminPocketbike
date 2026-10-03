@@ -3,21 +3,7 @@
     width: 100%;
 }
 
-.page-header {
-    margin-bottom: .5rem;
-}
 
-.page-header h1 {
-    font-size: 1.875rem;
-    font-weight: 700;
-    color: #1F2937;
-    margin: 0 0 0.5rem 0;
-}
-
-.page-header p {
-    color: #6B7280;
-    margin: 0;
-}
 
 /* Stats */
 .invoices-stats {
@@ -190,11 +176,7 @@
     letter-spacing: 0.06em;
     color: #6b7280;
     white-space: nowrap;
-}
-
-.invoices-table-header-ios .col-center {
-    text-align: center;
-    justify-self: center;
+    text-align: left;
 }
 
 .invoices-table-header-ios .desktop-col,
@@ -243,6 +225,70 @@
     .invoices-row-ios .desktop-col {
         display: flex;
     }
+}
+
+/* iOS Invoices Table Cell Layout & Typography */
+.invoices-row-ios .invoice-id-cell {
+    line-height: 1.2;
+}
+
+.invoices-row-ios .invoice-id-main {
+    font-size: 13px;
+    font-weight: 400;
+    color: #1a1c1c;
+}
+
+.invoices-row-ios .invoice-id-sub {
+    font-size: 0.65rem;
+    color: #6b7280;
+}
+
+.invoices-row-ios .desktop-col.device-name-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4b5563;
+    align-items: center;
+}
+
+.invoices-row-ios .amount-col {
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.invoices-row-ios .amount-col.amount-paid {
+    color: #059669;
+}
+
+.invoices-row-ios .amount-col.amount-debt {
+    color: #ff3b30;
+}
+
+.invoices-row-ios .date-col {
+    font-size: 12px;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.invoices-row-ios .status-col {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.date-cell {
+    line-height: 1.2;
+}
+
+.date-sub {
+    font-size: 0.65rem;
+    color: #6b7280;
 }
 
 .table-header {
@@ -365,11 +411,88 @@
 }
 
 .status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
     border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: default;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.status-badge.clickable {
+    cursor: pointer;
+}
+
+.status-badge.clickable:hover {
+    opacity: 0.85;
+}
+
+/* Badge Color Modifiers */
+.status-badge--paid {
+    background: rgba(59, 100, 198, 0.12);
+    color: #3b64c6;
+}
+
+.status-badge--free {
+    background: rgba(0, 194, 146, 0.12);
+    color: #00c292;
+}
+
+.status-badge--debt {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.status-badge--pending {
+    background: rgba(251, 150, 120, 0.12);
+    color: #fb9678;
+}
+
+.status-badge--nequi {
+    background: #fff1f2;
+    color: #e11d48;
+}
+
+.status-badge--efectivo {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.status-badge--transferencia {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.status-badge--maintenance {
+    background: #f5f3ff;
+    color: #7460ee;
+}
+
+.status-badge--office,
+.status-badge--oficina,
+.status-badge--adjustment {
+    background: #ecfeff;
+    color: #0891b2;
+}
+
+.status-badge--incapacity,
+.status-badge--incapacidad {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.status-badge--repair,
+.status-badge--accident_transit {
+    background: #fff4ef;
+    color: #fb9678;
+}
+
+.status-badge--workshop {
+    background: #f5f5f5;
+    color: #a3a3a3;
 }
 
 .payment-ref {
@@ -763,3 +886,217 @@
     min-width: 110px;
     text-align: center;
 }
+
+/* ── Minimalist Circular Pagination ─────────────────── */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 0 0.5rem;
+    margin-top: 1rem;
+}
+
+.pagination-circle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid #E5E7EB;
+    color: #374151;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pagination-circle-btn svg {
+    transition: transform 0.2s ease;
+}
+
+.pagination-circle-btn:hover:not(:disabled) {
+    background: #F9FAFB;
+    border-color: var(--brand-teal);
+    color: var(--brand-teal);
+    box-shadow: 0 3px 8px rgba(0, 194, 146, 0.18);
+    transform: translateY(-1px);
+}
+
+.pagination-circle-btn:hover:not(:disabled) svg {
+    transform: scale(1.15);
+}
+
+.pagination-circle-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.95);
+}
+
+.pagination-circle-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+    color: #9CA3AF;
+    box-shadow: none;
+}
+
+.pagination-circle-page {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 9999px;
+    background: white;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.pagination-circle-page-current {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.pagination-circle-page-divider {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: #9CA3AF;
+    margin: 0 6px;
+}
+
+.pagination-circle-page-total {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6B7280;
+}
+
+/* ── Portal Header Controls (Mobile) ────────────────── */
+.invoices-portal-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.portal-pagination-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.portal-pagination-arrow {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #1f2937;
+}
+
+.portal-pagination-arrow:disabled {
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.portal-filter-toggle {
+    border: none;
+    background: none;
+    padding: 8px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.portal-filter-toggle:hover:not(.active) {
+    background-color: #f3f4f6;
+}
+
+.portal-filter-toggle.active {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+/* ── Desktop Header Actions ─────────────────────────── */
+.invoices-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.header-date-select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #1f2937;
+    font-size: 0.875rem;
+}
+
+/* ── Mobile Filter Row Actions ──────────────────────── */
+.invoices-mobile-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+}
+
+.mobile-select-month {
+    flex-grow: 1;
+    padding: 8px 12px;
+}
+
+.mobile-select-year {
+    padding: 8px 12px;
+}
+
+.filter-action-btn-icon {
+    height: 38px;
+    width: 38px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Search Form (Invoices) ─────────────────────────── */
+.invoices-search-form {
+    margin-left: auto;
+    width: 300px;
+}
+
+.invoices-search-submit-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    position: absolute;
+    left: 0.8rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    z-index: 2;
+}
+
+.invoices-search-submit-btn .search-icon {
+    position: static;
+    transform: none;
+}
+
+.invoices-search-input {
+    padding-left: 2.5rem !important;
+}

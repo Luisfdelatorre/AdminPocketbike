@@ -836,7 +836,7 @@ const Contracts = () => {
                                     >
                                         <option value={1}>{t('contracts.modal.freqDaily') || 'Diario (1 día)'}</option>
                                         <option value={7}>{t('contracts.modal.freqWeekly') || 'Semanal (7 días)'}</option>
-                                        <option value={14}>{t('contracts.modal.freqBiweekly') || 'Quincenal (14 días)'}</option>
+                                        <option value={15}>{t('contracts.modal.freqBiweekly') || 'Quincenal (15 días)'}</option>
                                     </select>
                                 </div>
                                 <div className="form-group">

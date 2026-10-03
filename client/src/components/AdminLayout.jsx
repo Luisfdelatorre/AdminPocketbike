@@ -3,8 +3,9 @@ import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useSSE } from '../context/SSEContext';
-import { Home, Users, FileText, CreditCard, DollarSign, Image as ImageIcon, Settings as SettingsIcon, Database, RefreshCw, ArrowLeft, Menu, Building } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
+import MobileHeader from './MobileHeader';
+import MobileBottomNav from './MobileBottomNav';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
@@ -74,48 +75,9 @@ const AdminLayout = () => {
         return <Navigate to="/admin/login" replace />;
     }
 
-    // Helper to check active path
-    const isTabActive = (path) => {
-        if (path === '/') {
-            return location.pathname === '/';
-        }
-        return location.pathname.startsWith(path);
-    };
-
-    const isSettingsPage = location.pathname.startsWith('/settings');
-    const isCompaniesPage = location.pathname.startsWith('/companies');
-
-    const getPageTitle = () => {
-        const path = location.pathname;
-        if (path === '/') return t('sidebar.dashboard');
-        if (path.startsWith('/devices')) return t('sidebar.devices');
-        if (path.startsWith('/contracts')) return t('sidebar.contracts');
-        if (path.startsWith('/payments')) return t('sidebar.payments');
-        if (path.startsWith('/invoices')) return t('sidebar.invoices');
-        if (path.startsWith('/settings')) return t('sidebar.settings');
-        if (path.startsWith('/reports')) return t('sidebar.reports');
-        if (path.startsWith('/summary')) return t('sidebar.summary');
-        return 'PocketBike';
-    };
-
-    // Only admins can access this layout
     return (
         <div className="admin-layout">
-            <header className="mobile-header">
-                {isSettingsPage || isCompaniesPage ? (
-                    <button className="toggle-btn" onClick={() => navigate(-1)} aria-label="Volver">
-                        <ArrowLeft size={24} />
-                    </button>
-                ) : (
-                    <button className="toggle-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Abrir menú">
-                        <Menu size={24} />
-                    </button>
-                )}
-                <div className="logo-container">
-                    <h2>{getPageTitle()}</h2>
-                </div>
-                <div id="mobile-header-actions" className="mobile-header-actions" />
-            </header>
+            <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
             <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
@@ -123,110 +85,12 @@ const AdminLayout = () => {
                 <Outlet context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
             </main>
 
-            {/* Bottom Navigation Bar for Mobile viewports */}
-            {isSettingsPage ? (
-                <nav className="mobile-bottom-nav" aria-label="Navegación de configuración">
-                    <button
-                        onClick={() => setSettingsTab('branding')}
-                        className={`nav-btn ${settingsTab === 'branding' ? 'active' : ''}`}
-                    >
-                        <ImageIcon size={20} />
-                        <span>Perfil</span>
-                    </button>
-                    <button
-                        onClick={() => setSettingsTab('business')}
-                        className={`nav-btn ${settingsTab === 'business' ? 'active' : ''}`}
-                    >
-                        <SettingsIcon size={20} />
-                        <span>Negocio</span>
-                    </button>
-                    <button
-                        onClick={() => setSettingsTab('integrations')}
-                        className={`nav-btn ${settingsTab === 'integrations' ? 'active' : ''}`}
-                    >
-                        <Database size={20} />
-                        <span>Integración</span>
-                    </button>
-                    <button
-                        onClick={() => setSettingsTab('system')}
-                        className={`nav-btn ${settingsTab === 'system' ? 'active' : ''}`}
-                    >
-                        <RefreshCw size={20} />
-                        <span>Sistema</span>
-                    </button>
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="nav-btn"
-                        style={{ color: '#EF4444' }}
-                    >
-                        <ArrowLeft size={20} />
-                        <span>Volver</span>
-                    </button>
-                </nav>
-            ) : isCompaniesPage ? (
-                <nav className="mobile-bottom-nav" aria-label="Navegación de Empresas">
-                    <button
-                        onClick={() => setCompaniesTab('companies')}
-                        className={`nav-btn ${companiesTab === 'companies' ? 'active' : ''}`}
-                    >
-                        <Building size={20} />
-                        <span>Empresas</span>
-                    </button>
-                    <button
-                        onClick={() => setCompaniesTab('systemJobs')}
-                        className={`nav-btn ${companiesTab === 'systemJobs' ? 'active' : ''}`}
-                    >
-                        <SettingsIcon size={20} />
-                        <span>Rutinas</span>
-                    </button>
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="nav-btn"
-                        style={{ color: '#EF4444' }}
-                    >
-                        <ArrowLeft size={20} />
-                        <span>Volver</span>
-                    </button>
-                </nav>
-            ) : (
-                <nav className="mobile-bottom-nav" aria-label="Navegación principal">
-                    <button
-                        onClick={() => navigate('/')}
-                        className={`nav-btn ${isTabActive('/') ? 'active' : ''}`}
-                    >
-                        <Home size={20} />
-                        <span>Inicio</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/devices')}
-                        className={`nav-btn ${isTabActive('/devices') ? 'active' : ''}`}
-                    >
-                        <Users size={20} />
-                        <span>Equipos</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/contracts')}
-                        className={`nav-btn ${isTabActive('/contracts') ? 'active' : ''}`}
-                    >
-                        <FileText size={20} />
-                        <span>Contratos</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/payments')}
-                        className={`nav-btn ${isTabActive('/payments') ? 'active' : ''}`}
-                    >
-                        <CreditCard size={20} />
-                        <span>Pagos</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/invoices')}
-                        className={`nav-btn ${isTabActive('/invoices') ? 'active' : ''}`}
-                    >
-                        <DollarSign size={20} />
-                        <span>Facturas</span>
-                    </button>
-                </nav>
-            )}
+            <MobileBottomNav
+                settingsTab={settingsTab}
+                setSettingsTab={setSettingsTab}
+                companiesTab={companiesTab}
+                setCompaniesTab={setCompaniesTab}
+            />
         </div>
     );
 };

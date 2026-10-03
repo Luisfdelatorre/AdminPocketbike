@@ -2,20 +2,10 @@
     padding: 2rem;
 }
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
 
-.header-actions {
-    display: flex;
-    gap: 1rem;
-}
 
 .users-search {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .inline-icon {
@@ -78,7 +68,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
+    margin-left: 1rem;
+    margin-top: 1rem;
 }
 
 .form-group {
@@ -114,19 +106,10 @@
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
     .users-page {
-        padding: 12px !important;
+        padding: 4px !important;
     }
 
-    .page-header {
-        flex-direction: column;
-        align-items: stretch !important;
-        gap: 12px;
-        margin-bottom: 1.5rem;
-    }
 
-    .header-actions {
-        width: 100%;
-    }
 
     .header-actions button,
     .header-actions .btn-primary {

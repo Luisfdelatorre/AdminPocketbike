@@ -527,8 +527,6 @@ h3.uppercase-title-ios {
 }
 
 .stat-value-ios {
-    font-size: 24px;
-    font-weight: 800;
     color: #1a1c1c;
     letter-spacing: -0.5px;
     text-align: center;

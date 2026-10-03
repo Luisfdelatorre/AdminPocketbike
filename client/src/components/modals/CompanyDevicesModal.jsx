@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Search, Info, Check } from 'lucide-react';
 
@@ -67,7 +68,7 @@ const CompanyDevicesModal = ({
     const selectedCount = selectedDeviceIds.size;
     const totalCount = allDevices.length;
 
-    return (
+    return createPortal(
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content large" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
@@ -168,7 +169,8 @@ const CompanyDevicesModal = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

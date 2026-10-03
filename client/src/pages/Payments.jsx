@@ -514,7 +514,7 @@ const Payments = () => {
                                         <td className="date"><DateDisplay dateString={payment.createdAt} /></td>
                                         <td className="amount"><Amount value={payment.amount} /></td>
                                         <td>
-                                            <StatusBadge status={payment.status} />
+                                            <StatusBadge status={payment.status} type={payment.type} />
                                         </td>
                                         <td className="payment-method">
                                             {formatInvoiceId(payment.invoiceId || payment.unpaidInvoiceId || payment.paymentReference)}

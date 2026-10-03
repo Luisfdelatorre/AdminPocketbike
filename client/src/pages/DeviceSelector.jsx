@@ -322,8 +322,13 @@ const DeviceManagement = () => {
                                     <MotorIcon />
                                 </div>
                                 <div className="battery-column-container">
-                                    <div className={`battery-wrap ${device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}>
-                                        {device.batteryLevel > 70 ? (
+                                    <div
+                                        className={`battery-wrap ${device.powerCut ? 'bat-powercut' : device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}
+                                        title={device.powerCut ? '¡Alerta! Batería principal desconectada' : `Batería: ${device.batteryLevel ?? 'N/A'}%`}
+                                    >
+                                        {device.powerCut ? (
+                                            <ZapOff size={15} className="animate-pulse" />
+                                        ) : device.batteryLevel > 70 ? (
                                             <BatteryFull size={15} />
                                         ) : device.batteryLevel > 30 ? (
                                             <BatteryMedium size={15} />

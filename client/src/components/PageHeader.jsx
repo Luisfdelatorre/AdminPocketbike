@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MobileHeaderAction from './MobileHeaderAction';
-import { RefreshCw, ListFilter } from 'lucide-react';
+import { RefreshCw, Filter } from 'lucide-react';
 
 /**
  * PageHeader Component
@@ -23,12 +23,24 @@ const PageHeader = ({
     onRefresh, 
     onFilterToggle, 
     showFilters, 
-    loading, 
+    loading = false, 
     refreshText = 'Actualizar',
     desktopActions, 
     mobileActions, 
     commonActions 
 }) => {
+    const [isClickSpinning, setIsClickSpinning] = useState(false);
+
+    const handleRefresh = (e) => {
+        setIsClickSpinning(true);
+        setTimeout(() => setIsClickSpinning(false), 800);
+        if (onRefresh) {
+            onRefresh(e);
+        }
+    };
+
+    const isSpinning = Boolean(loading || isClickSpinning);
+
     return (
         <div className="page-header">
             <div className="desktop-only">
@@ -37,8 +49,8 @@ const PageHeader = ({
             
             <div className="header-actions-desktop desktop-only">
                 {onRefresh && (
-                    <button className="btn-secondary" onClick={onRefresh} disabled={loading}>
-                        <RefreshCw size={16} className={loading ? 'spin' : ''} /> {refreshText}
+                    <button className="btn-secondary" onClick={handleRefresh} disabled={isSpinning}>
+                        <RefreshCw size={16} className={isSpinning ? 'spin' : ''} /> {refreshText}
                     </button>
                 )}
                 {desktopActions}
@@ -54,12 +66,12 @@ const PageHeader = ({
                             onClick={onFilterToggle}
                             title="Filtros"
                         >
-                            <ListFilter size={20} />
+                            <Filter size={20} />
                         </button>
                     )}
                     {onRefresh && (
-                        <button onClick={onRefresh} className="btn-mobile-header-action" disabled={loading}>
-                            <RefreshCw size={20} className={loading ? 'spin' : ''} />
+                        <button onClick={handleRefresh} className="btn-mobile-header-action" disabled={isSpinning}>
+                            <RefreshCw size={20} className={isSpinning ? 'spin' : ''} />
                         </button>
                     )}
                     {mobileActions}

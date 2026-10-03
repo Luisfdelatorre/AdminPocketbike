@@ -151,8 +151,11 @@ export const exportPaymentsCSV = async (month, year, companyId = '') => {
 // --- settings ---
 export const getSettings = () => api.get('/companies/settings');
 export const updateSettings = (data) => api.put('/companies/settings', data);
+export const validateTraccarConnection = (data) => api.post('/companies/validate-traccar', data);
 export const getAdjustmentTypes = () => api.get('/settings/adjustment-types');
 export const updateAdjustmentTypes = (data) => api.put('/settings/adjustment-types', data);
+export const getPaymentStatuses = () => api.get('/settings/payment-status');
+export const updatePaymentStatuses = (data) => api.put('/settings/payment-status', data);
 
 // --- SSE ---
 export const createSSEConnection = (clientId) => {

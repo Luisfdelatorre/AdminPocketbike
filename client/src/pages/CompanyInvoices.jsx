@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import CompanyInvoiceTemplate from '../components/CompanyInvoiceTemplate';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import PageHeader from '../components/PageHeader';
+import StatusBadge from '../components/StatusBadge';
 import './Payments.css';
 import './Users.css';
 
@@ -392,9 +393,7 @@ const CompanyInvoices = () => {
                                     <td className="amount" style={{ color: '#00C292' }}>{formatCurrency(inv.totalPaymentsAmount)}</td>
                                     <td className="amount" style={{ color: '#EF4444' }}>{formatCurrency(inv.amountDue)}</td>
                                     <td>
-                                        <span className={`status-badge ${inv.status === 'PAID' ? 'completed' : 'pending'}`}>
-                                            {inv.status === 'PAID' ? 'PAGADO' : 'PENDIENTE'}
-                                        </span>
+                                        <StatusBadge status={inv.status} />
                                     </td>
                                     <td style={{ textAlign: 'center' }}>
                                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>

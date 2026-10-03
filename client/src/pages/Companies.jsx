@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
-import { Building, Plus, Search, X, Pencil, Link, ChevronLeft, User, Save, Sliders } from 'lucide-react';
+import { Building, Plus, X, ChevronLeft, User, Save, Sliders, Clock } from 'lucide-react';
 import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
 import AdjustmentTypesModal from '../components/modals/AdjustmentTypesModal';
 import SystemJobs from '../components/SystemJobs';
+import CompaniesGrid from '../components/CompaniesGrid';
 import PageHeader from '../components/PageHeader';
 import './Users.css'; // Reusing Users CSS for consistency
 import './Companies.css';
@@ -17,10 +19,12 @@ const Companies = () => {
     const [showDeviceModal, setShowDeviceModal] = useState(false); // State for device modal
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState(null); // Company being edited for devices
-    const [searchTerm, setSearchTerm] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editCompanyId, setEditCompanyId] = useState(null);
     const [isSlidingOut, setIsSlidingOut] = useState(false);
+    const systemJobsRef = useRef(null);
+    const adjustmentTypesRef = useRef(null);
+    const [adjSubTab, setAdjSubTab] = useState('adjustments');
     const [companyForm, setCompanyForm] = useState({
         name: '',
         nit: '',
@@ -144,13 +148,10 @@ const Companies = () => {
         }
     };
 
-    const outletContext = useOutletContext() || {};
-    const currentTab = outletContext.companiesTab || 'companies';
-
-    const filteredCompanies = companies.filter(company =>
-        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (company.nit && company.nit.includes(searchTerm))
-    );
+    const { companiesTab, setCompaniesTab } = useOutletContext() || {};
+    const [localTab, setLocalTab] = useState('companies');
+    const currentTab = companiesTab || localTab;
+    const handleTabChange = setCompaniesTab || setLocalTab;
 
     return (
         <div className="users-page">
@@ -164,107 +165,81 @@ const Companies = () => {
                 loading={loading}
                 refreshText="Actualizar"
                 desktopActions={
-                    currentTab === 'companies' && (
+                    currentTab === 'companies' ? (
                         <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
                             <Plus size={16} /> Agregar Empresa
                         </button>
-                    )
+                    ) : currentTab === 'adjustmentTypes' && adjSubTab !== 'statuses' ? (
+                        <button className="btn-primary" onClick={() => adjustmentTypesRef.current?.triggerAdd()}>
+                            <Plus size={16} /> Nuevo Tipo
+                        </button>
+                    ) : currentTab === 'systemJobs' ? (
+                        <button className="btn-primary" onClick={() => systemJobsRef.current?.triggerAdd()}>
+                            <Plus size={16} /> Añadir Rutina
+                        </button>
+                    ) : null
                 }
             />
 
+            {/* Desktop Tabs Navigation */}
+            <div className="companies-tabs desktop-only">
+                <button
+                    type="button"
+                    className={`companies-tab-btn ${currentTab === 'companies' ? 'active' : ''}`}
+                    onClick={() => handleTabChange('companies')}
+                >
+                    <Building size={16} /> Empresas
+                </button>
+                <button
+                    type="button"
+                    className={`companies-tab-btn ${currentTab === 'adjustmentTypes' ? 'active' : ''}`}
+                    onClick={() => handleTabChange('adjustmentTypes')}
+                >
+                    <Sliders size={16} /> Tipos de Ajuste
+                </button>
+                <button
+                    type="button"
+                    className={`companies-tab-btn ${currentTab === 'systemJobs' ? 'active' : ''}`}
+                    onClick={() => handleTabChange('systemJobs')}
+                >
+                    <Clock size={16} /> Rutinas Globales
+                </button>
+            </div>
+
             {currentTab === 'adjustmentTypes' ? (
-                <AdjustmentTypesModal isEmbedded={true} />
+                <AdjustmentTypesModal isEmbedded={true} ref={adjustmentTypesRef} onFilterChange={setAdjSubTab} />
             ) : currentTab === 'systemJobs' ? (
-                <SystemJobs />
+                <SystemJobs ref={systemJobsRef} />
             ) : (
-                <>
-                    {/* Search */}
-                    <div className="users-search">
-                        <div className="search-box">
-                            <Search className="search-icon" />
-                            <input
-                                type="text"
-                                placeholder="Search companies..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Companies Cards Grid */}
-                    {loading ? (
-                        <div className="loading-state">Loading...</div>
-                    ) : filteredCompanies.length === 0 ? (
-                        <div className="empty-state text-center py-8 text-gray-500">No companies found</div>
-                    ) : (
-                        <div className="companies-grid">
-                            {filteredCompanies.map(company => {
-                        const isQr = company.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR';
-                        return (
-                            <div key={company._id} className="glass-panel rounded-[24px] overflow-hidden p-5 flex flex-col gap-5 relative group">
-                                {/* Header */}
-                                <div className="flex items-start gap-4">
-                                    <div className="flex-1 min-w-0 flex flex-col gap-1.5 pt-0.5">
-                                        <h3 className="font-semibold text-xl text-slate-900 truncate tracking-wide">{company.name}</h3>
-                                        <p className="text-xs text-slate-500 truncate tracking-wide">{company.address || 'Sin dirección registrada'}</p>
-                                    </div>
-                                    <div className="flex gap-2 opacity-100 transition-opacity">
-                                        <button
-                                            className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors border border-black/5"
-                                            onClick={() => handleManageDevices(company)}
-                                            title="Manage Devices"
-                                        >
-                                            <Link size={18} />
-                                        </button>
-                                        <button
-                                            className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors border border-black/5"
-                                            onClick={() => handleEditCompany(company)}
-                                            title="Edit Company"
-                                        >
-                                            <Pencil size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Bento Grid Details */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="col-span-2 bg-slate-50/50 rounded-2xl p-4 border border-black/5 flex justify-between items-center backdrop-blur-sm">
-                                        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-widest">Payment Method</span>
-                                        <div className="flex items-center gap-2">
-                                            {company.automaticInvoicing && (
-                                                <span className="inline-flex items-center px-2 py-1 rounded-md bg-white border border-black/5 text-[10px] text-slate-600 uppercase tracking-widest shadow-sm font-semibold">
-                                                    Auto-Invoice
-                                                </span>
-                                            )}
-                                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold tracking-widest ${isQr ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-indigo-50 border border-indigo-200 text-indigo-700'}`}>
-                                                <span>{isQr ? '📱' : '🔔'}</span>
-                                                <span className="uppercase">{isQr ? 'BANCOLOMBIA QR' : 'NEQUI PUSH'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-black/5 backdrop-blur-sm flex flex-col gap-1">
-                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">NIT</span>
-                                        <span className="text-sm font-medium text-slate-800">{company.nit || 'N/A'}</span>
-                                    </div>
-                                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-black/5 backdrop-blur-sm flex flex-col gap-1">
-                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Phone</span>
-                                        <span className="text-sm font-medium text-slate-800">{company.phone || 'N/A'}</span>
-                                    </div>
-                                    <div className="col-span-2 bg-slate-50/50 rounded-2xl p-4 border border-black/5 backdrop-blur-sm flex flex-col gap-1">
-                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Email</span>
-                                        <span className="text-sm font-medium text-slate-800 truncate">{company.email || 'N/A'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                <CompaniesGrid
+                    companies={companies}
+                    loading={loading}
+                    onEditCompany={handleEditCompany}
+                    onManageDevices={handleManageDevices}
+                />
             )}
-            </>
+
+            {/* Mobile FAB */}
+            {!showCompanyModal && !(currentTab === 'adjustmentTypes' && adjSubTab === 'statuses') && (
+                <button
+                    className="contracts-add-fab primary-blue"
+                    onClick={() => {
+                        if (currentTab === 'systemJobs') {
+                            systemJobsRef.current?.triggerAdd();
+                        } else if (currentTab === 'adjustmentTypes') {
+                            adjustmentTypesRef.current?.triggerAdd();
+                        } else {
+                            setShowCompanyModal(true);
+                        }
+                    }}
+                    title="Agregar"
+                >
+                    <Plus size={24} />
+                </button>
             )}
 
             {/* Full-Page iOS Sub-View for Add/Edit Company */}
-            {showCompanyModal && (
+            {showCompanyModal && createPortal(
                 <div className={`company-detail-page ${isSlidingOut ? 'sliding-out' : ''}`}>
                     {/* Header Bar with Back Chevron & Title */}
                     <header className="ios-detail-header">
@@ -380,17 +355,22 @@ const Companies = () => {
                                         />
                                     </div>
                                     <div className="ios-input-row">
-                                        <label className="ios-label" htmlFor="payMethod">Método de Pago Wompi</label>
-                                        <div className="ios-select-wrapper">
-                                            <select
-                                                id="payMethod"
-                                                className="ios-select"
-                                                value={companyForm.paymentMethod || 'NEQUI_PUSH'}
-                                                onChange={e => setCompanyForm({ ...companyForm, paymentMethod: e.target.value })}
+                                        <label className="ios-label">Método de Pago Wompi</label>
+                                        <div className="pay-method-badges">
+                                            <button
+                                                type="button"
+                                                className={`pay-method-badge ${(companyForm.paymentMethod || 'NEQUI_PUSH') === 'NEQUI_PUSH' ? 'pay-method-badge--active' : ''}`}
+                                                onClick={() => setCompanyForm({ ...companyForm, paymentMethod: 'NEQUI_PUSH' })}
                                             >
-                                                <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
-                                                <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
-                                            </select>
+                                                <span>🔔</span> Nequi Push
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`pay-method-badge ${(companyForm.paymentMethod || 'NEQUI_PUSH') === 'BANCOLOMBIA_QR' ? 'pay-method-badge--active' : ''}`}
+                                                onClick={() => setCompanyForm({ ...companyForm, paymentMethod: 'BANCOLOMBIA_QR' })}
+                                            >
+                                                <span>📱</span> Bancolombia QR
+                                            </button>
                                         </div>
                                     </div>
                                     <div className="ios-input-row">
@@ -471,7 +451,8 @@ const Companies = () => {
                             </button>
                         </div>
                     </form>
-                </div>
+                </div>,
+                document.body
             )}
             {/* Device Management Modal */}
             <CompanyDevicesModal

@@ -249,7 +249,13 @@ const resources = {
                 filterAll: 'All Invoices',
                 filterPaid: 'Paid',
                 filterUnpaid: 'Unpaid',
-                filterPending: 'Pending'
+                filterPending: 'Pending',
+                stats: {
+                    total: 'Total',
+                    paid: 'Paid',
+                    unpaid: 'Debts',
+                    invoices: 'Invoices'
+                }
             },
             payments: {
                 title: 'Payments History',
@@ -674,7 +680,13 @@ const resources = {
                 filterAll: 'Todas',
                 filterPaid: 'Pagadas',
                 filterUnpaid: 'Pendientes',
-                filterPending: 'En Proceso'
+                filterPending: 'En Proceso',
+                stats: {
+                    total: 'Total',
+                    paid: 'Pagadas',
+                    unpaid: 'Deudas',
+                    invoices: 'Facturas'
+                }
             },
             payments: {
                 title: 'Historial de Pagos',

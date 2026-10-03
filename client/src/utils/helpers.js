@@ -1,13 +1,9 @@
-export function formatCurrency(amountInCents) {
-    const amount = amountInCents;
+export function formatCurrency(amount) {
+    if (!amount) return '-';
     if (amount >= 1000) {
-        // Show in thousands with K suffix
-        return `${(amount / 1000).toFixed(0)}K`;
+        return `$${(amount / 1000).toFixed(0)}k`;
     }
-    return amount.toLocaleString('es-CO', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    });
+    return `$${amount}`;
 }
 
 export function getStatusIcon(status) {

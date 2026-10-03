@@ -83,7 +83,7 @@ const MatrixPaymentSummary = ({
                                     <td>
                                         <div className="device-cell">
                                             <span className="device-name">{item.device.name}</span>
-                                            <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
+                                            <span className="driver-name">{item.device.customerName || item.device.driverName || 'Sin Conductor'}</span>
                                         </div>
                                     </td>
                                     <td>

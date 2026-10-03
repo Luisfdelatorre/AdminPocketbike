@@ -611,10 +611,6 @@
 }
 
 @media (max-width: 768px) {
-    .devices-page>.page-header {
-        display: none;
-    }
-
     .desktop-only {
         display: none !important;
     }
@@ -1045,6 +1041,11 @@
 
 .battery-wrap.bat-low {
     color: #FF3B30;
+}
+
+.battery-wrap.bat-powercut {
+    color: #FF3B30;
+    filter: drop-shadow(0 0 5px rgba(255, 59, 48, 0.7));
 }
 
 /* Actions Column */

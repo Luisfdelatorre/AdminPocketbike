@@ -909,16 +909,16 @@
             Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">500</span>
           </span>
         </div>
-        <div class="phone-input-group">
+        <div class="phone-input-group" id="phoneInputGroup">
           <div class="country-code">Nequi<br>+57</div>
           <input type="tel" id="phoneNumber" class="phone-input" placeholder="300 756 0069" inputmode="numeric">
         </div>
         <button id="nequiPayBtn" class="nequi-payment-card">
           <div class="nequi-icon-box">
-            <img src="/nequi.png" alt="Nequi" class="img-sm" decoding="async">
+            <img id="paymentBtnIcon" src="/nequi.png" alt="Nequi" class="img-sm" decoding="async">
           </div>
           <div class="nequi-divider"></div>
-          <div class="nequi-text">Pagar con tu cuenta Nequi</div>
+          <div class="nequi-text" id="paymentBtnText">Cargando método de pago...</div>
         </button>
       </div>
       <div class="more-options more-options-row">
@@ -936,8 +936,7 @@
         <div class="reminder-icon">🔔</div>
         <div class="reminder-content">
           <div class="reminder-title">Cómo pagar</div>
-          <div class="reminder-text">Después de hacer clic en "Pagar", completa tu transacción en el centro de
-            notificaciones de Nequi.</div>
+          <div class="reminder-text">Cargando instrucciones...</div>
         </div>
       </div>
 
