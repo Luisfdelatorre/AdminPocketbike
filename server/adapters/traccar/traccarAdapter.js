@@ -3,6 +3,7 @@ import { Transaction, ENGINERESUME, ENGINESTOP, Url, Login, ENGINE_COMMANDS } fr
 import { CommandBody } from '../../utils/CommandBody.js';
 import { DeviceUpdate } from '../../entities/deviceEntities.js';
 import logger from '../../config/logger.js';
+import dayjs from '../../config/dayjs.js';
 import TraccarApi from './traccarApi.js';
 
 // ─────────────────────────────────────────────
@@ -21,9 +22,11 @@ class MyTraccar {
     //  Constructor — credentials from DB via config
     // ─────────────────────────────────────────
     constructor(config = {}) {
+        this.config = config;
         this.host = config.host || Url.Traccar;
         this.user = config.user || Login.Traccar.user;
         this.password = config.password || Login.Traccar.password;
+        this.groupId = config.groupId || null;
 
         // TraccarApi owns the axios instance + credentials
         this._api = new TraccarApi({
@@ -54,23 +57,66 @@ class MyTraccar {
     };
 
     fetchPreviousDayKmDevice = async (now = new Date(), deviceGpsIds = null) => {
-        const start = new Date(now);
-        start.setDate(start.getDate() - 1);
-        const end = new Date(start);
-        end.setHours(23, 59, 59, 999);
+        // Default: previous day calculation (05:00 to next day 04:59:59)
+        const target = dayjs(now || new Date()).subtract(1, 'day').startOf('day');
+        const nextDay = target.add(1, 'day').startOf('day');
+        const fromISO = `${target.format('YYYY-MM-DD')}T05:00:00.000+00:00`;
+        const toISO = `${nextDay.format('YYYY-MM-DD')}T04:59:59.999+00:00`;
+
+        const groupId = this.groupId || 1;
 
         const params = new URLSearchParams();
-        params.append('from', start.toISOString().replace('Z', '+00:00'));
-        params.append('to', end.toISOString().replace('Z', '+00:00'));
+        params.append('from', fromISO);
+        params.append('to', toISO);
+        params.append('daily', 'true');
 
         if (Array.isArray(deviceGpsIds) && deviceGpsIds.length > 0) {
             deviceGpsIds.forEach(id => params.append('deviceId', id));
         } else {
-            params.append('groupId', 1);
+            params.append('groupId', groupId);
         }
 
-        const res = await this._api.axiosInstance.get('api/reports/summary', { params });
-        return res.data;
+        let allReports = [];
+
+        try {
+            console.log(`📡 [Traccar Query] URL: api/reports/summary?${params.toString()}`);
+            const res = await this._api.axiosInstance.get('api/reports/summary', { params, timeout: 60000 });
+            if (res.data && Array.isArray(res.data)) {
+                allReports = res.data;
+                console.log(`📦 [Traccar Response] Total recibidos: ${allReports.length}. Muestra (primeros 2):`, JSON.stringify(allReports.slice(0, 2), null, 2));
+            } else {
+                console.log(`⚠️ [Traccar Response] Respuesta inesperada (no es array):`, res.data);
+            }
+        } catch (err) {
+            console.error(`❌ [Traccar Error] Error fetching Traccar summary report for groupId ${groupId}:`, err.message);
+            logger.error(`Error fetching Traccar summary report for groupId ${groupId}:`, err.message);
+        }
+
+        return allReports.map(r => ({
+            ...r,
+            distanceKm: Math.round((r.distance || 0) / 1000 * 10) / 10
+        }));
+    };
+
+    fetchLatestOdometerMap = async () => {
+        try {
+            const res = await this._api.getPositions();
+            const odoMap = {};
+            if (res.data && Array.isArray(res.data)) {
+                for (const pos of res.data) {
+                    if (pos.deviceId != null) {
+                        const totalMeters = pos.attributes?.totalDistance ?? pos.attributes?.odometer;
+                        if (totalMeters != null) {
+                            odoMap[String(pos.deviceId).trim()] = Math.round((Number(totalMeters) / 1000) * 10) / 10;
+                        }
+                    }
+                }
+            }
+            return odoMap;
+        } catch (err) {
+            logger.error(`Error fetching Traccar latest positions for odometer:`, err.message);
+            return {};
+        }
     };
 
     getDetailedStatus = async (deviceId) => {
@@ -85,7 +131,7 @@ class MyTraccar {
                 (Transaction.DEVICE_ONLINE_TIMEOUT || DEFAULT_DEVICE_ONLINE_TIMEOUT);
             return {
                 online,
-                cutOff: ((pos.attributes.status >> 27) & 1) === 0,
+                cutOff: Boolean(pos.attributes?.blocked ?? pos.attributes?.cutOff ?? false),
                 ignition: pos.attributes.ignition,
                 batteryLevel: pos.attributes.batteryLevel ?? 100,
                 lastUpdate: pos.deviceTime,
@@ -145,6 +191,7 @@ class MyTraccar {
             const pos = res.data[res.data.length - 1];
             console.log(pos)
 
+            const protocol = (pos?.protocol || pos?.attributes?.protocol || '').toLowerCase();
             const status = pos?.attributes?.status || null;
             const result = (pos?.attributes?.result || '').trim().toLowerCase();
             let data = {
@@ -152,18 +199,21 @@ class MyTraccar {
                 ignition: pos.attributes?.ignition ?? false,
                 lastUpdate: pos.deviceTime,
                 batteryLevel: pos.attributes?.batteryLevel ?? null,
-            }
-            if (status != undefined) {
+            };
+
+            if (protocol === 'h02' && status !== null) {
                 data.cutOff = ((status <= 255 && (status & 128) !== 0) || (status > 255 && ((status >> 27) & 1) == 0));
-            }
-            if (result.includes('cut off') && result.includes('success')) {
-                data.cutOff = true;
-            } else if (result.includes('cut off') && result.includes('already')) {
-                data.cutOff = true;   // device was already in cut-off state
-            } else if (result.includes('restore') && result.includes('success')) {
-                data.cutOff = false;
-            } else if (result.includes('resume') && result.includes('already')) {
-                data.cutOff = false;  // device was already running
+            } else {
+                if (typeof pos.attributes?.blocked === 'boolean') {
+                    data.cutOff = pos.attributes.blocked;
+                } else if (typeof pos.attributes?.cutOff === 'boolean') {
+                    data.cutOff = pos.attributes.cutOff;
+                }
+                if (result.includes('cut off') && (result.includes('success') || result.includes('already'))) {
+                    data.cutOff = true;
+                } else if ((result.includes('restore') || result.includes('resume')) && (result.includes('success') || result.includes('already'))) {
+                    data.cutOff = false;
+                }
             }
 
             return data;
@@ -224,10 +274,10 @@ class MyTraccar {
     //  Private helpers
     // ─────────────────────────────────────────
     openWebSocket = () => {
-        let wsUrl = this.host.match(/^https?:\/\//)
-            ? this.host.replace(/^http/, 'ws') + '/api/socket'
-            // If the host has no schema, default to wss://
-            : `wss://${this.host}/api/socket`;
+        const cleanHost = (this.host || '').replace(/\/+$/, '');
+        let wsUrl = cleanHost.match(/^https?:\/\//)
+            ? cleanHost.replace(/^http/, 'ws') + '/api/socket'
+            : `wss://${cleanHost}/api/socket`;
 
         const ws = new WebSocket(wsUrl, [], { headers: { Cookie: this.JSESSIONID } });
 
@@ -255,6 +305,7 @@ class MyTraccar {
     onMessage = (raw) => {
         try {
             const data = JSON.parse(raw);
+            //console.log('Data:', data);
             if (data.devices) {
                 //this.updatePositions(data);
             }
@@ -262,6 +313,7 @@ class MyTraccar {
                 this.updatePositions(data.positions);
             }
             if (data.events) {
+                console.log('Events:', data.events);
                 //  if (!features.disableEvents) {
                 // dispatch(eventsActions.add(data.events));
                 // }

@@ -25,7 +25,7 @@ import cronRoutes from './routes/cronRoutes.js';
 import systemJobsRoutes from './routes/systemJobsRoutes.js';
 import cron from "./cron-server/cron.js";
 import jobRegistry from "./cron-server/jobRegistry.js";
-import syncYesterdayKm from './cron-server/jobs/syncYesterdayKm.js';
+import syncDailyKm, { syncYesterdayKm } from './cron-server/jobs/syncDailyKm.js';
 const { default: seedSuperAdmin } = await import('./utils/seedSuperAdmin.js');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -90,17 +90,38 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/p', paymentPageRouter);
 
 // Health check
-app.get('/apinode/health', (req, res) => {
-    if (typeof syncYesterdayKm === 'function') {
-        syncYesterdayKm().catch(err => console.error('Error running syncYesterdayKm:', err));
-    } else if (typeof syncYesterdayKm?.run === 'function') {
-        syncYesterdayKm.run().catch(err => console.error('Error running syncYesterdayKm:', err));
+app.get('/apinode/health', async (req, res) => {
+    try {
+        const method = (req.query.method || req.query.mode || req.query.sync || 'daily').toLowerCase();
+        const targetDate = req.query.date ? new Date(req.query.date) : new Date();
+        let kmResult = null;
+
+        if (method === 'yesterday') {
+            kmResult = await syncYesterdayKm(targetDate);
+        } else {
+            const runFn = syncDailyKm?.run || syncDailyKm?.syncDailyKm || (typeof syncDailyKm === 'function' ? syncDailyKm : null);
+            if (typeof runFn === 'function') {
+                kmResult = await runFn(targetDate);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Server is running',
+            executedMethod: method,
+            date: targetDate.toISOString(),
+            kmResult,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (err) {
+        console.error(`Error running km sync (${req.query.method || 'daily'}):`, err);
+        res.status(500).json({
+            success: false,
+            message: 'Error running km sync',
+            error: err.message,
+            timestamp: new Date().toISOString(),
+        });
     }
-    res.json({
-        success: true,
-        message: 'Server is running',
-        timestamp: new Date().toISOString(),
-    });
 });
 
 // Serve static files from dist directory (Moved to top)

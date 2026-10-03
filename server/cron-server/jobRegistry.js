@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import logger from '../config/logger.js';
+import { cronLogger as logger } from '../config/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +31,11 @@ class JobRegistry {
           const job = module.default;
           if (job && job.id && typeof job.run === 'function') {
             this.jobs.set(job.id, job);
+            if (Array.isArray(job.aliases)) {
+              for (const alias of job.aliases) {
+                this.jobs.set(alias, job);
+              }
+            }
             logger.info(`🔌 Plugin cargado: ${job.name} [${job.id}]`);
           } else {
             logger.warn(`⚠️ Archivo ${file} no exporta un plugin válido (falta id o run).`);

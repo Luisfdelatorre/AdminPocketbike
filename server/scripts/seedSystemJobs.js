@@ -33,11 +33,11 @@ const seedData = [
         job: 'DeviceStatusUpdate',
     },
     {
-        name: 'syncYesterdayKm',
-        time: '30 0 * * *',
-        log: 'Call one time a day yesterday km sync',
+        name: 'syncDailyKm',
+        time: '59 23 * * *',
+        log: 'Call one time a day daily km sync at 23:59',
         flag: true,
-        job: 'syncYesterdayKm',
+        job: 'syncDailyKm',
     },
 ];
 
