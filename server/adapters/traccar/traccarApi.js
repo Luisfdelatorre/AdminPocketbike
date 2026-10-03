@@ -60,6 +60,11 @@ class TraccarApi {
   };
 
   // ── Endpoints ──────────────────────────────
+  getGroups = async (params = {}) => {
+    await this.ensureSession();
+    return this.axiosInstance.get('api/groups', { params });
+  };
+
   getDeviceList = async (params = {}) => {
     await this.ensureSession();
     return this.axiosInstance.get('api/devices', { params });
