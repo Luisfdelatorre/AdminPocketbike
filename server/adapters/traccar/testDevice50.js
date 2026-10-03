@@ -19,7 +19,7 @@ async function testDevice50() {
         }
 
         console.log(`✅ Dispositivo encontrado! Company ID: ${device.companyId}`);
-        const gpsService = await companyService.getGpsAdapter(device.companyId);
+        const gpsService = await companyService.getGpsAdapterByCompany(device.companyId);
 
         console.log('\n[1] Consultando estado inicial (vía MyTraccar adapter internal)...');
         const statusBefore = await gpsService.adapter.getDetailedStatus(GPS_ID_TARGET);

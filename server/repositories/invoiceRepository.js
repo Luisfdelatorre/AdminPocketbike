@@ -141,6 +141,58 @@ export class InvoiceRepository {
         }
     }
 
+    async getExistingInvoiceIds(ids) {
+        try {
+            return await Invoice.getExistingInvoiceIds(ids);
+        } catch (error) {
+            logger.error('Error getting existing invoice IDs:', error);
+            throw error;
+        }
+    }
+
+    async getExistingDeviceNamesForDate(date, deviceNames = null) {
+        try {
+            return await Invoice.getExistingDeviceNamesForDate(date, deviceNames);
+        } catch (error) {
+            logger.error('Error getting existing device names for date:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create daily invoices in bulk for multiple contracts in a single batch operation
+     */
+    async bulkCreateInvoicesForContracts(contracts, date) {
+        try {
+            return await Invoice.bulkCreateInvoicesForContracts(contracts, date);
+        } catch (error) {
+            logger.error('Error creating invoices in bulk for contracts:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Build updateOne bulkWrite operation for marking invoice as FREE
+     */
+    buildFreeDayBulkOp(invoiceId, paymentId, date = new Date()) {
+        return Invoice.buildFreeDayBulkOp(invoiceId, paymentId, date);
+    }
+
+    /**
+     * Execute bulkWrite operations on invoices
+     */
+    async executeBulkOps(bulkOps) {
+        if (!bulkOps || !Array.isArray(bulkOps) || bulkOps.length === 0) {
+            return { modifiedCount: 0 };
+        }
+        try {
+            return await Invoice.bulkWrite(bulkOps);
+        } catch (error) {
+            logger.error('Error executing bulkWrite on invoices:', error);
+            throw error;
+        }
+    }
+
     /**
      * Get invoice by invoice_id
      * Old: invoiceId field
@@ -295,6 +347,37 @@ export class InvoiceRepository {
         ).lean();
     }
 
+    async updateInvoiceDistance(invoiceId, distance) {
+        try {
+            return await Invoice.updateOne(
+                { _id: invoiceId },
+                { $set: { distance } }
+            );
+        } catch (error) {
+            logger.error(`Error updating distance for invoice ${invoiceId}:`, error);
+            throw error;
+        }
+    }
+
+    async bulkUpdateInvoiceDistances(items = []) {
+        try {
+            if (!items || items.length === 0) return { modifiedCount: 0 };
+
+            const bulkOps = items.map(({ invoiceId, distance }) => ({
+                updateOne: {
+                    filter: { _id: invoiceId },
+                    update: { $set: { distance } }
+                }
+            }));
+
+            const result = await Invoice.bulkWrite(bulkOps);
+            return { modifiedCount: result.modifiedCount };
+        } catch (error) {
+            logger.error('Error bulk updating invoice distances:', error);
+            throw error;
+        }
+    }
+
     /**
      * Find last unpaid invoice
      */
@@ -427,7 +510,9 @@ export class InvoiceRepository {
      * FREE days are created as paid invoices directly — no payment record needed at pre-generation time.
      */
     async ensureCycleInvoicesExist(deviceIdName, contract) {
-        const targetLimit = contract.getBillingMultiplier();
+        const rawLimit = contract.getBillingMultiplier();
+        const targetLimit = rawLimit || contract.paymentFrequency || 1; // guard null/0
+        logger.info(`[CYCLE] ensureCycleInvoicesExist for ${deviceIdName} — targetLimit=${targetLimit} (raw=${rawLimit}) freq=${contract.paymentFrequency} policy=${contract.freeDayPolicy}`);
         const isV2 = (contract.schemaVersion ?? 1) >= 2;
         const contractIdFilter = (isV2 && contract.contractId) ? { contractId: contract.contractId } : {};
         let unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName, contractIdFilter);
@@ -455,6 +540,15 @@ export class InvoiceRepository {
                 const dateVal = currentDate.toDate();
                 const invoice = await this.findOrCreateInvoiceByName(contract, dateVal);
                 const isFixedFreeDay = contract.isFixedFreeDay(currentDate);
+
+                if (invoice.paid) {
+                    // This date's invoice already exists and is paid (e.g. from a previous contract
+                    // or a re-run). Skip it and move forward — don't count as a new unpaid cycle day.
+                    logger.info(`[CYCLE] Invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')} already PAID — skipping`);
+                    currentDate = currentDate.add(1, 'day');
+                    continue;
+                }
+
                 if (isFixedFreeDay) {
                     // Create a $0 Payment record for fixed free day audit trail
                     const payment = await paymentRepository.createFreePayment(
@@ -469,6 +563,12 @@ export class InvoiceRepository {
                     logger.info(`[CYCLE] Pre-created DEBT invoice for ${deviceIdName} on ${currentDate.format('YYYY-MM-DD')}`);
                 }
                 currentDate = currentDate.add(1, 'day');
+
+                // Safety cap — prevent infinite loop if something goes wrong with date iteration
+                if (dayjs(currentDate).diff(dayjs(), 'day') > 30) {
+                    logger.error(`[CYCLE] Safety cap hit — currentDate exceeded 30 days ahead for ${deviceIdName}. Breaking.`);
+                    break;
+                }
             }
         }
         unpaidInvoices = await Invoice.findUnpaidCycleInvoices(deviceIdName, contractIdFilter);
@@ -571,7 +671,18 @@ export class InvoiceRepository {
         return result[0] ?? { totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0 };
     }
 
+    async getPaginatedInvoices({ query = {}, projection = null, skip = 0, limit = 100, sort = { date: -1, createdAt: -1, _id: -1 } } = {}) {
+        const [invoices, total] = await Promise.all([
+            Invoice.find(query, projection)
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Invoice.countDocuments(query)
+        ]);
 
+        return { invoices, total };
+    }
 }
 
 export default new InvoiceRepository();

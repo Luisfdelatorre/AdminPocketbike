@@ -1,6 +1,6 @@
 import nodeCron from "node-cron";
 import { CRON_JOBS, TIMEZONE } from "../config/config.js";
-import log from "../config/logger.js";
+import { cronLogger as log } from "../config/logger.js";
 import companyRepository from "../repositories/companyRepository.js";
 import systemJobRepository from "../repositories/systemJobRepository.js";
 import jobRegistry from "./jobRegistry.js";

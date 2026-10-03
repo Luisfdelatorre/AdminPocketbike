@@ -1,4 +1,4 @@
-import logger from "../../config/logger.js";
+import { cronLogger as logger } from "../../config/logger.js";
 
 const runSendTextMessage = async () => {
     try {

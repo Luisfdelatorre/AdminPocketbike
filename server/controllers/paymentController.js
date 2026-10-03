@@ -1,6 +1,7 @@
 import paymentService from '../services/paymentService.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
+import settingRepository from '../repositories/settingRepository.js';
 import { sseService } from '../utils/sseService.js';
 import logger from '../config/logger.js';
 import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
@@ -369,11 +370,12 @@ const paymentController = {
             if (!invoiceId || !adjustmentType) {
                 return res.status(400).json({ success: false, error: 'invoiceId and adjustmentReason are required' });
             }
-            const VALID_REASONS = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA'];
-            if (!VALID_REASONS.includes(adjustmentType)) {
-                return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${VALID_REASONS.join(', ')}` });
+            const configuredTypes = await settingRepository.getAdjustmentTypes();
+            const validTypes = Object.keys(configuredTypes || {});
+            if (!validTypes.includes(adjustmentType)) {
+                return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${validTypes.join(', ')}` });
             }
-            const result = await paymentService.applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentType, adjustmentReference, note });
+            const result = await paymentService.applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note });
             sseService.broadcast('payment-updated', {
                 type: 'payment',
                 invoiceId,

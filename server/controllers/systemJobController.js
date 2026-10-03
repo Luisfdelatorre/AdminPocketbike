@@ -1,5 +1,4 @@
 import { SystemJob } from '../models/SystemJob.js';
-import cron from '../cron-server/cron.js';
 import { triggerCronReload } from '../utils/cronClient.js';
 
 export const getAllSystemJobs = async (req, res) => {
@@ -18,7 +17,6 @@ export const createSystemJob = async (req, res) => {
         const newJob = await SystemJob.create({ name, job, time, flag, log });
         
         // Recargar cron inmediatamente
-        await cron.reloadAllJobs();
         await triggerCronReload();
 
         res.status(201).json({ success: true, data: newJob });
@@ -38,7 +36,6 @@ export const updateSystemJob = async (req, res) => {
         }
 
         // Recargar cron inmediatamente
-        await cron.reloadAllJobs();
         await triggerCronReload();
 
         res.json({ success: true, data: updatedJob });
@@ -58,7 +55,6 @@ export const deleteSystemJob = async (req, res) => {
         }
 
         // Recargar cron inmediatamente
-        await cron.reloadAllJobs();
         await triggerCronReload();
 
         res.json({ success: true, data: {} });

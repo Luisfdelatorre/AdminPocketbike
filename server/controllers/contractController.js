@@ -227,12 +227,13 @@ const updateContractStatus = async (req, res) => {
         // If status is ACTIVE, set it (though usually set on creation)
         const hasActiveContract = status === 'ACTIVE';
         const activeContractId = hasActiveContract ? contractId : null;
+        const customerName = hasActiveContract && contract ? (contract.customerName || null) : null;
 
         if (contract && contract.deviceIdName) {
-            await deviceRepository.updateContractStatus(contract.deviceIdName, activeContractId, hasActiveContract);
+            await deviceRepository.updateContractStatus(contract.deviceIdName, activeContractId, hasActiveContract, { customerName });
         } else if (contract && contract.deviceId) {
             // Fallback if field is named deviceId
-            await deviceRepository.updateContractStatus(contract.deviceId, activeContractId, hasActiveContract);
+            await deviceRepository.updateContractStatus(contract.deviceId, activeContractId, hasActiveContract, { customerName });
         }
 
 
@@ -290,7 +291,11 @@ const updateContract = async (req, res) => {
 
         const updatedContract = await contractRepository.updateContract(contractId, req.body);
         console.log('Update contract:', updatedContract);
-        const result = await deviceRepository.updateContractStatus(contract.deviceId, contractId, true);
+        const hasActiveContract = updatedContract.status === 'ACTIVE';
+        const activeContractId = hasActiveContract ? contractId : null;
+        const customerName = hasActiveContract ? (updatedContract.customerName || null) : null;
+        const targetDevice = updatedContract.deviceIdName || updatedContract.deviceId || contract.deviceId;
+        const result = await deviceRepository.updateContractStatus(targetDevice, activeContractId, hasActiveContract, { customerName });
 
         // Denormalize exempt flags to Device
         if (exemptFromCutOff !== undefined || exemptFromCurfew !== undefined) {

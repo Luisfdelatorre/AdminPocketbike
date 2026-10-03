@@ -20,10 +20,8 @@ const getAllDevices = async (req, res) => {
             query.companyId = req.auth.companyId;
         }
 
-        const devices = await Device.find(query)
-            .select('id name status lastUpdate disabled gpsId companyId companyName cutOff ignition batteryLevel queued contractId deviceId hasActiveContract isActive freeDays freeDaysUsed activeContractId monthPaid monthDebt nequiNumber simCardNumber')
-            .lean()
-            .sort({ _id: 1 });
+        const devices = await deviceServices.getAllDevicesEnriched(query);
+
         res.json({
             success: true,
             devices

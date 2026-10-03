@@ -66,81 +66,25 @@ const createInvoice = async (req, res) => {
 
 /**
  * Get all invoices with pagination
- * Query params: page (default: 1), limit (default: 50), status (optional filter)
+ * Query params: page (default: 1), limit (default: 100), status (optional filter), search, month, year
  */
 const getAllInvoices = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const search = req.query.search ? req.query.search.trim() : null;
-        const status = req.query.status ? req.query.status.trim() : null;
-        let limit = parseInt(req.query.limit) || (search ? 500 : 50);
-        if (search && limit < 500) limit = 500;
-
-        const month = req.query.month ? parseInt(req.query.month) : null;
-        const year = req.query.year ? parseInt(req.query.year) : null;
-        const skip = (page - 1) * limit;
         const { isSuperAdmin, companyId, role, companyName } = req.auth;
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
-        // Build query
-        const query = {};
-
-        if (month && year) {
-            const startOfMonth = new Date(year, month - 1, 1);
-            const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-            query.date = { $gte: startOfMonth, $lte: endOfMonth };
-        }
-
-        // Apply search filter (plate / deviceIdName, invoiceId, contractId, paymentReference, adjustmentReference)
-        if (search) {
-            const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-            query.$or = [
-                { deviceIdName: searchRegex },
-                { invoiceId: searchRegex },
-                { contractId: searchRegex },
-                { paymentReference: searchRegex },
-                { adjustmentReference: searchRegex }
-            ];
-        }
-
-        // Apply status filter
-        if (status && status !== 'all') {
-            const statusMap = {
-                'completed': 'PAID',
-                'pending': 'PENDING',
-                'failed': 'DEBT'
-            };
-            const mappedStatus = statusMap[status] || status.toUpperCase();
-            query.dayType = mappedStatus;
-        }
-
-        // Apply company filter if not system admin
-        if (!isSystemAdmin) {
-            query.companyId = companyId;
-        }
-
-        // Get invoices and total count in parallel
-        const [invoices, total] = await Promise.all([
-            Invoice.find(query)
-                .sort({ date: -1, createdAt: -1, _id: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            Invoice.countDocuments(query)
-        ]);
-
-        res.json({
-            success: true,
-            invoices,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-                hasNext: page < Math.ceil(total / limit),
-                hasPrev: page > 1
-            }
+        const result = await invoiceServices.getAllInvoices({
+            page: req.query.page,
+            limit: req.query.limit,
+            search: req.query.search,
+            status: req.query.status,
+            month: req.query.month,
+            year: req.query.year,
+            companyId,
+            isSystemAdmin
         });
+
+        res.json(result);
     } catch (error) {
         console.error('Get all invoices error:', error);
         res.status(500).json({

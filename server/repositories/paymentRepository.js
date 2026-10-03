@@ -80,7 +80,7 @@ export class PaymentRepository {
     }
     async createLoanPayment(deviceIdName, contract, unpaidInvoice) {
         try {
-            const reference = helper.generateReferenceLoan(unpaidInvoice._id);
+            const reference = Payment.generateReferenceLoan(unpaidInvoice._id || unpaidInvoice.invoiceId);
             return await this.createStandarPayment(0, reference, deviceIdName, contract, unpaidInvoice, unpaidInvoice.companyId, PAYMENT_TYPE.LOAN);
         } catch (error) {
             logger.error('Error creating loan payment:', error);
@@ -90,16 +90,42 @@ export class PaymentRepository {
 
     async createFreePayment(deviceIdName, contract, unpaidInvoice) {
         try {
-            const paymentId = helper.generateReferenceFreeDay(unpaidInvoice.invoiceId);
+            const paymentId = Payment.generateReferenceFreeDay(unpaidInvoice.invoiceId || unpaidInvoice._id);
             return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, contract.companyId, PAYMENT_TYPE.FREE);
         } catch (error) {
             logger.error('Error creating free payment:', error);
             throw error;
         }
     }
+
+    /**
+     * Builds free payment document and invoice ID for a contract and date
+     */
+    buildFreePaymentData(contract, date, now = new Date()) {
+        const invoiceId = Invoice.buildId(contract.deviceIdName, date);
+        const freePayment = Payment.buildFreePaymentDoc(contract, invoiceId, now);
+        return { invoiceId, freePayment };
+    }
+
+    /**
+     * Bulk insert payment documents ignoring duplicate key errors
+     */
+    async bulkInsertPayments(payments) {
+        if (!payments || !Array.isArray(payments) || payments.length === 0) {
+            return [];
+        }
+        try {
+            return await Payment.insertMany(payments, { ordered: false });
+        } catch (err) {
+            if (err.name !== 'MongoBulkWriteError' && err.code !== 11000) {
+                logger.error('[PAYMENT REPO] Error bulk inserting payments:', err);
+            }
+            return err.insertedDocs || [];
+        }
+    }
     async createManualPayment({ deviceIdName, contract, invoice, companyId, amount, adjustmentType, adjustmentReference }) {
         try {
-            const paymentId = helper.generateReferenceAdjustment(invoice.invoiceId);
+            const paymentId = Payment.generateReferenceAdjustment(invoice.invoiceId || invoice._id);
             return await this.createStandarPayment(amount, paymentId, deviceIdName, contract, invoice, companyId, PAYMENT_TYPE.ADJUSTMENT, { adjustmentType, adjustmentReference });
         } catch (error) {
             logger.error('Error creating manual adjustment payment:', error);

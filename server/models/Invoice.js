@@ -53,6 +53,9 @@ const InvoiceSchema = new mongoose.Schema(
 InvoiceSchema.index({ deviceIdName: 1, date: 1 });
 // Used by getPaymentSummary: filter by company + date range
 InvoiceSchema.index({ companyId: 1, date: 1 });
+// Filter by date range (global summary without companyId)
+InvoiceSchema.index({ date: 1 });
+
 
 // ════════════════════════════════════════════
 // statics
@@ -152,6 +155,89 @@ InvoiceSchema.statics.createInvoice = async function ({
     return invoice;
 };
 
+InvoiceSchema.statics.getExistingInvoiceIds = async function (ids) {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return [];
+    const docs = await this.find({ _id: { $in: ids } }, { _id: 1 }).lean();
+    return docs.map(d => d._id);
+};
+
+InvoiceSchema.statics.getExistingDeviceNamesForDate = async function (date, deviceNames = null) {
+    const dateObj = dayjs(date).startOf('day').toDate();
+    const query = { date: dateObj };
+    if (deviceNames && Array.isArray(deviceNames) && deviceNames.length > 0) {
+        query.deviceIdName = { $in: deviceNames };
+    }
+    const docs = await this.find(query, { deviceIdName: 1 }).lean();
+    return docs.map(d => d.deviceIdName);
+};
+
+InvoiceSchema.statics.bulkCreateInvoicesForContracts = async function (contracts, date) {
+    if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
+        return { created: 0 };
+    }
+
+    const dateObj = dayjs(date).startOf('day').toDate();
+    const toInsert = [];
+
+    for (const contract of contracts) {
+        const devName = contract.deviceIdName;
+        if (!devName || contract.dailyRate <= 0) continue;
+        const invoiceId = this.buildId(devName, dateObj);
+
+        toInsert.push({
+            _id: invoiceId,
+            invoiceId: invoiceId,
+            date: dateObj,
+            amount: contract.dailyRate,
+            paidAmount: 0,
+            deviceIdName: contract.deviceIdName,
+            deviceId: contract.deviceId,
+            gpsId: contract.gpsId || null,
+            companyId: contract.companyId || null,
+            contractId: contract.contractId || null,
+            paid: false,
+            dayType: INVOICE_DAYTYPE.DEBT,
+        });
+    }
+
+    let createdCount = 0;
+    if (toInsert.length > 0) {
+        try {
+            const inserted = await this.insertMany(toInsert, { ordered: false });
+            createdCount = inserted.length;
+        } catch (err) {
+            if (err.name === 'MongoBulkWriteError' || err.code === 11000) {
+                createdCount = err.result?.nInserted || err.insertedDocs?.length || 0;
+            } else {
+                throw err;
+            }
+        }
+    }
+
+    return { created: createdCount };
+};
+
+InvoiceSchema.statics.buildFreeDayBulkOp = function (invoiceId, paymentId, date = new Date()) {
+    const now = date || new Date();
+    return {
+        updateOne: {
+            filter: { _id: invoiceId, paid: false },
+            update: {
+                $set: {
+                    paid: true,
+                    dayType: INVOICE_DAYTYPE.FREE,
+                    amount: 0,
+                    paidAmount: 0,
+                    'transaction.id': paymentId,
+                    'transaction.reference': paymentId,
+                    'transaction.finalized_at': now,
+                    'transaction.type': PAYMENT_TYPE.FREE
+                }
+            }
+        }
+    };
+};
+
 // ════════════════════════════════════════════
 // MÉTODOS DE INSTANCIA
 // ════════════════════════════════════════════
@@ -220,7 +306,7 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
 
             const adjTypeUpper = String(this.adjustmentType || '').toUpperCase();
-            const isFreeAdj = ['REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'NOVEDAD', 'TALLER', 'MANTENIMIENTO', 'REPARACION'].includes(adjTypeUpper);
+            const isFreeAdj = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'NOVEDAD', 'TALLER', 'MANTENIMIENTO', 'REPARACION'].includes(adjTypeUpper);
 
             if (isFreeAdj) {
                 this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;

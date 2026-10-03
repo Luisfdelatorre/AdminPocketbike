@@ -16,6 +16,7 @@ import { Company } from '../models/Company.js';
 import companyService from './companyService.js';
 import GpsService from './gpsServices.js';
 import { sseService } from '../utils/sseService.js';
+import { getFirstName } from '../utils/helpers.js';
 import mongoose from 'mongoose';
 
 
@@ -236,6 +237,37 @@ export class PaymentService {
         await unpaidInvoice.applyPayment(payment);
         logger.info(`[FREE DAY AUTO] Applied free day for ${deviceIdName}, invoice: ${unpaidInvoice._id}`);
     }
+
+    async applyFreeDayAutomaticBulk(contracts, date) {
+        if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
+            return { applied: 0 };
+        }
+
+        const now = date ? dayjs(date).toDate() : new Date();
+        const freePaymentsToInsert = [];
+        const invoiceBulkOps = [];
+
+        for (const contract of contracts) {
+            if (!contract.deviceIdName) continue;
+            const { invoiceId, freePayment } = paymentRepository.buildFreePaymentData(contract, date, now);
+
+            freePaymentsToInsert.push(freePayment);
+            invoiceBulkOps.push(invoiceRepository.buildFreeDayBulkOp(invoiceId, freePayment.paymentId, now));
+        }
+
+        if (freePaymentsToInsert.length > 0) {
+            await paymentRepository.bulkInsertPayments(freePaymentsToInsert);
+        }
+
+        let modifiedCount = 0;
+        if (invoiceBulkOps.length > 0) {
+            const result = await invoiceRepository.executeBulkOps(invoiceBulkOps);
+            modifiedCount = result.modifiedCount || 0;
+        }
+
+        logger.info(`🎉 [FREE DAY BULK] Applied automatic free days for ${modifiedCount} invoices`);
+        return { applied: modifiedCount };
+    }
     async applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note }) {
         const invoice = await Invoice.findOne({ _id: invoiceId, paid: false });
         if (!invoice) {
@@ -427,7 +459,7 @@ export class PaymentService {
         }
     };
     async pollPaymentStatus(reference, onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT) {
-        const QR_INTERVAL_MS     = 2000; // Fase QR: polling rápido hasta obtener qr_image
+        const QR_INTERVAL_MS = 2000; // Fase QR: polling rápido hasta obtener qr_image
         const STATUS_INTERVAL_MS = 5000; // Fase estado: polling normal (igual que Nequi)
 
         // If a polling process exists for this reference, join it
@@ -443,7 +475,7 @@ export class PaymentService {
         const promise = new Promise(async (resolve, reject) => {
             const startTime = Date.now();
 
-            const payment      = await paymentRepository.getPaymentByReference(reference);
+            const payment = await paymentRepository.getPaymentByReference(reference);
             const wompiAdapter = await companyService.getWompiAdapter(payment?.companyId);
 
             // Detect QR method — check multiple sources for robustness
@@ -712,31 +744,15 @@ export class PaymentService {
             // Fetch invoices, payments, device info, and company cutoff settings in parallel
             const deviceInfoQuery = companyId ? { companyId } : {};
 
-            // Fetch invoices, payments, device info, active contracts and companies in parallel (single round-trip each)
+            // Fetch invoices, payments, device info, and companies in parallel (single round-trip each)
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs, activeContracts, companyDocs] = await Promise.all([
+            const [invoices, payments, deviceDocs, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
-                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1, companyId: 1, companyName: 1 }).lean(),
-                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean(),
+                Device.find(deviceInfoQuery, { name: 1, customerName: 1, driverName: 1, _id: 1, telemetry: 1, gpsId: 1, companyId: 1, companyName: 1 }).lean(),
                 Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
-
-            const getFirstName = (nameStr) => {
-                if (!nameStr || typeof nameStr !== 'string') return null;
-                const first = nameStr.trim().split(/\s+/)[0];
-                if (!first) return null;
-                return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
-            };
-
-            const contractDriverMap = {};
-            activeContracts.forEach(c => {
-                const driver = getFirstName(c.customerName || c.driverName);
-                if (c.deviceIdName && driver) {
-                    contractDriverMap[c.deviceIdName] = driver;
-                }
-            });
 
             // Build company config map keyed by companyId string for isInvoiceDue lookup
             const companyCutoffMap = {};
@@ -744,19 +760,20 @@ export class PaymentService {
                 companyCutoffMap[c._id.toString()] = c;
             });
 
-            // Build a lookup map: deviceName -> { driverName, deviceId, gpsId, companyId, companyName, cutOff }
+            // Build a lookup map: deviceName -> { customerName, driverName, deviceId, gpsId, companyId, companyName, cutOff }
             const deviceInfoMap = {};
             deviceDocs.forEach(d => {
                 if (d.name) {
-                    const driver = contractDriverMap[d.name] || getFirstName(d.driverName) || null;
+                    const driver = getFirstName(d.customerName || d.driverName) || null;
                     const compObj = d.companyId ? companyCutoffMap[d.companyId.toString()] : null;
                     deviceInfoMap[d.name] = {
+                        customerName: driver,
                         driverName: driver,
                         deviceId: d._id,
                         gpsId: d.gpsId || d._id || d.name,
                         companyId: d.companyId || null,
                         companyName: d.companyName || compObj?.name || null,
-                        cutOff: Boolean(d.cutOff)
+                        cutOff: Boolean(d.telemetry?.cutOff)
                     };
                 }
             });
@@ -779,7 +796,8 @@ export class PaymentService {
                             name: devName,
                             deviceId: info.deviceId || invoice.deviceId || devName,
                             gpsId: info.gpsId || info.deviceId || invoice.deviceId || devName,
-                            driverName: info.driverName || contractDriverMap[devName] || null,
+                            customerName: info.customerName || info.driverName || null,
+                            driverName: info.customerName || info.driverName || null,
                             companyId: compId,
                             companyName: info.companyName || compObj?.name || null,
                             unpaidTotal: 0,
@@ -1058,7 +1076,7 @@ export class PaymentService {
                     const paymentInstance = await paymentRepository.upsertPayment(paymentData);
 
                     if (wompiStatus === PS.S_APPROVED) {
-                        const dummyOnUpdate = () => {};
+                        const dummyOnUpdate = () => { };
                         await this.processApprovedPayment(paymentInstance, dummyOnUpdate);
                         sseService.broadcast('payment-updated', {
                             type: 'payment',

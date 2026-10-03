@@ -39,7 +39,7 @@ export class WebhookService {
                 }
             } else if (
                 paymentData.status === PAYMENT_STATUS.S_DECLINED ||
-                paymentData.status === PAYMENT_STATUS.S_VOIDED  ||
+                paymentData.status === PAYMENT_STATUS.S_VOIDED ||
                 paymentData.status === PAYMENT_STATUS.S_ERROR
             ) {
                 // Safely handle declined/failed payments: free up the reserved invoice
@@ -77,17 +77,6 @@ export class WebhookService {
             message: 'Webhook processed successfully',
             duplicate: false,
         };
-    }
-
-    /**
-     * Handle transaction.updated event
-     */
-
-    /**
-     * Recover pending payments (delegates to paymentService domain logic)
-     */
-    async recoverPendingPayments(olderThanMinutes = 0) {
-        return await paymentService.reconcilePendingPayments(olderThanMinutes);
     }
 }
 

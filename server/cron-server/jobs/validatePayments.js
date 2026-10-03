@@ -1,4 +1,4 @@
-import logger from "../../config/logger.js";
+import { cronLogger as logger } from "../../config/logger.js";
 import paymentService from "../../services/paymentService.js";
 
 const runValidatePayments = async (time) => {

@@ -1,4 +1,4 @@
-import logger from "../../config/logger.js";
+import { cronLogger as logger } from "../../config/logger.js";
 import companyRepository from "../../repositories/companyRepository.js";
 import companyService from "../../services/companyService.js";
 

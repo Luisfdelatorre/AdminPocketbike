@@ -60,7 +60,26 @@ export class ContractRepository {
                 { deviceId: deviceIdName }
             ],
             status: 'ACTIVE',
-        }).lean();
+        });
+    }
+
+    /**
+     * Get active contracts for all or specified company IDs
+     */
+    async getActiveContracts(companyIds = null) {
+        const query = {
+            status: 'ACTIVE',
+            dailyRate: { $gt: 0 },
+            deviceIdName: { $exists: true, $ne: null }
+        };
+        if (companyIds && Array.isArray(companyIds) && companyIds.length > 0) {
+            query.companyId = { $in: companyIds };
+        }
+        return await Contract.find(query).lean();
+    }
+
+    async getActiveContractsByCompanyIds(companyIds = null) {
+        return await this.getActiveContracts(companyIds);
     }
 
     /**
@@ -114,7 +133,7 @@ export class ContractRepository {
         if (isCompleted) {
             const deviceTarget = contract.deviceIdName || contract.deviceId;
             if (deviceTarget) {
-                await deviceRepository.updateContractStatus(deviceTarget, null, false);
+                await deviceRepository.updateContractStatus(deviceTarget, null, false, { customerName: null });
             }
         }
 
@@ -136,7 +155,8 @@ export class ContractRepository {
             const activeContractId = hasActiveContract ? contractId : null;
             const deviceTarget = contract.deviceIdName || contract.deviceId;
             if (deviceTarget) {
-                await deviceRepository.updateContractStatus(deviceTarget, activeContractId, hasActiveContract);
+                const customerName = hasActiveContract ? (contract.customerName || null) : null;
+                await deviceRepository.updateContractStatus(deviceTarget, activeContractId, hasActiveContract, { customerName });
             }
             return contract.toObject();
         }
@@ -257,7 +277,13 @@ export class ContractRepository {
         const deviceTarget = contract.deviceIdName || contract.deviceId;
         if (deviceTarget) {
             try {
-                await deviceRepository.updateContractStatus(deviceTarget, hasActiveContract ? contract.contractId : null, hasActiveContract);
+                const customerName = hasActiveContract ? (contract.customerName || null) : null;
+                await deviceRepository.updateContractStatus(
+                    deviceTarget,
+                    hasActiveContract ? contract.contractId : null,
+                    hasActiveContract,
+                    { customerName }
+                );
             } catch (err) {
                 // non-blocking device status sync
             }
