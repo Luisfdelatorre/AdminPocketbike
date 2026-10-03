@@ -1,233 +1,34 @@
 import Setting from '../models/Setting.js';
 import logger from '../utils/logger.js';
-
-const DEFAULT_ADJUSTMENT_TYPES = {
-    PAID: {
-        label: 'Día Pagado',
-        badgeLabel: 'Pagado',
-        color: '#0ea5e9',
-        bg: 'rgba(14,165,233,0.08)',
-        description: 'Factura pagada.',
-        isRealPayment: true,
-        isFree: false
-    },
-    FREE: {
-        label: 'Día Gratis',
-        badgeLabel: 'Gratis',
-        color: '#22c55e',
-        bg: 'rgba(34,197,94,0.05)',
-        description: 'Día libre de cobro.',
-        isRealPayment: false,
-        isFree: true
-    },
-    PENDING: {
-        label: 'Día Pendiente',
-        badgeLabel: 'Pendiente',
-        color: '#eab308',
-        bg: 'rgba(234,179,8,0.05)',
-        description: 'Factura pendiente por cobro.',
-        isRealPayment: false,
-        isFree: false
-    },
-    DEBT: {
-        label: 'Día en Deuda',
-        badgeLabel: 'Deuda',
-        color: '#ef4444',
-        bg: 'rgba(239,68,68,0.03)',
-        description: 'Día no pagado en mora / deuda.',
-        isRealPayment: false,
-        isFree: false
-    },
-    NEQUI: {
-        label: 'Pago Real - Nequi',
-        badgeLabel: 'NEQUI',
-        color: '#E11D48',
-        bg: '#FFF1F2',
-        description: 'Pago real recibido vía Nequi.',
-        autoAmount: null,
-        autoReference: 'NEQUI - {deviceName} ({date})',
-        isRealPayment: true,
-        isFree: false
-    },
-    EFECTIVO: {
-        label: 'Pago Real - Efectivo',
-        badgeLabel: 'EFECTIVO',
-        color: '#16A34A',
-        bg: '#F0FDF4',
-        description: 'Pago real recibido en efectivo.',
-        autoAmount: null,
-        autoReference: 'EFECTIVO - {deviceName} ({date})',
-        isRealPayment: true,
-        isFree: false
-    },
-    TRANSFERENCIA: {
-        label: 'Pago Real - Transferencia Bancaria',
-        badgeLabel: 'TRANSFERENCIA',
-        color: '#2563EB',
-        bg: '#EFF6FF',
-        description: 'Pago real recibido por transferencia bancaria.',
-        autoAmount: null,
-        autoReference: 'TRANSFERENCIA - {deviceName} ({date})',
-        isRealPayment: true,
-        isFree: false
-    },
-    ACCIDENT_TRANSIT: {
-        label: 'Ajuste - Retenida en tránsito por accidente ($0)',
-        badgeLabel: 'TRANSITO',
-        color: '#FB9678',
-        bg: '#FFF4EF',
-        description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'TRANSITO - {deviceName} ({date})',
-        isRealPayment: false,
-        isFree: true
-    },
-    REPAIR: {
-        label: 'Ajuste - Retenida en tránsito por accidente ($0)',
-        badgeLabel: 'RETENIDA',
-        color: '#FB9678',
-        bg: '#FFF4EF',
-        description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'RETENIDA - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    },
-    INCAPACITY: {
-        label: 'Ajuste - Incapacidad ($0)',
-        badgeLabel: 'INCAPACIDAD',
-        color: '#3b82f6',
-        bg: '#EFF6FF',
-        description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'INCAPACIDAD - {deviceName} ({date})',
-        isRealPayment: false,
-        isFree: true
-    },
-    MAINTENANCE: {
-        label: 'Ajuste - Mantenimiento ($0)',
-        badgeLabel: 'MANTENIMIENTO',
-        color: '#7460EE',
-        bg: '#F5F3FF',
-        description: 'Mantenimiento programado — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'MANTENIMIENTO - {deviceName} ({date})',
-        isRealPayment: false,
-        isFree: true
-    },
-    ADJUSTMENT: {
-        label: 'Ajuste - Oficina ($0)',
-        badgeLabel: 'OFICINA',
-        color: '#0891B2',
-        bg: '#ECFEFF',
-        description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'OFICINA - {deviceName} ({date})',
-        isRealPayment: false,
-        isFree: true
-    },
-    OFFICE: {
-        label: 'Ajuste - Oficina ($0)',
-        badgeLabel: 'OFICINA',
-        color: '#0891B2',
-        bg: '#ECFEFF',
-        description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'OFICINA - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    },
-    OFICINA: {
-        label: 'Ajuste - Oficina ($0)',
-        badgeLabel: 'OFICINA',
-        color: '#0891B2',
-        bg: '#ECFEFF',
-        description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'OFICINA - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    },
-    WORKSHOP: {
-        label: 'Ajuste - Taller ($0)',
-        badgeLabel: 'TALLER',
-        color: '#A3A3A3',
-        bg: '#F5F5F5',
-        description: 'Dispositivo en taller — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'TALLER - {deviceName} ({date})',
-        isRealPayment: false,
-        isFree: true
-    },
-    TALLER: {
-        label: 'Ajuste - Taller ($0)',
-        badgeLabel: 'TALLER',
-        color: '#A3A3A3',
-        bg: '#F5F5F5',
-        description: 'Dispositivo en taller — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'TALLER - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    },
-    MANTENIMIENTO: {
-        label: 'Ajuste - Mantenimiento ($0)',
-        badgeLabel: 'MANTENIMIENTO',
-        color: '#7460EE',
-        bg: '#F5F3FF',
-        description: 'Mantenimiento programado — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'MANTENIMIENTO - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    },
-    INCAPACIDAD: {
-        label: 'Ajuste - Incapacidad ($0)',
-        badgeLabel: 'INCAPACIDAD',
-        color: '#3b82f6',
-        bg: '#EFF6FF',
-        description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'INCAPACIDAD - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    },
-    TRANSITO: {
-        label: 'Ajuste - Retenida en tránsito por accidente ($0)',
-        badgeLabel: 'TRANSITO',
-        color: '#FB9678',
-        bg: '#FFF4EF',
-        description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
-        autoAmount: 0,
-        autoReference: 'TRANSITO - {deviceName} ({date})',
-        hidden: true,
-        isRealPayment: false,
-        isFree: true
-    }
-};
+import { 
+    SETTING_KEYS, 
+    SETTINGS_DEFINITIONS, 
+    DEFAULT_PAYMENT_STATUSES, 
+    DEFAULT_ADJUSTMENT_TYPES 
+} from '../config/config.js';
 
 class SettingRepository {
+    constructor() {
+        this.cachedAdjustmentTypes = null;
+        this.cachedPaymentStatuses = null;
+    }
+
     async getSetting(key, defaultValue = null) {
         try {
             const setting = await Setting.findOne({ key }).lean();
             if (setting) return setting.value;
 
-            if (key === 'adjustment_types') {
-                await this.setSetting('adjustment_types', DEFAULT_ADJUSTMENT_TYPES, 'Tipos de pagos y ajustes de facturas');
-                return DEFAULT_ADJUSTMENT_TYPES;
+            const definition = SETTINGS_DEFINITIONS[key];
+            if (definition) {
+                await this.setSetting(key, definition.defaultValue, definition.description);
+                return definition.defaultValue;
             }
 
             return defaultValue;
         } catch (error) {
             logger.error(`Error getting setting key '${key}':`, error);
-            if (key === 'adjustment_types') return DEFAULT_ADJUSTMENT_TYPES;
-            return defaultValue;
+            const definition = SETTINGS_DEFINITIONS[key];
+            return definition ? definition.defaultValue : defaultValue;
         }
     }
 
@@ -245,20 +46,63 @@ class SettingRepository {
         }
     }
 
-    async getAdjustmentTypes() {
-        const stored = await this.getSetting('adjustment_types', DEFAULT_ADJUSTMENT_TYPES);
-        const merged = { ...DEFAULT_ADJUSTMENT_TYPES, ...(stored || {}) };
-        const statusKeys = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
-        Object.keys(merged).forEach(key => {
-            if (!merged[key].category) {
-                merged[key].category = statusKeys.includes(key) ? 'STATUS' : 'ADJUSTMENT';
+    async getPaymentStatuses() {
+        if (this.cachedPaymentStatuses) {
+            return this.cachedPaymentStatuses;
+        }
+
+        const stored = await this.getSetting(SETTING_KEYS.PAYMENT_STATUS, DEFAULT_PAYMENT_STATUSES);
+        const statuses = (stored && Object.keys(stored).length > 0) ? stored : DEFAULT_PAYMENT_STATUSES;
+        Object.keys(statuses).forEach(key => {
+            if (!statuses[key].category) {
+                statuses[key].category = 'STATUS';
             }
         });
-        return merged;
+        this.cachedPaymentStatuses = statuses;
+        return statuses;
+    }
+
+    async updatePaymentStatuses(statusesData) {
+        const description = SETTINGS_DEFINITIONS[SETTING_KEYS.PAYMENT_STATUS]?.description || '';
+        await this.setSetting(SETTING_KEYS.PAYMENT_STATUS, statusesData, description);
+        this.cachedPaymentStatuses = null;
+        return this.getPaymentStatuses();
+    }
+
+    async getAdjustmentTypes() {
+        if (this.cachedAdjustmentTypes) {
+            return this.cachedAdjustmentTypes;
+        }
+
+        const stored = await this.getSetting(SETTING_KEYS.ADJUSTMENT_TYPES, DEFAULT_ADJUSTMENT_TYPES);
+        const types = (stored && Object.keys(stored).length > 0) ? stored : DEFAULT_ADJUSTMENT_TYPES;
+        Object.keys(types).forEach(key => {
+            if (!types[key].category) {
+                types[key].category = 'ADJUSTMENT';
+            }
+        });
+        this.cachedAdjustmentTypes = types;
+        return types;
     }
 
     async updateAdjustmentTypes(typesData) {
-        return this.setSetting('adjustment_types', typesData, 'Tipos de pagos y ajustes de facturas');
+        const description = SETTINGS_DEFINITIONS[SETTING_KEYS.ADJUSTMENT_TYPES]?.description || '';
+        await this.setSetting(SETTING_KEYS.ADJUSTMENT_TYPES, typesData, description);
+        this.cachedAdjustmentTypes = null;
+        return this.getAdjustmentTypes();
+    }
+
+    async getAllStatusConfigs() {
+        const [statuses, adjustments] = await Promise.all([
+            this.getPaymentStatuses(),
+            this.getAdjustmentTypes()
+        ]);
+        return { ...statuses, ...adjustments };
+    }
+
+    invalidateCache() {
+        this.cachedAdjustmentTypes = null;
+        this.cachedPaymentStatuses = null;
     }
 }
 

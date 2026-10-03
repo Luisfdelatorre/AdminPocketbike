@@ -10,4 +10,10 @@ router.get('/adjustment-types', verifyToken, settingController.getAdjustmentType
 // PUT /apinode/settings/adjustment-types (Admin only)
 router.put('/adjustment-types', verifyToken, settingController.updateAdjustmentTypes);
 
+// GET /apinode/settings/payment-status
+router.get('/payment-status', verifyToken, settingController.getPaymentStatuses);
+
+// PUT /apinode/settings/payment-status (Admin only)
+router.put('/payment-status', verifyToken, settingController.updatePaymentStatuses);
+
 export default router;

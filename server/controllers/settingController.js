@@ -26,6 +26,31 @@ class SettingController {
             return res.status(500).json({ success: false, error: 'Error al actualizar tipos de ajuste' });
         }
     }
+
+    async getPaymentStatuses(req, res) {
+        try {
+            const statuses = await settingRepository.getPaymentStatuses();
+            return res.json({ success: true, data: statuses });
+        } catch (error) {
+            logger.error('Error fetching payment statuses:', error);
+            return res.status(500).json({ success: false, error: 'Error al obtener estados de pago' });
+        }
+    }
+
+    async updatePaymentStatuses(req, res) {
+        try {
+            const statusesData = req.body;
+            if (!statusesData || typeof statusesData !== 'object') {
+                return res.status(400).json({ success: false, error: 'Datos inválidos para estados de pago' });
+            }
+
+            const updated = await settingRepository.updatePaymentStatuses(statusesData);
+            return res.json({ success: true, data: updated, message: 'Estados de pago actualizados exitosamente' });
+        } catch (error) {
+            logger.error('Error updating payment statuses:', error);
+            return res.status(500).json({ success: false, error: 'Error al actualizar estados de pago' });
+        }
+    }
 }
 
 export default new SettingController();

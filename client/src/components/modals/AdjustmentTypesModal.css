@@ -257,6 +257,7 @@
     font-family: monospace;
     letter-spacing: 0.025em;
     flex-shrink: 0;
+    text-transform: uppercase;
 }
 
 .adj-modal-item-details {

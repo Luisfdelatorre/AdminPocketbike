@@ -1,22 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Sliders, Plus, Trash2, Save, X, RefreshCw, CheckCircle, AlertCircle, Pencil, ShieldAlert } from 'lucide-react';
-import { getAdjustmentTypes, updateAdjustmentTypes } from '../../services/api';
+import { getAdjustmentTypes, updateAdjustmentTypes, getPaymentStatuses, updatePaymentStatuses } from '../../services/api';
+import { useStatusConfig } from '../../context/StatusConfigContext';
 import './AdjustmentTypesModal.css';
 
-const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED'];
+const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED', 'INITIAL_FEE'];
 
-const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) => {
+const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, onClose, onFilterChange }, ref) => {
     const { t } = useTranslation();
+    const { refreshStatusConfig, updateLocalStatus } = useStatusConfig();
     const [types, setTypes] = useState({});
-    const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'statuses' | 'adjustments'
+    const [filterCategory, setFilterCategory] = useState('adjustments'); // 'statuses' | 'adjustments'
+
+    // Notify parent when sub-tab changes
+    const handleFilterChange = (category) => {
+        setFilterCategory(category);
+        onFilterChange?.(category);
+    };
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
     const [editingKey, setEditingKey] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [showAddForm, setShowAddForm] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+        triggerAdd() {
+            if (filterCategory !== 'statuses') {
+                setShowAddForm(true);
+            }
+        },
+        get filterCategory() {
+            return filterCategory;
+        }
+    }), [filterCategory]);
     const [newKey, setNewKey] = useState('');
     const [newForm, setNewForm] = useState({});
 
@@ -30,10 +49,15 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         setLoading(true);
         setMessage(null);
         try {
-            const res = await getAdjustmentTypes();
-            if (res && res.success && res.data) {
-                setTypes(res.data);
-            }
+            const [adjRes, payRes] = await Promise.all([
+                getAdjustmentTypes(),
+                getPaymentStatuses()
+            ]);
+            const combined = {
+                ...(payRes?.data || {}),
+                ...(adjRes?.data || {})
+            };
+            setTypes(combined);
         } catch (err) {
             setMessage({ type: 'error', text: t('adjustments.errorLoading') });
         } finally {
@@ -52,22 +76,50 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         setSaving(true);
         setMessage(null);
 
+        const isStatus = SYSTEM_STATUS_KEYS.includes(editingKey);
+        const updatedItem = {
+            ...types[editingKey],
+            ...editForm,
+            autoAmount: editForm.isFree ? 0 : null,
+            autoReference: `${editForm.badgeLabel} - {deviceName} ({date})`
+        };
+
         const updatedTypes = {
             ...types,
-            [editingKey]: {
-                ...types[editingKey],
-                ...editForm,
-                autoAmount: editForm.isFree ? 0 : null,
-                autoReference: `${editForm.badgeLabel} - {deviceName} ({date})`
-            }
+            [editingKey]: updatedItem
         };
 
         try {
-            const res = await updateAdjustmentTypes(updatedTypes);
-            if (res && res.success) {
-                setTypes(res.data || updatedTypes);
-                setEditingKey(null);
-                setMessage({ type: 'success', text: t('adjustments.updatedSuccess') });
+            if (isStatus) {
+                const statusesOnly = {};
+                Object.keys(updatedTypes).forEach(k => {
+                    if (SYSTEM_STATUS_KEYS.includes(k)) {
+                        statusesOnly[k] = updatedTypes[k];
+                    }
+                });
+                const res = await updatePaymentStatuses(statusesOnly);
+                if (res && res.success) {
+                    setTypes(prev => ({ ...prev, [editingKey]: updatedItem }));
+                    updateLocalStatus(editingKey, updatedItem);
+                    refreshStatusConfig();
+                    setEditingKey(null);
+                    setMessage({ type: 'success', text: t('adjustments.updatedSuccess') });
+                }
+            } else {
+                const adjustmentsOnly = {};
+                Object.keys(updatedTypes).forEach(k => {
+                    if (!SYSTEM_STATUS_KEYS.includes(k)) {
+                        adjustmentsOnly[k] = updatedTypes[k];
+                    }
+                });
+                const res = await updateAdjustmentTypes(adjustmentsOnly);
+                if (res && res.success) {
+                    setTypes(prev => ({ ...prev, [editingKey]: updatedItem }));
+                    updateLocalStatus(editingKey, updatedItem);
+                    refreshStatusConfig();
+                    setEditingKey(null);
+                    setMessage({ type: 'success', text: t('adjustments.updatedSuccess') });
+                }
             }
         } catch (err) {
             setMessage({ type: 'error', text: t('adjustments.errorSaving') });
@@ -92,21 +144,27 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         setSaving(true);
         setMessage(null);
 
-        const updatedTypes = {
-            ...types,
-            [formattedKey]: {
-                ...newForm,
-                autoAmount: newForm.isFree ? 0 : null,
-                autoReference: `${newForm.badgeLabel}-{deviceName}({date})`,
-                isRealPayment: !newForm.isFree,
-                hidden: false
-            }
+        const newItem = {
+            ...newForm,
+            autoAmount: newForm.isFree ? 0 : null,
+            autoReference: `${newForm.badgeLabel}-{deviceName}({date})`,
+            isRealPayment: !newForm.isFree,
+            hidden: false
         };
 
+        const adjustmentsOnly = {};
+        Object.keys(types).forEach(k => {
+            if (!SYSTEM_STATUS_KEYS.includes(k)) {
+                adjustmentsOnly[k] = types[k];
+            }
+        });
+        adjustmentsOnly[formattedKey] = newItem;
+
         try {
-            const res = await updateAdjustmentTypes(updatedTypes);
+            const res = await updateAdjustmentTypes(adjustmentsOnly);
             if (res && res.success) {
-                setTypes(res.data || updatedTypes);
+                setTypes(prev => ({ ...prev, [formattedKey]: newItem }));
+                refreshStatusConfig();
                 setShowAddForm(false);
                 setNewKey('');
                 setMessage({ type: 'success', text: t('adjustments.createdSuccess', { key: formattedKey }) });
@@ -128,13 +186,23 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
 
         setSaving(true);
         setMessage(null);
-        const updatedTypes = { ...types };
-        delete updatedTypes[key];
+
+        const adjustmentsOnly = {};
+        Object.keys(types).forEach(k => {
+            if (!SYSTEM_STATUS_KEYS.includes(k) && k !== key) {
+                adjustmentsOnly[k] = types[k];
+            }
+        });
 
         try {
-            const res = await updateAdjustmentTypes(updatedTypes);
+            const res = await updateAdjustmentTypes(adjustmentsOnly);
             if (res && res.success) {
-                setTypes(res.data || updatedTypes);
+                setTypes(prev => {
+                    const next = { ...prev };
+                    delete next[key];
+                    return next;
+                });
+                refreshStatusConfig();
                 setMessage({ type: 'success', text: t('adjustments.deletedSuccess', { key }) });
             }
         } catch (err) {
@@ -177,13 +245,13 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                             <div className="adj-modal-tabs">
                                 <button
                                     className={`adj-modal-tab-btn ${filterCategory === 'adjustments' ? 'adj-modal-tab-btn--active' : ''}`}
-                                    onClick={() => setFilterCategory('adjustments')}
+                                    onClick={() => handleFilterChange('adjustments')}
                                 >
                                     Ajustes ({adjustmentKeys.length})
                                 </button>
                                 <button
                                     className={`adj-modal-tab-btn ${filterCategory === 'statuses' ? 'adj-modal-tab-btn--active' : ''}`}
-                                    onClick={() => setFilterCategory('statuses')}
+                                    onClick={() => handleFilterChange('statuses')}
                                 >
                                     Estados ({statusKeys.length})
                                 </button>
@@ -413,7 +481,7 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
                                                 className="adj-modal-badge"
                                                 style={{ color: item.color, backgroundColor: item.bg }}
                                             >
-                                                {item.badgeLabel || key}
+                                                {(item.badgeLabel || key).toUpperCase()}
                                             </span>
                                             <div className="adj-modal-item-details">
                                                 <div className="adj-modal-item-title-row">
@@ -455,46 +523,18 @@ const AdjustmentTypesModal = ({ isOpen = true, isEmbedded = false, onClose }) =>
         </div>
     );
 
-    const fabPortalElement = typeof document !== 'undefined' ? document.getElementById('fab-portal') : null;
-
-    const fabButton = !showAddForm && (
-        fabPortalElement ? (
-            createPortal(
-                <button
-                    type="button"
-                    className="contracts-add-fab primary-blue"
-                    onClick={() => setShowAddForm(true)}
-                    aria-label="Agregar Tipo de Ajuste"
-                >
-                    <Plus size={32} />
-                </button>,
-                fabPortalElement
-            )
-        ) : (
-            <button
-                type="button"
-                className="contracts-add-fab primary-blue flex"
-                onClick={() => setShowAddForm(true)}
-                aria-label="Agregar Tipo de Ajuste"
-            >
-                <Plus size={32} />
-            </button>
-        )
-    );
 
     if (isEmbedded) return (
         <>
             {content}
-            {fabButton}
         </>
     );
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             {content}
-            {fabButton}
         </div>
     );
-};
+});
 
 export default AdjustmentTypesModal;
