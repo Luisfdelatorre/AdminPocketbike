@@ -27,8 +27,10 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **7** | Reestructuración DOM: Layout Flex Column en Móvil | 🧪 En validación | El shell móvil ya usa Header–Content–Footer en flujo vertical, safe areas centralizadas y scroll interno en `.admin-content`; build y arranque local correctos, pendiente aprobación visual del usuario. |
 | **7.1** | Vistas Por Moto y Matriz en Resumen de Pagos | 🧪 En validación | Desktop permite alternar mediante un control segmentado entre tarjetas por moto y una matriz comparativa con scroll vertical de página, desplazamiento horizontal propio y encabezado de días sticky. |
 | **7.2** | Altura Natural del Header Móvil | 🧪 En validación | El header móvil es sticky y usa altura natural como hijo flex, por lo que reserva el espacio real de títulos y acciones sin padding compensatorio en las páginas. |
+| **7.3** | Botón de Apagado de Morosos y Modal en Resumen de Pagos | ✅ Completado | Botón de acción en PageHeader (desktop y móvil) con clases CSS puras (.auto-cutoff-btn, .bulk-cutoff-modal), contador de morosos, pseudo-clases :hover/:disabled y modal de confirmación unificado con tokens globales. |
 | **8** | Rediseño Visual iOS de AdminDashboard | 🧪 En validación | Maquetación con filtros superiores compactos, grid de 2 tarjetas primarias, 3 tarjetas secundarias compactas con resaltado naranja en pendientes y tabla de pagos recientes con badges estilo pill en verde y gris. |
 | **9** | Rediseño Visual iOS de DeviceSelector | 🧪 En validación | Stats bar visible en móvil (3 columnas), filtros tipo pill con `#0070eb` activo, búsqueda iOS (`#f3f3f4`), tabla con banda de encabezado y filas iOS, badges de estado sistema (verde/rojo/gris), motor con colores de sistema. |
+| **10** | Unificación de Badges de Estado (Facturas y Pagos) | 🧪 En validación | Badges unificados con StatusBadge y StatusConfigContext; consumo reactivo y en memoria O(1) de los tokens de Settings en Facturas, Pagos, Dashboard y Facturas de Empresa. |
 
 ---
 
@@ -272,9 +274,9 @@ El resumen de pagos reutiliza `BikePaymentSummary` en móvil y escritorio para e
 
 La matriz continúa ofreciendo comparación transversal y totales por día. En escritorio, el documento conserva el desplazamiento vertical, la matriz limita su propio desplazamiento al eje horizontal y una copia visual del encabezado se mantiene sticky debajo de los controles; sus columnas se sincronizan con la tabla y los encabezados semánticos permanecen disponibles para tecnologías asistivas. Cuando el Summary header queda adherido, elimina temporalmente su radio para no revelar la tabla detrás de las esquinas curvas. Las columnas de dispositivo y deuda continúan fijas a la izquierda. En móvil no se muestra el selector y el breakpoint de React coincide con la media query de `768px`.
 
-#### Implementación de la intervención 7.2
+#### Implementación de la intervención 7.3
 
-El header móvil mantiene el scroll interno de `.admin-content` y el footer sin cambios. Ahora usa `position: sticky` y `flex: 0 0 auto` con una altura mínima que incluye la safe area superior, en lugar de una altura y un `flex-basis` rígidos. Si el título o las acciones necesitan más espacio, el header crece y reserva esa altura en el shell sin requerir padding por página.
+Se integró en `PaymentSummary` el botón de apagado masivo manual de vehículos morosos con el ícono universal de corte `PowerOff`, renderizado tanto en las acciones de escritorio como en la barra de herramientas del encabezado móvil (`MobileHeaderAction`). Al ser accionado, muestra un modal de confirmación con el conteo de motos morosas en tiempo real antes de ejecutar el endpoint de corte `cutoffDebtors`.
 
 #### Beneficios de la corrección:
 1. **Eliminación de código redundante:** Se eliminan los parches de `padding-top: 60px` y `padding-bottom: 75px` repetidos de forma manual en múltiples páginas CSS.
