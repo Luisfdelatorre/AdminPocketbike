@@ -1,9 +1,12 @@
 import express from "express";
-import log from "../config/logger.js";
+import { cronLogger as log } from "../config/logger.js";
 import cron from "./cron.js";
 import { connectDatabase } from "../database/connection.js";
 
-const PORT = process.env.CRON_PORT || 8085;
+import { performScheduledCutOff } from "./jobs/performScheduledCutOff.js";
+import dayjs from "../config/dayjs.js";
+
+const PORT = process.env.CRON_PORT || 8082;
 
 const initServer = async () => {
   try {
@@ -29,6 +32,26 @@ const initServer = async () => {
         res.json({ success: true, message: "Cron jobs reloaded" });
       } catch (err) {
         log.error("❌ Error reloading cron jobs via HTTP endpoint:", err);
+        res.status(500).json({ success: false, error: err.message });
+      }
+    });
+
+    // Endpoint for on-demand/manual debtor engine cutoff
+    app.post("/cutoff-debtors", async (req, res) => {
+      try {
+        const { companyId, time, forceAllDebtors = true } = req.body;
+        if (!companyId) {
+          return res.status(400).json({ success: false, error: "companyId is required" });
+        }
+        log.info(`[microCronServer] 🚫 Manual cutoff debtors request received for company: ${companyId}`);
+        const result = await performScheduledCutOff(
+          time || dayjs().format("HH:mm"),
+          [companyId],
+          { forceAllDebtors }
+        );
+        res.json({ success: true, ...result });
+      } catch (err) {
+        log.error("❌ Error executing cutoff-debtors in microCronServer:", err);
         res.status(500).json({ success: false, error: err.message });
       }
     });
