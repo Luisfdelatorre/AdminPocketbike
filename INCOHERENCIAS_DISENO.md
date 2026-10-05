@@ -31,6 +31,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **8** | Rediseño Visual iOS de AdminDashboard | 🧪 En validación | Maquetación con filtros superiores compactos, grid de 2 tarjetas primarias, 3 tarjetas secundarias compactas con resaltado naranja en pendientes y tabla de pagos recientes con badges estilo pill en verde y gris. |
 | **9** | Rediseño Visual iOS de DeviceSelector | 🧪 En validación | Stats bar visible en móvil (3 columnas), filtros tipo pill con `#0070eb` activo, búsqueda iOS (`#f3f3f4`), tabla con banda de encabezado y filas iOS, badges de estado sistema (verde/rojo/gris), motor con colores de sistema. |
 | **10** | Unificación de Badges de Estado (Facturas y Pagos) | 🧪 En validación | Badges unificados con StatusBadge y StatusConfigContext; consumo reactivo y en memoria O(1) de los tokens de Settings en Facturas, Pagos, Dashboard y Facturas de Empresa. |
+| **11** | Rediseño Visual del Modal de Nuevo Contrato | 🧪 En validación | Header con indicador de estado, banner de IA con degradado y botones con iconos de color (SOAT con badge OCR), tarjetas de sección con icono de 36px, campos `rounded-xl` con foco índigo, footer 1/3–2/3 con blur y tipografía Plus Jakarta Sans. Estilos aislados en `ContractModalRestyle.css` bajo `.modal-surface--contract`; pendiente aprobación visual del usuario. |
 
 ---
 
