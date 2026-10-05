@@ -1,3 +1,4 @@
+import "../utils/polyfillFetch.js";
 import express from "express";
 import { cronLogger as log } from "../config/logger.js";
 import cron from "./cron.js";

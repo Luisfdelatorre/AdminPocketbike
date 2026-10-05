@@ -11,6 +11,7 @@ class SettingRepository {
     constructor() {
         this.cachedAdjustmentTypes = null;
         this.cachedPaymentStatuses = null;
+        this.cachedOcrTemplates = null;
     }
 
     async getSetting(key, defaultValue = null) {
@@ -92,6 +93,36 @@ class SettingRepository {
         return this.getAdjustmentTypes();
     }
 
+    async getOcrTemplates() {
+        if (this.cachedOcrTemplates) {
+            return this.cachedOcrTemplates;
+        }
+
+        const stored = await this.getSetting(SETTING_KEYS.OCR_TEMPLATES, null);
+        if (stored && typeof stored === 'object' && Object.keys(stored).length > 0) {
+            this.cachedOcrTemplates = stored;
+            return stored;
+        }
+
+        // Si en BD no hay nada o viene en null, auto-poblamos con las plantillas oficiales predeterminadas
+        const { SOAT_TEMPLATES } = await import('../services/documentOcrService.js');
+        await this.updateOcrTemplates(SOAT_TEMPLATES);
+        return SOAT_TEMPLATES;
+    }
+
+    async updateOcrTemplates(templatesData) {
+        const description = SETTINGS_DEFINITIONS[SETTING_KEYS.OCR_TEMPLATES]?.description || 'Plantillas y reglas de extracción OCR de documentos';
+        await this.setSetting(SETTING_KEYS.OCR_TEMPLATES, templatesData, description);
+        this.cachedOcrTemplates = templatesData;
+        return this.cachedOcrTemplates;
+    }
+
+    async resetOcrTemplates() {
+        const { SOAT_TEMPLATES } = await import('../services/documentOcrService.js');
+        await this.updateOcrTemplates(SOAT_TEMPLATES);
+        return SOAT_TEMPLATES;
+    }
+
     async getAllStatusConfigs() {
         const [statuses, adjustments] = await Promise.all([
             this.getPaymentStatuses(),
@@ -103,6 +134,7 @@ class SettingRepository {
     invalidateCache() {
         this.cachedAdjustmentTypes = null;
         this.cachedPaymentStatuses = null;
+        this.cachedOcrTemplates = null;
     }
 }
 

@@ -228,7 +228,8 @@ export const DEFAULT_ADJUSTMENT_TYPES = {
 
 export const SETTING_KEYS = {
     ADJUSTMENT_TYPES: 'adjustment_types',
-    PAYMENT_STATUS: 'payment_status'
+    PAYMENT_STATUS: 'payment_status',
+    OCR_TEMPLATES: 'ocr_templates'
 };
 
 export const SETTINGS_DEFINITIONS = {
@@ -239,5 +240,9 @@ export const SETTINGS_DEFINITIONS = {
     [SETTING_KEYS.PAYMENT_STATUS]: {
         defaultValue: DEFAULT_PAYMENT_STATUSES,
         description: 'Estados contables del ciclo de facturación'
+    },
+    [SETTING_KEYS.OCR_TEMPLATES]: {
+        defaultValue: null,
+        description: 'Plantillas y reglas de extracción OCR de documentos'
     }
 };

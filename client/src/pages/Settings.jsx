@@ -23,7 +23,13 @@ const Settings = () => {
             contractDays: 500,
             freeDaysLimit: 4,
             initialFee: 0,
-            emailDomain: 'pocketbike.app'
+            emailDomain: 'pocketbike.app',
+            fixedCosts: {
+                gps: 500000,
+                soatPosterior: 370000,
+                traspasoPosterior: 273000,
+                registro: 217000
+            }
         },
         displayName: 'PocketBike',
         companyLogo: '/pocketbike_60x60.jpg',
@@ -145,7 +151,11 @@ const Settings = () => {
                             ...rest,
                             contractDefaults: {
                                 ...prev.contractDefaults,
-                                ...(rest.contractDefaults || {})
+                                ...(rest.contractDefaults || {}),
+                                fixedCosts: {
+                                    ...(prev.contractDefaults?.fixedCosts || {}),
+                                    ...(rest.contractDefaults?.fixedCosts || {})
+                                }
                             },
                             companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
                         };
@@ -495,6 +505,20 @@ const Settings = () => {
             [category]: {
                 ...prev[category],
                 [field]: value
+            }
+        }));
+        setSaved(false);
+    };
+
+    const handleFixedCostChange = (field, value) => {
+        setSettings(prev => ({
+            ...prev,
+            contractDefaults: {
+                ...prev.contractDefaults,
+                fixedCosts: {
+                    ...(prev.contractDefaults?.fixedCosts || {}),
+                    [field]: value
+                }
             }
         }));
         setSaved(false);
@@ -893,6 +917,95 @@ const Settings = () => {
                                         <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
                                         <option value="Europe/London">Europe/London (UTC+0)</option>
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Costos Fijos del Contrato */}
+                        <div className="settings-card-section">
+                            <div className="card-section-header">
+                                <div className="card-title-group">
+                                    <DollarSign size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <div>
+                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Costos Fijos del Contrato</h2>
+                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                            Valores base y gastos fijos asociados a la configuración de contratos
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="contract-accordion-badge" style={{ background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                    Total: {formatCurrency(
+                                        (Number(settings.contractDefaults?.fixedCosts?.gps) || 0) +
+                                        (Number(settings.contractDefaults?.fixedCosts?.soatPosterior) || 0) +
+                                        (Number(settings.contractDefaults?.fixedCosts?.traspasoPosterior) || 0) +
+                                        (Number(settings.contractDefaults?.fixedCosts?.registro) || 0)
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="settings-card-content general-form">
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostGps">GPS</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostGps"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.gps ?? 500000}
+                                                onChange={(e) => handleFixedCostChange('gps', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="500000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostSoat">SOAT posterior (x2)</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostSoat"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.soatPosterior ?? 370000}
+                                                onChange={(e) => handleFixedCostChange('soatPosterior', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="370000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostTraspaso">Traspaso posterior</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostTraspaso"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.traspasoPosterior ?? 273000}
+                                                onChange={(e) => handleFixedCostChange('traspasoPosterior', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="273000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostRegistro">Registro</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostRegistro"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.registro ?? 217000}
+                                                onChange={(e) => handleFixedCostChange('registro', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="217000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

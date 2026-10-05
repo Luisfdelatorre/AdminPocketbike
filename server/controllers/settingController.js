@@ -51,6 +51,61 @@ class SettingController {
             return res.status(500).json({ success: false, error: 'Error al actualizar estados de pago' });
         }
     }
+
+    async getOcrTemplates(req, res) {
+        try {
+            const stored = await settingRepository.getOcrTemplates();
+            // Si no hay plantillas en BD, respondemos con las plantillas predeterminadas del servicio OCR
+            let templates = stored;
+            // if (!templates || Object.keys(templates).length === 0) {
+            //   const { SOAT_TEMPLATES } = await import('../services/documentOcrService.js');
+            //   templates = SOAT_TEMPLATES;
+            // }
+
+            return res.json({
+                success: true,
+                data: templates,
+                isCustom: Boolean(stored && Object.keys(stored).length > 0)
+            });
+        } catch (error) {
+            logger.error('Error fetching OCR templates:', error);
+            return res.status(500).json({ success: false, error: 'Error al obtener plantillas OCR' });
+        }
+    }
+
+    async updateOcrTemplates(req, res) {
+        try {
+            const templatesData = req.body?.templates || req.body;
+            if (!templatesData || typeof templatesData !== 'object') {
+                return res.status(400).json({ success: false, error: 'Estructura inválida para plantillas OCR' });
+            }
+
+            const updated = await settingRepository.updateOcrTemplates(templatesData);
+            return res.json({
+                success: true,
+                data: updated,
+                message: 'Plantillas OCR actualizadas exitosamente'
+            });
+        } catch (error) {
+            logger.error('Error updating OCR templates:', error);
+            return res.status(500).json({ success: false, error: 'Error al guardar plantillas OCR' });
+        }
+    }
+
+    async resetOcrTemplates(req, res) {
+        try {
+            await settingRepository.resetOcrTemplates();
+            const { SOAT_TEMPLATES } = await import('../services/documentOcrService.js');
+            return res.json({
+                success: true,
+                data: SOAT_TEMPLATES,
+                message: 'Plantillas OCR restauradas a valores predeterminados'
+            });
+        } catch (error) {
+            logger.error('Error resetting OCR templates:', error);
+            return res.status(500).json({ success: false, error: 'Error al restablecer plantillas OCR' });
+        }
+    }
 }
 
 export default new SettingController();
