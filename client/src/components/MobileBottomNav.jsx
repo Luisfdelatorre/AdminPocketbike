@@ -88,6 +88,13 @@ const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompani
                     <span>Rutinas</span>
                 </button>
                 <button
+                    onClick={() => setCompaniesTab && setCompaniesTab('ocrTemplates')}
+                    className={`nav-btn ${companiesTab === 'ocrTemplates' ? 'active' : ''}`}
+                >
+                    <FileText size={20} />
+                    <span>Plantillas</span>
+                </button>
+                <button
                     onClick={() => navigate(-1)}
                     className="nav-btn"
                     style={{ color: '#EF4444' }}

@@ -60,6 +60,11 @@
         z-index: 1100;
     }
 
+    body.modal-open-hide-header .mobile-header,
+    body.modal-open-hide-header .mobile-bottom-nav {
+        display: none !important;
+    }
+
     .mobile-header h2 {
         font-size: 1.25rem;
         color: #1F2937;

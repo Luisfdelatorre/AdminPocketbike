@@ -58,6 +58,54 @@ export const updateContract = (id, data) => api.put(`/contracts/${id}/update`, d
 export const updateContractStatus = (id, status) => api.put(`/contracts/${id}/status`, { status });
 export const getContractStats = (deviceId) => api.get(`/contracts/${deviceId}/stats`);
 export const getActiveContract = (deviceId) => api.get(`/contracts/${deviceId}`);
+export const fetchContractDocumentBlob = async (contractId) => {
+    const data = await api.get(`/contracts/${contractId}/document`, {
+        responseType: 'blob',
+    });
+    return data instanceof Blob ? data : (data?.data instanceof Blob ? data.data : new Blob([data], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    }));
+};
+
+export const getContractDocxBlob = async (contractId) => {
+    const data = await api.get(`/contracts/${contractId}/document`, {
+        responseType: 'blob',
+    });
+    return data instanceof Blob 
+        ? data 
+        : new Blob([data?.data || data], {
+            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+};
+
+export const downloadContractDocument = async (contractId, customFilename) => {
+    const blob = await getContractDocxBlob(contractId);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = customFilename || `Contrato_${contractId}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+export const downloadContractPdf = async (contractId, customFilename) => {
+    const data = await api.get(`/contracts/${contractId}/pdf`, {
+        responseType: 'blob',
+    });
+    const blob = data instanceof Blob ? data : new Blob([data?.data || data], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = customFilename || `Contrato_${contractId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+export const extractContractDocument = (data) => api.post('/contracts/extract-document', data);
 
 // --- Invoices ---
 export const getAllInvoices = (params) => api.get('/invoices/all', { params });
@@ -156,6 +204,9 @@ export const getAdjustmentTypes = () => api.get('/settings/adjustment-types');
 export const updateAdjustmentTypes = (data) => api.put('/settings/adjustment-types', data);
 export const getPaymentStatuses = () => api.get('/settings/payment-status');
 export const updatePaymentStatuses = (data) => api.put('/settings/payment-status', data);
+export const getOcrTemplates = () => api.get('/settings/ocr-templates');
+export const updateOcrTemplates = (data) => api.put('/settings/ocr-templates', data);
+export const resetOcrTemplates = () => api.post('/settings/ocr-templates/reset');
 
 // --- SSE ---
 export const createSSEConnection = (clientId) => {

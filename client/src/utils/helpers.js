@@ -29,7 +29,7 @@ export function formatCompact(value) {
     }
     if (Math.abs(num) >= 1000) {
         const thousands = num / 1000;
-        return `$${Number.isInteger(thousands) ? thousands : Math.round(thousands)}k`;
+        return `$${Number.isInteger(thousands) ? thousands : Math.round(thousands)}K`;
     }
     return `$${num.toLocaleString('es-CO')}`;
 }
@@ -117,4 +117,19 @@ export function exportToCSV(filename, contentOrRows) {
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+/**
+ * Format raw string input into standard 10-digit Colombian phone number representation (e.g., "300 756 0069").
+ */
+export function formatPhoneNumber(value) {
+    if (!value) return '';
+    const digits = String(value).replace(/\D/g, '').slice(0, 10);
+    if (digits.length > 6) {
+        return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+    }
+    if (digits.length > 3) {
+        return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+    }
+    return digits;
 }

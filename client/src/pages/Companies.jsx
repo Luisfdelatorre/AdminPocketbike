@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
-import { Building, Plus, X, ChevronLeft, User, Save, Sliders, Clock } from 'lucide-react';
+import { Building, Plus, X, ChevronLeft, User, Save, Sliders, Clock, FileText } from 'lucide-react';
 import CompanyDevicesModal from '../components/modals/CompanyDevicesModal'; // Import the new modal
 import AdjustmentTypesModal from '../components/modals/AdjustmentTypesModal';
 import SystemJobs from '../components/SystemJobs';
+import OcrTemplatesManager from '../components/OcrTemplatesManager';
 import CompaniesGrid from '../components/CompaniesGrid';
 import PageHeader from '../components/PageHeader';
 import './Users.css'; // Reusing Users CSS for consistency
@@ -24,6 +25,7 @@ const Companies = () => {
     const [isSlidingOut, setIsSlidingOut] = useState(false);
     const systemJobsRef = useRef(null);
     const adjustmentTypesRef = useRef(null);
+    const ocrTemplatesRef = useRef(null);
     const [adjSubTab, setAdjSubTab] = useState('adjustments');
     const [companyForm, setCompanyForm] = useState({
         name: '',
@@ -177,6 +179,10 @@ const Companies = () => {
                         <button className="btn-primary" onClick={() => systemJobsRef.current?.triggerAdd()}>
                             <Plus size={16} /> Añadir Rutina
                         </button>
+                    ) : currentTab === 'ocrTemplates' ? (
+                        <button className="btn-primary" onClick={() => ocrTemplatesRef.current?.triggerAdd()}>
+                            <Plus size={16} /> Nueva Plantilla
+                        </button>
                     ) : null
                 }
             />
@@ -204,9 +210,18 @@ const Companies = () => {
                 >
                     <Clock size={16} /> Rutinas Globales
                 </button>
+                <button
+                    type="button"
+                    className={`companies-tab-btn ${currentTab === 'ocrTemplates' ? 'active' : ''}`}
+                    onClick={() => handleTabChange('ocrTemplates')}
+                >
+                    <FileText size={16} /> Plantillas OCR
+                </button>
             </div>
 
-            {currentTab === 'adjustmentTypes' ? (
+            {currentTab === 'ocrTemplates' ? (
+                <OcrTemplatesManager ref={ocrTemplatesRef} />
+            ) : currentTab === 'adjustmentTypes' ? (
                 <AdjustmentTypesModal isEmbedded={true} ref={adjustmentTypesRef} onFilterChange={setAdjSubTab} />
             ) : currentTab === 'systemJobs' ? (
                 <SystemJobs ref={systemJobsRef} />
@@ -228,6 +243,8 @@ const Companies = () => {
                             systemJobsRef.current?.triggerAdd();
                         } else if (currentTab === 'adjustmentTypes') {
                             adjustmentTypesRef.current?.triggerAdd();
+                        } else if (currentTab === 'ocrTemplates') {
+                            ocrTemplatesRef.current?.triggerAdd();
                         } else {
                             setShowCompanyModal(true);
                         }
