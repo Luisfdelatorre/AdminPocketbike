@@ -100,7 +100,7 @@ const initializeGpsUpdates = async () => {
 
         try {
             await deviceRepository.upsertDevicesBatch(dbUpdatesList);
-            logger.debug(`[GPS] Bulk write: ${dbUpdatesList.length} devices updated`);
+            // logger.debug(`[GPS] Bulk write: ${dbUpdatesList.length} devices updated`);
         } catch (error) {
             logger.error('Error in GPS onFlush:', error);
         }

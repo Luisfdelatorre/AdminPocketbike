@@ -222,7 +222,15 @@ class CompanyService {
         }
 
         if (contractDefaults) {
-            company.contractDefaults = { ...company.contractDefaults, ...contractDefaults };
+            const currentDefaults = company.contractDefaults ? company.contractDefaults.toObject?.() || company.contractDefaults : {};
+            company.contractDefaults = {
+                ...currentDefaults,
+                ...contractDefaults,
+                fixedCosts: {
+                    ...(currentDefaults.fixedCosts || {}),
+                    ...(contractDefaults.fixedCosts || {})
+                }
+            };
         }
 
         if (company.gpsService === 'traccar' && company.gpsConfig) {
@@ -381,6 +389,17 @@ class CompanyService {
             if (maskedData.wompiConfig.integritySecret) maskedData.wompiConfig.integritySecret = '********';
             if (maskedData.wompiConfig.eventsSecret) maskedData.wompiConfig.eventsSecret = '********';
         }
+
+        if (!maskedData.contractDefaults) {
+            maskedData.contractDefaults = {};
+        }
+        maskedData.contractDefaults.fixedCosts = {
+            gps: 500000,
+            soatPosterior: 370000,
+            traspasoPosterior: 273000,
+            registro: 217000,
+            ...(maskedData.contractDefaults.fixedCosts || {})
+        };
 
         return {
             ...maskedData,

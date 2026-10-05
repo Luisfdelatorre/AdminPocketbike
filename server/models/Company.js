@@ -118,7 +118,14 @@ const companySchema = new mongoose.Schema({
         fixedFreeDayOfWeek: { type: Number, min: 0, max: 6, default: 0 }, // 0 = Sunday
         paymentFrequency: { type: Number, default: 1 },
         initialFee: { type: Number, default: 0 },
-        emailDomain: { type: String, default: 'pocketbike.app', trim: true }
+        emailDomain: { type: String, default: 'pocketbike.app', trim: true },
+        // Fixed basic contract costs
+        fixedCosts: {
+            gps: { type: Number, default: 500000 },
+            soatPosterior: { type: Number, default: 370000 },
+            traspasoPosterior: { type: Number, default: 273000 },
+            registro: { type: Number, default: 217000 }
+        }
     }
 }, {
     timestamps: true

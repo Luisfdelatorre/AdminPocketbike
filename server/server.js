@@ -1,3 +1,4 @@
+import './utils/polyfillFetch.js';
 import 'dotenv/config';
 import express from 'express';
 import usersRoutes from './routes/usersRoutes.js';
@@ -35,8 +36,8 @@ const PORT = process.env.PORT || 8083;
 const app = express();
 
 // Middleware - Increase limit for base64 image uploads
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // CORS headers
 app.use((req, res, next) => {
@@ -75,6 +76,9 @@ app.use('/apinode/company-invoices', companyBillingRouter);
 app.use('/apinode/cron', cronRoutes);
 app.use('/apinode/system-jobs', systemJobsRoutes);
 app.use('/apinode/settings', settingsRoutes);
+
+// Serve uploaded documents
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Serve static files from dist directory (Production Build) - PRIORITY
 app.use(express.static(path.join(__dirname, '../dist')));

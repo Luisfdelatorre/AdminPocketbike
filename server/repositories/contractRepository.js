@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
 import deviceRepository from './deviceRepository.js';
@@ -45,7 +46,9 @@ export class ContractRepository {
      * Get contract by ID
      */
     async getContractById(contractId) {
-        return await Contract.findOne({ contractId }).lean();
+        if (!contractId) return null;
+        const isObjectId = mongoose.Types.ObjectId.isValid(contractId);
+        return await Contract.findOne(isObjectId ? { $or: [{ contractId }, { _id: contractId }] } : { contractId }).lean();
     }
 
     /**
@@ -230,6 +233,10 @@ export class ContractRepository {
         if (updates.exemptFromCutOff !== undefined) contract.exemptFromCutOff = updates.exemptFromCutOff;
         if (updates.exemptFromCurfew !== undefined) contract.exemptFromCurfew = updates.exemptFromCurfew;
         if (updates.cutOffTime !== undefined) contract.cutOffTime = updates.cutOffTime;
+        if (updates.attachments !== undefined) contract.attachments = updates.attachments;
+        if (updates.vehicleInfo !== undefined) contract.vehicleInfo = updates.vehicleInfo;
+        if (updates.soatDueDate !== undefined) contract.soatDueDate = updates.soatDueDate;
+        if (updates.financialBreakdown !== undefined) contract.financialBreakdown = updates.financialBreakdown;
 
         // Handle updates that affect calculations (dailyRate, contractDays)
         let recalculate = false;
