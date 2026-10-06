@@ -286,7 +286,10 @@ const Invoices = () => {
                 invoice.deviceId?.toLowerCase().includes(query) ||
                 invoice.contractId?.toLowerCase().includes(query) ||
                 invoice.paymentReference?.toLowerCase().includes(query) ||
-                invoice.adjustmentReference?.toLowerCase().includes(query)
+                invoice.adjustmentReference?.toLowerCase().includes(query) ||
+                invoice.transactionId?.toLowerCase().includes(query) ||
+                invoice.transaction?.id?.toLowerCase().includes(query) ||
+                invoice.transaction?.reference?.toLowerCase().includes(query)
             );
         }
         return true;
@@ -564,6 +567,7 @@ const Invoices = () => {
                                 const { isPayable, isPaidOrFree, statusClass, label, invoiceIdSub, deviceIdName } = invoice;
                                 const BadgeIcon = invoice.adjustmentType ? ADJUSTMENT_ICONS[invoice.adjustmentType] : null;
                                 const mainId = deviceIdName || invoice.invoiceId || 'N/A';
+                                const paymentId = invoice.transactionId || invoice.transaction?.id || null;
 
                                 return (
                                     <div key={invoice.invoiceId} className="invoices-row-ios">
@@ -586,9 +590,14 @@ const Invoices = () => {
                                             <span className="desktop-only">{formatCurrency(invoice.paidAmount, false)}</span>
                                             <span className="mobile-only">{formatCurrency(invoice.paidAmount, true)}</span>
                                         </div>
-                                        <div className="date-col">
+                                        <div className="date-col flex-col !items-start">
                                             <span className="desktop-only">{formatDate(invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
                                             <span className="mobile-only">{formatDate(invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
+                                            {paymentId && (
+                                                <div className="invoice-payment-id" title={`ID de pago: ${paymentId}`}>
+                                                    ID Pago: {paymentId}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="status-col">
                                             <StatusBadge

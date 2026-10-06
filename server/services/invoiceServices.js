@@ -138,6 +138,7 @@ const enrichInvoice = (invoice, adjustmentTypes = {}) => {
     invoice.color = cfg.color || '#6b7280';
     invoice.bg = cfg.bg || 'transparent';
     invoice.paymentDate = invoice.transaction?.finalized_at || null;
+    invoice.transactionId = invoice.transaction?.id || null;
     invoice.isPayable = Boolean(isPayable);
     invoice.isPaidOrFree = Boolean(isPaidOrFree);
     invoice.formattedInvoiceId = idDisplay.formatted;
@@ -345,8 +346,7 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         adjustmentType: 1,
         adjustmentReference: 1,
         adjustmentComment: 1,
-        "transaction.finalized_at": 1,
-        "transaction.reference": 1,
+        transaction: 1,
         createdAt: 1
     };
 
