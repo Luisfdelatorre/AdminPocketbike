@@ -225,6 +225,8 @@ export class ContractRepository {
         if (updates.customerEmail !== undefined) contract.customerEmail = updates.customerEmail;
         if (updates.customerPhone !== undefined) contract.customerPhone = updates.customerPhone;
         if (updates.customerDocument !== undefined) contract.customerDocument = updates.customerDocument;
+        if (updates.customerAddress !== undefined) contract.customerAddress = updates.customerAddress;
+        if (updates.guarantor !== undefined) contract.guarantor = updates.guarantor;
         if (updates.notes !== undefined) contract.notes = updates.notes;
         if (updates.freeDaysLimit !== undefined) contract.freeDaysLimit = updates.freeDaysLimit;
         if (updates.freeDayPolicy !== undefined) contract.freeDayPolicy = updates.freeDayPolicy;
