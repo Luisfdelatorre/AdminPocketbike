@@ -128,7 +128,7 @@ body:has(.modal-surface--contract) .mobile-bottom-nav {
 
 .contract-header-title {
     margin: 0;
-    font-size: 0.938rem;
+    font-size: 1rem;
     font-weight: 700;
     letter-spacing: -0.01em;
     line-height: 1.25;
@@ -1402,7 +1402,7 @@ body:has(.modal-surface--contract) .mobile-bottom-nav {
     }
 
     .contract-header-title {
-        font-size: 0.875rem;
+        font-size: 1rem;
     }
 
     .contract-immersive-main {
