@@ -4,6 +4,7 @@ import express from 'express';
 import usersRoutes from './routes/usersRoutes.js';
 import companiesRoutes from './routes/companiesRoutes.js';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import * as config from './config/config.js';
 import { connectDatabase } from './database/connection.js';
@@ -82,6 +83,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Serve static files from dist directory (Production Build) - PRIORITY
 app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, '../client/public')));
 
 // Custom Payment Page (Vanilla JS)
 // Serve static assets for the custom page
@@ -132,8 +134,16 @@ app.get('/apinode/health', async (req, res) => {
 
 // Serve index.html for all non-API routes (SPA support)
 app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, '../dist/index.html'));
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/apinode')) {
+        const indexPath = path.join(__dirname, '../dist/index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).json({
+                error: 'Frontend build not found',
+                message: 'dist/index.html does not exist. Please run "npm run build" or use Vite dev server on port 5173.'
+            });
+        }
     } else {
         res.status(404).json({ error: 'API endpoint not found' });
     }
