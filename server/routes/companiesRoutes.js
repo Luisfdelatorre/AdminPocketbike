@@ -12,6 +12,7 @@ router.get('/branding', companyController.getBranding);
 router.use(verifyToken);
 
 router.post('/', companyController.createCompany);
+router.post('/validate-traccar', companyController.validateTraccar);
 router.get('/settings', companyController.getSettings);
 router.put('/settings', companyController.updateSettings);
 router.put('/branding/update', companyController.updateBranding); // Specific route first

@@ -119,10 +119,10 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                             <button
                                 className={`nav-item ${isActive('/summary') ? 'active' : ''}`}
                                 onClick={() => handleNavigation('/summary')}
-                                title="Resumen de Pagos"
+                                title={t('sidebar.summary')}
                             >
                                 <Calendar size={20} />
-                                <span>Resumen</span>
+                                <span>{t('sidebar.summary')}</span>
                             </button>
                         </div>
                     )}

@@ -11,6 +11,8 @@ class TraccarApi {
 
     this.user = user;
     this.password = password;
+    this.cookie = null;
+    this.sessionPromise = null;
 
     this.axiosInstance = axios.create({
       baseURL: host,
@@ -27,15 +29,72 @@ class TraccarApi {
       if (req.data && !(req.data instanceof URLSearchParams) && typeof req.data !== 'string') {
         req.headers['Content-Type'] = 'application/json';
       }
+      if (this.cookie) {
+        req.headers['Cookie'] = this.cookie;
+      }
       return req;
     });
   }
 
+  ensureSession = async () => {
+    if (this.cookie) return this.cookie;
+    if (this.sessionPromise) return this.sessionPromise;
+
+    this.sessionPromise = (async () => {
+      try {
+        const res = await this.createSession();
+        const setCookieHeader = res.headers['set-cookie'];
+        if (setCookieHeader && setCookieHeader.length > 0) {
+          this.cookie = setCookieHeader[0].split(';')[0];
+        }
+        return this.cookie;
+      } catch (err) {
+        console.error('[TraccarApi] Error creating session:', err.message);
+        throw err;
+      } finally {
+        this.sessionPromise = null;
+      }
+    })();
+
+    return this.sessionPromise;
+  };
+
   // ── Endpoints ──────────────────────────────
-  getDeviceList = (params = {}) => this.axiosInstance.get('api/devices', { params });
-  getDayKmDevice = (params = {}) => this.axiosInstance.get('api/reports/summary', { params });
-  getPositions = (params = {}) => this.axiosInstance.get('api/positions', { params });
-  sendCommand = (body = {}) => this.axiosInstance.post('api/commands/send', body);
+  getGroups = async (params = {}) => {
+    await this.ensureSession();
+    return this.axiosInstance.get('api/groups', { params });
+  };
+
+  getDeviceList = async (params = {}) => {
+    await this.ensureSession();
+    return this.axiosInstance.get('api/devices', { params });
+  };
+
+  getDayKmDevice = async (params = {}) => {
+    await this.ensureSession();
+    return this.axiosInstance.get('api/reports/summary', { params });
+  };
+
+  getPositions = async (params = {}) => {
+    await this.ensureSession();
+    return this.axiosInstance.get('api/positions', { params });
+  };
+
+  sendCommand = async (body = {}) => {
+    await this.ensureSession();
+    try {
+      return await this.axiosInstance.post('api/commands/send', body);
+    } catch (err) {
+      if (err.response?.status === 400 || err.response?.status === 401) {
+        console.warn('[TraccarApi] Command failed, refreshing session and retrying...');
+        this.cookie = null;
+        await this.ensureSession();
+        return await this.axiosInstance.post('api/commands/send', body);
+      }
+      throw err;
+    }
+  };
+
   createSession = () => {
     const params = new URLSearchParams();
     params.append('email', this.user);

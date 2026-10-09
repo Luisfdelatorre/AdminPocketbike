@@ -1,8 +1,10 @@
+import './utils/polyfillFetch.js';
 import 'dotenv/config';
 import express from 'express';
 import usersRoutes from './routes/usersRoutes.js';
 import companiesRoutes from './routes/companiesRoutes.js';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import * as config from './config/config.js';
 import { connectDatabase } from './database/connection.js';
@@ -21,7 +23,11 @@ import deviceAccessRouter from './routes/deviceAccess.js';
 import devicesRouter from './routes/devicesRoutes.js';
 import paymentPageRouter from './routes/paymentPageRoutes.js';
 import companyBillingRouter from './routes/companyBillingRoutes.js';
+import cronRoutes from './routes/cronRoutes.js';
+import systemJobsRoutes from './routes/systemJobsRoutes.js';
 import cron from "./cron-server/cron.js";
+import jobRegistry from "./cron-server/jobRegistry.js";
+import syncDailyKm, { syncYesterdayKm } from './cron-server/jobs/syncDailyKm.js';
 const { default: seedSuperAdmin } = await import('./utils/seedSuperAdmin.js');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,8 +37,8 @@ const PORT = process.env.PORT || 8083;
 const app = express();
 
 // Middleware - Increase limit for base64 image uploads
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // CORS headers
 app.use((req, res, next) => {
@@ -53,6 +59,8 @@ app.use((req, res, next) => {
     next();
 });
 
+import settingsRoutes from './routes/settingsRoutes.js';
+
 // API Routes
 app.use('/apinode/users', usersRoutes);
 app.use('/apinode/companies', companiesRoutes);
@@ -66,10 +74,16 @@ app.use('/apinode/dashboard', dashboardRouter);
 app.use('/apinode/device-access', deviceAccessRouter);
 app.use('/apinode/devices', devicesRouter);
 app.use('/apinode/company-invoices', companyBillingRouter);
+app.use('/apinode/cron', cronRoutes);
+app.use('/apinode/system-jobs', systemJobsRoutes);
+app.use('/apinode/settings', settingsRoutes);
 
+// Serve uploaded documents
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Serve static files from dist directory (Production Build) - PRIORITY
 app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, '../client/public')));
 
 // Custom Payment Page (Vanilla JS)
 // Serve static assets for the custom page
@@ -82,20 +96,54 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/p', paymentPageRouter);
 
 // Health check
-app.get('/apinode/health', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Server is running',
-        timestamp: new Date().toISOString(),
-    });
+app.get('/apinode/health', async (req, res) => {
+    try {
+        const method = (req.query.method || req.query.mode || req.query.sync || 'daily').toLowerCase();
+        const targetDate = req.query.date ? new Date(req.query.date) : new Date();
+        let kmResult = null;
+
+        if (method === 'yesterday') {
+            kmResult = await syncYesterdayKm(targetDate);
+        } else {
+            const runFn = syncDailyKm?.run || syncDailyKm?.syncDailyKm || (typeof syncDailyKm === 'function' ? syncDailyKm : null);
+            if (typeof runFn === 'function') {
+                kmResult = await runFn(targetDate);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Server is running',
+            executedMethod: method,
+            date: targetDate.toISOString(),
+            kmResult,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (err) {
+        console.error(`Error running km sync (${req.query.method || 'daily'}):`, err);
+        res.status(500).json({
+            success: false,
+            message: 'Error running km sync',
+            error: err.message,
+            timestamp: new Date().toISOString(),
+        });
+    }
 });
 
 // Serve static files from dist directory (Moved to top)
 
 // Serve index.html for all non-API routes (SPA support)
 app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, '../dist/index.html'));
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/apinode')) {
+        const indexPath = path.join(__dirname, '../dist/index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).json({
+                error: 'Frontend build not found',
+                message: 'dist/index.html does not exist. Please run "npm run build" or use Vite dev server on port 5173.'
+            });
+        }
     } else {
         res.status(404).json({ error: 'API endpoint not found' });
     }
@@ -123,6 +171,9 @@ async function startServer() {
         // await cron.init();
         //execute cron jobs
         // await cron.execute('dailyInvoicesCreation');
+
+        // Load plugins into memory for the API endpoints
+        await jobRegistry.loadJobs();
 
         // Start Express server
         app.listen(config.server.port, async () => {

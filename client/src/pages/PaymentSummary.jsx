@@ -1,24 +1,20 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
-
-import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
+import { RefreshCw, Download, PowerOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine, getAllCompanies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import { Calendar, DollarSign, Activity, FileText, ChevronDown, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone } from 'lucide-react';
+import MobileHeaderAction from '../components/MobileHeaderAction';
+import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
+import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
-
-// Helper to format currency
-// Helper to format currency
-const formatCurrency = (amount) => {
-    if (!amount) return '-';
-    if (amount >= 1000) {
-        return `$${(amount / 1000).toFixed(0)}k`;
-    }
-    return `$${amount}`;
-};
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import PageHeader from '../components/PageHeader';
+import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
 
@@ -32,12 +28,11 @@ const getInitialDesktopView = () => {
 
 const PaymentSummary = () => {
     const { user } = useAuth();
+    const { subscribe } = useSSE();
     const [loading, setLoading] = useState(false);
-    const [downloading, setDownloading] = useState(false);
-    const [summaryData, setSummaryData] = useState([]);
-    const [bulkOffLoading, setBulkOffLoading] = useState(false);
-    const [bulkOffModal, setBulkOffModal] = useState(false);
-    const [deviceStatuses, setDeviceStatuses] = useState([]);
+    const { t } = useTranslation();
+    const [summaryDataMap, setSummaryDataMap] = useState({});
+    const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
     const [pendingCommands, setPendingCommands] = useState({});
     const summaryHeaderRef = useRef(null);
     const tableContainerRef = useRef(null);
@@ -50,21 +45,13 @@ const PaymentSummary = () => {
     const [matrixGeometry, setMatrixGeometry] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
-    const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
+    const [showFilters, setShowFilters] = useState(true);
 
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
+    const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
+    const [companies, setCompanies] = useState([]);
+    const [selectedCompany, setSelectedCompany] = useState('all');
 
-    useFilterVisibilityOnScroll(setShowFilters);
 
-    useEffect(() => {
-        const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
-        const handleBreakpointChange = (event) => setIsMobile(event.matches);
-        mobileMediaQuery.addEventListener('change', handleBreakpointChange);
-        return () => mobileMediaQuery.removeEventListener('change', handleBreakpointChange);
-    }, []);
 
     const handleDesktopViewChange = (view) => {
         setDesktopView(view);
@@ -106,36 +93,6 @@ const PaymentSummary = () => {
 
     const daysArray = Array.from({ length: lastVisibleDay }, (_, i) => i + 1);
 
-
-    // Vertical sum of totalPaid per day across all devices
-    const dailyTotals = daysArray.reduce((acc, day) => {
-        acc[day] = summaryData.reduce((sum, item) => sum + (item.days[day]?.totalPaid || 0), 0);
-        return acc;
-    }, {});
-
-    const renderMatrixHeader = (className = '') => (
-        <thead className={className}>
-            <tr>
-                <th>DISPOSITIVO</th>
-                <th>Deuda</th>
-                {daysArray.map(day => (
-                    <th key={day}>{String(day).padStart(2, '0')}</th>
-                ))}
-                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
-            </tr>
-            <tr className="daily-totals-row">
-                <th className="totals-label">Total día</th>
-                <th></th>
-                {daysArray.map(day => (
-                    <th key={day} className="daily-total-cell">
-                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
-                    </th>
-                ))}
-                <th></th>
-            </tr>
-        </thead>
-    );
-
     const syncMatrixHeaderScroll = (scrollLeft) => {
         if (matrixHeaderViewportRef.current) {
             matrixHeaderViewportRef.current.scrollLeft = scrollLeft;
@@ -146,25 +103,7 @@ const PaymentSummary = () => {
         syncMatrixHeaderScroll(event.currentTarget.scrollLeft);
     };
 
-    useLayoutEffect(() => {
-        const header = summaryHeaderRef.current;
-        if (!header) return undefined;
 
-        const updateHeaderHeight = () => {
-            setSummaryHeaderHeight(Math.ceil(header.getBoundingClientRect().height));
-        };
-
-        updateHeaderHeight();
-
-        if (typeof ResizeObserver === 'undefined') {
-            window.addEventListener('resize', updateHeaderHeight);
-            return () => window.removeEventListener('resize', updateHeaderHeight);
-        }
-
-        const observer = new ResizeObserver(updateHeaderHeight);
-        observer.observe(header);
-        return () => observer.disconnect();
-    }, []);
 
     useEffect(() => {
         const updateStickyState = () => {
@@ -229,17 +168,51 @@ const PaymentSummary = () => {
         return () => observer.disconnect();
     }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
 
+    useEffect(() => {
+        if (isSystemAdmin) {
+            getAllCompanies().then(res => {
+                const list = Array.isArray(res) ? res : (res.data || res.companies || []);
+                setCompanies(list);
+            }).catch(err => console.error('Failed to load companies list:', err));
+        }
+    }, [isSystemAdmin]);
+
+    const activeCompanyId = isSystemAdmin
+        ? (selectedCompany !== 'all' ? selectedCompany : undefined)
+        : undefined;
+
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
-            // Using the new endpoint
             const response = await getPaymentSummary({
                 month: selectedMonth,
-                year: selectedYear
+                year: selectedYear,
+                companyId: activeCompanyId
             });
 
             if (response.success && Array.isArray(response.data)) {
-                setSummaryData(response.data);
+                const map = {};
+                response.data.forEach(item => {
+                    const devKey = String(item.device?.gpsId || item.device?.deviceId || item.device?.name || '');
+                    if (devKey && devKey !== 'undefined') {
+                        map[devKey] = item;
+                    }
+                });
+
+                // Anti-Race Condition: If the API response has older data than our local SSE cache, keep the local SSE device state!
+                setSummaryDataMap(prev => {
+                    const next = { ...map };
+                    Object.keys(next).forEach(key => {
+                        const prevDev = prev[key]?.device;
+                        const nextDev = next[key].device;
+                        if (prevDev?.lastUpdate && nextDev?.lastUpdate) {
+                            if (new Date(prevDev.lastUpdate) > new Date(nextDev.lastUpdate)) {
+                                next[key].device = { ...nextDev, ...prevDev };
+                            }
+                        }
+                    });
+                    return next;
+                });
             }
         } catch (error) {
             console.error("Error fetching summary:", error);
@@ -251,7 +224,7 @@ const PaymentSummary = () => {
     const handleExport = async () => {
         setDownloading(true);
         try {
-            await exportPaymentsCSV(selectedMonth, selectedYear);
+            await exportPaymentsCSV(selectedMonth, selectedYear, activeCompanyId);
         } catch (err) {
             console.error('CSV export error:', err);
             alert('Error al descargar el CSV: ' + err.message);
@@ -266,127 +239,58 @@ const PaymentSummary = () => {
     };
 
 
-    const handleEngineToggle = async (deviceObj) => {
-        const dev = deviceObj.device || deviceObj;
-        const id = dev.deviceId || dev.id || dev.name;
-        const command = dev.cutOff ? 1 : 0;
-        setPendingCommands(prev => ({ ...prev, [id]: true }));
+    const handleEngineToggle = async (device) => {
+        const gpsId = device.gpsId;
+        const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
         try {
-            const result = await controlEngine(id, command);
-            if (result.success) {
-                const msg = result.message || result.response?.message || 'Comando enviado con éxito';
-                showToast(msg, 'success');
-                const nextCutOff = command === 0;
-                setSummaryData(prev => prev.map(item => {
-                    const currentId = item.device.deviceId || item.device.id || item.device.name;
-                    if (currentId === id || item.device.name === id) {
-                        return {
-                            ...item,
-                            device: { ...item.device, cutOff: nextCutOff }
-                        };
+            const result = await controlEngine(gpsId, command);
+            const data = result.data || result;
+            const resObj = data.response || data;
+
+            if (data.success || resObj.success) {
+                showToast(`Comando encolado en Traccar para ${device.name}`, 'info');
+                setSummaryDataMap(prev => {
+                    const next = { ...prev };
+                    const primaryKey = String(gpsId);
+                    if (next[primaryKey]) {
+                        // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
+                        if (next[primaryKey].device.cutOff === !!device.cutOff) {
+                            next[primaryKey] = {
+                                ...next[primaryKey],
+                                device: { ...next[primaryKey].device, queued: true }
+                            };
+                        }
                     }
-                    return item;
-                }));
-            } else {
-                showToast(result.error || 'Error controlando motor', 'error');
+                    return next;
+                });
             }
         } catch (err) {
             showToast(err.message || 'Error', 'error');
         } finally {
-            setPendingCommands(prev => ({ ...prev, [id]: false }));
+            setPendingCommands(prev => {
+                const next = { ...prev };
+                delete next[gpsId];
+                return next;
+            });
         }
     };
 
     useEffect(() => {
         fetchData();
-        const handlePaymentUpdate = (e) => {
-            const detail = e.detail;
-            if (!detail) return;
+    }, [selectedMonth, selectedYear, selectedCompany]);
 
-            if (detail?.type === 'gps_update' && Array.isArray(detail.devices)) {
-                setSummaryData(prev => prev.map(item => {
-                    const devId = String(item.device.deviceId || item.device.id || item.device.name || '');
-                    const devGpsId = String(item.device.gpsId || '');
-                    const match = detail.devices.find(u => {
-                        const targetId = String(u.gpsId || u.filter?.gpsId || u.filter?.deviceId || '');
-                        return targetId && (devId === targetId || devGpsId === targetId || item.device.name?.toUpperCase() === targetId.toUpperCase());
-                    });
-                    if (match) {
-                        return {
-                            ...item,
-                            device: {
-                                ...item.device,
-                                ...(match.cutOff != null && { cutOff: match.cutOff ? 1 : 0 }),
-                                ...(match.batteryLevel != null && { batteryLevel: match.batteryLevel }),
-                                ...(match.ignition != null && { ignition: match.ignition })
-                            }
-                        };
-                    }
-                    return item;
-                }));
-            } else if (detail?.type === 'engine' && detail?.deviceId) {
-                const targetCutOff = (detail.command === 0 || detail.command === '0' || detail.command === false) ? 1 : 0;
-                setSummaryData(prev => prev.map(item => {
-                    const targetStr = String(detail.deviceId).toUpperCase();
-                    const isMatch =
-                        String(item.device._id) === targetStr ||
-                        String(item.device.gpsId) === targetStr ||
-                        item.device.name?.toUpperCase() === targetStr;
-
-                    if (isMatch) {
-                        return {
-                            ...item,
-                            device: { ...item.device, cutOff: targetCutOff }
-                        };
-                    }
-                    return item;
-                }));
-            } else if (detail?.type === 'cutoff-batch') {
-                fetchData();
-            }
-        };
-
-        const handleDeviceUpdate = (e) => {
-            const detail = e.detail;
-            if (!detail) return;
-
-            setSummaryData(prev => prev.map(item => {
-                const isMatch =
-                    (detail.gpsId != null && String(item.device.gpsId) === String(detail.gpsId)) ||
-                    (detail.name && item.device.name?.toUpperCase() === detail.name?.toUpperCase()) ||
-                    (detail._id && String(item.device._id) === String(detail._id));
-
-                if (isMatch) {
-                    return {
-                        ...item,
-                        device: {
-                            ...item.device,
-                            ...(detail.cutOff != null && { cutOff: (detail.cutOff === true || detail.cutOff === 1 || detail.cutOff === '1') ? 1 : 0 }),
-                            ...(detail.batteryLevel != null && { batteryLevel: detail.batteryLevel }),
-                            ...(detail.ignition != null && { ignition: detail.ignition })
-                        }
-                    };
-                }
-                return item;
-            }));
-        };
-
-        window.addEventListener('payment-update', handlePaymentUpdate);
-        window.addEventListener('device-update', handleDeviceUpdate);
-        return () => {
-            window.removeEventListener('payment-update', handlePaymentUpdate);
-            window.removeEventListener('device-update', handleDeviceUpdate);
-        };
-    }, [selectedMonth, selectedYear]);
+    const [bulkOffLoading, setBulkOffLoading] = useState(false);
+    const [showBulkOffModal, setShowBulkOffModal] = useState(false);
 
     const handleBulkEngineOff = async () => {
-        setBulkOffModal(false);
+        setShowBulkOffModal(false);
         setBulkOffLoading(true);
         try {
             const result = await cutoffDebtors();
-            const msg = result?.message || (result?.success ? 'Listo' : 'Error');
+            const msg = result?.message || (result?.success ? 'Comandos de apagado encolados para vehículos morosos' : 'Error al apagar morosos');
             showToast(msg, result?.success ? 'success' : 'error');
-            fetchData(); // Reload to reflect new cutoff state in table
+            await fetchData(true);
         } catch (err) {
             showToast(err.message || 'Error al apagar morosos', 'error');
         } finally {
@@ -400,77 +304,42 @@ const PaymentSummary = () => {
         hasInitialScrolledRef.current = false;
     }, [selectedMonth, selectedYear, desktopView]);
 
+
+
     // Real-time SSE listening for device status updates in summary view
     useEffect(() => {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('adminToken');
-        if (!token) return;
-
-        const activeCompanyId = user?.companyId || '';
-        const sseUrl = `/apinode/sse/subscribe?token=${encodeURIComponent(token)}${activeCompanyId ? `&companyId=${encodeURIComponent(activeCompanyId)}` : ''}`;
-
-        let eventSource;
-        try {
-            eventSource = new EventSource(sseUrl);
-
-            eventSource.addEventListener('device_update', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (!data) return;
-
-                    setDeviceStatuses((prevList) => {
-                        let matchFound = false;
-                        const updatedList = prevList.map((d) => {
-                            const isMatch = (
-                                (data.name && (d.name === data.name || d.deviceIdName === data.name)) ||
-                                (data.deviceIdName && (d.name === data.deviceIdName || d.deviceIdName === data.deviceIdName)) ||
-                                (data.gpsId && (d.gpsId === data.gpsId || d.id === data.gpsId || d.deviceId === data.gpsId)) ||
-                                (data._id && (d._id === data._id || d.id === data._id))
-                            );
-
-                            if (isMatch) {
-                                matchFound = true;
-                                return {
-                                    ...d,
-                                    ignition: data.ignition !== undefined ? data.ignition : d.ignition,
-                                    batteryLevel: data.batteryLevel !== null && data.batteryLevel !== undefined ? data.batteryLevel : d.batteryLevel,
-                                    cutOff: data.cutOff !== undefined ? data.cutOff : d.cutOff,
-                                    lastUpdate: data.lastUpdate ? data.lastUpdate : d.lastUpdate,
-                                };
-                            }
-                            return d;
-                        });
-
-                        return matchFound ? updatedList : prevList;
+        const unsub = subscribe('device_update', (e) => {
+            try {
+                const data = e.parsedData;
+                if (!data) return;
+                const updates = Array.isArray(data) ? data : [data];
+                setSummaryDataMap(prev => {
+                    const next = { ...prev };
+                    let matchFound = false;
+                    updates.forEach(u => {
+                        const key = String(u.gpsId || u.deviceId || u.name || '');
+                        if (key && next[key]) {
+                            matchFound = true;
+                            next[key] = {
+                                ...next[key],
+                                device: {
+                                    ...next[key].device,
+                                    ...u
+                                }
+                            };
+                        }
                     });
-                } catch (err) {
-                    console.error('Error parsing SSE device_update in PaymentSummary:', err);
-                }
-            });
-
-            // Listen for financial, payment, and reconciliation real-time updates
-            const handleRealtimeReload = () => {
-                fetchData();
-                loadDeviceStatuses();
-            };
-
-            eventSource.addEventListener('payment_update', handleRealtimeReload);
-            eventSource.addEventListener('reconciliation_update', handleRealtimeReload);
-            eventSource.addEventListener('invoice_update', handleRealtimeReload);
-            eventSource.addEventListener('summary_update', handleRealtimeReload);
-
-            eventSource.onerror = (err) => {
-                console.warn('SSE connection error in PaymentSummary, EventSource will automatically retry:', err);
-            };
-        } catch (err) {
-            console.error('Failed to initialize SSE in PaymentSummary:', err);
-        }
+                    return matchFound ? next : prev;
+                });
+            } catch (err) {
+                console.error('Error parsing SSE device_update in PaymentSummary:', err);
+            }
+        });
 
         return () => {
-            if (eventSource) {
-                eventSource.close();
-            }
+            unsub();
         };
-    }, [user?.companyId]);
+    }, [subscribe, user?.companyId]);
 
     useEffect(() => {
         if (!isMobile && desktopView === 'matrix' && !loading && tableContainerRef.current) {
@@ -497,7 +366,7 @@ const PaymentSummary = () => {
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             const nameMatch = item.device.name?.toLowerCase().includes(q);
-            const driverMatch = item.device.driverName?.toLowerCase().includes(q);
+            const driverMatch = (item.device.customerName || item.device.driverName)?.toLowerCase().includes(q);
             if (!nameMatch && !driverMatch) return false;
         }
         // Status pill filter
@@ -510,32 +379,24 @@ const PaymentSummary = () => {
         return true;
     });
 
-    const renderEngineButton = (deviceObj) => {
-        const dev = deviceObj.device || deviceObj;
-        const devId = dev.deviceId || dev.id || dev.name;
+    const renderEngineButton = (item) => {
+        const dev = item.device;
+        const devId = dev.deviceId;
         const isOff = !!dev.cutOff;
-        const isPending = !!pendingCommands[devId];
+        const isPendingCommand = !!pendingCommands[devId];
+        const isQueued = !!dev.queued;
+        const isDisabled = isPendingCommand || isQueued;
 
-        if (user?.role === 'viewer') {
-            return (
-                <div
-                    className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'}`}
-                    style={{ opacity: 0.5, cursor: 'not-allowed', transform: 'scale(0.75)', transformOrigin: 'center', display: 'inline-flex' }}
-                >
-                    <div className="slider-knob"><Power size={10} /></div>
-                </div>
-            );
-        }
         return (
             <button
                 onClick={() => handleEngineToggle(dev)}
-                disabled={isPending}
-                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPending ? 'pending' : ''}`}
-                title={isOff ? 'Activar Moto' : 'Desactivar Moto'}
+                disabled={isDisabled}
+                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPendingCommand ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                title={isQueued ? 'Comando en cola (esperando señal GPS)' : (isOff ? 'Activar Moto' : 'Desactivar Moto')}
                 style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
-                    {isPending
+                    {isPendingCommand
                         ? <RefreshCw size={10} className="spin" />
                         : <Power size={10} />}
                 </div>
@@ -543,159 +404,74 @@ const PaymentSummary = () => {
         );
     };
 
-    const renderDayCell = (dayData) => {
-        let cellClass = 'status-cell empty';
-        let content = '--';
-        let paymentTime = null;
 
-        if (dayData) {
-            const rawDate = dayData.latestPaymentAt || dayData.paidAt || (dayData.paid && dayData.updatedAt ? dayData.updatedAt : null);
-            if (rawDate) {
-                const dateObj = new Date(rawDate);
-                if (!isNaN(dateObj.getTime())) {
-                    const hours = String(dateObj.getHours()).padStart(2, '0');
-                    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-                    paymentTime = `${hours}:${minutes}`;
-                }
-            }
 
-            if (dayData.dayType === 'LOAN') {
-                cellClass = 'status-cell loand';
-                content = '--';
-            } else if (dayData.dayType === 'PAID') {
-                cellClass = 'status-cell approved';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-            } else if (dayData.dayType === 'FREE') {
-                cellClass = 'status-cell free';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-            } else if (dayData.dayType === 'ADJUSTMENT') {
-                cellClass = 'status-cell adjusted';
-                content = '🔧';
-            } else {
-                cellClass = 'status-cell pending';
-                content = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
-            }
+    const handleFilterToggle = () => setShowFilters(prev => !prev);
 
-            content = (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1 }}>
-                    <span style={{ fontSize: '10.5px' }}>{content}</span>
-                    {paymentTime && (
-                        <span className="payment-time-sub">
-                            {paymentTime}
-                        </span>
-                    )}
-                </div>
+    const renderViews = useMemo(() => {
+        if (isMobile || desktopView === 'bike') {
+            return (
+                <BikePaymentSummary
+                    summaryData={filteredSummaryData}
+                    daysArray={daysArray}
+                    currentDay={currentDay}
+                    isFutureSummaryDay={isFutureSummaryDay}
+                    loading={loading}
+                    user={user}
+                    handleEngineToggle={handleEngineToggle}
+                    pendingCommands={pendingCommands}
+                    getDeviceStatus={getDeviceStatus}
+                />
             );
-
-            if (dayData.cutOff) {
-                content = (
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {content}
-                        <div style={{ position: 'absolute', top: '-8px', right: '-18px' }}>
-                            <MotorIcon color="#ef4444" size={14} />
-                        </div>
-                    </div>
-                );
-            }
         }
-        return { cellClass, content };
-    };
+
+        return (
+            <MatrixPaymentSummary
+                matrixHeaderViewportRef={matrixHeaderViewportRef}
+                matrixGeometry={matrixGeometry}
+                tableContainerRef={tableContainerRef}
+                handleMatrixScroll={handleMatrixScroll}
+                matrixTableRef={matrixTableRef}
+                loading={loading}
+                daysInMonth={daysInMonth}
+                filteredSummaryData={filteredSummaryData}
+                daysArray={daysArray}
+                isFutureSummaryDay={isFutureSummaryDay}
+                renderEngineButton={renderEngineButton}
+            />
+        );
+    }, [
+        isMobile, desktopView, filteredSummaryData, daysArray, currentDay,
+        loading, user, pendingCommands, matrixGeometry
+    ]);
+
+    const autoOffButton = (
+        <button
+            type="button"
+            className="select-control auto-cutoff-btn"
+            title={`Apagar motor de vehículos morosos (${morososCount})`}
+            onClick={() => setShowBulkOffModal(true)}
+            disabled={bulkOffLoading || morososCount === 0}
+        >
+            <Power size={19} className={bulkOffLoading ? 'spin' : ''} aria-hidden="true" />
+        </button>
+    );
 
     return (
-        <div
-            className="payment-summary-container"
-            style={{ '--summary-header-height': `${summaryHeaderHeight}px` }}
-        >
+        <div className="payment-summary-container" style={{ '--summary-header-height': `${summaryHeaderHeight}px` }} >
 
-            {bulkOffModal && (
-                <div
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-                    }}
-                    onClick={() => setBulkOffModal(false)}
-                >
-                    <div
-                        style={{
-                            background: '#fff', borderRadius: '16px', padding: '28px 24px',
-                            maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
-                        }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                            <div style={{
-                                background: '#FEF2F2', borderRadius: '10px', padding: '10px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <ZapOff size={22} style={{ color: '#EF4444' }} />
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#111' }}>Apagar veh&iacute;culos morosos</div>
-                                <div style={{ fontSize: '0.78rem', color: '#6B7280', marginTop: '2px' }}>
-                                    {morososCount} moto(s) con deuda ser&aacute;n apagadas
-                                </div>
-                            </div>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '20px', lineHeight: 1.5 }}>
-                            Se enviar&aacute; comando de <strong>corte de motor</strong> solo a los dispositivos con <strong style={{ color: '#EF4444' }}>deuda pendiente</strong>. &iquest;Confirmar?
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                onClick={() => setBulkOffModal(false)}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #E5E7EB',
-                                    background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#374151'
-                                }}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleBulkEngineOff}
-                                style={{
-                                    flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
-                                    background: '#EF4444', color: '#fff', cursor: 'pointer',
-                                    fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                }}
-                            >
-                                <ZapOff size={15} /> Apagar Todo
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {portalElement && createPortal(
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button
-                        type="button"
-                        className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        title="Filtros"
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                    <button
-                        type="button"
-                        className="btn-mobile-header-action"
-                        onClick={fetchData}
-                        disabled={loading}
-                        title="Actualizar datos"
-                    >
-                        <RefreshCw size={20} className={loading ? 'spin' : ''} />
-                    </button>
-                </div>,
-                portalElement
-            )}
-
-            <div
-                ref={summaryHeaderRef}
-                className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}
-            >
-                <div className="summary-heading">
-                    <h1>Estatus de Pagos</h1>
-
-                    {!isMobile && (
+            {/* Desktop & Mobile Header */}
+            <PageHeader
+                title={<h1>Estatus de Pagos</h1>}
+                onRefresh={fetchData}
+                loading={loading}
+                refreshText="Actualizar"
+                onFilterToggle={handleFilterToggle}
+                showFilters={showFilters}
+                mobileActions={autoOffButton}
+                desktopActions={
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        {autoOffButton}
                         <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
                             <button
                                 type="button"
@@ -716,20 +492,16 @@ const PaymentSummary = () => {
                                 <span>Matriz</span>
                             </button>
                         </div>
-                    )}
-                </div>
-
-
-            </div>
-
-            {/* ── Controles: mes / año / acciones ────────────────────────────── */}
-            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
-                <div className="dashboard-controls-row">
-                    <div className="select-wrapper-month">
+                    </div>
+                }
+            />
+            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
+                <div className="summary-date-card">
+                    <div className="summary-date-field has-border">
                         <select
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="select-control-ios"
+                            className="summary-select-ios"
                         >
                             {Array.from({ length: 12 }, (_, i) => (
                                 <option key={i + 1} value={i + 1}>
@@ -737,207 +509,100 @@ const PaymentSummary = () => {
                                 </option>
                             ))}
                         </select>
+                        <div className="summary-select-arrow">
+                            <ChevronDown size={16} />
+                        </div>
                     </div>
 
-                    <div className="select-wrapper-year">
+                    <div className="summary-date-field has-border">
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="select-control-ios"
+                            className="summary-select-ios"
                         >
                             <option value={2025}>2025</option>
                             <option value={2026}>2026</option>
                             <option value={2027}>2027</option>
                         </select>
-                    </div>
-
-                    {user?.role !== 'viewer' && (
-                        <button
-                            type="button"
-                            className={`btn-icon-ios btn-ios-red refresh-btn ${bulkOffLoading ? 'spinning' : ''}`}
-                            onClick={() => setBulkOffModal(true)}
-                            disabled={bulkOffLoading || morososCount === 0}
-                            title={`Apagar motor de vehículos morosos (${morososCount})`}
-                            style={{ opacity: morososCount === 0 ? 0.4 : 1 }}
-                        >
-                            {bulkOffLoading ? <RefreshCw size={18} /> : <ZapOff size={18} />}
-                        </button>
-                    )}
-                </div>
-                <div className="search-ios">
-                    <Search size={15} className="search-ios-icon" />
-                    <input
-                        type="text"
-                        className="search-ios-input"
-                        placeholder="Buscar moto o conductor…"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            type="button"
-                            className="search-ios-clear"
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Limpiar búsqueda"
-                        >
-                            <X size={14} />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* ── Filtros: pills + búsqueda ───────────────────────────────────── */}
-            <div className="summary-filter-row-ios">
-                <div className="filter-pills-ios">
-                    <button
-                        type="button"
-                        data-filter="all"
-                        className={`filter-pill-ios ${statusFilter === 'all' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('all')}
-                    >
-                        Todos
-                    </button>
-                    <button
-                        type="button"
-                        data-filter="debt"
-                        className={`filter-pill-ios ${statusFilter === 'debt' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('debt')}
-                    >
-                        Con deuda
-                    </button>
-                    <button
-                        type="button"
-                        data-filter="ok"
-                        className={`filter-pill-ios ${statusFilter === 'ok' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('ok')}
-                    >
-                        Al día
-                    </button>
-                    <button
-                        type="button"
-                        data-filter="cutoff"
-                        className={`filter-pill-ios ${statusFilter === 'cutoff' ? 'active' : ''}`}
-                        onClick={() => setStatusFilter('cutoff')}
-                    >
-                        Apagados
-                    </button>
-                </div>
-
-
-            </div>
-
-            {isMobile || desktopView === 'bike' ? (
-                <BikePaymentSummary
-                    summaryData={filteredSummaryData}
-                    daysArray={daysArray}
-                    currentDay={currentDay}
-                    isFutureSummaryDay={isFutureSummaryDay}
-                    loading={loading}
-                    user={user}
-                    handleEngineToggle={handleEngineToggle}
-                    pendingCommands={pendingCommands}
-                    getDeviceStatus={getDeviceStatus}
-                    renderDayCell={renderDayCell}
-                />
-            ) : (
-                <div className="matrix-shell">
-                    <div className="matrix-sticky-header">
-                        <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
-                            <table
-                                className="summary-table summary-table--sticky-header"
-                                style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
-                            >
-                                {matrixGeometry && (
-                                    <colgroup>
-                                        {matrixGeometry.widths.map((width, index) => (
-                                            <col key={index} style={{ width: `${width}px` }} />
-                                        ))}
-                                    </colgroup>
-                                )}
-                                {renderMatrixHeader('matrix-visual-thead')}
-                            </table>
+                        <div className="summary-select-arrow">
+                            <ChevronDown size={16} />
                         </div>
                     </div>
 
-                    <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
-                        <table ref={matrixTableRef} className="summary-table">
-                            {renderMatrixHeader('matrix-semantic-thead')}
-                            <tbody>
-                                {loading ? (
-                                    <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>
-                                ) : (
-                                    summaryData.map((item) => (
-                                        <tr key={item.device.deviceId} className="bike-summary">
-                                            <td>
-                                                <div className="device-cell">
-                                                    <span className="device-name">{item.device.name}</span>
-                                                    <span className="driver-name">{item.device.driverName || 'Sin Conductor'}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="device-cell">
-                                                    {item.device.unpaidTotal > 0 ? (
-                                                        <span className="debt-badge">{formatCurrency(item.device.unpaidTotal)}</span>
-                                                    ) : (
-                                                        <span className="no-debt">✓</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            {daysArray.map(day => {
-                                                const dayData = item.days[day];
-                                                const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
-                                                const { cellClass, content } = renderDayCell(dayData);
-                                                return (
-                                                    <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                            <div className={cellClass}>
-                                                                {content}
-                                                            </div>
-                                                            {dayData && (
-                                                                <span style={{ fontSize: '9px', fontWeight: 500, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
-                                                                    {dayData.distance > 0 ? `${Math.round(dayData.distance)}km` : '0km'}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })}
-                                            {/* Motor toggle per row */}
-                                            <td style={{ textAlign: 'center' }}>
-                                                {renderEngineButton(item)}
-                                            </td>
-                                        </tr>
-                                    )))
-                                }
-                            </tbody>
-                        </table>
+                    {isSystemAdmin && companies.length > 0 && (
+                        <div className="summary-date-field has-border">
+                            <select
+                                value={selectedCompany}
+                                onChange={(e) => setSelectedCompany(e.target.value)}
+                                className="summary-select-ios"
+                            >
+                                <option value="all">Todas las empresas</option>
+                                {companies.map(c => (
+                                    <option key={c._id} value={c._id}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="summary-select-arrow">
+                                <ChevronDown size={16} />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+                <SearchAndFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    searchPlaceholder="Buscar moto o conductor…"
+                    filter={statusFilter}
+                    setFilter={setStatusFilter}
+                    filterOptions={[
+                        { value: 'all', label: 'Todos' },
+                        { value: 'debt', label: 'Con deuda' },
+                        { value: 'ok', label: 'Al día' },
+                        { value: 'cutoff', label: 'Apagados' }
+                    ]}
+                    filterRowClass="summary-filter-row-ios"
+                />
+            </div>
+
+            {renderViews}
+
+            {showBulkOffModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content bulk-cutoff-modal">
+                        <div className="bulk-cutoff-modal-icon">
+                            <PowerOff size={24} />
+                        </div>
+                        <h3 className="bulk-cutoff-modal-title">
+                            ¿Apagar motor de morosos?
+                        </h3>
+                        <p className="bulk-cutoff-modal-desc">
+                            Se enviará la orden de apagado de motor a los <strong>{morososCount}</strong> vehículos que presentan saldo pendiente.
+                        </p>
+                        <div className="bulk-cutoff-modal-actions">
+                            <button
+                                type="button"
+                                className="bulk-cutoff-modal-btn-cancel"
+                                onClick={() => setShowBulkOffModal(false)}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="bulk-cutoff-modal-btn-confirm"
+                                onClick={handleBulkEngineOff}
+                                disabled={bulkOffLoading}
+                            >
+                                {bulkOffLoading ? 'Enviando…' : 'Sí, Apagar'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-
-            {/*<div className="legend">
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#22c55e' }}></div>
-                    <span>Pagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#ef4444' }}></div>
-                    <span>Corte / Apagado</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f59e0b' }}></div>
-                    <span>Pase Provisional</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#fca5a5' }}></div>
-                    <span>Pendiente / Alerta</span>
-                </div>
-                <div className="legend-item">
-                    <div className="indicator" style={{ background: '#f1f5f9' }}></div>
-                    <span>Sin registro</span>
-                </div>
-            </div>*/}
         </div>
     );
 };

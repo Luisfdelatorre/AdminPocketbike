@@ -58,6 +58,7 @@ class MyTraccar {
     fetchPreviousDayKmDevice = async (now) => {
         const start = new Date(now);
         start.setDate(now.getDate() - 1); // Subtract one day to get yesterday's date
+        start.setHours(0, 0, 0, 0);
         const end = new Date(start);
         end.setHours(23, 59, 59, 999); // Set time to the end of the day
 
@@ -72,7 +73,10 @@ class MyTraccar {
                 to: to,
             });
 
-            return response.data;
+            return (response.data || []).map(r => ({
+                ...r,
+                distanceKm: Math.round((r.distance || 0) / 1000 * 10) / 10
+            }));
         } catch (error) {
             console.error('Error fetching data:', error);
             throw error;
@@ -212,7 +216,7 @@ class MyTraccar {
                 // Check ignition
                 let ignition = position.attributes.ignition;
                 // Also get the 'active' status (not cut)
-                const cutOff = ((position.attributes.status >> 27) & 1) == 0;
+                const cutOff = Boolean(position.attributes?.blocked ?? position.attributes?.cutOff ?? false);
                 // Get battery level
                 let batteryLevel = 100;
                 if (position.attributes.batteryLevel !== undefined) {

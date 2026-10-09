@@ -30,6 +30,11 @@ const companySchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    type: {
+        type: String,
+        enum: ['system', 'company'],
+        default: 'company'
+    },
     automaticInvoicing: {
         type: Boolean,
         default: false
@@ -81,15 +86,22 @@ const companySchema = new mongoose.Schema({
         port: { type: Number },
         user: { type: String, trim: true },
         password: { type: String, trim: true },
-        token: { type: String, trim: true }
+        token: { type: String, trim: true },
+        groupId: { type: Number }
     },
+    traccarGroupId: { type: Number },
     // Wompi Service Integration
     wompiConfig: {
         publicKey: { type: String, trim: true },
         privateKey: { type: String, trim: true },
         integritySecret: { type: String, trim: true },
         eventsSecret: { type: String, trim: true },
-        wompiCommission: { type: Number, default: -0.01785 }
+        wompiCommission: { type: Number, default: -0.01785 },
+        paymentMethod: {
+            type: String,
+            enum: ['NEQUI_PUSH', 'BANCOLOMBIA_QR'],
+            default: 'NEQUI_PUSH'
+        }
     },
     // Company Billing Settings (Invoices generated for the company)
     billingConfig: {
@@ -106,7 +118,14 @@ const companySchema = new mongoose.Schema({
         fixedFreeDayOfWeek: { type: Number, min: 0, max: 6, default: 0 }, // 0 = Sunday
         paymentFrequency: { type: Number, default: 1 },
         initialFee: { type: Number, default: 0 },
-        emailDomain: { type: String, default: 'pocketbike.app', trim: true }
+        emailDomain: { type: String, default: 'pocketbike.app', trim: true },
+        // Fixed basic contract costs
+        fixedCosts: {
+            gps: { type: Number, default: 500000 },
+            soatPosterior: { type: Number, default: 370000 },
+            traspasoPosterior: { type: Number, default: 273000 },
+            registro: { type: Number, default: 217000 }
+        }
     }
 }, {
     timestamps: true
@@ -135,12 +154,23 @@ function setDeepValue(obj, path, value) {
     target[last] = value;
 }
 
+export function decryptCompanyFields(doc) {
+    if (!doc) return doc;
+    sensitiveFields.forEach(path => {
+        const val = getDeepValue(doc, path);
+        if (val && typeof val === 'string' && val.includes(':')) {
+            setDeepValue(doc, path, decrypt(val));
+        }
+    });
+    return doc;
+}
+
 companySchema.pre('save', function (next) {
     const company = this;
     sensitiveFields.forEach(path => {
         if (company.isModified(path)) {
             const val = getDeepValue(company, path);
-            if (val && !val.includes(':')) { // Only encrypt if not already encrypted
+            if (val && typeof val === 'string' && !val.includes(':') && val !== '********') { // Only encrypt if not already encrypted
                 setDeepValue(company, path, encrypt(val));
             }
         }
@@ -150,12 +180,7 @@ companySchema.pre('save', function (next) {
 
 // Decrypt sensitive fields after loading from DB
 companySchema.post('init', function (doc) {
-    sensitiveFields.forEach(path => {
-        const val = getDeepValue(doc, path);
-        if (val && val.includes(':')) {
-            setDeepValue(doc, path, decrypt(val));
-        }
-    });
+    decryptCompanyFields(doc);
 });
 
 export const Company = mongoose.model('Company', companySchema);

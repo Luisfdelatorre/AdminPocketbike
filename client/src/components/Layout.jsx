@@ -2,26 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import { initializeParticles } from '../utils/particles';
+import { useSSE } from '../context/SSEContext';
 
 const Layout = () => {
     const [sseStatus, setSSEStatus] = useState('connecting');
+
+    const { subscribe } = useSSE();
 
     useEffect(() => {
         // Initialize particles
         initializeParticles();
 
-        // Setup SSE connection
-        const clientId = `client-${Math.random().toString(36).substr(2, 9)}`;
-        const sseUrl = `/apinode/sse/subscribe?clientId=${clientId}`;
-
-        const eventSource = new EventSource(sseUrl);
-
-        eventSource.addEventListener('connected', () => {
-            console.log('✅ SSE Connected');
-            setSSEStatus('connected');
-        });
-
-        eventSource.addEventListener('payment-updated', (event) => {
+        const unsub = subscribe('payment-updated', (event) => {
             const data = JSON.parse(event.data);
             console.log('💳 Payment Updated:', data);
 
@@ -39,15 +31,15 @@ const Layout = () => {
             }
         });
 
-        eventSource.onerror = () => {
+        subscribe('error', () => {
             console.error('❌ SSE Error');
             setSSEStatus('disconnected');
-        };
+        });
 
         return () => {
-            eventSource.close();
+            unsub();
         };
-    }, []);
+    }, [subscribe]);
 
     return (
         <>

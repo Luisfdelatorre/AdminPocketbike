@@ -80,7 +80,7 @@ export class PaymentRepository {
     }
     async createLoanPayment(deviceIdName, contract, unpaidInvoice) {
         try {
-            const reference = helper.generateReferenceLoan(unpaidInvoice._id);
+            const reference = Payment.generateReferenceLoan(unpaidInvoice._id || unpaidInvoice.invoiceId);
             return await this.createStandarPayment(0, reference, deviceIdName, contract, unpaidInvoice, unpaidInvoice.companyId, PAYMENT_TYPE.LOAN);
         } catch (error) {
             logger.error('Error creating loan payment:', error);
@@ -88,18 +88,44 @@ export class PaymentRepository {
         }
     }
 
-    async createFreePayment(deviceIdName, contract, unpaidInvoice, companyId) {
+    async createFreePayment(deviceIdName, contract, unpaidInvoice) {
         try {
-            const paymentId = helper.generateReferenceFreeDay(unpaidInvoice.invoiceId);
-            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, companyId, PAYMENT_TYPE.FREE);
+            const paymentId = Payment.generateReferenceFreeDay(unpaidInvoice.invoiceId || unpaidInvoice._id);
+            return await this.createStandarPayment(0, paymentId, deviceIdName, contract, unpaidInvoice, contract.companyId, PAYMENT_TYPE.FREE);
         } catch (error) {
             logger.error('Error creating free payment:', error);
             throw error;
         }
     }
+
+    /**
+     * Builds free payment document and invoice ID for a contract and date
+     */
+    buildFreePaymentData(contract, date, now = new Date()) {
+        const invoiceId = Invoice.buildId(contract.deviceIdName, date);
+        const freePayment = Payment.buildFreePaymentDoc(contract, invoiceId, now);
+        return { invoiceId, freePayment };
+    }
+
+    /**
+     * Bulk insert payment documents ignoring duplicate key errors
+     */
+    async bulkInsertPayments(payments) {
+        if (!payments || !Array.isArray(payments) || payments.length === 0) {
+            return [];
+        }
+        try {
+            return await Payment.insertMany(payments, { ordered: false });
+        } catch (err) {
+            if (err.name !== 'MongoBulkWriteError' && err.code !== 11000) {
+                logger.error('[PAYMENT REPO] Error bulk inserting payments:', err);
+            }
+            return err.insertedDocs || [];
+        }
+    }
     async createManualPayment({ deviceIdName, contract, invoice, companyId, amount, adjustmentType, adjustmentReference }) {
         try {
-            const paymentId = helper.generateReferenceAdjustment(invoice.invoiceId);
+            const paymentId = Payment.generateReferenceAdjustment(invoice.invoiceId || invoice._id);
             return await this.createStandarPayment(amount, paymentId, deviceIdName, contract, invoice, companyId, PAYMENT_TYPE.ADJUSTMENT, { adjustmentType, adjustmentReference });
         } catch (error) {
             logger.error('Error creating manual adjustment payment:', error);
@@ -291,13 +317,13 @@ export class PaymentRepository {
     /**
      * Get pending payments older than N minutes
      */
-    async getPendingPaymentsOlderThan(minutes = 30) {
-        const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    async getPendingPaymentsOlderThan(minutes = 0) {
+        const filter = { status: PAYMENT_STATUS.PENDING };
+        if (minutes > 0) {
+            filter.createdAt = { $lt: new Date(Date.now() - minutes * 60 * 1000) };
+        }
 
-        return await Payment.find({
-            status: PAYMENT_STATUS.PENDING,
-            createdAt: { $lt: cutoffTime },
-        })
+        return await Payment.find(filter)
             .sort({ createdAt: 1 })
             .lean();
     }
@@ -308,8 +334,11 @@ export class PaymentRepository {
             const pendingPayment = await Payment.findOne({
                 deviceIdName: deviceName,
                 status: PAYMENT_STATUS.S_PENDING,
-                createdAt: { $gte: cutoffTime }
-            }).sort({ createdAt: -1 });
+                $or: [
+                    { createdAt: { $gte: cutoffTime } },
+                    { created_at: { $gte: cutoffTime } }
+                ]
+            }).sort({ created_at: -1, createdAt: -1 });
             return pendingPayment;
         } catch (error) {
             logger.error(`Error finding pending payment for ${deviceName}:`, error);

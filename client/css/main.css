@@ -578,29 +578,94 @@
 }
 
 .status-paid {
-    color: #2563eb;
-    font-weight: 500;
+    color: #0ea5e9;
+    /* Azul (Sky-500) */
+    font-weight: 600;
 }
 
 .status-free,
 .status-freepass {
-    color: var(--color-success);
-    font-weight: 500;
+    color: #22c55e;
+    /* Verde (Green-500) */
+    font-weight: 600;
+}
+
+.status-debt {
+    color: #ef4444;
+    /* Rojo (Red-500) */
+    font-weight: 600;
 }
 
 .status-verifying {
     color: #d97706;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .status-pending {
-    color: #dc2626;
-    font-weight: 500;
+    color: #eab308;
+    /* Amarillo (Yellow-500) */
+    font-weight: 600;
 }
 
 .status-loan {
     color: #ea580c;
-    font-weight: 500;
+    font-weight: 600;
+}
+
+/* History Table Badges & Row Background Tints */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.badge-paid {
+    background-color: rgba(14, 165, 233, 0.12);
+    color: #0284c7;
+}
+
+.badge-free {
+    background-color: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+}
+
+.badge-debt {
+    background-color: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+}
+
+.badge-pending {
+    background-color: rgba(234, 179, 8, 0.14);
+    color: #ca8a04;
+}
+
+.badge-verifying,
+.badge-loan {
+    background-color: rgba(234, 88, 12, 0.12);
+    color: #ea580c;
+}
+
+/* Row Background Tints */
+.row-free {
+    background-color: rgba(34, 197, 94, 0.05) !important;
+}
+
+.row-pending {
+    background-color: rgba(234, 179, 8, 0.05) !important;
+}
+
+.row-debt {
+    background-color: rgba(239, 68, 68, 0.03) !important;
+}
+
+.row-paid {
+    background-color: rgba(240, 243, 245, .09) !important;
 }
 
 .fecha,

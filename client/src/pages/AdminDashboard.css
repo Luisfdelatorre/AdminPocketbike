@@ -399,7 +399,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .chart-header h3 {
@@ -706,8 +706,8 @@
 
 /* iOS Dashboard Theme Styles */
 .ios-dashboard {
-    max-width: 650px;
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding: 0.5rem;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     color: #1a1c1c;
@@ -720,6 +720,10 @@
     margin-top: 0rem;
     margin-bottom: .2rem;
     width: 100%;
+}
+
+.dashboard-controls-row .summary-date-card {
+    margin: 0;
 }
 
 .select-wrapper-month {
@@ -787,22 +791,6 @@
     background-color: #dadada;
 }
 
-/* Expandable Metrics Container */
-.expandable-metrics-container {
-    overflow: hidden;
-    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-.expandable-metrics-container.expanded {
-    max-height: 600px;
-    opacity: 1;
-}
-
-.expandable-metrics-container.collapsed {
-    max-height: 0;
-    opacity: 0;
-    pointer-events: none;
-}
 
 /* Stat Cards Grids */
 .stats-grid-top-2 {
@@ -856,7 +844,6 @@
 
 .stat-value-ios {
     font-size: 22px;
-    font-weight: 700;
     color: #1a1c1c;
     letter-spacing: 0.35px;
 }

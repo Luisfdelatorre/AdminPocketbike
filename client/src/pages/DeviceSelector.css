@@ -1,44 +1,58 @@
 /* Device Management Page */
 .devices-page {
     width: 100%;
-}
-
-.page-header {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    height: calc(100vh - 1rem);
+    /* Desktop height */
+}
+
+@media (max-width: 768px) {
+    .devices-page {
+        height: calc(100dvh - 135px);
+        /* Mobile height accounting for headers/navs */
+    }
+}
+
+
+.offline-time-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #DC2626;
+    background-color: #FEE2E2;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+    display: inline-flex;
     align-items: center;
-    margin-top: 0rem;
-    padding-bottom: .5rem;
+    line-height: 1;
+    margin-left: 0.35rem;
+    border: 1px solid #FCA5A5;
 }
 
-.page-header h1 {
-    font-size: 1.875rem;
+.battery-column-container {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.battery-offline-subtext {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 1px;
+    font-size: 0.65rem;
     font-weight: 700;
-    color: #1F2937;
-    margin: 0 0 0.5rem 0;
-}
-
-.page-header p {
-    color: #6B7280;
-    margin: 0;
-}
-
-/* Expandable Metrics Container */
-.expandable-metrics-container {
-    overflow: hidden;
-    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-.expandable-metrics-container.expanded {
-    max-height: 400px;
-    opacity: 1;
-}
-
-.expandable-metrics-container.collapsed {
-    max-height: 0;
-    opacity: 0;
+    color: #DC2626;
+    line-height: 1;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
     pointer-events: none;
 }
+
 
 /* Stats Cards */
 .devices-stats {
@@ -597,10 +611,6 @@
 }
 
 @media (max-width: 768px) {
-    .devices-page>.page-header {
-        display: none;
-    }
-
     .desktop-only {
         display: none !important;
     }
@@ -623,81 +633,6 @@
     }
 }
 
-.btn-mobile-header-action {
-    background: none;
-    border: none;
-    color: var(--brand-teal);
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    transition: color 0.2s ease;
-}
-
-.btn-mobile-header-action:hover {
-    color: #02aab6;
-}
-
-/* Engine Toggle Slider */
-.engine-toggle-slider {
-    position: relative;
-    width: 40px;
-    height: 18px;
-    background-color: #E5E7EB;
-    border-radius: 9999px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 2px;
-    display: flex;
-    align-items: center;
-}
-
-.engine-toggle-slider.active {
-    background-color: #10B981;
-    /* Green-500 */
-}
-
-.engine-toggle-slider.deactivated {
-    background-color: #EF4444;
-    /* Red-500 */
-}
-
-.engine-toggle-slider.pending {
-    opacity: 0.6;
-    cursor: wait;
-}
-
-.slider-knob {
-    width: 14px;
-    height: 14px;
-    background-color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6B7280;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.engine-toggle-slider.active .slider-knob {
-    transform: translateX(22px);
-    color: #10B981;
-}
-
-.engine-toggle-slider.deactivated .slider-knob {
-    transform: translateX(0);
-    color: #EF4444;
-}
-
-.engine-toggle-slider:hover .slider-knob {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.engine-toggle-slider.pending .spin {
-    animation: spin 1s linear infinite;
-}
 
 /* ============================================================
    iOS DEVICE PAGE THEME
@@ -804,19 +739,7 @@
     font-weight: 600;
 }
 
-/* Activos pill — color verde más acentuado */
-.filter-pill-ios[data-filter='active'].active {
-    background-color: #1b9e3e;
-    border-color: #148030;
-    box-shadow: 0 1px 4px rgba(27, 158, 62, 0.35);
-}
 
-/* Libres pill — color naranja más acentuado */
-.filter-pill-ios[data-filter='available'].active {
-    background-color: #c96f00;
-    border-color: #a55900;
-    box-shadow: 0 1px 4px rgba(255, 149, 0, 0.35);
-}
 
 /* Search iOS */
 .search-ios {
@@ -887,7 +810,11 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     border: 0.5px solid rgba(198, 198, 200, 0.3);
     overflow: hidden;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
 /* Table Header Band */
@@ -919,10 +846,27 @@
     display: none;
 }
 
-/* Table Rows */
 .devices-table-rows-ios {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    /* Custom scrollbar for better look */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(198, 198, 200, 0.5) transparent;
+}
+
+.devices-table-rows-ios::-webkit-scrollbar {
+    width: 6px;
+}
+
+.devices-table-rows-ios::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.devices-table-rows-ios::-webkit-scrollbar-thumb {
+    background-color: rgba(198, 198, 200, 0.5);
+    border-radius: 10px;
 }
 
 .devices-row-ios {
@@ -1097,6 +1041,11 @@
 
 .battery-wrap.bat-low {
     color: #FF3B30;
+}
+
+.battery-wrap.bat-powercut {
+    color: #FF3B30;
+    filter: drop-shadow(0 0 5px rgba(255, 59, 48, 0.7));
 }
 
 /* Actions Column */

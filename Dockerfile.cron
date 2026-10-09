@@ -1,0 +1,31 @@
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Instalar zona horaria Bogotá y curl para healthcheck
+RUN apk add --no-cache tzdata curl \
+    && cp /usr/share/zoneinfo/America/Bogota /etc/localtime \
+    && echo "America/Bogota" > /etc/timezone
+
+ENV NODE_ENV=production
+ENV TZ=America/Bogota
+ENV CRON_PORT=8082
+
+# Copiar manifiestos de dependencias
+COPY package*.json ./
+
+# Instalar únicamente dependencias de producción
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copiar código del backend
+COPY server/ ./server/
+
+# Exponer puerto 8082
+EXPOSE 8082
+
+# Comprobación de salud interna
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8082/health || exit 1
+
+# Comando de arranque del servidor cron
+CMD ["node", "server/cron-server/microCronServer.js"]

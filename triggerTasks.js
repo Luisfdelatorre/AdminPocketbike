@@ -1,16 +1,19 @@
-import mongoose from 'mongoose';
-import cronJobsServices from './server/services/cronJobsServices.js';
+import jobRegistry from './server/cron-server/jobRegistry.js';
 import { connectDatabase } from './server/database/connection.js';
 
 async function runTriggers() {
     console.log('--- CONNECTING TO DB ---');
     await connectDatabase();
+    
+    await jobRegistry.loadJobs();
 
     console.log('\n--- 1. GENERATING DAILY INVOICES ---');
-    await cronJobsServices.generateDailyInvoices();
-
-    console.log('\n--- 2. PERFORMING DAILY CUT-OFF ---');
-    await cronJobsServices.performDailyCutOff();
+    const invoiceJob = jobRegistry.get('generateDailyInvoices');
+    if (invoiceJob) {
+        await invoiceJob.run(new Date().toISOString(), []);
+    } else {
+        console.error('Job no encontrado en el registro.');
+    }
 
     console.log('\n--- DONE ---');
     process.exit(0);

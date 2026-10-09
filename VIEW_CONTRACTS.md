@@ -16,19 +16,31 @@ La pantalla carga contratos, dispositivos disponibles y valores predeterminados 
 
 El modal de contrato se representa mediante portal y se controla con el parámetro `?modal=contract`. Esa entrada en el historial permite que el botón Atrás cierre el modal como una navegación.
 
-## Estructura del modal
+## Estructura del modal (Modal Acordeón con Escáner OCR)
 
-En `Contracts.jsx`, la composición vigente es:
+En `Contracts.jsx`, la composición del modal de creación y edición es:
 
 ```text
 modal-overlay
-└─ modal-content
-   ├─ modal-header
+└─ modal-content.modal-surface--contract
+   ├─ .modal-header.contract-modal-header
+   │  ├─ .contract-modal-title-wrap (punto de estado, título "Nuevo Contrato" / "Editar Contrato")
+   │  └─ button.modal-close (✕)
    ├─ form#contract-form.contract-form
-   └─ form-actions
+   │  ├─ .contract-ocr-buttons (Tarjeta Propiedad, Cédula / PPT, SOAT PDF/Foto)
+   │  ├─ .ocr-scanning-card (animación de escáner láser mientras procesa IA)
+   │  ├─ .ocr-magic-card (tarjeta de datos extraídos con IA)
+   │  └─ .contract-accordion
+   │     ├─ card: DISPOSITIVO Y ACCESO (dispositivo/placa, fecha inicio, PIN, subpágina Datos de Tarjeta & SOAT)
+   │     ├─ card: DATOS DEL CLIENTE (documento CC/PPT, nombre, teléfono, correo, dirección y codeudor solidario)
+   │     ├─ card: PRESTAMO (tarifa diaria, días, cuota inicial y desglose financiero actuarial E.A. 29%)
+   │     └─ card: CONFIGURACIÓN AVANZADA & NOTAS (días libres, corte, exenciones de telemetría y notas)
+   └─ .form-actions.contract-modal-actions
+      ├─ button.btn-secondary (Cancelar)
+      └─ button.btn-primary[form="contract-form"] (Crear Contrato / Actualizar Contrato)
 ```
 
-`form-actions` es hermano del formulario, no hijo. El botón principal conserva asociación semántica mediante `form="contract-form"`. Esto permite un layout Header–Contenido–Footer sin que las acciones formen parte del área desplazable.
+`form-actions` es hermano del formulario, no hijo, manteniendo el botón principal con `form="contract-form"`. El visor e impresión inmersiva del contrato generado se maneja a través del componente especializado `ContractDocPreviewModal` y la exportación oficial Word `.docx` mediante `contractDocumentService`.
 
 En móvil el modal ocupa la pantalla disponible; en escritorio conserva límites máximos definidos por CSS. El cuerpo de la página queda bloqueado mientras el modal está montado y la salida mantiene una transición breve antes de desmontarlo.
 

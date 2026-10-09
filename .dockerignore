@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.agents
+client/
+dist/
+build/
+coverage/
+.env*
+!server/
+server/scratch/
+*.md
+CircuitEquival/

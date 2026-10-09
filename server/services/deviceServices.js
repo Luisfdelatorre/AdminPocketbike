@@ -1,13 +1,17 @@
+import axios from 'axios';
 import deviceRepository from '../repositories/deviceRepository.js';
 import invoiceRepository from '../repositories/invoiceRepository.js';
 import { Device } from '../models/Device.js';
+import companyRepository from '../repositories/companyRepository.js';
 import { Company } from '../models/Company.js';
-import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES } from '../config/config.js';
+import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES, GPS_THROTTLE } from '../config/config.js';
 import GpsService from '../services/gpsServices.js';
-import companyService from '../services/companyService.js';
+import companyService from './companyService.js';
+
 import helper from '../utils/helpers.js';
 import logger from '../utils/logger.js';
 import { sseService } from '../utils/sseService.js';
+import { deviceStateCache } from '../utils/memoryStorage.js';
 
 // Centralized Day.js
 import dayjs from '../config/dayjs.js';
@@ -24,7 +28,6 @@ const {
     INVOICE_DAYTYPE_TRANSLATION
 } = Transaction;
 
-const deviceStateCache = new Map();
 
 
 const bulkWriteDevices = async (gpsDevices) => {
@@ -35,138 +38,83 @@ const bulkWriteDevices = async (gpsDevices) => {
 
 
 const initializeGpsUpdates = async () => {
-    // 1. Fetch all companies
-    const companies = await Company.find({}).lean();
-
     // 2. Pre-populate in-memory cache to avoid DB storm
-    const allDevices = await Device.find({}, '_id name gpsId imei ignition lastUpdate cutOff batteryLevel companyId').lean();
-    for (const d of allDevices) {
-        const entry = {
-            _id: d._id,
-            name: d.name,
-            companyId: d.companyId,
-            ignition: d.ignition,
-            lastUpdate: d.lastUpdate,
-            cutOff: d.cutOff,
-            batteryLevel: d.batteryLevel,
-            filter: { gpsId: d.gpsId },
-            _dirty: false, // starts clean — no real change yet
-        };
-
-        deviceStateCache.set(d.gpsId, entry);
-    }
+    logger.info('[GPS] Initializing GPS updates and in-memory cache...');
+    const allDevices = await deviceRepository.findForGpsCache();
+    allDevices
+        .filter(d => d.gpsId != null)
+        .forEach(d => {
+            deviceStateCache.set(d.gpsId, d);
+            deviceStateCache.set(String(d.gpsId), d);
+            if (!isNaN(Number(d.gpsId))) {
+                deviceStateCache.set(Number(d.gpsId), d);
+            }
+        });
     let _lastGlobalDbWrite = 0;
+    let _pendingUrgentFlush = false;
+
     const onFlush = async (batch) => {
         if (!batch || batch.length === 0) return;
         const NOW = Date.now();
 
-        // 1. Detect REAL state changes (ignition, cutOff, batteryLevel) with normalized comparison
+        const sseUpdatesByCompany = {};
+
+        // 1. Detect state changes (ignition, cutOff, batteryLevel, powerCut)
         for (const update of batch) {
-            const mem = deviceStateCache.get(update.filter.gpsId);
+            const rawGpsId = update.filter?.gpsId;
+            if (rawGpsId == null) continue;
+
+            const mem = deviceStateCache.get(rawGpsId) ||
+                deviceStateCache.get(String(rawGpsId)) ||
+                deviceStateCache.get(Number(rawGpsId));
             if (!mem) continue;
 
-            const normBool = (val) => (val === null || val === undefined ? false : (typeof val === 'number' ? val === 1 : Boolean(val)));
-            const normBat = (val) => (val === null || val === undefined ? null : Math.round(Number(val)));
-
-            const currentIgnition = normBool(mem.ignition);
-            const newIgnition = normBool(update.ignition);
-
-            const currentCutOff = normBool(mem.cutOff);
-            const newCutOff = update.cutOff !== undefined ? normBool(update.cutOff) : currentCutOff;
-
-            const currentBattery = normBat(mem.batteryLevel);
-            const newBattery = update.batteryLevel !== null && update.batteryLevel !== undefined ? normBat(update.batteryLevel) : currentBattery;
-
-            const stateChanged =
-                currentIgnition !== newIgnition ||
-                currentCutOff !== newCutOff ||
-                (newBattery !== null && currentBattery !== newBattery);
-
-            mem.lastUpdate = update.lastUpdate;
-
-            if (stateChanged) {
-                mem.ignition = newIgnition;
-                mem.cutOff = newCutOff;
-                mem.batteryLevel = newBattery;
-                mem._dirty = true;
-                deviceStateCache.set(update.filter.gpsId, mem);
-
-                // Broadcast real-time SSE update to connected clients
-                sseService.broadcast('device_update', {
-                    gpsId: update.filter.gpsId,
-                    _id: mem._id,
-                    name: mem.name,
-                    companyId: mem.companyId,
-                    ignition: mem.ignition,
-                    lastUpdate: mem.lastUpdate,
-                    cutOff: mem.cutOff,
-                    batteryLevel: mem.batteryLevel
-                });
-            }
-        }
-
-        // 2. Throttle flush to once every 5 seconds (set lock immediately to prevent race conditions during async calls)
-        if (NOW - _lastGlobalDbWrite < 5000) return;
-        _lastGlobalDbWrite = NOW;
-
-        const bulkOps = [];
-        const updatesList = [];
-
-        for (const [idKey, mem] of deviceStateCache.entries()) {
-            if (!mem._dirty) continue; // skip unchanged devices
-
-            updatesList.push({
-                gpsId: mem.filter?.gpsId || mem.filter?.deviceId || idKey,
-                filter: mem.filter,
-                ignition: mem.ignition,
-                lastUpdate: mem.lastUpdate,
-                cutOff: mem.cutOff,
-                batteryLevel: mem.batteryLevel,
-            });
-
-            bulkOps.push({
-                updateOne: {
-                    filter: mem.filter,
-                    update: {
-                        $set: {
-                            ignition: mem.ignition,
-                            lastUpdate: mem.lastUpdate,
-                            cutOff: mem.cutOff,
-                            batteryLevel: mem.batteryLevel,
-                        }
-                    }
+            if (mem.applyUpdate(update)) {
+                if (mem._urgent) {
+                    _pendingUrgentFlush = true;
                 }
-            });
-
-            mem._dirty = false; // reset after queuing
+                const cid = mem.companyId?.toString();
+                if (cid) {
+                    if (!sseUpdatesByCompany[cid]) sseUpdatesByCompany[cid] = [];
+                    sseUpdatesByCompany[cid].push(mem);
+                }
+            }
         }
 
-        if (bulkOps.length > 0) {
-            try {
-                await deviceRepository.upsertDevicesBatch(bulkOps);
-                logger.info(`GPS bulk write: ${bulkOps.length} devices updated`);
-                sseService.broadcast('payment-updated', {
-                    type: 'gps_update',
-                    devices: updatesList,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (error) {
-                logger.error('Error in GPS onFlush:', error);
-            }
+        // 2. Broadcast live changes to frontend immediately via SSE
+        for (const [companyId, companyUpdates] of Object.entries(sseUpdatesByCompany)) {
+            sseService.broadcast('device_update', companyUpdates, { companyId });
+        }
+
+        // 3. Dynamic throttle for MongoDB: 1s for urgent (cutOff, powerCut, ignition), otherwise 30s
+        const throttleLimit = _pendingUrgentFlush ? GPS_THROTTLE.URGENT_MS : GPS_THROTTLE.NORMAL_MS;
+        if (NOW - _lastGlobalDbWrite < throttleLimit) return;
+
+        const dbUpdatesList = Array.from(deviceStateCache.values()).filter(mem => mem._dirty);
+        if (dbUpdatesList.length === 0) return;
+
+        _lastGlobalDbWrite = NOW;
+        _pendingUrgentFlush = false;
+
+        dbUpdatesList.forEach(mem => mem.clearDirty());
+
+        try {
+            await deviceRepository.upsertDevicesBatch(dbUpdatesList);
+            // logger.debug(`[GPS] Bulk write: ${dbUpdatesList.length} devices updated`);
+        } catch (error) {
+            logger.error('Error in GPS onFlush:', error);
         }
     };
 
+    // 1. Fetch all companies
+    const companies = await companyRepository.getAllCompanies();
     // 3. Initialize per-company adapter based on service requirement
     for (const c of companies) {
-        const gpsAdapter = await companyService.getGpsAdapter(c._id);
-
-        const isMegaRastreo = c.serviceType === GPS_SERVICES.MEGARASTREO;
-        if (isMegaRastreo) {
-            logger.info(`[GPS] MegaRastreo auto-update disabled for company ${c.name || c._id}`);
-            continue;
-        }
-
+        logger.info(`[GPS] Initializing GPS auto update for companys ${c.name} (ID: ${c._id})`);
+        const gpsAdapter = await companyService.getGpsAdapterByCompany(c._id);
+        // console.log('[GPS] GPS adapter for company', c.name, ':', gpsAdapter);
         if (gpsAdapter && typeof gpsAdapter.startAutoUpdate === 'function') {
+            logger.info(`[GPS] Starting GPS auto update for ${c.name} (${c._id}) [${gpsAdapter.serviceType} @ ${gpsAdapter.adapter?.host || 'N/A'}]`);
             await gpsAdapter.startAutoUpdate([], onFlush);
         }
     }
@@ -179,50 +127,35 @@ const initializeGpsUpdates = async () => {
  * @param {string} companyId - The ID of the company.
  * @returns {Promise<Object>} Object containing { success: boolean, message?: string, error?: string, cutOff?: boolean }
  */
-const controlEngine = async (id, command, companyId) => {
+const controlEngine = async (gpsId, command, companyId) => {
     try {
-        // 1. Validate device existence and GPS mapping
-        const device = await deviceRepository.getDeviceById(id * 1);
-        if (!device) {
-            return { success: false, error: 'Device not found in local database.' };
-        }
-
-        const gpsId = device.gpsId;
-        if (!gpsId) {
-            return { success: false, error: 'Device does not have a valid GPS ID assigned.' };
-        }
-
-        // 2. Fetch the correct GPS adapter strategy for this company based on the device's company
-        const targetCompanyId = device.companyId || companyId;
-        const gpsAdapter = await companyService.getGpsAdapter(targetCompanyId);
+        const gpsAdapter = await companyService.getGpsAdapterByCompany(companyId);
+        console.log('[EngineControl] GPS adapter for company', companyId, ':', gpsAdapter);
         if (!gpsAdapter) {
-            return { success: false, error: `No GPS adapter configured for company ID: ${targetCompanyId}` };
+            return { success: false, error: `No GPS adapter configured for company ID: ${companyId}` };
         }
 
-        // 3. Send command and verify execution with the hardware
-        logger.info(`[EngineControl] Sending command ${command} to device ${id} (GPS ID: ${gpsId}, Company: ${companyId})`);
-        const isConfirmed = await gpsAdapter.executeAndVerify(gpsId, command);
-
+        // 3. Send command to GPS adapter
+        logger.info(`[EngineControl] Sending command ${command} to gpsId ${gpsId}, Company: ${companyId}`);
+        const verifyResult = await gpsAdapter.sendEngineCommand(gpsId, command);
+        let isConfirmed = Boolean(verifyResult.confirmed);
         if (!isConfirmed) {
-            const action = command === 0 ? 'stop' : 'resume';
             return {
                 success: false,
-                error: `Failed to ${action} engine. The command was sent but not confirmed by the device.`
+                error: `Failed to ${command} engine. The command was not accepted by the adapter.`
             };
         }
 
-        // 4. Update the local DB state bypassing strict schema validations on unrelated fields
-        const newCutOffState = (command === 0 || command === '0' || command === false); // 0 = stop (true), 1 = resume (false)
-        await deviceRepository.updateDeviceCutOff(device._id, newCutOffState);
+        const targetDevice = await Device.findOne({ gpsId: Number(gpsId) });
+        await deviceRepository.updateDeviceQueuedStatus(targetDevice._id, true);
 
         return {
             success: true,
-            message: `Engine ${command === 0 ? 'stopped' : 'resumed'} successfully`,
-            cutOff: newCutOffState
+            message: `Command to ${command} engine queued successfully. Awaiting confirmation from device.`,
+            queued: true
         };
-
     } catch (error) {
-        logger.error(`[EngineControl] Error controlling engine for device ${id}:`, error);
+        logger.error(`[EngineControl] Error controlling engine for device ${gpsId}:`, error);
         return {
             success: false,
             error: `Internal server error during engine control: ${error.message}`
@@ -235,21 +168,26 @@ const controlEngine = async (id, command, companyId) => {
  * @param {string|null} companyId
  * @returns {Promise<{created, updated, errors}>}
  */
+const normalizeDeviceName = (name) =>
+    String(name ?? "")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
+
 const syncFromGps = async (companyId) => {
     const company = companyId ? await Company.findById(companyId) : null;
-    const adapter = await companyService.getGpsAdapter(companyId || null);
+    const adapter = await companyService.getGpsAdapterByCompany(companyId || null);
     const devices = await adapter.fetchDevices();
     if (!devices || devices.length === 0) {
         return { created: 0, updated: 0, errors: 0 };
     }
     // Stamp company info onto filtered device records
-    const gpsDevices = company
-        ? devices.map(d => ({
-            ...d,
-            companyId: company._id.toString(),
-            companyName: company.name
-        }))
-        : activeDevices;
+    const gpsDevices = devices.map(d => ({
+        ...d,
+        name: normalizeDeviceName(d.name),
+        companyId: company._id.toString(),
+        companyName: company.name
+    }));
     return bulkWriteDevices(gpsDevices);
 };
 
@@ -258,7 +196,7 @@ const syncFromGps = async (companyId) => {
  * @param {string} companyId - Company ID
  * @returns {Promise<Array<{device: Object, hasUnpaidInvoice: boolean, invoice: Object|null}>>}
  */
-const getCompanyDevicesPaymentStatus = async (companyId) => {
+const getCompanyDevicesPaymentStatus = async (companyId, executionTime = dayjs()) => {
     const company = await Company.findById(companyId).lean();
     if (!company || !company.isActive) {
         return [];
@@ -269,8 +207,8 @@ const getCompanyDevicesPaymentStatus = async (companyId) => {
         return [];
     }
 
-    const today = dayjs().startOf('day');
-    const yesterday = dayjs().subtract(1, 'day').startOf('day');
+    const today = executionTime.clone().startOf('day');
+    const yesterday = executionTime.clone().subtract(1, 'day').startOf('day');
     const targetDate = strategy === 1 ? today.toDate() : yesterday.toDate();
 
     // Find all active devices for this company
@@ -309,90 +247,72 @@ const getCompanyDevicesPaymentStatus = async (companyId) => {
 };
 
 /**
- * Cuts off the engine for all debtor devices of a company in parallel.
+ * Cuts off the engine for all debtor devices of a company.
+ * Delegated to cronClient to keep cron communication centralized.
  * @param {string} companyId 
+ * @param {object} [options={}]
  * @returns {Promise<{results: Array, successCount: number, alreadyOffCount: number, failedCount: number}>}
  */
-const cutoffDebtors = async (companyId) => {
-    const company = await Company.findById(companyId).lean();
-    if (!company) {
-        throw new Error('Company not found');
-    }
-    const companyCutOffTime = company.cutOffTime || '23:59';
-    const strategy = company.cutOffStrategy || 1;
-    const currentTimeStr = dayjs().format('HH:mm');
-
-    // 1. Evaluate payment status of all devices for this company
-    const paymentStatuses = await getCompanyDevicesPaymentStatus(companyId);
-
-    // 2. Filter devices that have an unpaid invoice (debtors), are not exempt, and whose cut-off time has been reached
-    const debtors = paymentStatuses.filter(({ device, hasUnpaidInvoice }) => {
-        if (!hasUnpaidInvoice || device.exemptFromCutOff === true) {
-            return false;
-        }
-
-        // If strategy is "Today" (1), check if today's cut-off time has been reached
-        if (strategy === 1) {
-            let timeReached = false;
-            if (currentTimeStr >= companyCutOffTime) {
-                if (device.cutOffTime && device.cutOffTime > currentTimeStr) {
-                    timeReached = false;
-                } else {
-                    timeReached = true;
-                }
-            } else {
-                timeReached = !!(device.cutOffTime && device.cutOffTime <= currentTimeStr);
-            }
-            return timeReached;
-        }
-
-        // For other strategies (e.g., Yesterday), the cut-off time has already passed
-        return true;
-    });
-
-    if (!debtors.length) {
-        return { results: [], successCount: 0, alreadyOffCount: 0, failedCount: 0 };
-    }
-
-    // 3. Send cutoff command to each debtor device in parallel for efficiency
-    const results = await Promise.all(debtors.map(async ({ device, invoice }) => {
-        const id = device._id;
-        const name = device.deviceName || device.name || device._id;
-
-        // Skip if already cut off
-        if (device.cutOff) {
-            return {
-                device: name,
-                status: 'already_off'
-            };
-        }
-        try {
-            const result = await controlEngine(id, 0, companyId);
-            return {
-                device: name,
-                status: result.success ? 'cut_off' : 'failed',
-                error: result.error || null
-            };
-        } catch (err) {
-            return { device: name, status: 'error', error: err.message };
-        }
-    }));
-
-    const successCount = results.filter(r => r.status === 'cut_off').length;
-    const alreadyOffCount = results.filter(r => r.status === 'already_off').length;
-    const failedCount = results.filter(r => r.status === 'failed' || r.status === 'error').length;
-
-    return {
-        results,
-        successCount,
-        alreadyOffCount,
-        failedCount
-    };
+const cutoffDebtors = async (companyId, options = {}) => {
+    const { triggerCutoffDebtors } = await import('../utils/cronClient.js');
+    return await triggerCutoffDebtors(companyId, options);
 };
 
 const getDeviceStatusByName = async (deviceIdName) => {
     return deviceRepository.getDeviceStatusByName(deviceIdName);
 };
+
+const getDeviceState = (gpsId) => {
+    if (gpsId == null) return null;
+    return deviceStateCache.get(gpsId) ||
+        deviceStateCache.get(String(gpsId)) ||
+        deviceStateCache.get(Number(gpsId)) || null;
+};
+
+const getAllDevicesEnriched = async (query = {}) => {
+    const devices = await deviceRepository.getDevices(query);
+
+    return devices.map(dev => {
+        const live = getDeviceState(dev.gpsId);
+        const tel = dev.telemetry || {};
+
+        const lastUpdate = live?.lastUpdate || tel.lastUpdate || null;
+        const ignition = live?.ignition !== undefined ? live.ignition : (tel.ignition ?? false);
+        const cutOff = live?.cutOff !== undefined ? live.cutOff : (tel.cutOff ?? false);
+        const batteryLevel = live?.batteryLevel !== undefined ? live.batteryLevel : (tel.batteryLevel ?? null);
+        const powerCut = live?.powerCut !== undefined ? live.powerCut : Boolean(tel.powerCut);
+        const alarm = live?.alarm !== undefined ? live.alarm : (tel.alarm || null);
+        const motion = live?.motion !== undefined ? live.motion : Boolean(tel.motion);
+        const queued = live?.queued !== undefined ? live.queued : Boolean(tel.queued);
+
+        const telemetry = {
+            lastUpdate,
+            ignition,
+            cutOff,
+            batteryLevel,
+            powerCut,
+            alarm,
+            motion,
+            queued
+        };
+
+        return {
+            ...dev,
+            telemetry,
+            // Flattened attributes for seamless frontend backward compatibility
+            lastUpdate,
+            ignition,
+            cutOff,
+            batteryLevel,
+            powerCut,
+            alarm,
+            motion,
+            queued
+        };
+    });
+};
+
+export { getDeviceState, getAllDevicesEnriched };
 
 export default {
     bulkWriteDevices,
@@ -400,7 +320,10 @@ export default {
     initializeGpsUpdates,
     controlEngine,
     getDeviceStatusByName,
+    getDeviceState,
+    getAllDevicesEnriched,
     getCompanyDevicesPaymentStatus,
     cutoffDebtors
 };
+
 

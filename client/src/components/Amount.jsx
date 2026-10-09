@@ -1,10 +1,11 @@
 import React from 'react';
+import { formatCompact } from '../utils/helpers';
 
 /**
  * Formats a numeric amount for desktop (full currency) and mobile (compact) display.
  * If `value` is undefined or null, renders $0.
  */
-const Amount = ({ value }) => {
+const Amount = ({ value, compact = true }) => {
   if (value === undefined || value === null) {
     return (
       <>
@@ -13,8 +14,9 @@ const Amount = ({ value }) => {
       </>
     );
   }
-  const formattedDesktop = `$${value.toLocaleString()} COP`;
-  const formattedMobile = `$${value.toLocaleString()}`;
+  const num = Number(value);
+  const formattedDesktop = isNaN(num) ? '$0 COP' : `$${num.toLocaleString('es-CO')} COP`;
+  const formattedMobile = compact ? formatCompact(num) : (isNaN(num) ? '$0' : `$${num.toLocaleString('es-CO')}`);
   return (
     <>
       <span className="desktop-only">{formattedDesktop}</span>

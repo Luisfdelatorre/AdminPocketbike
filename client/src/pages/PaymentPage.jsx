@@ -45,13 +45,15 @@ const PaymentPage = () => {
             const data = event.detail;
             console.log('Payment update received:', data);
 
-            if (data.paymentStatus === 'APPROVED') {
+            if (data.paymentStatus === 'APPROVED' || data.status === 'APPROVED') {
                 showToast('success', 'Payment Approved', 'Your payment was successful!');
                 setTimeout(() => {
                     loadDeviceData();
                     setPaymentStatus(null);
                 }, 3000);
-            } else if (data.paymentStatus === 'DECLINED') {
+            } else if (data.paymentStatus === 'QR_READY' || data.status === 'QR_READY') {
+                showToast('info', 'QR Generado', data.message || 'Escanea el código QR con tu aplicación bancaria');
+            } else if (data.paymentStatus === 'DECLINED' || data.status === 'DECLINED') {
                 showToast('error', 'Payment Declined', 'Payment was not successful');
                 setTimeout(() => setPaymentStatus(null), 3000);
             }
