@@ -95,7 +95,7 @@ const Contracts = () => {
     const [openSections, setOpenSections] = useState({
         device: false,
         customer: false,
-        financial: false,
+        financial: true,
         advanced: false
     });
 
@@ -1972,6 +1972,168 @@ const Contracts = () => {
                             })()}
 
                             <div className="contract-accordion">
+                                {/* SECCIÓN 3: PRESTAMO */}
+                                <div className="wa-profile-accordion-body mb-2">
+                                    <div className="wa-profile-card">
+                                        <button
+                                            type="button"
+                                            className="contract-accordion-header"
+                                            onClick={() => toggleSection('financial')}
+                                        >
+                                            <div className="contract-accordion-title-wrap">
+                                                <div className="contract-accordion-icon">
+                                                    <DollarSign size={16} />
+                                                </div>
+                                                <div className="contract-accordion-titles">
+                                                    <span className="contract-accordion-title">PRESTAMO</span>
+                                                    <span className="contract-accordion-subtitle">
+                                                        {formatCompactCOP(formData.dailyRate || 0)} / día • {formData.contractDays || 0} días • {formData.paymentFrequency === 1 ? 'Cobro diario' : formData.paymentFrequency === 7 ? 'Cobro semanal' : 'Cobro quincenal'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="contract-accordion-actions">
+                                                <span className="contract-accordion-badge" style={{ background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}>
+                                                    Total: {formatCompactCOP((formData.dailyRate || 0) * (formData.contractDays || 0))}
+                                                </span>
+                                                <ChevronDown size={18} className={`contract-accordion-chevron transition-transform duration-200 ${openSections.financial ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </button>
+                                        {openSections.financial && (
+                                            <>
+                                                {/* Row 1: Frecuencia de pago */}
+                                                <div className="wa-profile-row">
+                                                    <span className="wa-profile-label">Frecuencia de pago</span>
+                                                    <div className="wa-profile-value-wrap">
+                                                        <select
+                                                            id="paymentFrequency"
+                                                            className="wa-profile-select"
+                                                            value={formData.paymentFrequency}
+                                                            onChange={(e) => setFormData({ ...formData, paymentFrequency: parseInt(e.target.value) })}
+                                                        >
+                                                            <option value={1}>{t('contracts.modal.freqDaily') || 'Diario (1 día)'}</option>
+                                                            <option value={7}>{t('contracts.modal.freqWeekly') || 'Semanal (7 días)'}</option>
+                                                            <option value={15}>{t('contracts.modal.freqBiweekly') || 'Quincenal (15 días)'}</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 2: Valor por día */}
+                                                <div className="wa-profile-row">
+                                                    <span className="wa-profile-label">Valor por día</span>
+                                                    <div className="wa-profile-value-wrap">
+                                                        <input
+                                                            type="text"
+                                                            className="wa-profile-input font-mono"
+                                                            value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.dailyRate)}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                                                setFormData({ ...formData, dailyRate: val });
+                                                            }}
+                                                            placeholder="$ 30.000"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 3: Días de contrato */}
+                                                <div className="wa-profile-row">
+                                                    <span className="wa-profile-label">Días de contrato</span>
+                                                    <div className="wa-profile-value-wrap">
+                                                        <input
+                                                            type="number"
+                                                            className="wa-profile-input font-mono"
+                                                            value={formData.contractDays}
+                                                            onChange={(e) => setFormData({ ...formData, contractDays: parseInt(e.target.value) })}
+                                                            min="1"
+                                                            max="1000"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 4: Cuota inicial */}
+                                                <div className="wa-profile-row">
+                                                    <span className="wa-profile-label">Cuota inicial</span>
+                                                    <div className="wa-profile-value-wrap">
+                                                        <input
+                                                            type="text"
+                                                            className="wa-profile-input font-mono"
+                                                            value={formData.initialFee ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.initialFee) : ''}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                                                setFormData({ ...formData, initialFee: val });
+                                                            }}
+                                                            placeholder="$ 0"
+                                                            disabled={editingContract}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Sub-tarjeta: Desglose Financiero (Fórmula Moto) */}
+                                                {contractFinancials?.isValid && contractFinancials.data && (
+                                                    <div className="wa-financial-summary-box">
+                                                        <div className="wa-financial-header">
+                                                            <span className="wa-financial-badge">
+                                                                <Sparkles size={13} /> Desglose Financiero
+                                                            </span>
+                                                            <span className="wa-financial-ea-tag">
+                                                                E.A. {contractFinancials.data.eaCalculada ? `${(contractFinancials.data.eaCalculada * 100).toFixed(1)}%` : '29.0%'}
+                                                                {contractFinancials.data.cumpleObjetivo ? ' ✓' : ''}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="wa-financial-rows">
+                                                            <div className="wa-fin-item">
+                                                                <span className="wa-fin-label">Precio Moto (antes IVA):</span>
+                                                                <span className="wa-fin-val font-mono">
+                                                                    {formatCurrencyCOP(contractFinancials.data.precioAntesIVA)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="wa-fin-item">
+                                                                <span className="wa-fin-label">+ IVA (19%):</span>
+                                                                <span className="wa-fin-val font-mono">
+                                                                    {formatCurrencyCOP(contractFinancials.data.valorIVA)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="wa-fin-item">
+                                                                <span className="wa-fin-label">+ Gastos Fijos (Settings):</span>
+                                                                <span className="wa-fin-val font-mono">
+                                                                    {formatCurrencyCOP(contractFinancials.data.gastos)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="wa-fin-divider" />
+                                                            <div className="wa-fin-item wa-fin-highlight">
+                                                                <span className="wa-fin-label">Total Operación:</span>
+                                                                <span className="wa-fin-val font-mono">
+                                                                    {formatCurrencyCOP(contractFinancials.data.totalOperacion)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="wa-fin-item">
+                                                                <span className="wa-fin-label">Saldo Financiable:</span>
+                                                                <span className="wa-fin-val font-mono">
+                                                                    {formatCurrencyCOP(contractFinancials.data.saldoFinanciable)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="wa-fin-divider" />
+                                                            <div className="wa-fin-cuotas-grid">
+                                                                <div className="wa-fin-cuota-pill">
+                                                                    <span className="wa-fin-cuota-name">Cuota Fin. (50%)</span>
+                                                                    <span className="wa-fin-cuota-amount font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaFinanciera)}/día
+                                                                    </span>
+                                                                </div>
+                                                                <div className="wa-fin-cuota-pill">
+                                                                    <span className="wa-fin-cuota-name">Cuota Cloud (50%)</span>
+                                                                    <span className="wa-fin-cuota-amount font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaCloud)}/día
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
                                 {/* SECCIÓN 1: Dispositivo y Acceso */}
                                 <div className="wa-profile-accordion-body mb-2">
                                     <div className="wa-profile-card">
@@ -2282,168 +2444,7 @@ const Contracts = () => {
                                     </div>
                                 </div>
 
-                                {/* SECCIÓN 3: PRESTAMO */}
-                                <div className="wa-profile-accordion-body mb-2">
-                                    <div className="wa-profile-card">
-                                        <button
-                                            type="button"
-                                            className="contract-accordion-header"
-                                            onClick={() => toggleSection('financial')}
-                                        >
-                                            <div className="contract-accordion-title-wrap">
-                                                <div className="contract-accordion-icon">
-                                                    <DollarSign size={16} />
-                                                </div>
-                                                <div className="contract-accordion-titles">
-                                                    <span className="contract-accordion-title">PRESTAMO</span>
-                                                    <span className="contract-accordion-subtitle">
-                                                        {formatCompactCOP(formData.dailyRate || 0)} / día • {formData.contractDays || 0} días • {formData.paymentFrequency === 1 ? 'Cobro diario' : formData.paymentFrequency === 7 ? 'Cobro semanal' : 'Cobro quincenal'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="contract-accordion-actions">
-                                                <span className="contract-accordion-badge" style={{ background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}>
-                                                    Total: {formatCompactCOP((formData.dailyRate || 0) * (formData.contractDays || 0))}
-                                                </span>
-                                                <ChevronDown size={18} className={`contract-accordion-chevron transition-transform duration-200 ${openSections.financial ? 'rotate-180' : ''}`} />
-                                            </div>
-                                        </button>
-                                        {openSections.financial && (
-                                            <>
-                                                {/* Row 1: Frecuencia de pago */}
-                                                <div className="wa-profile-row">
-                                                    <span className="wa-profile-label">Frecuencia de pago</span>
-                                                    <div className="wa-profile-value-wrap">
-                                                        <select
-                                                            id="paymentFrequency"
-                                                            className="wa-profile-select"
-                                                            value={formData.paymentFrequency}
-                                                            onChange={(e) => setFormData({ ...formData, paymentFrequency: parseInt(e.target.value) })}
-                                                        >
-                                                            <option value={1}>{t('contracts.modal.freqDaily') || 'Diario (1 día)'}</option>
-                                                            <option value={7}>{t('contracts.modal.freqWeekly') || 'Semanal (7 días)'}</option>
-                                                            <option value={15}>{t('contracts.modal.freqBiweekly') || 'Quincenal (15 días)'}</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
 
-                                                {/* Row 2: Valor por día */}
-                                                <div className="wa-profile-row">
-                                                    <span className="wa-profile-label">Valor por día</span>
-                                                    <div className="wa-profile-value-wrap">
-                                                        <input
-                                                            type="text"
-                                                            className="wa-profile-input font-mono"
-                                                            value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.dailyRate)}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
-                                                                setFormData({ ...formData, dailyRate: val });
-                                                            }}
-                                                            placeholder="$ 30.000"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Row 3: Días de contrato */}
-                                                <div className="wa-profile-row">
-                                                    <span className="wa-profile-label">Días de contrato</span>
-                                                    <div className="wa-profile-value-wrap">
-                                                        <input
-                                                            type="number"
-                                                            className="wa-profile-input font-mono"
-                                                            value={formData.contractDays}
-                                                            onChange={(e) => setFormData({ ...formData, contractDays: parseInt(e.target.value) })}
-                                                            min="1"
-                                                            max="1000"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Row 4: Cuota inicial */}
-                                                <div className="wa-profile-row">
-                                                    <span className="wa-profile-label">Cuota inicial</span>
-                                                    <div className="wa-profile-value-wrap">
-                                                        <input
-                                                            type="text"
-                                                            className="wa-profile-input font-mono"
-                                                            value={formData.initialFee ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(formData.initialFee) : ''}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
-                                                                setFormData({ ...formData, initialFee: val });
-                                                            }}
-                                                            placeholder="$ 0"
-                                                            disabled={editingContract}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Sub-tarjeta: Desglose Financiero (Fórmula Moto) */}
-                                                {contractFinancials?.isValid && contractFinancials.data && (
-                                                    <div className="wa-financial-summary-box">
-                                                        <div className="wa-financial-header">
-                                                            <span className="wa-financial-badge">
-                                                                <Sparkles size={13} /> Desglose Financiero
-                                                            </span>
-                                                            <span className="wa-financial-ea-tag">
-                                                                E.A. {contractFinancials.data.eaCalculada ? `${(contractFinancials.data.eaCalculada * 100).toFixed(1)}%` : '29.0%'}
-                                                                {contractFinancials.data.cumpleObjetivo ? ' ✓' : ''}
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="wa-financial-rows">
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">Precio Moto (antes IVA):</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.precioAntesIVA)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">+ IVA (19%):</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.valorIVA)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">+ Gastos Fijos (Settings):</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.gastos)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-divider" />
-                                                            <div className="wa-fin-item wa-fin-highlight">
-                                                                <span className="wa-fin-label">Total Operación:</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.totalOperacion)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">Saldo Financiable:</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.saldoFinanciable)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-divider" />
-                                                            <div className="wa-fin-cuotas-grid">
-                                                                <div className="wa-fin-cuota-pill">
-                                                                    <span className="wa-fin-cuota-name">Cuota Fin. (50%)</span>
-                                                                    <span className="wa-fin-cuota-amount font-mono">
-                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaFinanciera)}/día
-                                                                    </span>
-                                                                </div>
-                                                                <div className="wa-fin-cuota-pill">
-                                                                    <span className="wa-fin-cuota-name">Cuota Cloud (50%)</span>
-                                                                    <span className="wa-fin-cuota-amount font-mono">
-                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaCloud)}/día
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
 
                                 {/* SECCIÓN 4: CONFIGURACIÓN AVANZADA & NOTAS */}
                                 <div className="wa-profile-accordion-body mb-2">

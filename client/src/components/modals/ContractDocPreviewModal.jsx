@@ -137,19 +137,19 @@ const ContractDocPreviewModal = ({ contract, isOpen, onClose }) => {
     const attTp = contract.attachments?.tarjetaPropiedad || {};
     const attSoat = contract.attachments?.soat || {};
 
-    const placa = vInfo.placa || contract.deviceIdName || 'QVM55H';
-    const marca = vInfo.marca || 'BERA';
-    const linea = vInfo.linea || 'BR 150CC SBR';
-    const modelo = vInfo.modelo || '2025';
-    const color = vInfo.color || 'AZUL';
-    const cilindraje = vInfo.cilindraje || vInfo.cilindrada || '149 cc';
-    const numeroMotor = vInfo.numeroMotor || vInfo['No. MOTOR'] || attTp.numeroMotor || attTp['No. MOTOR'] || attSoat.numeroMotor || attSoat['No. MOTOR'] || 'Z16ZFMJ250018938';
-    const numeroChasis = vInfo.numeroChasis || vInfo['No. CHASIS ó No. SERIE'] || vInfo['No. CHASIS'] || attTp.numeroChasis || attTp['No. CHASIS ó No. SERIE'] || attSoat.numeroChasis || attSoat['No. CHASIS ó No. SERIE'] || 'LB7GKC5AXSF009188';
+    const placa = vInfo.placa || contract.deviceIdName;
+    const marca = vInfo.marca;
+    const linea = vInfo.linea;
+    const modelo = vInfo.modelo;
+    const color = vInfo.color;
+    const cilindraje = vInfo.cilindraje || vInfo.cilindrada;
+    const numeroMotor = vInfo.numeroMotor || vInfo['No. MOTOR'] || attTp.numeroMotor || attTp['No. MOTOR'] || attSoat.numeroMotor || attSoat['No. MOTOR'];
+    const numeroChasis = vInfo.numeroChasis || vInfo['No. CHASIS ó No. SERIE'] || vInfo['No. CHASIS'] || attTp.numeroChasis || attTp['No. CHASIS ó No. SERIE'] || attSoat.numeroChasis || attSoat['No. CHASIS ó No. SERIE'];
 
-    const customerName = (contract.customerName || 'ANTHONY RAFAEL SANTELIZ ACOSTA').toUpperCase();
-    const customerDoc = contract.customerDocument || 'PPT 5.406.528';
-    const customerPhone = contract.customerPhone || '316 907 8211';
-    const contractId = contract.contractId || contract._id || 'CIYIE41HUA';
+    const customerName = (contract.customerName).toUpperCase();
+    const customerDoc = contract.customerDocument;
+    const customerPhone = contract.customerPhone;
+    const contractId = contract.contractId || contract._id;
     const dailyRate = contract.dailyRate || 35000;
     const contractDays = contract.contractDays || 390;
     const totalAmount = contract.totalAmount || (dailyRate * contractDays);
