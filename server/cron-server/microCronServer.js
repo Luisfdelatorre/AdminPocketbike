@@ -7,7 +7,7 @@ import { connectDatabase } from "../database/connection.js";
 import { performScheduledCutOff } from "./jobs/performScheduledCutOff.js";
 import dayjs from "../config/dayjs.js";
 
-const PORT = process.env.CRON_PORT || 8082;
+const PORT = process.env.CRON_PORT || 8085;
 
 const initServer = async () => {
   try {
@@ -58,7 +58,7 @@ const initServer = async () => {
     });
 
     const server = app.listen(PORT, () => {
-      log.info(`🚀 microCronServer HTTP listener running on port ${PORT}`);
+      log.info(`microCronServer HTTP listener running on port ${PORT}`);
     });
 
     // Graceful shutdown
