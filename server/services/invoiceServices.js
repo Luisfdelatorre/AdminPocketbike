@@ -377,6 +377,8 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         if (inv.contractId) clean.contractId = inv.contractId;
         if (inv.adjustmentReference) clean.adjustmentReference = inv.adjustmentReference;
         if (inv.adjustmentComment) clean.adjustmentComment = inv.adjustmentComment;
+        if (inv.transactionId) clean.transactionId = inv.transactionId;
+        if (inv.transaction) clean.transaction = inv.transaction;
         return clean;
     });
 
