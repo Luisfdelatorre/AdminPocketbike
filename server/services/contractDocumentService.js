@@ -99,13 +99,13 @@ export function mapContractToTemplateData(contract, device = null) {
     const attSoat = contract.attachments?.soat?.extractedData || {};
 
     const motoPlaca = (vInfo.placa || contract.deviceIdName || device?.name || '______').trim().toUpperCase();
-    const motoMarca = vInfo.marca || attTp.marca || 'BERA';
-    const motoLinea = vInfo.linea || attTp.linea || 'BR 150CC SBR';
-    const motoModelo = String(vInfo.modelo || attTp.modelo || '2025');
-    const motoColor = vInfo.color || attTp.color || 'NEGRO';
-    const motoCilindraje = vInfo.cilindraje || attTp.cilindraje || '149 cc';
-    const motoMotor = vInfo.numeroMotor || vInfo['No. MOTOR'] || attTp.numeroMotor || attTp['No. MOTOR'] || attSoat.numeroMotor || 'Z16ZFMJ250018938';
-    const motoChasis = vInfo.numeroChasis || vInfo['No. CHASIS ó No. SERIE'] || attTp.numeroChasis || attTp['No. CHASIS ó No. SERIE'] || attSoat.numeroChasis || 'LB7GKC5AXSF009188';
+    const motoMarca = vInfo.marca || attTp.marca || '';
+    const motoLinea = vInfo.linea || attTp.linea || '';
+    const motoModelo = String(vInfo.modelo || attTp.modelo || '');
+    const motoColor = vInfo.color || attTp.color || '';
+    const motoCilindraje = vInfo.cilindraje || attTp.cilindraje || '';
+    const motoMotor = vInfo.numeroMotor || vInfo['No. MOTOR'] || attTp.numeroMotor || attTp['No. MOTOR'] || attSoat.numeroMotor || '';
+    const motoChasis = vInfo.numeroChasis || vInfo['No. CHASIS ó No. SERIE'] || attTp.numeroChasis || attTp['No. CHASIS ó No. SERIE'] || attSoat.numeroChasis || '';
 
     const startDateInfo = parseDateParts(contract.startDate);
     const endDateInfo = parseDateParts(contract.endDate);
@@ -130,7 +130,7 @@ export function mapContractToTemplateData(contract, device = null) {
 
     return {
         // Vendedor & Prestamista
-        vendedorNombre: contract.companyName || 'POCKETBIKE S.A.S.',
+        vendedorNombre: 'POCKETBIKE S.A.S.',
         vendedorNit: '901366393-9',
         vendedorTelefono: '316 907 8211',
         prestamistaNombre: 'UPAYSOLUTIONS S.A.S.',
@@ -252,19 +252,19 @@ function convertDocxToPdfWindowsWord(docxBuffer) {
 
         execFile('python', [WINDOWS_WORD_PY_SCRIPT, tmpDocx.name, tmpPdf.name], { timeout: 30000 }, (error, stdout, stderr) => {
             if (error) {
-                try { tmpDocx.removeCallback(); } catch (_) {}
-                try { tmpPdf.removeCallback(); } catch (_) {}
+                try { tmpDocx.removeCallback(); } catch (_) { }
+                try { tmpPdf.removeCallback(); } catch (_) { }
                 return reject(new Error(`Error en conversión de Word en Windows: ${stderr || error.message}`));
             }
 
             try {
                 const pdfBuffer = fs.readFileSync(tmpPdf.name);
-                try { tmpDocx.removeCallback(); } catch (_) {}
-                try { tmpPdf.removeCallback(); } catch (_) {}
+                try { tmpDocx.removeCallback(); } catch (_) { }
+                try { tmpPdf.removeCallback(); } catch (_) { }
                 resolve(pdfBuffer);
             } catch (readErr) {
-                try { tmpDocx.removeCallback(); } catch (_) {}
-                try { tmpPdf.removeCallback(); } catch (_) {}
+                try { tmpDocx.removeCallback(); } catch (_) { }
+                try { tmpPdf.removeCallback(); } catch (_) { }
                 reject(readErr);
             }
         });

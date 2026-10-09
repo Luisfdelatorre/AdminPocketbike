@@ -407,6 +407,7 @@ const generateContractDocument = async (req, res) => {
         }
 
         const docxBuffer = generateContractDocx(contract, device);
+        console.log('Docx buffer:', docxBuffer);
 
         const safePlate = (contract.deviceIdName || contract.contractId || 'Contrato').replace(/[^a-zA-Z0-9_-]/g, '_');
         const filename = `Contrato_${safePlate}_${contract.contractId}.docx`;
