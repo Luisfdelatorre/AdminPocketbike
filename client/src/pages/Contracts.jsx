@@ -744,14 +744,6 @@ const Contracts = () => {
                             }
                         }
 
-                        if (data.propietario) {
-                            next.customerName = String(data.propietario).toUpperCase();
-                        }
-                        if (data.documentoPropietario) {
-                            next.customerDocumentType = 'CC';
-                            next.customerDocumentNumber = String(data.documentoPropietario);
-                            next.customerDocument = `CC ${data.documentoPropietario}`;
-                        }
 
                         // Guardar datos técnicos estructurados para la BD
                         next.vehicleInfo = {
