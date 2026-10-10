@@ -100,4 +100,6 @@ class Logger {
     }
 }
 
-export default new Logger();
+const defaultLogger = new Logger();
+export const cronLogger = defaultLogger;
+export default defaultLogger;
