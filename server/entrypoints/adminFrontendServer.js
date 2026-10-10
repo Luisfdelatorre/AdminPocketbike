@@ -17,6 +17,38 @@ app.use((req, res, next) => {
 });
 
 const distPath = path.join(__dirname, '../../dist');
+const API_PORT = process.env.API_PORT || 8084;
+const API_SERVER_URL = process.env.API_SERVER_URL || `http://127.0.0.1:${API_PORT}`;
+
+// Proxy /apinode and /api requests to API.PocketBike (port 8084)
+app.use(['/apinode', '/api'], async (req, res) => {
+    try {
+        const targetUrl = `${API_SERVER_URL}${req.originalUrl}`;
+        const headers = { ...req.headers };
+        delete headers.host;
+
+        const options = {
+            method: req.method,
+            headers,
+        };
+
+        if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+            options.body = req;
+            options.duplex = 'half';
+        }
+
+        const fetchRes = await fetch(targetUrl, options);
+        res.status(fetchRes.status);
+        fetchRes.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+        });
+        const arrayBuffer = await fetchRes.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+    } catch (err) {
+        console.error('[ADMIN FRONTEND PROXY ERROR]:', err);
+        res.status(502).json({ success: false, error: 'API Server unavailable' });
+    }
+});
 
 // Static assets from dist
 app.use(express.static(distPath));
