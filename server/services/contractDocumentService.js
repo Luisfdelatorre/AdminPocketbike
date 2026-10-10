@@ -95,15 +95,15 @@ export function mapContractToTemplateData(contract, device = null) {
     }
 
     const vInfo = contract.vehicleInfo || {};
-    const attTp = contract.attachments?.tarjetaPropiedad?.extractedData || {};
-    const attSoat = contract.attachments?.soat?.extractedData || {};
+    const attTp = contract.attachments?.tarjetaPropiedad?.extractedData || contract.attachments?.tarjetaPropiedad || contract.attachments?.tarjeta_propiedad?.extractedData || contract.attachments?.tarjeta_propiedad || {};
+    const attSoat = contract.attachments?.soat?.extractedData || contract.attachments?.soat || {};
 
-    const motoPlaca = (vInfo.placa || contract.deviceIdName || device?.name || '______').trim().toUpperCase();
+    const motoPlaca = (vInfo.placa || attTp.placa || contract.deviceIdName || device?.name || '______').trim().toUpperCase();
     const motoMarca = vInfo.marca || attTp.marca || '';
     const motoLinea = vInfo.linea || attTp.linea || '';
     const motoModelo = String(vInfo.modelo || attTp.modelo || '');
     const motoColor = vInfo.color || attTp.color || '';
-    const motoCilindraje = vInfo.cilindraje || attTp.cilindraje || '';
+    const motoCilindraje = vInfo.cilindraje || vInfo.cilindrada || attTp.cilindraje || '';
     const motoMotor = vInfo.numeroMotor || vInfo['No. MOTOR'] || attTp.numeroMotor || attTp['No. MOTOR'] || attSoat.numeroMotor || '';
     const motoChasis = vInfo.numeroChasis || vInfo['No. CHASIS ó No. SERIE'] || attTp.numeroChasis || attTp['No. CHASIS ó No. SERIE'] || attSoat.numeroChasis || '';
 
@@ -176,11 +176,11 @@ export function mapContractToTemplateData(contract, device = null) {
         totalCuotasPactadas: formatCOP(totalCuotasVal),
 
         // Codeudor
-        codeudorNombre: contract.guarantor?.name || contract.guarantorName || '__________________________',
-        codeudorDocumento: contract.guarantor?.document || contract.guarantorDocument || '_________________________',
-        codeudorTelefono: contract.guarantor?.phone || contract.guarantorPhone || '[COMPLETAR]',
-        codeudorEmail: contract.guarantor?.email || contract.guarantorEmail || '[COMPLETAR]',
-        codeudorDireccion: contract.guarantor?.address || contract.guarantorAddress || '[COMPLETAR]',
+        codeudorNombre: (contract.guarantor?.name || contract.guarantorName || '__________________________').trim().toUpperCase(),
+        codeudorDocumento: formatCustomerDoc(contract.guarantor?.document || contract.guarantorDocument),
+        codeudorTelefono: (contract.guarantor?.phone || contract.guarantorPhone || '[COMPLETAR]').trim(),
+        codeudorEmail: (contract.guarantor?.email || contract.guarantorEmail || '[COMPLETAR]').trim(),
+        codeudorDireccion: (contract.guarantor?.address || contract.guarantorAddress || '[COMPLETAR]').trim().toUpperCase(),
 
         // Identificación y Fechas
         contratoId: contract.contractId || contract._id || 'CIYIE41HUA',
@@ -241,6 +241,26 @@ function hasSoffice() {
     return paths.some(p => p && fs.existsSync(p));
 }
 
+function getPythonExecutable() {
+    if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) {
+        return process.env.PYTHON_PATH;
+    }
+    const candidates = [
+        'C:\\Users\\luisd\\anaconda3\\python.exe',
+        path.join(process.env.USERPROFILE || '', 'anaconda3', 'python.exe'),
+        path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python311', 'python.exe'),
+        path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python310', 'python.exe'),
+        path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python39', 'python.exe'),
+        'python'
+    ];
+    for (const c of candidates) {
+        if (c !== 'python' && fs.existsSync(c)) {
+            return c;
+        }
+    }
+    return 'python';
+}
+
 function convertDocxToPdfWindowsWord(docxBuffer) {
     return new Promise((resolve, reject) => {
         const tmpDocx = tmp.fileSync({ postfix: '.docx', keep: false });
@@ -250,7 +270,8 @@ function convertDocxToPdfWindowsWord(docxBuffer) {
         fs.closeSync(tmpDocx.fd);
         fs.closeSync(tmpPdf.fd);
 
-        execFile('python', [WINDOWS_WORD_PY_SCRIPT, tmpDocx.name, tmpPdf.name], { timeout: 30000 }, (error, stdout, stderr) => {
+        const pyBin = getPythonExecutable();
+        execFile(pyBin, [WINDOWS_WORD_PY_SCRIPT, tmpDocx.name, tmpPdf.name], { timeout: 30000 }, (error, stdout, stderr) => {
             if (error) {
                 try { tmpDocx.removeCallback(); } catch (_) { }
                 try { tmpPdf.removeCallback(); } catch (_) { }
@@ -277,9 +298,44 @@ function convertDocxToPdfWindowsWord(docxBuffer) {
  */
 export async function convertDocxToPdf(docxBuffer) {
     if (process.platform === 'win32' && !hasSoffice()) {
-        return await convertDocxToPdfWindowsWord(docxBuffer);
+        try {
+            return await convertDocxToPdfWindowsWord(docxBuffer);
+        } catch (winErr) {
+            console.warn('[convertDocxToPdf] Falló conversión con Word en Windows, intentando libreoffice-convert:', winErr.message);
+            try {
+                return await convertAsync(docxBuffer, '.pdf', undefined);
+            } catch (libreErr) {
+                throw new Error(`Fallo en la conversión de PDF: ${winErr.message}`);
+            }
+        }
     }
     return await convertAsync(docxBuffer, '.pdf', undefined);
+}
+
+/**
+ * Generates the contract DOCX from CONTRATO_TEMPLATE.docx, converts it to PDF,
+ * and saves it into uploads/contract_pdf/Contrato_{placa}_{contractId}.pdf
+ * 
+ * @param {Object} contract - MongoDB contract or contract-like object
+ * @param {Object} [device] - Optional device details
+ * @returns {Promise<{ filename: string, filePath: string, size: number }>}
+ */
+/**
+ * Invalidate/delete any cached contract PDF files on disk for a contract
+ */
+export function invalidateContractPdfCache(contractId) {
+    if (!fs.existsSync(UPLOADS_CONTRACT_PDF_DIR) || !contractId) return;
+    const cleanId = String(contractId).replace(/[^a-zA-Z0-9_-]/g, '');
+    try {
+        const files = fs.readdirSync(UPLOADS_CONTRACT_PDF_DIR);
+        for (const file of files) {
+            if (file.endsWith(`_${cleanId}.pdf`) || file.includes(cleanId)) {
+                try {
+                    fs.unlinkSync(path.join(UPLOADS_CONTRACT_PDF_DIR, file));
+                } catch (_) {}
+            }
+        }
+    } catch (_) {}
 }
 
 /**
@@ -295,12 +351,17 @@ export async function generateAndSaveContractPdf(contract, device = null) {
         fs.mkdirSync(UPLOADS_CONTRACT_PDF_DIR, { recursive: true });
     }
 
+    const rawId = contract?.contractId || contract?._id || '';
+    if (rawId) {
+        invalidateContractPdfCache(rawId);
+    }
+
     const docxBuffer = generateContractDocx(contract, device);
     const pdfBuffer = await convertDocxToPdf(docxBuffer);
 
     const vInfo = contract.vehicleInfo || {};
     const placa = (vInfo.placa || contract.deviceIdName || 'SIN_PLACA').replace(/[^a-zA-Z0-9_-]/g, '');
-    const contractId = (contract.contractId || contract._id || 'CONTRATO').toString().replace(/[^a-zA-Z0-9_-]/g, '');
+    const contractId = (rawId || 'CONTRATO').toString().replace(/[^a-zA-Z0-9_-]/g, '');
     const filename = `Contrato_${placa}_${contractId}.pdf`;
     const targetFilePath = path.join(UPLOADS_CONTRACT_PDF_DIR, filename);
 
@@ -347,5 +408,6 @@ export default {
     mapContractToTemplateData,
     convertDocxToPdf,
     generateAndSaveContractPdf,
-    findContractPdf
+    findContractPdf,
+    invalidateContractPdfCache
 };
