@@ -2430,6 +2430,36 @@ const Contracts = () => {
                                                             />
                                                         </div>
                                                     </div>
+                                                    <div className="wa-profile-row">
+                                                        <span className="wa-profile-label">Email</span>
+                                                        <div className="wa-profile-value-wrap">
+                                                            <input
+                                                                type="email"
+                                                                className="wa-profile-input"
+                                                                value={formData.guarantor?.email || ''}
+                                                                onChange={(e) => setFormData({
+                                                                    ...formData,
+                                                                    guarantor: { ...(formData.guarantor || {}), email: e.target.value }
+                                                                })}
+                                                                placeholder="correo@ejemplo.com"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="wa-profile-row">
+                                                        <span className="wa-profile-label">Dirección</span>
+                                                        <div className="wa-profile-value-wrap">
+                                                            <input
+                                                                type="text"
+                                                                className="wa-profile-input"
+                                                                value={formData.guarantor?.address || ''}
+                                                                onChange={(e) => setFormData({
+                                                                    ...formData,
+                                                                    guarantor: { ...(formData.guarantor || {}), address: e.target.value }
+                                                                })}
+                                                                placeholder="Calle 123 #45-67"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </>
                                         )}

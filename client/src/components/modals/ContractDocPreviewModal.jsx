@@ -28,7 +28,8 @@ import {
     ChevronUp
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { downloadContractDocument, downloadContractPdf, getContractDocxBlob } from '../../services/api';
+import { downloadContractDocument, getContractDocxBlob } from '../../services/api';
+import { downloadContractPdf } from '../../utils/contractPdfGenerator';
 import { showToast } from '../../utils/toast';
 import { safeCalcularPrecioMoto } from '../../utils/contractCalculations';
 import Amount from '../Amount';
@@ -508,6 +509,21 @@ const ContractDocPreviewModal = ({ contract, isOpen, onClose }) => {
                                         <p className="contract-party-doc">DOC: {customerDoc} {customerPhone ? `• Tel: ${customerPhone}` : ''}</p>
                                     </div>
                                 </div>
+                                {(contract.guarantor?.name || contract.guarantorName) && (
+                                    <div className="contract-party-item">
+                                        <div className="contract-party-avatar bg-purple-100 text-purple-800">GU</div>
+                                        <div className="contract-party-info">
+                                            <span className="contract-party-role">CODEUDOR SOLIDARIO / GARANTE</span>
+                                            <p className="contract-party-name">{(contract.guarantor?.name || contract.guarantorName).toUpperCase()}</p>
+                                            <p className="contract-party-doc">
+                                                {contract.guarantor?.document || contract.guarantorDocument ? `DOC: ${contract.guarantor?.document || contract.guarantorDocument}` : ''}
+                                                {contract.guarantor?.address || contract.guarantorAddress ? ` • Dirección: ${contract.guarantor?.address || contract.guarantorAddress}` : ''}
+                                                {contract.guarantor?.phone || contract.guarantorPhone ? ` • Tel: ${contract.guarantor?.phone || contract.guarantorPhone}` : ''}
+                                                {contract.guarantor?.email || contract.guarantorEmail ? ` • ${contract.guarantor?.email || contract.guarantorEmail}` : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </section>*/}
