@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { nanoid } from 'nanoid';
 import dayjs from '../config/dayjs.js';
 import { Transaction } from '../config/config.js';
 const { PAYMENT_STATUS } = Transaction;
@@ -17,7 +18,7 @@ const paymentSchema = new mongoose.Schema({
     payment_method_type: { type: String, required: true },
     phone_number: { type: String, default: null },
     currency: { type: String, default: 'COP', },
-    status: { type: String, enum: Object.values(PAYMENT_STATUS), default: PAYMENT_STATUS.PENDING, index: true, },
+    status: { type: String, enum: Object.values(PAYMENT_STATUS), default: PAYMENT_STATUS.S_PENDING, index: true, },
     paymentMethodType: { type: String, },
     type: { type: String, required: true },
     finalized_at: { type: Date },
@@ -33,14 +34,52 @@ const paymentSchema = new mongoose.Schema({
     processing: { type: Boolean, default: false }, // Reserva de procesamiento en curso
     paymentFrequency: { type: Number },
     billingMultiplier: { type: Number },
+    paymentMethod: { type: String, default: null }, // e.g. 'NEQUI_PUSH' | 'BANCOLOMBIA_QR'
     adjustmentType: { type: String, default: null },
     adjustmentReference: { type: String, default: null },
-
-
+    qrImage: { type: String, default: null },
+    qrId: { type: String, default: null },
 
 }, {
     timestamps: true,
 });
+
+paymentSchema.statics.generateReferenceFreeDay = function (invoiceId) {
+    return `FREE-${invoiceId}-${nanoid(2).toUpperCase()}`;
+};
+
+paymentSchema.statics.generateReferenceAdjustment = function (invoiceId) {
+    return `ADJ-${invoiceId}-${nanoid(2).toUpperCase()}`;
+};
+
+paymentSchema.statics.generateReferenceLoan = function (invoiceId) {
+    return `LOAN-${invoiceId}-${nanoid(2).toUpperCase()}`;
+};
+
+paymentSchema.statics.buildFreePaymentDoc = function (contract, invoiceId, date = new Date()) {
+    const paymentId = this.generateReferenceFreeDay(invoiceId);
+    const now = date || new Date();
+    return {
+        _id: paymentId,
+        paymentId: paymentId,
+        invoiceId: invoiceId,
+        companyId: contract.companyId || null,
+        contractId: contract.contractId || null,
+        reference: paymentId,
+        amount: 0,
+        amount_in_cents: 0,
+        payment_method_type: Transaction.PAYMENT_TYPE.FREE,
+        type: Transaction.PAYMENT_TYPE.FREE,
+        deviceIdName: contract.deviceIdName,
+        deviceId: contract.deviceId,
+        status: PAYMENT_STATUS.S_APPROVED || PAYMENT_STATUS.APPROVED || 'APPROVED',
+        created_at: now,
+        finalized_at: now,
+        phoneNumber: contract.customerPhone || '',
+        used: true,
+        unpaidInvoiceId: invoiceId
+    };
+};
 
 paymentSchema.statics.totalPerDayByDevice = async function (query) {
     const match = {
@@ -51,14 +90,16 @@ paymentSchema.statics.totalPerDayByDevice = async function (query) {
         match.finalized_at = query.date;
     }
 
-    let companyTz = 'America/Bogota';
+    let companyTz = query.timezone || 'America/Bogota';
     if (query.companyId) {
         match.companyId = new mongoose.Types.ObjectId(query.companyId);
-        try {
-            const company = await mongoose.model('Company').findById(query.companyId);
-            if (company && company.timezone) companyTz = company.timezone;
-        } catch (e) {
-            console.error('Failed to get company timezone', e);
+        if (!query.timezone) {
+            try {
+                const company = await mongoose.model('Company').findById(query.companyId, { timezone: 1 }).lean();
+                if (company && company.timezone) companyTz = company.timezone;
+            } catch (e) {
+                console.error('Failed to get company timezone', e);
+            }
         }
     }
 
@@ -133,8 +174,9 @@ paymentSchema.methods.getPendingFormat = function () {
     return {
         transactionId: this._id,
         reference: this.reference,
-        amount: (this.amount || 0) / 100, // Assuming cents logic from user? check paymentRepo
+        amount: this.amount,
         status: this.status,
+        qrImage: this.qrImage || null,
         createdAt: this.created_at || this.createdAt
     };
 };
@@ -152,5 +194,9 @@ paymentSchema.methods.markAsUsed = async function (invoice = null) {
 paymentSchema.index({ status: 1, createdAt: 1 });
 // Used by getTotalPerDayByDevice aggregation: match on status + invoiceDate range
 paymentSchema.index({ status: 1, invoiceDate: 1 });
+// Used by getTotalPerDayByDevice aggregation: match on status + finalized_at range (+ companyId)
+paymentSchema.index({ status: 1, finalized_at: 1 });
+paymentSchema.index({ status: 1, companyId: 1, finalized_at: 1 });
+
 
 export const Payment = mongoose.model('Payment', paymentSchema);

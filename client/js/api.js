@@ -95,6 +95,7 @@ export const createNequiPayment = (data) => api.post('/apinode/payments/request'
 
 // Messages
 export const getUIMessages = () => api.get('/apinode/messages/ui');
+export const getAdjustmentTypes = () => api.get('/apinode/settings/adjustment-types');
 
 // EventSource helper for payment streaming
 export const createPaymentStream = (reference) => {

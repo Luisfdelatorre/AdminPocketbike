@@ -66,65 +66,25 @@ const createInvoice = async (req, res) => {
 
 /**
  * Get all invoices with pagination
- * Query params: page (default: 1), limit (default: 50), status (optional filter)
+ * Query params: page (default: 1), limit (default: 100), status (optional filter), search, month, year
  */
 const getAllInvoices = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 50;
-        const status = req.query.status; // optional: PAID, UNPAID, PENDING
-        const month = req.query.month ? parseInt(req.query.month) : null;
-        const year = req.query.year ? parseInt(req.query.year) : null;
-        const skip = (page - 1) * limit;
-
         const { isSuperAdmin, companyId, role, companyName } = req.auth;
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
-        // Build query
-        const query = {};
-
-        if (status) {
-            const statusUpper = status.toUpperCase();
-            if (statusUpper === 'UNPAID') {
-                query.dayType = 'DEBT';
-            } else {
-                query.dayType = statusUpper;
-            }
-        }
-
-        if (month && year) {
-            const startOfMonth = new Date(year, month - 1, 1);
-            const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-            query.date = { $gte: startOfMonth, $lte: endOfMonth };
-        }
-
-        // Apply company filter if not system admin
-        if (!isSystemAdmin) {
-            query.companyId = companyId;
-        }
-
-        // Get invoices and total count in parallel
-        const [invoices, total] = await Promise.all([
-            Invoice.find(query)
-                .sort({ date: -1, createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            Invoice.countDocuments(query)
-        ]);
-
-        res.json({
-            success: true,
-            invoices,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-                hasNext: page < Math.ceil(total / limit),
-                hasPrev: page > 1
-            }
+        const result = await invoiceServices.getAllInvoices({
+            page: req.query.page,
+            limit: req.query.limit,
+            search: req.query.search,
+            status: req.query.status,
+            month: req.query.month,
+            year: req.query.year,
+            companyId,
+            isSystemAdmin
         });
+
+        res.json(result);
     } catch (error) {
         console.error('Get all invoices error:', error);
         res.status(500).json({
@@ -177,7 +137,8 @@ const getInvoiceHistory = async (req, res) => {
             data: {
                 history: result.invoices,
                 month: result.month,
-                year: result.year
+                year: result.year,
+                adjustmentTypes: result.adjustmentTypes
             }
         });
     } catch (error) {

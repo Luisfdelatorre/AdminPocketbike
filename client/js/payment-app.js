@@ -1,4 +1,4 @@
-import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getDeviceStatus } from './api.js';
+import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getDeviceStatus, getAdjustmentTypes } from './api.js';
 import messagesService from './messages-service.js';
 import { Templates } from './templates.js';
 
@@ -9,7 +9,7 @@ import { Templates } from './templates.js';
 // ============================================================================
 let CONFIG = {
     TIMEZONE: 'America/Bogota',
-    MAX_TIMEOUT: 45 * 60 * 1000,
+    MAX_TIMEOUT: 15 * 60 * 1000, // 15 minutos
     PIN_LENGTH: 4,
     PHONE_LENGTH: 10,
     PROGRESS_WARNING: 75,
@@ -18,20 +18,8 @@ let CONFIG = {
     TRANSITION_DURATION: 500
 };
 
-const STATUS_CLASS_MAP = {
-    'PAID': 'status-paid',
-    'FREE': 'status-free',
-    'FREEPASS': 'status-free',
-    'ADJUSTMENT': 'status-free',
-    'VERIFYING': 'status-verifying',
-    'CONFIRMING': 'status-verifying',
-    'PENDING': 'status-pending',
-    'DEBT': 'status-pending',
-    'LOAN': 'status-loan',
-    'DECLINED': 'status-rejected',
-    'ERROR': 'status-rejected',
-    'VOIDED': 'status-rejected'
-};
+// Dynamic status class mapping loaded dynamically from DB API (/apinode/invoices/history)
+let STATUS_CLASS_MAP = {};
 
 // ============================================================================
 // State Management
@@ -101,7 +89,10 @@ class DOMManager {
             message: document.getElementById('loadingMessage'),
             amount: document.getElementById('loadingAmount'),
             statusLabel: document.getElementById('paymentStatusLabelLoading'),
-            progressBar: document.querySelector('#loadingScreen .progress-bar-animated')
+            progressBar: document.querySelector('#loadingScreen .progress-bar-animated'),
+            nequiGuide: document.getElementById('nequiGuide'),
+            qrGuide: document.getElementById('qrGuide'),
+            qrImageDisplay: document.getElementById('qrImageDisplay')
         };
 
         this.elements.pendingPayment = {
@@ -316,6 +307,12 @@ class UIUtils {
         return `<div class="fecha-pago"><div class="fecha">${dateStr}</div><div class="hora">${timeStr}</div></div>`;
     }
     static updateDeviceStatusUI(statusData) {
+        const deviceData = statusData?.data || statusData;
+        const loadingMsg = document.getElementById('loadingMessage');
+        if (loadingMsg && deviceData?.name) {
+            loadingMsg.textContent = deviceData.name;
+        }
+
         const statusRing = document.getElementById('deviceStatusRing');
         const batterySvg = document.getElementById('batteryStatusSvg');
         const motorSvg = document.getElementById('motorStatusSvg');
@@ -618,41 +615,96 @@ class PaymentManager {
                 const response = await getPaymentStatus();
                 STATE.paymentData = response.data;
             }
-            console.log("Loading data", STATE.paymentData);
-
-
             const dom = this.dom;
 
             // Update UI
             const deviceIdName = dom.get('displays.device');
-            deviceIdName.textContent = STATE.paymentData.deviceIdName;
-            deviceIdName.classList.remove('text-muted');
-            deviceIdName.classList.add('text-primary');
+            if (deviceIdName) {
+                deviceIdName.textContent = STATE.paymentData.deviceIdName;
+                deviceIdName.classList.remove('text-muted');
+                deviceIdName.classList.add('text-primary');
+            }
+            const loadingMsg = dom.get('loading.message') || document.getElementById('loadingMessage');
+            if (loadingMsg && STATE.paymentData.deviceIdName) {
+                loadingMsg.textContent = STATE.paymentData.deviceIdName;
+            }
+
+            // Update loading screen metadata (Date, Time, Cuota Number)
+            const loadingDateEl = document.getElementById('loadingDate');
+            const loadingCuotaEl = document.getElementById('loadingCuota');
+            const metaSeparatorEl = document.getElementById('loadingMetaSeparator');
+
+            if (loadingDateEl) {
+                const invoiceDate = STATE.paymentData.pendingInvoiceDate || new Date();
+                const invoiceDateStr = UIUtils.formatDate(invoiceDate);
+                const timeOnlyStr = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+                loadingDateEl.textContent = `📅 ${invoiceDateStr} (${timeOnlyStr})`;
+            }
+
+            if (loadingCuotaEl) {
+                const pagadas = STATE.paymentData.cuotasPagadas !== undefined ? STATE.paymentData.cuotasPagadas : null;
+                const total = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 500;
+                if (pagadas !== null) {
+                    loadingCuotaEl.textContent = `🏷️ Cuota ${pagadas + 1} de ${total}`;
+                    if (metaSeparatorEl) metaSeparatorEl.style.display = 'inline';
+                }
+            }
             const dueDate = dom.get('displays.paymentDueDate');
-            dueDate.classList.add('text-muted');
-            dueDate.textContent = "   ";
+            if (dueDate) {
+                dueDate.classList.add('text-muted');
+                dueDate.textContent = "   ";
 
-            // Handle Due Date
-            if (STATE.paymentData.pendingInvoiceDate) {
-                dueDate.textContent = UIUtils.formatDate(STATE.paymentData.pendingInvoiceDate);
+                // Handle Due Date
+                if (STATE.paymentData.pendingInvoiceDate) {
+                    dueDate.textContent = UIUtils.formatDate(STATE.paymentData.pendingInvoiceDate);
 
-                if (STATE.paymentData.isOverdue) {
-                    dueDate.classList.remove('text-muted');
-                    dueDate.classList.add('text-danger');
-                    if (dom.get('displays.paymentAmount')?.parentElement) {
-                        dom.get('displays.paymentAmount').parentElement.classList.add('text-danger');
-                    }
-                } else {
-                    dueDate.classList.remove('text-danger');
-                    if (dom.get('displays.paymentAmount')?.parentElement) {
-                        dom.get('displays.paymentAmount').parentElement.classList.remove('text-danger');
+                    if (STATE.paymentData.isOverdue) {
+                        dueDate.classList.remove('text-muted');
+                        dueDate.classList.add('text-danger');
+                        if (dom.get('displays.paymentAmount')?.parentElement) {
+                            dom.get('displays.paymentAmount').parentElement.classList.add('text-danger');
+                        }
+                    } else {
+                        dueDate.classList.remove('text-danger');
+                        if (dom.get('displays.paymentAmount')?.parentElement) {
+                            dom.get('displays.paymentAmount').parentElement.classList.remove('text-danger');
+                        }
                     }
                 }
             }
-            console.log(STATE.paymentData);
+
             // Update Amounts & Phone
-            dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
-            dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
+            const amountDisplay = dom.get('displays.paymentAmount');
+            if (amountDisplay) {
+                amountDisplay.textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
+            }
+            const phoneInput = dom.get('inputs.phone') || document.getElementById('phoneNumber');
+            if (phoneInput) {
+                phoneInput.value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
+            }
+
+            // Adapt UI for BANCOLOMBIA_QR vs NEQUI_PUSH
+            const phoneGroup = document.getElementById('phoneInputGroup') || dom.get('inputs.phone')?.closest('.phone-input-group');
+            const nequiBtnText = document.getElementById('paymentBtnText') || dom.get('buttons.nequiPay')?.querySelector('.nequi-text');
+            const nequiIcon = document.getElementById('paymentBtnIcon') || dom.get('buttons.nequiPay')?.querySelector('.nequi-icon-box img');
+            const normalReminder = document.getElementById('normalReminder') || dom.get('pendingPayment.normal');
+            const normalTitle = normalReminder?.querySelector('.reminder-title');
+            const normalText = normalReminder?.querySelector('.reminder-text');
+            const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
+
+            if (isQrMode) {
+                if (phoneGroup) phoneGroup.style.setProperty('display', 'none', 'important');
+                if (nequiBtnText) nequiBtnText.textContent = 'Generar código QR Bancolombia / Nequi';
+                if (nequiIcon) nequiIcon.src = '/nequi.png';
+                if (normalTitle) normalTitle.textContent = 'Pago con Código QR';
+                if (normalText) normalText.textContent = 'Haz clic en "Generar código QR" para obtener el código QR y escanearlo desde la app de Bancolombia o Nequi.';
+            } else {
+                if (phoneGroup) phoneGroup.style.setProperty('display', 'flex', 'important');
+                if (nequiBtnText) nequiBtnText.textContent = 'Pagar con tu cuenta Nequi';
+                if (nequiIcon) nequiIcon.src = '/nequi.png';
+                if (normalTitle) normalTitle.textContent = 'Cómo pagar';
+                if (normalText) normalText.textContent = 'Después de hacer clic en "Pagar", completa tu transacción en el centro de notificaciones de Nequi.';
+            }
 
             const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas') || document.getElementById('cuotasPagadas');
             const totalCuotasDisplay = dom.get('displays.totalCuotas') || document.getElementById('totalCuotas');
@@ -696,11 +748,17 @@ class PaymentManager {
                 const normal = dom.get('pendingPayment.normal');
 
                 if (pending && normal) {
-                    dom.get('pendingPayment.reference').textContent = STATE.paymentData.pendingPayment.reference;
-                    dom.get('pendingPayment.amount').textContent = UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount);
-                    dom.get('pendingPayment.time').textContent = UIUtils.formatDateTime(STATE.paymentData.pendingPayment.createdAt, true);
+                    const pendingRefEl = dom.get('pendingPayment.reference') || document.getElementById('pendingPaymentRef');
+                    const pendingAmtEl = dom.get('pendingPayment.amount') || document.getElementById('pendingPaymentAmount');
+                    const pendingTimeEl = dom.get('pendingPayment.time') || document.getElementById('pendingPaymentTime');
 
-                    this._updatePendingProgress(STATE.paymentData.pendingPayment.createdAt);
+                    if (pendingRefEl) pendingRefEl.textContent = STATE.paymentData.pendingPayment.reference || '';
+                    if (pendingAmtEl) pendingAmtEl.textContent = UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount || 0);
+                    if (pendingTimeEl) pendingTimeEl.textContent = UIUtils.formatDateTime(STATE.paymentData.pendingPayment.createdAt || new Date(), true);
+
+                    if (typeof this._updatePendingProgress === 'function') {
+                        this._updatePendingProgress(STATE.paymentData.pendingPayment.createdAt);
+                    }
 
                     pending.dataset.shouldShow = 'true';
                     normal.dataset.shouldShow = 'false';
@@ -709,12 +767,21 @@ class PaymentManager {
                     normal.style.display = 'none';
                 }
 
+                const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
+                if (isQrMode) {
+                    this.screen.switchScreen(this.dom.elements.screens.loading);
+                    if (STATE.paymentData.pendingPayment.qrImage) {
+                        this._displayQrCode(STATE.paymentData.pendingPayment.qrImage);
+                    }
+                }
+
                 // Update loading screen amount just in case
                 const loadingAmount = dom.get('loading.amount');
                 if (loadingAmount) {
                     loadingAmount.textContent = `$${UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount)} COP`;
                 }
 
+                this._startCountdownTimer(STATE.paymentData.pendingPayment.createdAt);
                 this.monitorStatus(STATE.paymentData.pendingPayment.transactionId);
             } else {
                 // No pending payment
@@ -773,7 +840,11 @@ class PaymentManager {
             }
 
             const response = await getInvoiceHistory({ month, year });
-            const { history, month: resMonth, year: resYear } = response.data?.data || {};
+            const { history, month: resMonth, year: resYear, adjustmentTypes } = response.data?.data || {};
+
+            if (adjustmentTypes && typeof adjustmentTypes === 'object') {
+                STATUS_CLASS_MAP = adjustmentTypes;
+            }
 
             // Sync STATE with server-confirmed values
             STATE.historyMonth = resMonth;
@@ -821,13 +892,38 @@ class PaymentManager {
         }
 
         historyBody.innerHTML = history.map(item => {
-            const statusClass = STATUS_CLASS_MAP[item.dayType] || 'status-pending';
+            const key = item.adjustmentType || item.dayType;
+            const fallbackConfig = STATUS_CLASS_MAP[key] || {};
+
+            const color = item.color || fallbackConfig.color || '#6b7280';
+            const bg = item.bg || fallbackConfig.bg || 'transparent';
+            const badgeLabel = item.badgeLabel || item.status || fallbackConfig.badgeLabel || 'Pendiente';
+
+            let paymentTimeHtml = '<span style="color: #9ca3af; font-size: 13px;">---</span>';
+
+            if (item.paymentDate) {
+                const pDate = new Date(item.paymentDate);
+                const pDateStr = UIUtils.formatDate(pDate);
+                const pTimeStr = pDate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+                paymentTimeHtml = `
+                    <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
+                        <span style="font-size: 11px; font-weight: 500; color: #1f2937;">${pDateStr}</span>
+                        <span style="font-size: 10px; color: #6b7280;">${pTimeStr}</span>
+                    </div>
+                `;
+            }
+
+            const rowStyle = bg ? `style="background-color: ${bg};"` : '';
+            const badgeStyle = `style="color: ${color}; background-color: ${bg}; display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; white-space: nowrap;"`;
+
             return `
-            <tr>
-                <td>${UIUtils.formatDate(item.date)}</td>
-                <td>$${UIUtils.formatMoney(item.paidAmount)}</td>
-                <td class="no-padding">${item.paymentDate ? UIUtils.formatDateTime(item.paymentDate) : '---'}</td>
-                <td class="${statusClass} no-padding">${item.status}</td>
+            <tr ${rowStyle}>
+                <td style="font-weight: 600; color: #374151;">${UIUtils.formatDate(item.date)}</td>
+                <td style="font-weight: 400; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
+                <td style="text-align: center;">${paymentTimeHtml}</td>
+                <td style="text-align: right; padding-right: 8px;">
+                    <span ${badgeStyle}>${badgeLabel}</span>
+                </td>
             </tr>
             `;
         }).join('');
@@ -883,11 +979,13 @@ class PaymentManager {
     // --- Actions ---
 
     async processNequi() {
-        const phone = this.dom.get('inputs.phone').value.replace(/\D/g, '');
+        const isQrMode = STATE.paymentData?.paymentMethod === 'BANCOLOMBIA_QR';
+        const phoneInput = this.dom.get('inputs.phone')?.value || '';
+        const phone = phoneInput.replace(/\D/g, '');
         const amountStr = this.dom.get('displays.paymentAmount').textContent.replace(/\D/g, '');
         const amount = parseInt(amountStr, 10);
 
-        if (!phone || phone.length !== CONFIG.PHONE_LENGTH) {
+        if (!isQrMode && (!phone || phone.length !== CONFIG.PHONE_LENGTH)) {
             UIUtils.showError(messagesService.get('ERRORS.INVALID_PHONE'));
             return;
         }
@@ -901,17 +999,28 @@ class PaymentManager {
         this.screen.switchScreen(this.dom.elements.screens.loading);
 
         const statusLabel = this.dom.get('loading.statusLabel');
-        if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.REQUESTING_PAYMENT');
+        if (statusLabel) {
+            statusLabel.textContent = isQrMode
+                ? 'Generando código QR...'
+                : messagesService.get('STATUS.REQUESTING_PAYMENT');
+        }
 
         try {
             const response = await createNequiPayment({ phone });
             const data = response.data;
 
-            if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.WAITING_NEQUI');
-            // Wait 10s simulation
-            // await new Promise(resolve => setTimeout(resolve, 5000));
+            if (statusLabel) {
+                statusLabel.textContent = isQrMode
+                    ? 'Generando código QR...'
+                    : messagesService.get('STATUS.WAITING_NEQUI');
+            }
 
-            if (data.paymentData.id) {
+            if (data.paymentData?.qrImage) {
+                this._displayQrCode(data.paymentData.qrImage);
+            }
+
+            if (data.paymentData?.id) {
+                this._startCountdownTimer(new Date());
                 this.monitorStatus(data.paymentData.id);
             } else {
                 this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
@@ -920,6 +1029,26 @@ class PaymentManager {
             const msg = error.response?.data?.error || error.response?.data?.message || messagesService.get('ERRORS.PAYMENT_INIT_ERROR');
             UIUtils.showError(msg);
             this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
+        }
+    }
+
+    _displayQrCode(qrImage) {
+        if (!qrImage) return;
+        const qrGuide = document.getElementById('qrGuide');
+        const nequiGuide = document.getElementById('nequiGuide');
+        const logoContainer = document.getElementById('companyLogoContainer');
+        const qrImg = document.getElementById('qrImageDisplay');
+        const statusLabel = this.dom.get('loading.statusLabel');
+
+        if (nequiGuide) nequiGuide.classList.add('hidden');
+        if (logoContainer) logoContainer.classList.add('hidden');
+        if (qrGuide) qrGuide.classList.remove('hidden');
+        if (statusLabel) statusLabel.textContent = 'Escanea el código QR con Bancolombia o Nequi';
+
+        if (qrImg) {
+            qrImg.src = qrImage.startsWith('data:')
+                ? qrImage
+                : `data:image/svg+xml;base64,${qrImage}`;
         }
     }
 
@@ -1008,6 +1137,17 @@ class PaymentManager {
                 if (pendingLabel) pendingLabel.textContent = data.message;
             }
 
+            // ── DIAGNOSTIC ──────────────────────────────────────────────────
+            console.log('[SSE]', data.status, data.message || '');
+            if (data.qrImage) {
+                console.log('[SSE-QR] qrImage prefix (80 chars):', String(data.qrImage).substring(0, 80));
+            }
+            // ────────────────────────────────────────────────────────────────
+
+            if (data.status === 'QR_READY' && data.qrImage) {
+                this._displayQrCode(data.qrImage);
+            }
+
             if (data.status === 'COMPLETED') {
                 await this._handlePaymentSuccess(data);
             } else if (['DECLINED', 'ERROR', 'VOIDED'].includes(data.status)) {
@@ -1040,7 +1180,50 @@ class PaymentManager {
         }
     }
 
+    _startCountdownTimer(createdAt) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
+
+        const startTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+        const durationMs = CONFIG.MAX_TIMEOUT; // 15 minutos = 900,000 ms
+
+        const updateTimer = () => {
+            const now = Date.now();
+            const elapsedMs = now - startTime;
+            const remainingMs = Math.max(0, durationMs - elapsedMs);
+            const remainingSeconds = Math.floor(remainingMs / 1000);
+
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            const timerValEl = document.getElementById('loadingTimerVal');
+            if (timerValEl) {
+                timerValEl.textContent = formattedTime;
+            }
+
+            if (remainingSeconds <= 0) {
+                if (STATE.countdownInterval) {
+                    clearInterval(STATE.countdownInterval);
+                    STATE.countdownInterval = null;
+                }
+                if (timerValEl) {
+                    timerValEl.textContent = 'Expirado';
+                }
+            }
+        };
+
+        updateTimer();
+        STATE.countdownInterval = setInterval(updateTimer, 1000);
+    }
+
     async _handlePaymentSuccess(data) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1066,6 +1249,10 @@ class PaymentManager {
     }
 
     async _handlePaymentFailure(data) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1075,6 +1262,10 @@ class PaymentManager {
     }
 
     async _handlePaymentTimeout() {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 

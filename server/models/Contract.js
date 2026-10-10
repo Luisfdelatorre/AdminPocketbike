@@ -100,6 +100,16 @@ const contractSchema = new mongoose.Schema({
     customerDocument: {
         type: String, // ID/Document number
     },
+    customerAddress: {
+        type: String, // Address for notifications and legal notices
+    },
+    guarantor: {
+        name: { type: String },
+        document: { type: String },
+        phone: { type: String },
+        email: { type: String },
+        address: { type: String },
+    },
     // Notes
     notes: {
         type: String,
@@ -143,6 +153,74 @@ const contractSchema = new mongoose.Schema({
         type: Boolean,
         default: false, // If true, curfew (toque de queda) will not apply to this device
     },
+    // Technical Vehicle Data extracted from Tarjeta de Propiedad
+    vehicleInfo: {
+        placa: { type: String },
+        marca: { type: String },
+        linea: { type: String },
+        modelo: { type: String },
+        color: { type: String },
+        cilindraje: { type: String },
+        numeroMotor: { type: String },
+        numeroChasis: { type: String },
+        propietario: { type: String },
+        documentoPropietario: { type: String },
+        tipoDocumentoPropietario: { type: String },
+        telefonoPropietario: { type: String },
+        ciudadPropietario: { type: String },
+        claseVehiculo: { type: String },
+        servicio: { type: String },
+        pasajeros: { type: String },
+        // SOAT Póliza Details
+        soatAseguradora: { type: String },
+        soatCodigoAseguradora: { type: String },
+        soatNumeroPoliza: { type: String },
+        soatFechaExpedicion: { type: String },
+        soatVigenciaDesde: { type: String },
+        soatVigenciaHasta: { type: String },
+        soatTotalPagar: { type: String },
+    },
+    soatDueDate: { type: Date },
+    // Uploaded Documents & OCR Data (Tarjeta de Propiedad, Cédula/PPT, SOAT)
+    attachments: {
+        tarjetaPropiedad: {
+            url: { type: String },
+            extractedData: { type: mongoose.Schema.Types.Mixed },
+            uploadedAt: { type: Date },
+        },
+        cedula: {
+            url: { type: String },
+            extractedData: { type: mongoose.Schema.Types.Mixed },
+            uploadedAt: { type: Date },
+        },
+        soat: {
+            url: { type: String },
+            extractedData: { type: mongoose.Schema.Types.Mixed },
+            uploadedAt: { type: Date },
+        },
+    },
+    // Financial Breakdown calculated by calcularPrecioMoto
+    financialBreakdown: {
+        precioAntesIVA: { type: Number },
+        valorIVA: { type: Number },
+        gastos: { type: Number },
+        initialFee: { type: Number },
+        gastosPendientes: { type: Number },
+        totalOperacion: { type: Number },
+        saldoFinanciable: { type: Number },
+        capitalUPAY: { type: Number },
+        saldoPocketBike: { type: Number },
+        cuotaFinanciera: { type: Number },
+        cuotaCloud: { type: Number },
+        totalAmount: { type: Number },
+        totalFinanciero: { type: Number },
+        totalCloud: { type: Number },
+        totalNetoUPAY: { type: Number },
+        tirPeriodo: { type: Number },
+        eaCalculada: { type: Number },
+        objetivoEA: { type: Number },
+        cumpleObjetivo: { type: Boolean },
+    },
 }, {
     timestamps: true,
 });
@@ -184,6 +262,21 @@ contractSchema.statics.generateContractId = function (deviceIdName) {
 contractSchema.statics.getBillingMultiplier = function (frequency, freeDayPolicy) {
     const policyMap = BILLING_MULTIPLIERS[freeDayPolicy] || BILLING_MULTIPLIERS.FLEXIBLE;
     return policyMap[frequency] ?? frequency ?? 1;
+};
+
+// Instance method helper to call getBillingMultiplier without parameters
+contractSchema.methods.getBillingMultiplier = function () {
+    return this.constructor.getBillingMultiplier(this.paymentFrequency || 1, this.freeDayPolicy);
+};
+
+// Instance method to check if a given date (dayjs or Date) falls on the contract's fixed free day
+contractSchema.methods.isFixedFreeDay = function (date) {
+    if (this.freeDayPolicy !== 'FIXED_WEEKDAY') return false;
+    if (this.fixedFreeDayOfWeek === undefined || this.fixedFreeDayOfWeek === null) return false;
+    
+    // Support both dayjs objects (.day()) and standard Date objects (.getDay())
+    const dayOfWeek = typeof date.day === 'function' ? date.day() : date.getDay();
+    return dayOfWeek === this.fixedFreeDayOfWeek;
 };
 
 export const Contract = mongoose.model('Contract', contractSchema);

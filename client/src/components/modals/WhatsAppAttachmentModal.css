@@ -1,0 +1,87 @@
+/* WhatsApp iOS-style Attachment Sheet */
+.wa-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.25);
+    z-index: 10004;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: waFadeIn 0.2s ease-out;
+}
+
+.wa-sheet-container {
+    width: 100%;
+    max-width: 520px;
+    background: #F2F2F7;
+    border-radius: 28px 28px 0 0;
+    padding: 8px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+    animation: waSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wa-sheet-drag-handle {
+    width: 40px;
+    height: 5px;
+    background: #C7C7CC;
+    border-radius: 9999px;
+    margin: 4px auto 22px;
+    cursor: pointer;
+}
+
+.wa-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    row-gap: 22px;
+    column-gap: 8px;
+    justify-items: center;
+}
+
+.wa-sheet-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease;
+}
+
+.wa-sheet-option:active {
+    transform: scale(0.94);
+}
+
+/* White oval pill like WhatsApp */
+.wa-sheet-icon-pill {
+    width: 78px;
+    height: 54px;
+    border-radius: 9999px;
+    background: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.wa-icon-photos { color: #1E6FD9; }
+.wa-icon-camera { color: #1C1C1E; }
+.wa-icon-document { color: #1E6FD9; }
+
+.wa-sheet-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #3C3C43;
+}
+
+@keyframes waFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes waSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}

@@ -10,10 +10,4 @@ const router = express.Router();
  */
 router.post('/wompi', validateWompiSignature, webhookController.handleWompiWebhook);
 
-/**
- * POST /api/webhooks/recover-pending
- * Manually trigger recovery of pending payments
- */
-router.post('/recover-pending', webhookController.recoverPending);
-
 export default router;

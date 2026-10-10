@@ -16,7 +16,9 @@ Un contrato vincula un dispositivo con una compañía y define duración, tarifa
 - valor: `dailyRate`, `totalAmount`, `paidAmount`;
 - progreso: `paidDays`, `remainingDays`;
 - estado: `ACTIVE`, `COMPLETED`, `CANCELLED` o `SUSPENDED`;
-- cliente: nombre, correo, teléfono y documento;
+- cliente: nombre, correo, teléfono, documento, `customerAddress`;
+- codeudor: `guarantor` (`name`, `document`, `phone`, `email`, `address`);
+- vehículo: `vehicleInfo` (placa, marca, línea, modelo, color, cilindraje, `numeroMotor`, `numeroChasis`, póliza SOAT y vigencias);
 - reglas: días libres, frecuencia de pago, reactivación, hora de corte y exenciones;
 - acceso: `devicePin`, almacenado como hash.
 
@@ -50,12 +52,15 @@ Todas estas rutas requieren el middleware JWT aplicado por el router:
 - `GET /apinode/contracts/devices`
 - `GET /apinode/contracts/all`
 - `POST /apinode/contracts/create`
+- `POST /apinode/contracts/extract-document` (Extracción OCR con IA de Tarjeta, Cédula y SOAT)
 - `GET /apinode/contracts/expiring/:daysThreshold`
+- `GET /apinode/contracts/:contractId/document` (Generación de documento Word .docx con plantilla oficial)
+- `GET /apinode/contracts/:contractId/pdf` (Descarga de PDF oficial pregenerado en servidor o compilado bajo demanda)
 - `GET /apinode/contracts/:deviceId`
 - `GET /apinode/contracts/:deviceId/stats`
 - `GET /apinode/contracts/:deviceId/all`
 - `PUT /apinode/contracts/:contractId/status`
-- `PUT /apinode/contracts/:contractId/update`
+- `PUT /apinode/contracts/:contractId/update` (Actualiza datos y recompila/almacena el PDF en `uploads/contract_pdf/`)
 
 ## Invariantes para cambios
 

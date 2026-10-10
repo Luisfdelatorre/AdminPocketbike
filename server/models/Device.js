@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
-import dayjs from '../config/dayjs.js';
 import { Transaction } from '../config/config.js';
-const { DEFAULTAMOUNT, BATTERY_GRACE_PERIOD = 600 } = Transaction;
+const { DEFAULTAMOUNT } = Transaction;
 
 function generateDeviceId(plate) {
     const p = String(plate).toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -47,13 +46,12 @@ const deviceSchema = new mongoose.Schema({
     model: { type: String },
     status: { type: String, enum: ['active', 'inactive', 'maintenance', 'online'], default: 'active', },
     disabled: { type: Boolean, default: false },
-    lastUpdate: { type: Date },
     positionId: { type: Number },
     companyId: { type: String, index: true },
     companyName: { type: String, },
     contractId: { type: String, },
     deviceId: { type: Number, default: function () { return (this && this.name) ? generateDeviceId(this.name) : null; } },
-    driverName: { type: String },
+    customerName: { type: String },
     gpsId: { type: mongoose.Schema.Types.Mixed, required: true }, // Mixed: Traccar can return numeric or string IDs depending on version/config
     imei: { type: String, default: null },
     deviceType: { type: String },//groupId traccar
@@ -61,17 +59,25 @@ const deviceSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false, index: true },
     notes: { type: String, default: '', },
-    // online: { type: Boolean, default: false },//diff < Transaction.DEVICE_ONLINE_TIMEOUT;
-    cutOff: { type: Boolean, default: false },
-    ignition: { type: Boolean, default: false, },// sensors.ignition
-    batteryLevel: { type: Number, default: null, },// attributes.batteryLevel (0–100)
+    // HIGH-FREQUENCY DYNAMIC TELEMETRY SUBDOCUMENT
+    telemetry: {
+        lastUpdate: { type: Date, default: null },
+        ignition: { type: Boolean, default: false },
+        cutOff: { type: Boolean, default: false },
+        batteryLevel: { type: Number, default: null },
+        powerCut: { type: Boolean, default: false },
+        alarm: { type: String, default: null },
+        motion: { type: Boolean, default: false },
+        queued: { type: Boolean, default: false },
+        totalKm: { type: Number, default: null },
+        lastKmSyncAt: { type: Date, default: null }
+    },
     //BACKWARD COMPATIBILITY //TRACCAR
     nequiNumber: { type: String, default: null },//phone // nequi
     simCardNumber: { type: String, default: null },//contact//simCard: { name}
     // uniqueId: { type: String, default: null },//uniqueId traccar
     groupId: { type: Number },//companyGroup in traccar
     calendarId: { type: Number },
-    category: { type: String, default: null },
     expirationTime: { type: Date, default: null },
     freeDaysUsed: { type: Number, default: 0 },
     phone: { type: String }, // nequi
@@ -93,7 +99,11 @@ const deviceSchema = new mongoose.Schema({
     timestamps: true,
 });
 
-deviceSchema.index({ hasActiveContract: 1, cutOff: 1, cutOffTime: 1 });
+deviceSchema.index({ hasActiveContract: 1, 'telemetry.cutOff': 1, cutOffTime: 1 });
+
+deviceSchema.virtual('driverName')
+    .get(function () { return this.customerName; })
+    .set(function (val) { this.customerName = val; });
 
 /**
  * Static helper: prepares raw GPS docs for bulkWrite.
@@ -111,29 +121,6 @@ deviceSchema.statics.prepareForBulkWrite = function (docs) {
                 )
         );
     });
-};
-
-deviceSchema.methods.toStatus = function () {
-    const diffSeconds = this.lastUpdate ? dayjs().diff(dayjs(this.lastUpdate), 'second') : null;
-    const online = diffSeconds !== null && diffSeconds < Transaction.DEVICE_ONLINE_TIMEOUT;
-
-    let battery = Number(this.batteryLevel);
-    const hasBattery = Number.isFinite(battery);
-    if (!hasBattery || !online) {
-        if (diffSeconds !== null && diffSeconds <= BATTERY_GRACE_PERIOD) {
-            battery = Math.max(0, ((BATTERY_GRACE_PERIOD - diffSeconds) / BATTERY_GRACE_PERIOD) * 100);
-        } else {
-            battery = 0;
-        }
-    }
-
-    return {
-        online,
-        cutOff: Boolean(this.cutOff),
-        ignition: this.ignition ?? false,
-        batteryLevel: Number(battery),
-        lastUpdate: this.lastUpdate || null
-    };
 };
 
 export const Device = mongoose.model('Device', deviceSchema);

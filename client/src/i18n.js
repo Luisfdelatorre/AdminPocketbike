@@ -62,7 +62,8 @@ const resources = {
                 logout: 'Logout',
                 users: 'Users',
                 companies: 'Companies',
-                reports: 'Reports'
+                reports: 'Reports',
+                summary: 'Payment Summary'
             },
             reports: {
                 totalPayments: 'Total Payments',
@@ -191,6 +192,8 @@ const resources = {
                 filterAll: 'All Devices',
                 filterActive: 'Active',
                 filterAvailable: 'Available',
+                filterOff: 'Off',
+                filterOn: 'On',
                 table: {
                     name: 'Name',
                     nequi: 'Nequi Number',
@@ -246,7 +249,13 @@ const resources = {
                 filterAll: 'All Invoices',
                 filterPaid: 'Paid',
                 filterUnpaid: 'Unpaid',
-                filterPending: 'Pending'
+                filterPending: 'Pending',
+                stats: {
+                    total: 'Total',
+                    paid: 'Paid',
+                    unpaid: 'Debts',
+                    invoices: 'Invoices'
+                }
             },
             payments: {
                 title: 'Payments History',
@@ -391,6 +400,36 @@ const resources = {
                     hint: 'Drag to reposition • Use slider to zoom',
                     cancel: 'Cancel',
                     save: 'Crop & Save'
+                },
+                adjustments: {
+                    title: 'Adjustment & Payment Types',
+                    errorLoading: 'Error loading adjustment types from server.',
+                    updatedSuccess: 'Adjustment type updated successfully.',
+                    errorSaving: 'Error saving changes to server.',
+                    keyRequired: 'The adjustment type key code is required.',
+                    systemKeyReserved: 'The key "{{key}}" belongs to a reserved system status.',
+                    createdSuccess: 'New adjustment type ({{key}}) created successfully.',
+                    errorCreating: 'Error creating new adjustment type.',
+                    cannotDeleteSystem: 'System status "{{key}}" cannot be deleted, only configured.',
+                    deletedSuccess: 'Adjustment type {{key}} deleted.',
+                    errorDeleting: 'Error deleting adjustment type.',
+                    badgeRequired: 'Short badge label is required.',
+                    confirmDelete: 'Are you sure you want to delete adjustment type "{{key}}"?',
+                    loadingTypes: 'Loading adjustment types...',
+                    editing: 'Editing: {{key}}',
+                    systemBaseStatus: 'System Base Status',
+                    longLabel: 'Long Label',
+                    shortBadge: 'Short Badge Label',
+                    textColor: 'Text Color',
+                    bgColor: 'Background Color',
+                    description: 'Description',
+                    isFreeDay: 'This is a free day ($0 for customer)',
+                    saveChanges: 'Save Changes',
+                    cancel: 'Cancel',
+                    createType: 'Create Type',
+                    addTypeBtn: 'Add Adjustment Type',
+                    tabAdjustments: 'Adjustments ({{count}})',
+                    tabStatuses: 'Statuses ({{count}})'
                 }
             }
         }
@@ -454,7 +493,8 @@ const resources = {
                 logout: 'Salir',
                 users: 'Usuarios',
                 companies: 'Empresas',
-                reports: 'Reporte'
+                reports: 'Reporte',
+                summary: 'Resumen'
             },
             reports: {
                 totalPayments: 'Total Pagos',
@@ -583,6 +623,8 @@ const resources = {
                 filterAll: 'Todos',
                 filterActive: 'Activos',
                 filterAvailable: 'Disponibles',
+                filterOff: 'Apagados',
+                filterOn: 'Encendidos',
                 table: {
                     name: 'Nombre',
                     nequi: 'Nequi',
@@ -638,7 +680,13 @@ const resources = {
                 filterAll: 'Todas',
                 filterPaid: 'Pagadas',
                 filterUnpaid: 'Pendientes',
-                filterPending: 'En Proceso'
+                filterPending: 'En Proceso',
+                stats: {
+                    total: 'Total',
+                    paid: 'Pagadas',
+                    unpaid: 'Deudas',
+                    invoices: 'Facturas'
+                }
             },
             payments: {
                 title: 'Historial de Pagos',
@@ -783,6 +831,36 @@ const resources = {
                     hint: 'Arrastra para mover • Usa el control de zoom',
                     cancel: 'Cancelar',
                     save: 'Recortar y Guardar'
+                },
+                adjustments: {
+                    title: 'Tipos de Ajuste y Pagos',
+                    errorLoading: 'Error al cargar tipos de ajuste desde el servidor.',
+                    updatedSuccess: 'Tipo de ajuste actualizado exitosamente.',
+                    errorSaving: 'Error al guardar los cambios en el servidor.',
+                    keyRequired: 'El código / clave del tipo de ajuste es requerido.',
+                    systemKeyReserved: 'La clave "{{key}}" pertenece a un estado base reservado del sistema.',
+                    createdSuccess: 'Nuevo tipo de ajuste ({{key}}) creado exitosamente.',
+                    errorCreating: 'Error al crear el nuevo tipo de ajuste.',
+                    cannotDeleteSystem: 'El estado del sistema "{{key}}" no puede ser eliminado, sólo configurado.',
+                    deletedSuccess: 'Tipo de ajuste {{key}} eliminado.',
+                    errorDeleting: 'Error al eliminar el tipo de ajuste.',
+                    badgeRequired: 'La insignia corta (Badge) es obligatoria.',
+                    confirmDelete: '¿Estás seguro de eliminar el tipo de ajuste "{{key}}"?',
+                    loadingTypes: 'Cargando tipos de ajuste...',
+                    editing: 'Editando: {{key}}',
+                    systemBaseStatus: 'Estado Base Sistema',
+                    longLabel: 'Etiqueta Larga',
+                    shortBadge: 'Insignia Corta (Badge)',
+                    textColor: 'Color Texto',
+                    bgColor: 'Color Fondo',
+                    description: 'Descripción',
+                    isFreeDay: 'Es un día sin cobro ($0 para el cliente)',
+                    saveChanges: 'Guardar Cambios',
+                    cancel: 'Cancelar',
+                    createType: 'Crear Tipo',
+                    addTypeBtn: 'Agregar Tipo de Ajuste',
+                    tabAdjustments: 'Ajustes ({{count}})',
+                    tabStatuses: 'Estados ({{count}})'
                 }
             }
         }

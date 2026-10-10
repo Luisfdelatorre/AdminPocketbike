@@ -1,7 +1,11 @@
+import fs from 'node:fs';
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import { resolveDeviceId } from '../utils/deviceResolver.js';
 import contractService from '../services/contractService.js';
+import contractDocumentService, { generateContractDocx, generateAndSaveContractPdf, findContractPdf } from '../services/contractDocumentService.js';
+import documentOcrService from '../services/documentOcrService.js';
+import { Device } from '../models/Device.js';
 
 /**
  * Get all devices with contracts for device selector
@@ -110,6 +114,12 @@ const createContract = async (req, res) => {
             });
         }
         const contract = await contractService.createContract(req.body);
+
+        // Generar y almacenar el PDF oficial en background
+        generateAndSaveContractPdf(contract).catch(err => {
+            console.error(`[ContractPdf] Error generando PDF para nuevo contrato ${contract.contractId}:`, err);
+        });
+
         res.json({
             success: true,
             data: contract,
@@ -227,12 +237,13 @@ const updateContractStatus = async (req, res) => {
         // If status is ACTIVE, set it (though usually set on creation)
         const hasActiveContract = status === 'ACTIVE';
         const activeContractId = hasActiveContract ? contractId : null;
+        const customerName = hasActiveContract && contract ? (contract.customerName || null) : null;
 
         if (contract && contract.deviceIdName) {
-            await deviceRepository.updateContractStatus(contract.deviceIdName, activeContractId, hasActiveContract);
+            await deviceRepository.updateContractStatus(contract.deviceIdName, activeContractId, hasActiveContract, { customerName });
         } else if (contract && contract.deviceId) {
             // Fallback if field is named deviceId
-            await deviceRepository.updateContractStatus(contract.deviceId, activeContractId, hasActiveContract);
+            await deviceRepository.updateContractStatus(contract.deviceId, activeContractId, hasActiveContract, { customerName });
         }
 
 
@@ -290,7 +301,11 @@ const updateContract = async (req, res) => {
 
         const updatedContract = await contractRepository.updateContract(contractId, req.body);
         console.log('Update contract:', updatedContract);
-        const result = await deviceRepository.updateContractStatus(contract.deviceId, contractId, true);
+        const hasActiveContract = updatedContract.status === 'ACTIVE';
+        const activeContractId = hasActiveContract ? contractId : null;
+        const customerName = hasActiveContract ? (updatedContract.customerName || null) : null;
+        const targetDevice = updatedContract.deviceIdName || updatedContract.deviceId || contract.deviceId;
+        const result = await deviceRepository.updateContractStatus(targetDevice, activeContractId, hasActiveContract, { customerName });
 
         // Denormalize exempt flags to Device
         if (exemptFromCutOff !== undefined || exemptFromCurfew !== undefined) {
@@ -302,6 +317,11 @@ const updateContract = async (req, res) => {
         }
 
         console.log('Update contract status result:', result);
+
+        // Generar y guardar el PDF del contrato actualizado en disco
+        generateAndSaveContractPdf(updatedContract).catch(err => {
+            console.error(`[ContractPdf] Error generando PDF para contrato actualizado ${contractId}:`, err);
+        });
 
         res.json({
             success: true,
@@ -316,6 +336,144 @@ const updateContract = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/contracts/:contractId/pdf
+ * Download contract PDF. If it already exists in uploads/contract_pdf/, it serves it immediately.
+ * Otherwise, generates it on the fly, saves it to disk, and serves it.
+ */
+const downloadContractPdf = async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const { isSuperAdmin, companyId, companyName, role } = req.auth || {};
+        const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+
+        const contract = await contractRepository.getContractById(contractId);
+        if (!contract) {
+            return res.status(404).json({ success: false, error: 'Contract not found' });
+        }
+
+        // Authorization check
+        if (!isSystemAdmin && contract.companyId && String(contract.companyId) !== String(companyId)) {
+            return res.status(403).json({ success: false, error: 'Access denied to this contract' });
+        }
+
+        const vInfo = contract.vehicleInfo || {};
+        const placa = vInfo.placa || contract.deviceIdName || 'SIN_PLACA';
+        let pdfInfo = findContractPdf(contract.contractId || contract._id, placa);
+
+        if (!pdfInfo || !fs.existsSync(pdfInfo.filePath)) {
+            console.log(`[ContractPdf] PDF no encontrado en disco para ${contractId}, generando ahora...`);
+            let device = null;
+            if (contract.deviceIdName) {
+                device = await Device.findOne({ name: contract.deviceIdName }).lean();
+            }
+            pdfInfo = await generateAndSaveContractPdf(contract, device);
+        }
+
+        return res.download(pdfInfo.filePath, pdfInfo.filename);
+    } catch (error) {
+        console.error('Error descargando PDF del contrato:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Error al descargar o generar el PDF del contrato'
+        });
+    }
+};
+
+/**
+ * GET /api/contracts/:contractId/document
+ * Generate and download populated Word contract (.docx)
+ */
+const generateContractDocument = async (req, res) => {
+    try {
+        const { contractId } = req.params;
+        const { isSuperAdmin, companyId, companyName, role } = req.auth || {};
+        const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+
+        const contract = await contractRepository.getContractById(contractId);
+        if (!contract) {
+            return res.status(404).json({ success: false, error: 'Contract not found' });
+        }
+
+        // Authorization check
+        if (!isSystemAdmin && contract.companyId && String(contract.companyId) !== String(companyId)) {
+            return res.status(403).json({ success: false, error: 'Access denied to this contract' });
+        }
+
+        // Optional device lookup for fallback data
+        let device = null;
+        if (contract.deviceIdName) {
+            device = await Device.findOne({ name: contract.deviceIdName }).lean();
+        }
+
+        const docxBuffer = generateContractDocx(contract, device);
+        console.log('Docx buffer:', docxBuffer);
+
+        const safePlate = (contract.deviceIdName || contract.contractId || 'Contrato').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `Contrato_${safePlate}_${contract.contractId}.docx`;
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', docxBuffer.length);
+
+        return res.send(docxBuffer);
+    } catch (error) {
+        console.error('Error generating contract document:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to generate contract document'
+        });
+    }
+};
+
+/**
+ * POST /api/contracts/extract-document
+ * Extract information from uploaded/captured document using OpenAI Vision / PDF parsing
+ */
+const extractDocumentData = async (req, res) => {
+    try {
+        const { category, base64, mimeType = 'image/jpeg', filename = 'document' } = req.body;
+
+        if (!category) {
+            return res.status(400).json({ success: false, error: 'La categoría del documento es requerida.' });
+        }
+
+        if (!base64 || typeof base64 !== 'string') {
+            return res.status(400).json({ success: false, error: 'No se recibió el contenido del archivo (base64).' });
+        }
+
+        // Clean base64 string
+        const cleanBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
+        if (!cleanBase64 || cleanBase64.trim().length === 0) {
+            return res.status(400).json({ success: false, error: 'El archivo recibido está vacío o contiene un base64 inválido.' });
+        }
+
+        const fileBuffer = Buffer.from(cleanBase64, 'base64');
+        if (fileBuffer.length === 0) {
+            return res.status(400).json({ success: false, error: 'El archivo recibido tiene tamaño 0 bytes.' });
+        }
+
+        // Normalize mimeType (e.g. image/jpg -> image/jpeg)
+        let normalizedMime = mimeType;
+        if (mimeType === 'image/jpg') normalizedMime = 'image/jpeg';
+
+        const result = await documentOcrService.processDocument(
+            fileBuffer,
+            normalizedMime,
+            category,
+            filename
+        );
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error in extractDocumentData:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Error al procesar y extraer información del documento.'
+        });
+    }
+};
+
 export default {
     getDevicesWithContracts,
     getAllContracts,
@@ -325,5 +483,8 @@ export default {
     getAllContractsForDevice,
     updateContractStatus,
     getExpiringContracts,
-    updateContract
+    updateContract,
+    generateContractDocument,
+    downloadContractPdf,
+    extractDocumentData
 };

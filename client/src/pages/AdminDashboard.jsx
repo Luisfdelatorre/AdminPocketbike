@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import {
     DollarSign, FileText, CreditCard, Users,
-    TrendingUp, TrendingDown, Download, ListFilter, BarChart2
+    TrendingUp, TrendingDown, Download, ListFilter, BarChart2, ChevronDown
 } from 'lucide-react';
-// Recharts import removed due to crash issues
-import {
-    AreaChart, Area, PieChart, Pie, Cell,
-    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
 import { getDashboardStats } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import StatusBadge from '../components/StatusBadge';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -157,47 +153,65 @@ const AdminDashboard = () => {
 
     return (
         <div className="dashboard-content ios-dashboard">
-            {portalElement && createPortal(
-                <button
-                    type="button"
-                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                    onClick={() => setShowFilters(!showFilters)}
-                    id="filterToggle"
-                >
-                    <ListFilter size={20} />
-                </button>,
-                portalElement
-            )}
+            <PageHeader
+                title={t('dashboard.title', 'Dashboard')}
+                onRefresh={fetchDashboardData}
+                loading={loading}
+                refreshText="Actualizar"
+                onFilterToggle={() => setShowFilters(prev => !prev)}
+                showFilters={showFilters}
+                desktopActions={
+                    <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={handleDownloadReport}
+                        title={t('dashboard.downloadReport')}
+                    >
+                        <Download size={16} /> Exportar CSV
+                    </button>
+                }
+            />
+
             {/* Expandable Metrics Section */}
             <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
 
                 {/* Header Controls Bar */}
                 <div className="dashboard-controls-row">
-                    <div className="select-wrapper-month">
-                        <select
-                            value={selectedMonth}
-                            onChange={e => setSelectedMonth(e.target.value)}
-                            className="select-control-ios"
-                        >
-                            <option value="">Todo el año</option>
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                                </option>
-                            ))}
-                        </select>
+                    <div className="summary-date-card">
+                        <div className="summary-date-field has-border">
+                            <select
+                                value={selectedMonth}
+                                onChange={e => setSelectedMonth(e.target.value)}
+                                className="summary-select-ios"
+                            >
+                                <option value="">Todo el año</option>
+                                {Array.from({ length: 12 }, (_, i) => (
+                                    <option key={i + 1} value={i + 1}>
+                                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="summary-select-arrow">
+                                <ChevronDown size={16} />
+                            </div>
+                        </div>
+
+                        <div className="summary-date-field">
+                            <select
+                                value={selectedYear}
+                                onChange={e => setSelectedYear(Number(e.target.value))}
+                                className="summary-select-ios"
+                            >
+                                <option value={2025}>2025</option>
+                                <option value={2026}>2026</option>
+                                <option value={2027}>2027</option>
+                            </select>
+                            <div className="summary-select-arrow">
+                                <ChevronDown size={16} />
+                            </div>
+                        </div>
                     </div>
-                    <div className="select-wrapper-year">
-                        <select
-                            value={selectedYear}
-                            onChange={e => setSelectedYear(Number(e.target.value))}
-                            className="select-control-ios"
-                        >
-                            <option value={2025}>2025</option>
-                            <option value={2026}>2026</option>
-                            <option value={2027}>2027</option>
-                        </select>
-                    </div>
+
                     <button
                         type="button"
                         className="btn-icon-ios btn-ios-grey"
@@ -269,9 +283,7 @@ const AdminDashboard = () => {
                                 <span className="device-cell text-left">{payment.device}</span>
                                 <span className="amount-cell text-right">${payment.amount.toLocaleString()}</span>
                                 <div className="status-cell text-center flex justify-center">
-                                    <span className={`status-badge-ios ${(payment.status || 'unknown').toLowerCase()}`}>
-                                        {payment.status || 'Unknown'}
-                                    </span>
+                                    <StatusBadge status={payment.status} />
                                 </div>
                                 <span className="date-cell text-right">{payment.date}</span>
                             </div>

@@ -43,6 +43,13 @@ function generateEmail(deviceIdName) {
     return `${deviceIdName}@${defaultCustomer.emailDomain}`;
 }
 
+export function getFirstName(nameStr) {
+    if (!nameStr || typeof nameStr !== 'string') return null;
+    const first = nameStr.trim().split(/\s+/)[0];
+    if (!first) return null;
+    return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
 export default {
     getToday,
     sleep,
@@ -53,4 +60,5 @@ export default {
     generateReferenceAdjustment,
     formatDate,
     generateEmail,
+    getFirstName,
 };

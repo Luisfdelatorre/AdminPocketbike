@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getAllUsers, createUser, updateUser, deleteUser, getAllCompanies } from '../services/api';
 import { Users as UsersIcon, UserPlus, Trash2, Search, X, Pencil } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import './Users.css'; // We'll create this CSS next
 
 const Users = () => {
@@ -114,12 +115,13 @@ const Users = () => {
 
     return (
         <div className="users-page">
-            <div className="page-header">
-                <div>
-                    <h1><UsersIcon className="inline-icon" /> Users Management</h1>
-                    <p>Manage system users</p>
-                </div>
-                <div className="header-actions">
+            <PageHeader 
+                title={
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <UsersIcon className="inline-icon" /> Users Management
+                    </span>
+                }
+                desktopActions={
                     <button className="btn-primary" onClick={() => {
                         setUserForm({ name: '', email: '', password: '', role: 'viewer', companyId: '', accessibleCompanies: [] });
                         setIsEditing(false);
@@ -128,8 +130,8 @@ const Users = () => {
                     }}>
                         <UserPlus size={16} /> Add User
                     </button>
-                </div>
-            </div>
+                }
+            />
 
             {/* Search */}
             <div className="users-search">

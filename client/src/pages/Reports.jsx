@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getDailyReconciliationReport, toggleReconciliation } from '../services/api';
-import { Calendar, Download, RefreshCw, FileText, ListFilter, Check, X } from 'lucide-react';
+import { Calendar, Download, RefreshCw, FileText, ListFilter, Check, X, Copy } from 'lucide-react';
 import './Reports.css';
 
 const Reports = () => {
@@ -309,7 +309,44 @@ const Reports = () => {
                         </button>
                         <div className="reconcile-popover-header">
                             <span className="reconcile-popover-title">
-                                ID Transacción <span className="reconcile-popover-meta">{activeFormattedDate} • {formatCurrency(activeAmount)}</span>
+                                ID Transacción 
+                                <span className="reconcile-popover-meta">
+                                    {activeFormattedDate} • {formatCurrency(activeAmount)}
+                                    <button 
+                                        className="reconcile-popover-copy-btn" 
+                                        type="button"
+                                        title="Copiar cantidad"
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            const textToCopy = activeAmount.toString();
+                                            if (navigator.clipboard && window.isSecureContext) {
+                                                try {
+                                                    await navigator.clipboard.writeText(textToCopy);
+                                                    return;
+                                                } catch (err) {
+                                                    console.error('Clipboard API failed', err);
+                                                }
+                                            }
+                                            // Fallback for older browsers or non-secure contexts (like touch emulator in devtools without HTTPS)
+                                            const textArea = document.createElement("textarea");
+                                            textArea.value = textToCopy;
+                                            textArea.style.position = 'fixed'; // Prevent scrolling to bottom
+                                            document.body.appendChild(textArea);
+                                            textArea.focus();
+                                            textArea.select();
+                                            textArea.setSelectionRange(0, 99999);
+                                            try {
+                                                document.execCommand('copy');
+                                            } catch (err) {
+                                                console.error('Fallback copy failed', err);
+                                            }
+                                            document.body.removeChild(textArea);
+                                        }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: '6px', padding: 0, color: 'inherit', display: 'inline-flex', alignItems: 'center' }}
+                                    >
+                                        <Copy size={12} />
+                                    </button>
+                                </span>
                             </span>
                         </div>
                         <input

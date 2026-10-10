@@ -1,68 +1,112 @@
 import React from 'react';
-import { Check, X, Clock, CreditCard } from 'lucide-react';
+import {
+    CheckCircle2,
+    Clock,
+    XCircle,
+    AlertTriangle,
+    AlertCircle,
+    Ban,
+    Wrench,
+    Hammer,
+    Building2,
+    HeartPulse,
+    Smartphone,
+    Banknote,
+    ArrowLeftRight,
+    Gift,
+    CreditCard,
+    Loader2
+} from 'lucide-react';
+import { useStatusConfig } from '../context/StatusConfigContext';
+import './StatusBadge.css';
 
-/**
- * Renders a status badge with appropriate color and icon.
- * Props:
- *   - status: string (e.g., 'APPROVED', 'PENDING', 'DECLINED', etc.)
- */
-const StatusBadge = ({ status }) => {
-  const upper = (status || 'unknown').toUpperCase();
-  const getColor = () => {
-    switch (upper) {
-      case 'APPROVED':
-      case 'COMPLETED':
-        return '#4a3fecff';
-      case 'FREE':
-        return '#22C55E'; // green
-      case 'DECLINED':
-      case 'FAILED':
-      case 'ERROR':
-        return '#EF4444'; // red
-      case 'PENDING':
-      case 'VERIFYING':
-        return '#FACC15'; // yellow
-      default:
-        return '#6B7280'; // gray
-    }
-  };
-
-  const getIcon = () => {
-    switch (upper) {
-      case 'APPROVED':
-      case 'COMPLETED':
-      case 'FREE':
-        return <Check />;
-      case 'DECLINED':
-      case 'FAILED':
-      case 'ERROR':
-        return <X />;
-      case 'PENDING':
-      case 'VERIFYING':
-        return <Clock />;
-      default:
-        return <CreditCard />;
-    }
-  };
-
-  const bgColor = getColor();
-  const style = {
-    background: `${bgColor}20`,
-    color: bgColor,
-    padding: '2px 6px',
-
-    fontWeight: 500,
-    fontSize: '0.85rem',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px'
-  };
-
-  return (
-    <span className="status-badge" style={style}>
-      {upper}
-    </span>
-  );
+const ICON_MAP = {
+    APPROVED: CheckCircle2,
+    COMPLETED: CheckCircle2,
+    PAID: CheckCircle2,
+    FREE: Gift,
+    PENDING: Clock,
+    VERIFYING: Clock,
+    PROCESSING: Loader2,
+    DEBT: AlertTriangle,
+    DECLINED: XCircle,
+    FAILED: XCircle,
+    ERROR: AlertCircle,
+    VOIDED: Ban,
+    NEQUI: Smartphone,
+    EFECTIVO: Banknote,
+    TRANSFERENCIA: ArrowLeftRight,
+    ACCIDENT_TRANSIT: AlertTriangle,
+    REPAIR: Wrench,
+    MAINTENANCE: Wrench,
+    WORKSHOP: Hammer,
+    INCAPACITY: HeartPulse,
+    INCAPACIDAD: HeartPulse,
+    OFFICE: Building2,
+    OFICINA: Building2,
+    ADJUSTMENT: Building2,
 };
 
-export default StatusBadge;
+/**
+ * StatusBadge Unificado para Facturas y Pagos
+ * Reutiliza automáticamente la configuración y estilos de Settings (StatusConfigContext).
+ */
+const StatusBadge = ({
+    status,
+    type,
+    adjustmentType,
+    label: customLabel,
+    clickable = false,
+    onClick,
+    compact = false,
+    showIcon = true,
+    className = '',
+    style: customStyle = {}
+}) => {
+    const { getStatusDetails } = useStatusConfig();
+
+    // Determinar la clave principal a evaluar
+    // Prioridad: adjustmentType > si type es FREE > status > type
+    let keyToLookup = status;
+    if (adjustmentType) {
+        keyToLookup = adjustmentType;
+    } else if (String(type).toUpperCase() === 'FREE') {
+        keyToLookup = 'FREE';
+    } else if (!keyToLookup && type) {
+        keyToLookup = type;
+    }
+
+    const upperKey = keyToLookup ? String(keyToLookup).toUpperCase() : 'UNKNOWN';
+    const details = getStatusDetails(upperKey, customLabel);
+
+    const IconComponent = showIcon ? (ICON_MAP[upperKey] || CreditCard) : null;
+    const displayText = customLabel || details?.badgeLabel || details?.label || upperKey;
+
+    const baseColor = details?.color || '#4B5563';
+    const baseBg = details?.bg || 'rgba(107, 114, 128, 0.1)';
+
+    const badgeStyle = {
+        color: baseColor,
+        backgroundColor: baseBg,
+        borderColor: `${baseColor}30`,
+        ...customStyle
+    };
+
+    return (
+        <span
+            className={`unified-status-badge ${compact ? 'unified-status-badge--compact' : ''} ${clickable ? 'clickable' : ''} ${className}`}
+            style={badgeStyle}
+            onClick={clickable ? onClick : undefined}
+            title={details?.description || displayText}
+        >
+            {IconComponent && (
+                <span className="badge-icon">
+                    <IconComponent size={compact ? 11 : 13} />
+                </span>
+            )}
+            <span className="badge-text">{displayText}</span>
+        </span>
+    );
+};
+
+export default React.memo(StatusBadge);

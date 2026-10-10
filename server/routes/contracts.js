@@ -27,10 +27,28 @@ router.get('/all', contractController.getAllContracts);
 router.post('/create', contractController.createContract);
 
 /**
+ * POST /api/contracts/extract-document
+ * Upload and extract information from Tarjeta de Propiedad, Cédula, or SOAT
+ */
+router.post('/extract-document', contractController.extractDocumentData);
+
+/**
  * GET /api/contracts/expiring/:daysThreshold
  * Get contracts expiring within N days
  */
 router.get('/expiring/:daysThreshold', contractController.getExpiringContracts);
+
+/**
+ * GET /api/contracts/:contractId/document
+ * Generate and download populated Word contract (.docx)
+ */
+router.get('/:contractId/document', contractController.generateContractDocument);
+
+/**
+ * GET /api/contracts/:contractId/pdf
+ * Download or generate contract PDF
+ */
+router.get('/:contractId/pdf', contractController.downloadContractPdf);
 
 /**
  * GET /api/contracts/:deviceId

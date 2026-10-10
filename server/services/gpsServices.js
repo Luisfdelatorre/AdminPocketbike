@@ -1,11 +1,8 @@
 // megaRastreoService.lite.js
-import { Login, Url, ENGINE_COMMANDS, ENGINESTOP, ENGINERESUME, Transaction, GPS_SERVICES } from '../config/config.js';
+import { Login, Url, ENGINE_COMMANDS, Transaction, GPS_SERVICES, ENGINESTOP, ENGINERESUME } from '../config/config.js';
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
-import { Company } from '../models/Company.js';
 import dayjs from '../config/dayjs.js';
-
-import companyService from './companyService.js';
 import MyTraccar from '../adapters/traccar/traccarAdapter.js';
 import MegaRastreo from '../adapters/megaRastreo/megaRastreoAdapter.js';
 
@@ -26,10 +23,14 @@ class GpsService {
         this.flushTimer = null;
         this.onFlush = null;
         this.serviceType = company?.gpsService || GPS_SERVICES.TRACCAR;
+        const config = {
+            ...(company?.gpsConfig?.toObject ? company.gpsConfig.toObject() : company?.gpsConfig),
+            groupId: company?.traccarGroupId || company?.gpsConfig?.groupId
+        };
         if (this.serviceType === GPS_SERVICES.TRACCAR) {
-            this.adapter = new MyTraccar(company?.gpsConfig); // inject company config
+            this.adapter = new MyTraccar(config); // inject company config
         } else {
-            this.adapter = new MegaRastreo(company?.gpsConfig); // inject company config
+            this.adapter = new MegaRastreo(config); // inject company config
         }
     }
 
@@ -82,136 +83,49 @@ class GpsService {
         return this.adapter.checkDeviceStatus(gpsId);
     }
 
-    async executeAndVerifyBatch(deviceIds, command, options = {}) {
-        const {
-            maxAttempts = MAX_RETRY_ATTEMPTS,
-            interval = RETRY_CHECK_INTERVAL,
-            onProgress = null,
-            onDeviceConfirmed = null, // Callback para streaming the status to DB early
-        } = options;
-        const isStop = command === ENGINE_COMMANDS.STOP || command === 0 || command === '0' || command === 'engineStop' || command === ENGINESTOP;
-        const isResume = command === ENGINE_COMMANDS.RESUME || command === 1 || command === '1' || command === 'engineResume' || command === ENGINERESUME;
-        const commandType = isStop ? 'STOP' : 'RESUME';
-
-        if (!deviceIds || deviceIds.length === 0) return {};
-
-        const adapter = this.adapter;
-        let responseIds = [];
-
-        try {
-            if (isStop) {
-                responseIds = await adapter.stopDevices(deviceIds);
-            } else if (isResume) {
-                responseIds = typeof adapter.resumeDevices === 'function' ? await adapter.resumeDevices(deviceIds) : [];
-            } else {
-                throw new Error(`Invalid command type: ${command}`);
-            }
-        } catch (error) {
-            logger.error(`[GPS] Failed to send bulk ${commandType} commands:`, error);
-            // Return entirely false map
-            return deviceIds.reduce((acc, id) => { acc[id] = false; return acc; }, {});
+    async fetchPreviousDayKmDevice(date = new Date(), options = null) {
+        if (this.adapter && typeof this.adapter.fetchPreviousDayKmDevice === 'function') {
+            return this.adapter.fetchPreviousDayKmDevice(date, options);
         }
-
-        if (!responseIds || responseIds.length === 0) {
-            return deviceIds.reduce((acc, id) => { acc[id] = false; return acc; }, {});
-        }
-
-        const commandToDeviceMap = {};
-        for (let i = 0; i < responseIds.length; i++) {
-            commandToDeviceMap[responseIds[i]] = deviceIds[i];
-        }
-
-        const finalStatusMap = deviceIds.reduce((acc, id) => { acc[id] = false; return acc; }, {});
-        let pendingCommandIds = [...responseIds];
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            if (pendingCommandIds.length === 0) break; // All confirmed
-
-            try {
-                const results = await adapter.confirmCommands(pendingCommandIds);
-
-                // Track which commands succeeded in this attempt
-                const newlyConfirmed = [];
-                for (const cmdId of pendingCommandIds) {
-                    if (results[cmdId]) {
-                        newlyConfirmed.push(cmdId);
-                        const devIdToMark = commandToDeviceMap[cmdId] || cmdId; // Fallback to id itself for Traccar
-                        finalStatusMap[devIdToMark] = true;
-                        logger.info(`[GPS] ${commandType} confirmed for device ${devIdToMark} after ${attempt - 1} delayed attempts.`);
-
-                        // Fire the callback to allow caller to stream the DB update independently
-                        if (onDeviceConfirmed) {
-                            try {
-                                onDeviceConfirmed(devIdToMark);
-                            } catch (err) {
-                                logger.error(`[GPS] Error in onDeviceConfirmed callback for device ${devIdToMark}:`, err);
-                            }
-                        }
-                    }
-                }
-
-                // Remove newly confirmed from pending list
-                pendingCommandIds = pendingCommandIds.filter(cmdId => !newlyConfirmed.includes(cmdId));
-
-            } catch (error) {
-                logger.warn(`[GPS] Bulk check attempt ${attempt} failed: ${error.message}`);
-            }
-
-            if (pendingCommandIds.length > 0 && attempt < maxAttempts) {
-                if (onProgress) {
-                    onProgress({ attempt, maxAttempts, pendingCount: pendingCommandIds.length });
-                }
-                await new Promise(r => setTimeout(r, interval));
-            }
-        }
-
-        if (pendingCommandIds.length > 0) {
-            logger.warn(`[GPS] ${commandType} commands not confirmed for ${pendingCommandIds.length} devices after ${maxAttempts} attempts.`);
-        }
-
-        return finalStatusMap;
+        return [];
     }
-    async executeAndVerify(gpsId, command, options = {}) {
-        const {
-            maxAttempts = MAX_RETRY_ATTEMPTS,
-            interval = RETRY_CHECK_INTERVAL,
-            onProgress = null
-        } = options;
 
+    async fetchLatestOdometerMap() {
+        if (this.adapter && typeof this.adapter.fetchLatestOdometerMap === 'function') {
+            return this.adapter.fetchLatestOdometerMap();
+        }
+        return {};
+    }
+
+    async executeAndVerifyBatch(deviceIds, command, options = {}) {
+        if (!deviceIds || deviceIds.length === 0) return {};
+        let responseIds = [];
+        try {
+            responseIds = await this.adapter.sendCommands(deviceIds, command);
+        } catch (error) {
+            logger.error(`[GPS] Failed to send bulk ${command} commands:`, error);
+            return responseIds;
+        }
+        return responseIds;
+    }
+    async sendEngineCommand(gpsId, command, options = {}) {
         let responseId;
         try {
-            responseId = await this.adapter.changeEngineStatus(gpsId, command)
+            responseId = await this.adapter.changeEngineStatus(gpsId, command);
         } catch (error) {
             logger.error(`[GPS] Failed to send ${command} command:`, error);
             return false;
         }
 
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            // Check confirmation
-            try {
-                // responseId sometimes comes back as a full command object from Traccar
-                const cmdLogInfo = typeof responseId === 'object' ? (responseId.id || responseId.type) : responseId;
-                logger.debug(`[GPS] Checking device status confirmation for: ${cmdLogInfo} (Attempt ${attempt}/${maxAttempts})`);
-                const confirmed = await this.adapter.confirmCommand(responseId, gpsId, command);
-                if (confirmed) {
-                    logger.info(`[GPS] ${command} confirmed for ${gpsId} after ${attempt - 1} delayed attempts.`);
-                    return true;
-                }
-            } catch (error) {
-                logger.warn(`[GPS] Check attempt ${attempt} for ${gpsId} failed: ${error.message}`);
-            }
+        logger.info(`[GPS] ${command} command queued for ${gpsId}. Waiting for confirmation via websocket.`);
 
-            // Wait for next attempt if not the last one
-            if (attempt < maxAttempts) {
-                if (onProgress) {
-                    onProgress({ attempt, maxAttempts, responseId, command });
-                }
-                await new Promise(r => setTimeout(r, interval));
-            }
-        }
+        // Return confirmed: true to indicate it was successfully queued
+        return { confirmed: true, offline: false };
+    }
 
-        logger.warn(`[GPS] ${command} command for ${gpsId} not confirmed after ${maxAttempts} attempts.`);
-        return false;
+    // Legacy alias
+    async executeAndVerify(gpsId, command, options = {}) {
+        return this.sendEngineCommand(gpsId, command, options);
     }
 
     updateDevice(pos) {

@@ -8,3 +8,7 @@ logs/
 *.log
 .vscode/
 .idea/
+dist/
+*.mjs
+*.bat
+uploads/

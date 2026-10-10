@@ -3,22 +3,6 @@
    Consistente con DeviceSelector.css
    ============================================================ */
 
-/* Expandable Metrics Container */
-.expandable-metrics-container {
-    overflow: hidden;
-    transition: max-height 0.35s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-.expandable-metrics-container.expanded {
-    max-height: 400px;
-    opacity: 1;
-}
-
-.expandable-metrics-container.collapsed {
-    max-height: 0;
-    opacity: 0;
-    pointer-events: none;
-}
 
 .payment-summary-container {
     padding: 0;
@@ -35,16 +19,15 @@
 /* -- Summary Header Card */
 .summary-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     position: sticky;
     top: -4px;
     z-index: 30;
     row-gap: 10px;
     margin-bottom: 0;
     background: #ffffff;
-    padding: 0.75rem 0.875rem;
+    padding: 0;
     border-radius: 0.75rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     border: 0.5px solid rgba(198, 198, 200, 0.3);
@@ -61,6 +44,8 @@
 .summary-heading {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    width: 100%;
     gap: 14px;
 }
 
@@ -372,6 +357,13 @@
     transition: box-shadow 0.15s ease;
 }
 
+.bike-summary-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
 .bike-summary-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
 }
@@ -491,6 +483,17 @@
     flex-direction: column;
 }
 
+.bike-summary-card-header .device-cell {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.bike-summary-card-header .device-name,
+.bike-summary-card-header .driver-name {
+    margin-bottom: 0;
+}
+
 .device-name {
     font-weight: 700;
     font-size: 13px;
@@ -514,7 +517,6 @@
     justify-content: center;
     border-radius: 7px;
     font-size: 11px;
-    font-weight: 700;
     color: white;
     margin: 2px;
     padding: 2px 1px;
@@ -530,43 +532,35 @@
 }
 
 .status-cell.approved {
-    background-color: rgba(74, 63, 236, 0.12);
-    color: #4338ca;
+    background-color: #4a3fec30;
+    color: #4a3fec;
 }
 
 .status-cell.free {
-    background-color: rgba(34, 197, 94, 0.15);
-    color: #15803d;
+    background-color: #e8f8ec;
+    color: #34c759;
 }
 
 .status-cell.partial {
-    background-color: #86efac;
-    color: #14532d;
+    background-color: #e8f8ec;
+    color: #34c759;
 }
 
-.status-cell.pending {
-    background-color: rgba(250, 204, 21, 0.18);
-    color: #92400e;
-}
-
-.status-cell.adjusted {
-    background-color: rgba(91, 196, 228, 0.3);
-    color: #0e7490;
-}
-
+.status-cell.pending,
 .status-cell.cutoff {
-    background-color: rgba(239, 68, 68, 0.15);
-    color: #dc2626;
+    background-color: #fff4e5;
+    color: #9ca3af;
 }
 
+.status-cell.adjusted,
 .status-cell.loand {
-    background-color: rgba(234, 88, 12, 0.15);
-    color: #c2410c;
+    background-color: #f2f2f7;
+    color: #007aff;
 }
 
 .status-cell.empty {
-    background-color: #f3f3f4;
-    color: #c6c6c8;
+    background-color: #f2f2f7;
+    color: #8e8e93;
 }
 
 /* -- Debt Badge */
@@ -635,68 +629,122 @@
     animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
-
-/* -- Engine Toggle Slider */
-.engine-toggle-slider {
-    position: relative;
-    width: 40px;
-    height: 18px;
-    background-color: #E5E7EB;
-    border-radius: 9999px;
+/* -- Auto Cutoff Button */
+.auto-cutoff-btn {
+    background: #fcfcfc;
+    color: #ff3b30;
     border: none;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 2px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
 }
 
-.engine-toggle-slider.active {
-    background-color: #10B981;
+.auto-cutoff-btn:hover:not(:disabled) {
+    background: #f4f4f4;
+    transform: scale(1.03);
 }
 
-.engine-toggle-slider.deactivated {
-    background-color: #EF4444;
+.auto-cutoff-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
-.engine-toggle-slider.pending {
-    opacity: 0.6;
-    cursor: wait;
+.auto-cutoff-btn svg.spin {
+    animation: spin 1s linear infinite;
 }
 
-.slider-knob {
-    width: 14px;
-    height: 14px;
-    background-color: white;
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+
+/* -- Bulk Cutoff Confirmation Modal */
+.bulk-cutoff-modal {
+    --modal-max-width: 420px;
+    text-align: center;
+    padding: 24px;
+    border-radius: 16px;
+}
+
+.bulk-cutoff-modal-icon {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
+    background: #fee2e2;
+    color: #ef4444;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6B7280;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin: 0 auto 16px auto;
 }
 
-.engine-toggle-slider.active .slider-knob {
-    transform: translateX(22px);
-    color: #10B981;
+.bulk-cutoff-modal-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
 }
 
-.engine-toggle-slider.deactivated .slider-knob {
-    transform: translateX(0);
-    color: #EF4444;
+.bulk-cutoff-modal-desc {
+    margin: 0 0 20px 0;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.5;
 }
 
-.engine-toggle-slider:hover .slider-knob {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+.bulk-cutoff-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
 }
 
-.engine-toggle-slider.pending .spin {
-    animation: spin 1s linear infinite;
+.bulk-cutoff-modal-btn-cancel {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #374151;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.bulk-cutoff-modal-btn-cancel:hover {
+    background: #f9fafb;
+}
+
+.bulk-cutoff-modal-btn-confirm {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #ef4444;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.bulk-cutoff-modal-btn-confirm:hover:not(:disabled) {
+    background: #dc2626;
+}
+
+.bulk-cutoff-modal-btn-confirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* -- Mobile */
@@ -723,7 +771,7 @@
         width: max-content;
     }
 
-    .summary-header {
+    .summary-heading {
         display: none;
     }
 
@@ -790,7 +838,7 @@
     }
 
     .driver-name {
-        display: none;
+        font-size: 10px;
     }
 
     .device-name {
@@ -822,4 +870,157 @@
         max-width: 260px;
         margin-left: auto;
     }
+}
+
+/* ──────────────────────────────────────────
+   Vanilla CSS Components for Payment Summary
+   ────────────────────────────────────────── */
+.summary-date-card {
+    display: flex;
+    gap: 0.75rem;
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 0.25rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e5e5ea;
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto;
+}
+
+.summary-date-field {
+    position: relative;
+    flex: 1;
+}
+
+.summary-date-field.has-border {
+    border-right: 1px solid #e5e5ea;
+}
+
+.summary-select-ios {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    color: #000000;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.summary-select-arrow {
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    color: #c7c7cc;
+    display: flex;
+    align-items: center;
+}
+
+/* Bike Summary Card Vanilla Components */
+.bike-summary-card {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: .3rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(229, 229, 234, 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 380px;
+    box-sizing: border-box;
+}
+
+.bike-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0rem;
+    border-bottom: 0px solid #e5e5ea;
+}
+
+.bike-summary-info {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.bike-summary-title {
+    color: #000000;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.25;
+}
+
+.bike-summary-driver {
+    color: #8e8e93;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.bike-summary-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.bike-summary-offline {
+    color: #ff3b30;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.summary-badge {
+    padding: 0.25rem 0.625rem;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.summary-badge.debt {
+    background-color: #ffebe9;
+    color: #ff3b30;
+}
+
+.summary-badge.paid {
+    background-color: #e8f8ec;
+    color: #34c759;
+}
+
+.bike-summary-pills-row {
+    display: flex;
+    justify-content: flex-start;
+    gap: 0rem;
+    overflow-x: auto;
+    position: relative;
+    padding-top: 0rem;
+}
+
+.bike-summary-day-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 44px;
+    flex-shrink: 0;
+}
+
+.bike-day-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #8e8e93;
+    margin-bottom: 0.25rem;
+}
+
+.bike-day-label.is-today {
+    color: #000000;
+    font-weight: 700;
 }

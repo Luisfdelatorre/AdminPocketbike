@@ -74,8 +74,12 @@ export class SSEService {
             try {
                 const targetCompanyId = data?.companyId || filterOptions?.companyId;
                 const clientCompanyId = clientEntry?.metadata?.companyId;
+                const clientRole = clientEntry?.metadata?.role;
 
-                if (targetCompanyId && clientCompanyId) {
+                // Global admins or clients without company constraints receive all events
+                const isGlobalAdmin = !clientCompanyId || clientRole === 'admin' || clientRole === 'super_admin';
+
+                if (targetCompanyId && !isGlobalAdmin) {
                     if (String(clientCompanyId) !== String(targetCompanyId)) {
                         return; // Skip clients from other companies
                     }
@@ -89,8 +93,6 @@ export class SSEService {
                 this.clients.delete(clientId);
             }
         });
-
-        // Broadcast completed cleanly
     }
 
     /**
@@ -119,10 +121,10 @@ export class SSEService {
     }
 
     /**
-     * Send heartbeat to all clients to keep connection alive
+     * Send silent ping comment to all clients to keep connection alive
      */
     sendHeartbeat() {
-        const message = `event: heartbeat\ndata: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`;
+        const message = `: ping\n\n`;
         this.clients.forEach((clientEntry, clientId) => {
             try {
                 this._writeToClient(clientEntry, message);
@@ -135,11 +137,11 @@ export class SSEService {
 
 export const sseService = new SSEService();
 
-// Send heartbeat every 30 seconds to keep connections alive
+// Send silent ping comment every 25 seconds to keep HTTP EventSource connection active
 setInterval(() => {
     if (sseService.getClientCount() > 0) {
         sseService.sendHeartbeat();
     }
-}, 30000);
+}, 25000);
 
 export default sseService;

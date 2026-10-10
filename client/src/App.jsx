@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SSEProvider } from './context/SSEContext';
+import { StatusConfigProvider } from './context/StatusConfigContext';
 import './i18n'; // Initialize i18next
 
 // Lazy Load Pages
@@ -11,12 +13,12 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const DeviceSelector = lazy(() => import('./pages/DeviceSelector'));
 const Contracts = lazy(() => import('./pages/Contracts'));
 const Payments = lazy(() => import('./pages/Payments'));
+const PaymentSummary = lazy(() => import('./pages/PaymentSummary'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Users = lazy(() => import('./pages/Users'));
 const Companies = lazy(() => import('./pages/Companies'));
 const Settings = lazy(() => import('./pages/Settings'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
-const PaymentSummary = lazy(() => import('./pages/PaymentSummary'));
 const Reports = lazy(() => import('./pages/Reports'));
 const CompanyInvoices = lazy(() => import('./pages/CompanyInvoices'));
 
@@ -31,34 +33,38 @@ function App() {
     return (
         <HashRouter>
             <AuthProvider>
-                <Suspense fallback={<LoadingSpinner />}>
-                    <Routes>
-                        {/* Public Routes */}
-                        <Route path="/admin/login" element={<AdminLogin />} />
-                        <Route path="/device/login" element={<DevicePinLogin />} />
+                <SSEProvider>
+                    <StatusConfigProvider>
+                        <Suspense fallback={<LoadingSpinner />}>
+                            <Routes>
+                                {/* Public Routes */}
+                                <Route path="/admin/login" element={<AdminLogin />} />
+                                <Route path="/device/login" element={<DevicePinLogin />} />
 
-                        {/* Public Device Payment Route (PIN protected only) */}
-                        <Route path="/Id/:deviceId" element={<PaymentPage />} />
+                                {/* Public Device Payment Route (PIN protected only) */}
+                                <Route path="/Id/:deviceId" element={<PaymentPage />} />
 
-                        {/* Admin Routes */}
-                        <Route path="/" element={<AdminLayout />}>
-                            <Route index element={<AdminDashboard />} />
-                            <Route path="devices" element={<DeviceSelector />} />
-                            <Route path="contracts" element={<Contracts />} />
-                            <Route path="payments" element={<Payments />} />
-                            <Route path="summary" element={<PaymentSummary />} />
-                            <Route path="invoices" element={<Invoices />} />
-                            <Route path="users" element={<Users />} />
-                            <Route path="companies" element={<Companies />} />
-                            <Route path="settings" element={<Settings />} />
-                            <Route path="reports" element={<Reports />} />
-                            <Route path="company-invoices" element={<CompanyInvoices />} />
-                        </Route>
+                                {/* Admin Routes */}
+                                <Route path="/" element={<AdminLayout />}>
+                                    <Route index element={<AdminDashboard />} />
+                                    <Route path="devices" element={<DeviceSelector />} />
+                                    <Route path="contracts" element={<Contracts />} />
+                                    <Route path="payments" element={<Payments />} />
+                                    <Route path="summary" element={<PaymentSummary />} />
+                                    <Route path="invoices" element={<Invoices />} />
+                                    <Route path="users" element={<Users />} />
+                                    <Route path="companies" element={<Companies />} />
+                                    <Route path="settings" element={<Settings />} />
+                                    <Route path="reports" element={<Reports />} />
+                                    <Route path="company-invoices" element={<CompanyInvoices />} />
+                                </Route>
 
-                        {/* Default redirect */}
-                        <Route path="*" element={<Navigate to="/admin/login" replace />} />
-                    </Routes>
-                </Suspense>
+                                {/* Default redirect */}
+                                <Route path="*" element={<Navigate to="/admin/login" replace />} />
+                            </Routes>
+                        </Suspense>
+                    </StatusConfigProvider>
+                </SSEProvider>
             </AuthProvider>
         </HashRouter>
     );
