@@ -32,6 +32,43 @@ app.use((req, res, next) => {
     next();
 });
 
+const API_PORT = process.env.API_PORT || 8084;
+const API_SERVER_URL = process.env.API_SERVER_URL || `http://127.0.0.1:${API_PORT}`;
+
+// Proxy /api requests to API.PocketBike (port 8084)
+app.use('/api', async (req, res) => {
+    try {
+        const targetUrl = `${API_SERVER_URL}${req.originalUrl}`;
+        const headers = { ...req.headers };
+        delete headers.host;
+
+        const options = {
+            method: req.method,
+            headers,
+        };
+
+        if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+            if (req.body && Object.keys(req.body).length > 0) {
+                options.body = JSON.stringify(req.body);
+            } else {
+                options.body = req;
+                options.duplex = 'half';
+            }
+        }
+
+        const fetchRes = await fetch(targetUrl, options);
+        res.status(fetchRes.status);
+        fetchRes.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+        });
+        const arrayBuffer = await fetchRes.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+    } catch (err) {
+        console.error('[PAY USER PROXY ERROR]:', err);
+        res.status(502).json({ success: false, error: 'API Server unavailable' });
+    }
+});
+
 // Serve static assets for the custom payment page
 app.use('/js', express.static(path.join(__dirname, '../../client/js')));
 app.use('/css', express.static(path.join(__dirname, '../../client/css')));

@@ -20,8 +20,8 @@ const distPath = path.join(__dirname, '../../dist');
 const API_PORT = process.env.API_PORT || 8084;
 const API_SERVER_URL = process.env.API_SERVER_URL || `http://127.0.0.1:${API_PORT}`;
 
-// Proxy /apinode and /api requests to API.PocketBike (port 8084)
-app.use(['/apinode', '/api'], async (req, res) => {
+// Proxy /api requests to API.PocketBike (port 8084)
+app.use('/api', async (req, res) => {
     try {
         const targetUrl = `${API_SERVER_URL}${req.originalUrl}`;
         const headers = { ...req.headers };

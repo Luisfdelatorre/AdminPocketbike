@@ -61,22 +61,22 @@ app.use((req, res, next) => {
 
 import settingsRoutes from './routes/settingsRoutes.js';
 
-// API Routes
-app.use('/apinode/users', usersRoutes);
-app.use('/apinode/companies', companiesRoutes);
-app.use('/apinode/auth', authRouter);
-app.use('/apinode/payments', paymentsRouter);
-app.use('/apinode/webhooks', webhooksRouter);
-app.use('/apinode/sse', sseRouter);
-app.use('/apinode/invoices', invoicesRouter);
-app.use('/apinode/contracts', contractsRouter);
-app.use('/apinode/dashboard', dashboardRouter);
-app.use('/apinode/device-access', deviceAccessRouter);
-app.use('/apinode/devices', devicesRouter);
-app.use('/apinode/company-invoices', companyBillingRouter);
-app.use('/apinode/cron', cronRoutes);
-app.use('/apinode/system-jobs', systemJobsRoutes);
-app.use('/apinode/settings', settingsRoutes);
+// API Routes (/api/v1)
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/companies', companiesRoutes);
+app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/payments', paymentsRouter);
+app.use('/api/v1/webhooks', webhooksRouter);
+app.use('/api/v1/sse', sseRouter);
+app.use('/api/v1/invoices', invoicesRouter);
+app.use('/api/v1/contracts', contractsRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
+app.use('/api/v1/device-access', deviceAccessRouter);
+app.use('/api/v1/devices', devicesRouter);
+app.use('/api/v1/company-invoices', companyBillingRouter);
+app.use('/api/v1/cron', cronRoutes);
+app.use('/api/v1/system-jobs', systemJobsRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -96,7 +96,7 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/p', paymentPageRouter);
 
 // Health check
-app.get('/apinode/health', async (req, res) => {
+app.get(['/api/v1/health', '/health'], async (req, res) => {
     try {
         const method = (req.query.method || req.query.mode || req.query.sync || 'daily').toLowerCase();
         const targetDate = req.query.date ? new Date(req.query.date) : new Date();
@@ -130,11 +130,9 @@ app.get('/apinode/health', async (req, res) => {
     }
 });
 
-// Serve static files from dist directory (Moved to top)
-
 // Serve index.html for all non-API routes (SPA support)
 app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api') && !req.path.startsWith('/apinode')) {
+    if (!req.path.startsWith('/api')) {
         const indexPath = path.join(__dirname, '../dist/index.html');
         if (fs.existsSync(indexPath)) {
             res.sendFile(indexPath);

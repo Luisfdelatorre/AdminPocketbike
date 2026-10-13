@@ -18,6 +18,9 @@ import dashboardRouter from '../routes/dashboardRouter.js';
 import deviceAccessRouter from '../routes/deviceAccess.js';
 import devicesRouter from '../routes/devicesRoutes.js';
 import companyBillingRouter from '../routes/companyBillingRoutes.js';
+import settingsRoutes from '../routes/settingsRoutes.js';
+import cronRoutes from '../routes/cronRoutes.js';
+import systemJobsRoutes from '../routes/systemJobsRoutes.js';
 
 import deviceServices from '../services/deviceServices.js';
 import seedSuperAdmin from '../utils/seedSuperAdmin.js';
@@ -52,25 +55,28 @@ app.use((req, res, next) => {
     next();
 });
 
-// API Routes
-app.use('/apinode/users', usersRoutes);
-app.use('/apinode/companies', companiesRoutes);
-app.use('/apinode/auth', authRouter);
-app.use('/apinode/payments', paymentsRouter);
-app.use('/apinode/webhooks', webhooksRouter);
-app.use('/apinode/sse', sseRouter);
-app.use('/apinode/invoices', invoicesRouter);
-app.use('/apinode/contracts', contractsRouter);
-app.use('/apinode/dashboard', dashboardRouter);
-app.use('/apinode/device-access', deviceAccessRouter);
-app.use('/apinode/devices', devicesRouter);
-app.use('/apinode/company-invoices', companyBillingRouter);
+// API Routes (/api/v1)
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/companies', companiesRoutes);
+app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/payments', paymentsRouter);
+app.use('/api/v1/webhooks', webhooksRouter);
+app.use('/api/v1/sse', sseRouter);
+app.use('/api/v1/invoices', invoicesRouter);
+app.use('/api/v1/contracts', contractsRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
+app.use('/api/v1/device-access', deviceAccessRouter);
+app.use('/api/v1/devices', devicesRouter);
+app.use('/api/v1/company-invoices', companyBillingRouter);
+app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/cron', cronRoutes);
+app.use('/api/v1/system-jobs', systemJobsRoutes);
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
 // Health check
-app.get('/apinode/health', (req, res) => {
+app.get(['/api/v1/health', '/health'], (req, res) => {
     res.json({
         success: true,
         message: 'API Server is running',
@@ -79,7 +85,7 @@ app.get('/apinode/health', (req, res) => {
 });
 
 // Fallback for unhandled API routes
-app.use('/apinode/*', (req, res) => {
+app.use('/api/*', (req, res) => {
     res.status(404).json({ error: 'API endpoint not found' });
 });
 

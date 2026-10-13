@@ -34,8 +34,7 @@ app.use((req, res, next) => {
 // Dominio esperado: https://webhook.pocketbike.app/payments/wompi
 app.post('/payments/wompi', validateWompiSignature, webhookController.handleWompiWebhook);
 
-// Compatibilidad previa
-app.post('/apinode/webhooks/wompi', validateWompiSignature, webhookController.handleWompiWebhook);
+app.post('/api/v1/webhooks/wompi', validateWompiSignature, webhookController.handleWompiWebhook);
 
 // Health check
 app.get('/health', (req, res) => {
