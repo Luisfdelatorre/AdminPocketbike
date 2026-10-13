@@ -948,7 +948,7 @@
 
 
       <div class="WompiSafe">
-        PAGOS SEGUROS POR <img alt="Wompi" src="/assets/wompi-DoOQSKMm.svg" loading="lazy" decoding="async">
+        PAGOS SEGUROS POR <img alt="Wompi" src="/wompi.svg" loading="lazy" decoding="async">
       </div>
     </div>
     <div id="loginError" class="error-message"></div>
@@ -976,7 +976,7 @@
         } else {
           (async function () {
             try {
-              const response = await fetch('/apinode/companies/branding');
+              const response = await fetch('/api/v1/companies/branding');
               const data = await response.json();
               if (data.success) {
                 const paymentTitle = document.getElementById('paymentTitle');
