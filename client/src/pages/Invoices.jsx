@@ -653,7 +653,7 @@ const Invoices = () => {
                 <div className="modal-overlay" onClick={closeManualPayModal}>
                     <div className="modal-card modal-surface--invoice" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header" style={
-                            manualPayForm.adjustmentType
+                            manualPayForm.adjustmentType && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.color
                                 ? { background: `linear-gradient(135deg, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}cc)` }
                                 : {}
                         }>

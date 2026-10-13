@@ -970,7 +970,7 @@
         } else {
           (async function () {
             try {
-              const response = await fetch('/apinode/companies/branding');
+              const response = await fetch('/api/v1/companies/branding');
               const data = await response.json();
               if (data.success) {
                 const paymentTitle = document.getElementById('paymentTitle');
