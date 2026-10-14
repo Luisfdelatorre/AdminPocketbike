@@ -39,10 +39,11 @@ function App() {
                             <Routes>
                                 {/* Public Routes */}
                                 <Route path="/admin/login" element={<AdminLogin />} />
-                                <Route path="/device/login" element={<DevicePinLogin />} />
+                                {/* <Route path="/device/login" element={<DevicePinLogin />} />
 
-                                {/* Public Device Payment Route (PIN protected only) */}
+                                Public Device Payment Route (PIN protected only) 
                                 <Route path="/Id/:deviceId" element={<PaymentPage />} />
+                                */}
 
                                 {/* Admin Routes */}
                                 <Route path="/" element={<AdminLayout />}>
