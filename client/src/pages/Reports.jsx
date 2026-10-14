@@ -17,6 +17,8 @@ const Reports = () => {
     const [reconciledDates, setReconciledDates] = useState({});
     const [activePromptDate, setActivePromptDate] = useState(null);
     const [tempTxId, setTempTxId] = useState('');
+    const [selectedDates, setSelectedDates] = useState([]);
+    const [copiedTotal, setCopiedTotal] = useState(false);
 
     const toggleReconciled = async (date, nextState, transactionId) => {
         const currentlyReconciled = reconciledDates[date]?.reconciled || reconciledDates[date] === true;
@@ -71,6 +73,7 @@ const Reports = () => {
             const res = await getDailyReconciliationReport(month, year);
             if (res.success) {
                 setReportData(res.data);
+                setSelectedDates([]);
                 if (res.reconciledDates) {
                     setReconciledDates(res.reconciledDates);
                 }
@@ -114,6 +117,64 @@ const Reports = () => {
     const totalPayments = reportData.reduce((acc, row) => acc + (row.payments || 0), 0);
     const totalCommission = reportData.reduce((acc, row) => acc + (row.commission || 0), 0);
     const totalBancolombia = reportData.reduce((acc, row) => acc + (row.bancolombia || 0), 0);
+
+    // Selection logic for weekly Bancolombia transfer calculation
+    const selectedRows = reportData.filter(row => selectedDates.includes(row.date));
+    const selectedTotal = selectedRows.reduce((acc, row) => acc + (row.bancolombia || 0), 0);
+    const selectableRows = reportData.filter(row => (row.bancolombia || 0) > 0);
+    const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(row => selectedDates.includes(row.date));
+    const isIndeterminate = selectedDates.length > 0 && !allSelectableChecked;
+
+    const handleToggleSelectDate = (date) => {
+        setSelectedDates(prev =>
+            prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
+        );
+    };
+
+    const handleToggleSelectAll = () => {
+        if (allSelectableChecked) {
+            setSelectedDates([]);
+        } else {
+            setSelectedDates(selectableRows.map(row => row.date));
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedDates([]);
+    };
+
+    const copySelectedTotal = async () => {
+        if (selectedTotal === undefined || selectedTotal === null) return;
+        const textToCopy = selectedTotal.toString();
+        let copied = false;
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                copied = true;
+            } catch (err) {
+                console.error('Clipboard API failed', err);
+            }
+        }
+        if (!copied) {
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            textArea.style.position = 'fixed';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copied = true;
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+        if (copied) {
+            setCopiedTotal(true);
+            setTimeout(() => setCopiedTotal(false), 2200);
+        }
+    };
 
     const activeRow = reportData.find(row => row.date === activePromptDate);
     const activeAmount = activeRow ? activeRow.bancolombia : 0;
@@ -199,7 +260,7 @@ const Reports = () => {
                 </div>
             </div>
 
-             {/* Summary Cards */}
+            {/* Summary Cards */}
             <div className="reports-summary-cards">
                 <div className="report-card payments">
                     <h3 className="report-card-title">{t('reports.totalPayments')}</h3>
@@ -216,11 +277,23 @@ const Reports = () => {
                     </div>
                 </div>
                 <div className="report-card bancolombia">
-                    <h3 className="report-card-title">{t('reports.bancolombia')}</h3>
+                    <div className="report-card-header-flex">
+                        <h3 className="report-card-title">{t('reports.bancolombia')}</h3>
+                        {selectedDates.length > 0 && (
+                            <span className="selected-card-badge">
+                                {selectedDates.length} sel.
+                            </span>
+                        )}
+                    </div>
                     <div className="report-card-value">
                         <span className="desktop-only">{formatCurrency(totalBancolombia)}</span>
                         <span className="mobile-only">{formatCompact(totalBancolombia)}</span>
                     </div>
+                    {/*selectedDates.length > 0 && (
+                        <div className="report-card-selected-total">
+                            Seleccionado: <strong>{formatCurrency(selectedTotal)}</strong>
+                        </div>
+                    )*/}
                 </div>
             </div>
 
@@ -232,7 +305,21 @@ const Reports = () => {
                     <table className="reports-table">
                         <thead className="reports-thead">
                             <tr>
-                                <th className="reports-th text-left">Fecha</th>
+                                <th className="reports-th text-left col-header-date">
+                                    <div className="date-th-wrapper">
+                                        <input
+                                            type="checkbox"
+                                            className="bancolombia-checkbox bancolombia-checkbox--header"
+                                            checked={allSelectableChecked}
+                                            ref={el => {
+                                                if (el) el.indeterminate = isIndeterminate;
+                                            }}
+                                            onChange={handleToggleSelectAll}
+                                            title={allSelectableChecked ? "Deseleccionar todo" : "Seleccionar todos los abonos a Bancolombia"}
+                                        />
+                                        <span>Fecha</span>
+                                    </div>
+                                </th>
                                 {/*<th className="reports-th text-center">Day</th>*/}
                                 <th className="reports-th">Payments</th>
                                 <th className="reports-th">Bancolombia</th>
@@ -244,10 +331,20 @@ const Reports = () => {
                             {reportData.map((row, index) => {
                                 const isReconciled = reconciledDates[row.date]?.reconciled || reconciledDates[row.date] === true;
                                 const transactionId = reconciledDates[row.date]?.transactionId || '';
+                                const isRowSelected = selectedDates.includes(row.date);
                                 return (
-                                    <tr key={row.date} className={`reports-tr ${index % 2 === 0 ? 'even' : 'odd'}`}>
+                                    <tr key={row.date} className={`reports-tr ${index % 2 === 0 ? 'even' : 'odd'} ${isRowSelected ? 'reports-tr--selected' : ''}`}>
                                         <td className="reports-td col-date">
-                                            {row.date.split('-').reverse().join('/')}
+                                            <div className="date-cell-content">
+                                                <input
+                                                    type="checkbox"
+                                                    className="bancolombia-checkbox"
+                                                    checked={isRowSelected}
+                                                    onChange={() => handleToggleSelectDate(row.date)}
+                                                    title={`Seleccionar fecha ${row.date} (${formatCurrency(row.bancolombia)})`}
+                                                />
+                                                <span>{row.date.split('-').reverse().join('/')}</span>
+                                            </div>
                                         </td>
                                         {/*<td className="reports-td text-center">
                                                 {row.day}
@@ -257,6 +354,7 @@ const Reports = () => {
                                         </td>
                                         <td className="reports-td col-bancolombia">
                                             <div className="bancolombia-cell-content">
+
                                                 <div className="bancolombia-amount-wrapper">
                                                     <span>{formatCurrency(row.bancolombia)}</span>
                                                     {transactionId && (
@@ -309,11 +407,11 @@ const Reports = () => {
                         </button>
                         <div className="reconcile-popover-header">
                             <span className="reconcile-popover-title">
-                                ID Transacción 
+                                ID Transacción
                                 <span className="reconcile-popover-meta">
                                     {activeFormattedDate} • {formatCurrency(activeAmount)}
-                                    <button 
-                                        className="reconcile-popover-copy-btn" 
+                                    <button
+                                        className="reconcile-popover-copy-btn"
                                         type="button"
                                         title="Copiar cantidad"
                                         onClick={async (e) => {
@@ -361,6 +459,54 @@ const Reports = () => {
                                 if (e.key === 'Escape') setActivePromptDate(null);
                             }}
                         />
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Floating Selection Bar for Bancolombia Transfers */}
+            {selectedDates.length > 0 && createPortal(
+                <div className="bancolombia-floating-bar-wrapper">
+                    <div className="bancolombia-floating-bar">
+                        <div className="floating-bar-info">
+                            <div className="floating-bar-count">
+                                <span className="floating-bar-badge">{selectedDates.length}</span>
+                                <span>{selectedDates.length === 1 ? 'día seleccionado' : 'días seleccionados'}</span>
+                            </div>
+                            <div className="floating-bar-total">
+                                <span className="floating-bar-label">Total a transferir:</span>
+                                <span className="floating-bar-amount">{formatCurrency(selectedTotal)}</span>
+                            </div>
+                        </div>
+                        <div className="floating-bar-actions">
+                            <button
+                                type="button"
+                                onClick={copySelectedTotal}
+                                className={`floating-bar-btn floating-bar-btn--copy ${copiedTotal ? 'floating-bar-btn--copied' : ''}`}
+                                title="Copiar monto numérico exacto para transferir en Bancolombia"
+                            >
+                                {copiedTotal ? (
+                                    <>
+                                        <Check size={16} />
+                                        <span>¡Copiado!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy size={16} />
+                                        <span>Copiar valor ({selectedTotal.toLocaleString('es-CO')})</span>
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleClearSelection}
+                                className="floating-bar-btn floating-bar-btn--clear"
+                                title="Limpiar selección"
+                            >
+                                <X size={16} />
+                                <span className="desktop-only">Limpiar</span>
+                            </button>
+                        </div>
                     </div>
                 </div>,
                 document.body

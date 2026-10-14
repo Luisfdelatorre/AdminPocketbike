@@ -1,5 +1,6 @@
 .reports-page {
     padding: 2rem;
+    padding-bottom: 140px;
     max-width: 1200px;
     margin: 0 auto;
     box-sizing: border-box;
@@ -449,3 +450,270 @@
     border-color: #007aff;
     background-color: #ffffff;
 }
+
+/* ==========================================================================
+   Bancolombia Selection & Weekly Transfer Totalizer
+   ========================================================================== */
+
+.report-card-header-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.selected-card-badge {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.report-card-selected-total {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #047857;
+    background: #f0fdf4;
+    border: 1px solid #dcfce7;
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+/* Date column with Checkbox */
+.date-th-wrapper,
+.date-cell-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+/* Checkbox Styling */
+.bancolombia-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    margin: 0;
+    transition: all 0.15s ease-in-out;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.bancolombia-checkbox:hover {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+.bancolombia-checkbox:checked {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+
+.bancolombia-checkbox:checked::before {
+    content: "";
+    width: 9px;
+    height: 5px;
+    border-left: 2px solid white;
+    border-bottom: 2px solid white;
+    transform: rotate(-45deg);
+    margin-top: -2px;
+}
+
+.bancolombia-checkbox:indeterminate {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+
+.bancolombia-checkbox:indeterminate::before {
+    content: "";
+    width: 8px;
+    height: 2px;
+    background-color: white;
+}
+
+/* Row selection highlight */
+.reports-tr.reports-tr--selected {
+    background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+.reports-tr.reports-tr--selected .col-bancolombia {
+    font-weight: 700;
+}
+
+/* Floating Bottom Bar (Glassmorphism Dock) */
+.bancolombia-floating-bar-wrapper {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1200;
+    width: calc(100% - 32px);
+    max-width: 760px;
+    pointer-events: none;
+    animation: slideUpFloat 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFloat {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.bancolombia-floating-bar {
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(16, 185, 129, 0.15);
+    border-radius: 16px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+.floating-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.floating-bar-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #475569;
+    font-weight: 600;
+}
+
+.floating-bar-badge {
+    background: #10b981;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.floating-bar-total {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.floating-bar-label {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.floating-bar-amount {
+    font-size: 21px;
+    font-weight: 800;
+    color: #047857;
+    letter-spacing: -0.3px;
+}
+
+.floating-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.floating-bar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    white-space: nowrap;
+}
+
+.floating-bar-btn--copy {
+    background: #10b981;
+    color: white;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.floating-bar-btn--copy:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+}
+
+.floating-bar-btn--copied {
+    background: #047857 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+.floating-bar-btn--clear {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.floating-bar-btn--clear:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+@media (max-width: 768px) {
+    .bancolombia-floating-bar-wrapper {
+        bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 14px);
+        width: calc(100% - 24px);
+    }
+}
+
+@media (max-width: 640px) {
+    .bancolombia-floating-bar-wrapper {
+        bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 10px);
+        width: calc(100% - 16px);
+    }
+    .bancolombia-floating-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    .floating-bar-info {
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .floating-bar-amount {
+        font-size: 19px;
+    }
+    .floating-bar-actions {
+        justify-content: flex-end;
+    }
+    .floating-bar-btn--copy {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
