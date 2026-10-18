@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { getCompanyInvoices, generateCompanyInvoice, getAllCompanies } from '../services/api';
 import { Building, Plus, FileText, Printer, FileSpreadsheet, Search, X, Check, RefreshCw, ListFilter, TrendingDown, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CompanyInvoiceTemplate from '../components/CompanyInvoiceTemplate';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import StatusBadge from '../components/StatusBadge';
 import './Payments.css';
 import './Users.css';
 
 const CompanyInvoices = () => {
+    const { t } = useTranslation();
+    const isMobile = useIsMobile();
     const [invoices, setInvoices] = useState([]);
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -31,10 +35,8 @@ const CompanyInvoices = () => {
     const navigate = useNavigate();
 
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
 
     useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
         loadData();
     }, []);
 
@@ -141,33 +143,49 @@ const CompanyInvoices = () => {
         );
     }
 
+    const desktopHeader = (
+        <PageHeader.Desktop 
+            title={t('sidebar.companyInvoices', 'Facturas Empresa')}
+            breadcrumbs={[
+                { label: t('sidebar.companies', 'Empresas'), path: '/companies' },
+                { label: t('sidebar.companyInvoices', 'Facturas Empresa') }
+            ]}
+            onRefresh={loadData}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            actions={
+                <button onClick={() => setShowGenerateModal(true)} className="btn-primary">
+                    <Plus size={16} /> Generar Factura Mensual
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={loadData}
+            loading={loading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+            actions={
+                <button
+                    type="button"
+                    onClick={() => setShowGenerateModal(true)}
+                    className="btn-mobile-header-action"
+                    title="Generar Factura Mensual"
+                    aria-label="Generar Factura Mensual"
+                >
+                    <Plus size={20} />
+                </button>
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="payments-page">
-            <style>{`
-                @media (max-width: 768px) {
-                    .payments-page .page-header {
-                        display: none !important;
-                    }
-                }
-            `}</style>
-            <PageHeader 
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                        <Building size={28} color="#2563eb" />
-                        Facturas de Empresas
-                    </span>
-                }
-                onRefresh={loadData}
-                loading={loading}
-                refreshText="Actualizar"
-                onFilterToggle={() => setShowFilters(!showFilters)}
-                showFilters={showFilters}
-                desktopActions={
-                    <button onClick={() => setShowGenerateModal(true)} className="btn-primary">
-                        <Plus size={16} /> Generar Factura Mensual
-                    </button>
-                }
-            />
+            {renderHeader}
 
             {/* Mobile Collapsible Filter Section (Mobile only) */}
             <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">

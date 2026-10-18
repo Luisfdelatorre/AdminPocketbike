@@ -3,16 +3,18 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import {
     DollarSign, FileText, CreditCard, Users,
-    TrendingUp, TrendingDown, Download, ListFilter, BarChart2, ChevronDown
+    TrendingUp, TrendingDown, Download, ListFilter, BarChart2
 } from 'lucide-react';
 import { getDashboardStats } from '../services/api';
 import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import StatusBadge from '../components/StatusBadge';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
     const { t } = useTranslation();
+    const isMobile = useIsMobile();
     const [stats, setStats] = useState({
         totalRevenue: 0,
         activeDevices: 0,
@@ -31,15 +33,10 @@ const AdminDashboard = () => {
     const [selectedMonth, setSelectedMonth] = useState(''); // '' = all year
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
 
     useEffect(() => {
         fetchDashboardData();
     }, [selectedMonth, selectedYear]);
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -151,78 +148,88 @@ const AdminDashboard = () => {
         document.body.removeChild(link);
     };
 
-    return (
-        <div className="dashboard-content ios-dashboard">
-            <PageHeader
-                title={t('dashboard.title', 'Dashboard')}
+    const renderDateSelectors = (isMobileView = false) => (
+        <div className={`date-selectors-group${isMobileView ? ' mobile-date-selectors' : ''}`}>
+            <select
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                <option value="">Todo el año</option>
+                {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                    </option>
+                ))}
+            </select>
+
+            <select
+                value={selectedYear}
+                onChange={e => setSelectedYear(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+            </select>
+        </div>
+    );
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('dashboard.title', 'Dashboard')}
+            onRefresh={fetchDashboardData}
+            loading={loading}
+            refreshText="Actualizar"
+            leadingActions={renderDateSelectors(false)}
+            actions={
+                <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleDownloadReport}
+                    title={t('dashboard.downloadReport')}
+                >
+                    <Download size={16} /> Exportar CSV
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <>
+            <PageHeader.Mobile
                 onRefresh={fetchDashboardData}
                 loading={loading}
-                refreshText="Actualizar"
                 onFilterToggle={() => setShowFilters(prev => !prev)}
                 showFilters={showFilters}
-                desktopActions={
+                actions={
                     <button
                         type="button"
-                        className="btn-secondary"
+                        className="btn-mobile-header-action"
                         onClick={handleDownloadReport}
                         title={t('dashboard.downloadReport')}
                     >
-                        <Download size={16} /> Exportar CSV
+                        <Download size={18} />
                     </button>
                 }
             />
+            {/* Header Controls Bar (Mobile / Collapsible) */}
+            <div className="dashboard-controls-row md:hidden">
+                {renderDateSelectors(true)}
+            </div>
+        </>
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
+    return (
+        <div className="dashboard-content ios-dashboard">
+            {renderHeader}
 
             {/* Expandable Metrics Section */}
-            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
-
-                {/* Header Controls Bar */}
-                <div className="dashboard-controls-row">
-                    <div className="summary-date-card">
-                        <div className="summary-date-field has-border">
-                            <select
-                                value={selectedMonth}
-                                onChange={e => setSelectedMonth(e.target.value)}
-                                className="summary-select-ios"
-                            >
-                                <option value="">Todo el año</option>
-                                {Array.from({ length: 12 }, (_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="summary-select-arrow">
-                                <ChevronDown size={16} />
-                            </div>
-                        </div>
-
-                        <div className="summary-date-field">
-                            <select
-                                value={selectedYear}
-                                onChange={e => setSelectedYear(Number(e.target.value))}
-                                className="summary-select-ios"
-                            >
-                                <option value={2025}>2025</option>
-                                <option value={2026}>2026</option>
-                                <option value={2027}>2027</option>
-                            </select>
-                            <div className="summary-select-arrow">
-                                <ChevronDown size={16} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="btn-icon-ios btn-ios-grey"
-                        onClick={handleDownloadReport}
-                        title={t('dashboard.downloadReport')}
-                    >
-                        <Download size={20} />
-                    </button>
-                </div>
-
-
+            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
                 {/* Middle 3 Compact Stat Cards */}
                 <div className="stats-grid-mid-3">
                     <StatCard

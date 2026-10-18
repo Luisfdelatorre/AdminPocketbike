@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     FileText, Calendar, DollarSign, Check, X, Search, Filter,
     HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Download, RefreshCw, Building2,
-    ChevronLeft, ChevronRight, ListFilter, TrendingUp, TrendingDown
+    ChevronLeft, ChevronRight, TrendingUp, TrendingDown
 } from 'lucide-react';
 import './Payments.css';
 import './Invoices.css';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes, getPaymentStatuses } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
@@ -48,6 +49,7 @@ const Invoices = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalInvoices, setTotalInvoices] = useState(0);
+    const isMobile = useIsMobile();
     const PAGE_SIZE = 100;
 
     const today = new Date();
@@ -56,11 +58,6 @@ const Invoices = () => {
     const [downloading, setDownloading] = useState(false);
 
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
     useFilterVisibilityOnScroll(setShowFilters);
 
@@ -304,95 +301,100 @@ const Invoices = () => {
         setCurrentPage(1);
     };
 
+    const renderDateSelectors = () => (
+        <div className="date-selectors-group">
+            <select
+                value={selectedMonth}
+                onChange={e => {
+                    setSelectedMonth(Number(e.target.value));
+                    setCurrentPage(1);
+                }}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
+                    </option>
+                ))}
+            </select>
+            <select
+                value={selectedYear}
+                onChange={e => {
+                    setSelectedYear(Number(e.target.value));
+                    setCurrentPage(1);
+                }}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+            </select>
+        </div>
+    );
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('invoices.title')}
+            onRefresh={() => loadInvoices(currentPage)}
+            loading={loading}
+            refreshText={t('payments.refresh')}
+            leadingActions={renderDateSelectors()}
+            actions={
+                <button
+                    className="btn-secondary"
+                    onClick={handleExport}
+                    disabled={downloading}
+                >
+                    {downloading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} CSV
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={() => loadInvoices(currentPage)}
+            loading={loading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+            leadingActions={
+                totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage <= 1}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#9ca3af' : '#1f2937' }}
+                            aria-label="Página anterior"
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+                        <span>{currentPage}/{totalPages}</span>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(p => p + 1)}
+                            disabled={currentPage >= totalPages}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= totalPages ? '#9ca3af' : '#1f2937' }}
+                            aria-label="Página siguiente"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                )
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="payments-page">
-            {portalElement && createPortal(
-                <div className="invoices-portal-actions">
-                    {totalPages > 1 && (
-                        <div className="portal-pagination-pill">
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(p => p - 1)}
-                                disabled={currentPage <= 1}
-                                className="portal-pagination-arrow"
-                                aria-label="Página anterior"
-                            >
-                                <ChevronLeft size={14} />
-                            </button>
-                            <span>{currentPage}/{totalPages}</span>
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(p => p + 1)}
-                                disabled={currentPage >= totalPages}
-                                className="portal-pagination-arrow"
-                                aria-label="Página siguiente"
-                            >
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        className={`portal-filter-toggle ${showFilters ? 'active' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        aria-label="Filtros"
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                </div>,
-                portalElement
-            )}
-
-            <div className="page-header hidden md:flex">
-                <div>
-                    <h1>{t('invoices.title')}</h1>
-                </div>
-                <div className="invoices-header-actions">
-                    <select
-                        value={selectedMonth}
-                        onChange={e => {
-                            setSelectedMonth(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="select-control header-date-select"
-                    >
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={selectedYear}
-                        onChange={e => {
-                            setSelectedYear(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="select-control header-date-select"
-                    >
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                    </select>
-                    <button
-                        className="btn-secondary"
-                        onClick={() => loadInvoices(currentPage)}
-                    >
-                        <RefreshCw size={16} /> {t('payments.refresh')}
-                    </button>
-                    <button
-                        className="btn-secondary"
-                        onClick={handleExport}
-                        disabled={downloading}
-                    >
-                        {downloading ? <RefreshCw size={16} className="spinning" /> : <Download size={16} />} CSV
-                    </button>
-                </div>
-            </div>
+            {renderHeader}
 
             {/* Mobile Collapsible Filter Section (Mobile only) */}
-            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
+            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
                 <div className="pt-2 pb-1">
                     <SearchAndFilterBar
                         searchQuery={searchInput}

@@ -406,17 +406,39 @@
     pointer-events: none;
 }
 
+/* Desktop: Filters and Stats MUST always be visible and interactive */
+@media (min-width: 769px) {
+    .expandable-metrics-container,
+    .expandable-metrics-container.collapsed,
+    .expandable-metrics-container.expanded {
+        max-height: none !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+        pointer-events: auto !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+}
+
 /* ──────────────────────────────────────────
    Global Page Header Design System
    Single source of truth for PageHeader component across all pages
    ────────────────────────────────────────── */
 .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100%;
     margin-top: 0rem;
     margin-bottom: 1rem;
     padding-bottom: 0rem;
+}
+
+.page-header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
 }
 
 .page-header h1 {
@@ -427,10 +449,98 @@
     line-height: 1.2;
 }
 
-.page-header p {
-    font-size: 0.938rem;
-    color: #6B7280;
+.page-header p,
+.page-header-subtitle {
+    font-size: 0.875rem;
+    color: #64748B;
+    margin: 0.25rem 0 0 0;
+    line-height: 1.35;
+}
+
+/* ──────────────────────────────────────────
+   Breadcrumbs Navigation (Estilo 2: Inline Compacto)
+   ────────────────────────────────────────── */
+.breadcrumbs-nav {
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumbs-list {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    list-style: none;
     margin: 0;
+    padding: 0;
+}
+
+.breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.875rem;
+    line-height: 1.25;
+}
+
+.breadcrumb-link,
+.breadcrumb-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #64748B;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.125rem 0.375rem;
+    border-radius: 6px;
+    transition: all 0.15s ease-in-out;
+}
+
+.breadcrumb-link:hover,
+.breadcrumb-home:hover {
+    color: var(--brand-teal);
+    background-color: rgba(3, 201, 215, 0.08);
+}
+
+.breadcrumb-separator {
+    display: inline-flex;
+    align-items: center;
+    color: #94A3B8;
+    user-select: none;
+    padding: 0 0.125rem;
+}
+
+.breadcrumb-text {
+    color: #64748B;
+    font-weight: 500;
+    padding: 0.125rem 0.25rem;
+}
+
+.breadcrumb-current {
+    display: inline-flex;
+    align-items: center;
+}
+
+.breadcrumb-current .breadcrumb-text {
+    color: #0F172A;
+    font-weight: 600;
+}
+
+.breadcrumb-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: #0F172A !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.02em;
+}
+
+.breadcrumb-item-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--brand-teal);
 }
 
 .header-actions,
@@ -454,11 +564,18 @@
     display: flex;
     align-items: center;
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease, background 0.2s ease;
+    border-radius: 9999px;
 }
 
 .btn-mobile-header-action:hover {
     color: #02aab6;
+    background-color: rgba(3, 201, 215, 0.08);
+}
+
+.btn-mobile-header-action.active {
+    color: var(--brand-teal);
+    background: rgba(3, 201, 215, 0.15);
 }
 
 /* Global Responsive Utilities */
@@ -479,18 +596,44 @@
    Global StatCard / devices-stats-ios styles
    (shared by DeviceSelector, Companies, etc.)
    ────────────────────────────────────────── */
+.devices-stats-ios,
+.stats-grid-ios,
+.contracts-stats-ios,
 .devices-stats-ios {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
     margin-bottom: 0.75rem;
-    padding: 0 0.75rem;
+    width: 100%;
+}
+
+.contracts-stats,
+.devices-stats-ios.contracts-stats-grid,
+.devices-stats-ios.payments-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    width: 100%;
+    padding: 0;
+}
+
+@media (max-width: 480px) {
+    .devices-stats-ios {
+        gap: 0.35rem;
+    }
+
+    .contracts-stats,
+    .devices-stats-ios.contracts-stats-grid,
+    .devices-stats-ios.payments-stats-grid {
+        gap: 0.3rem;
+    }
 }
 
 .stat-card-ios {
     background-color: #ffffff;
     border-radius: 0.75rem;
-    padding: 0.5rem 0.25rem;
+    padding: 0.35rem 0.2rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     border: 0.5px solid rgba(198, 198, 200, 0.3);
     display: flex;
@@ -498,13 +641,30 @@
     align-items: center;
     justify-content: center;
     text-align: center;
+    min-width: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.stat-card-ios:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
 }
 
 .stat-content-ios {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     width: 100%;
+    min-width: 0;
+}
+
+.stat-text-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
 }
 
 h3.uppercase-title-ios {
@@ -516,21 +676,37 @@ h3.uppercase-title-ios {
     margin: 0 0 0.25rem 0;
     text-align: center;
     width: 100%;
-    line-height: 1.3;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .stat-value-container-ios {
     display: flex;
     align-items: baseline;
     justify-content: center;
+    gap: 0.25rem;
     width: 100%;
+    min-width: 0;
 }
 
 .stat-value-ios {
     color: #1a1c1c;
+    font-size: 22px;
+    font-weight: 800;
     letter-spacing: -0.5px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: center;
-    line-height: 1;
+}
+
+@media (max-width: 480px) {
+    .stat-value-ios {
+        font-size: 18px;
+    }
 }
 
 /* ──────────────────────────────────────────
@@ -622,21 +798,88 @@ h3.uppercase-title-ios {
    Global iOS Search & Filter Bar Styles
    (used by SearchAndFilterBar component)
    ────────────────────────────────────────── */
-.devices-filter-row-ios {
+.search-filter-wrapper-ios {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
-    padding: 0 0.75rem;
+    width: 100%;
+}
+
+@media (max-width: 767px) {
+    .search-filter-wrapper-ios .search-ios {
+        order: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .search-filter-wrapper-ios .filter-row-ios,
+    .search-filter-wrapper-ios .devices-filter-row-ios,
+    .search-filter-wrapper-ios .summary-filter-row-ios {
+        order: 2;
+        padding: 0;
+        margin-bottom: 0;
+    }
+}
+
+@media (min-width: 768px) {
+    .search-filter-wrapper-ios {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .search-filter-wrapper-ios .filter-row-ios,
+    .search-filter-wrapper-ios .devices-filter-row-ios,
+    .search-filter-wrapper-ios .summary-filter-row-ios {
+        margin-bottom: 0;
+        padding: 0;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .search-filter-wrapper-ios .search-ios {
+        margin-bottom: 0;
+        margin-left: auto;
+        max-width: 280px;
+        flex-shrink: 0;
+    }
+}
+
+.filter-row-ios,
+.devices-filter-row-ios,
+.summary-filter-row-ios {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
 }
 
 .filter-pills-ios {
     display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-top: 6px;
+    padding-right: 6px;
+    padding-bottom: 4px;
+    width: 100%;
+}
+
+.filter-pills-ios::-webkit-scrollbar {
+    display: none;
 }
 
 .filter-pill-ios {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.35rem 0.875rem;
     border-radius: 9999px;
     border: 1px solid #e8e8e8;
@@ -645,8 +888,10 @@ h3.uppercase-title-ios {
     cursor: pointer;
     background-color: #f3f3f4;
     color: #414755;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     font-family: inherit;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .filter-pill-ios:hover {
@@ -659,6 +904,80 @@ h3.uppercase-title-ios {
     border: 1.5px solid #005bc5;
     box-shadow: 0 1px 4px rgba(0, 112, 235, 0.35);
     font-weight: 600;
+}
+
+/* ── Filter Pill Badge Globo (iOS Style) ── */
+.filter-pill-badge {
+    position: absolute;
+    top: -6px;
+    right: -5px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    background-color: #0070eb;
+    color: #000000;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    pointer-events: none;
+    transition: transform 0.15s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.filter-pill-ios:hover .filter-pill-badge {
+    transform: scale(1.08);
+}
+
+.filter-pill-badge.badge-debt {
+    background-color: #ffffff;
+}
+
+.filter-pill-badge.badge-ok {
+    background-color: #ffffff;
+}
+
+.filter-pill-badge.badge-cutoff {
+    background-color: #ffffff;
+}
+
+.filter-pill-badge.badge-all {
+    background-color: #ffffff;
+}
+
+/* Inversión cromática cuando el pill está activo para máximo contraste */
+.filter-pill-ios.active .filter-pill-badge {
+    border-color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.filter-pill-ios[data-filter='debt'].active .filter-pill-badge.badge-debt {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #bdb0b0;
+}
+
+.filter-pill-ios[data-filter='ok'].active .filter-pill-badge.badge-ok {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #bdb0b0;
+}
+
+.filter-pill-ios[data-filter='cutoff'].active .filter-pill-badge.badge-cutoff {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #bdb0b0;
+}
+
+.filter-pill-ios[data-filter='all'].active .filter-pill-badge.badge-all {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #bdb0b0;
 }
 
 .search-ios {
@@ -716,6 +1035,7 @@ h3.uppercase-title-ios {
     align-items: center;
     padding: 0.2rem;
     border-radius: 50%;
+    transition: background-color 0.15s ease;
 }
 
 .search-ios-clear:hover {
@@ -774,52 +1094,202 @@ h3.uppercase-title-ios {
 }
 
 /* ──────────────────────────────────────────
-   Global Date Selector Component (iOS Style)
-   Used in PaymentSummary, AdminDashboard, etc.
+   Standard Date Selector Component (Separated Style)
+   Used in PaymentSummary, AdminDashboard, Reports, etc.
    ────────────────────────────────────────── */
-.summary-date-card {
+.date-selectors-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.date-selectors-group.mobile-date-selectors {
     display: flex;
-    gap: 0.75rem;
-    background-color: #ffffff;
-    border-radius: 10px;
-    padding: 0.25rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    border: 1px solid #e5e5ea;
     width: 100%;
     max-width: 380px;
     margin: 0 auto;
 }
 
-.summary-date-field {
-    position: relative;
+.date-selectors-group.mobile-date-selectors .date-select-standard {
     flex: 1;
+    min-width: 0;
 }
 
-.summary-date-field.has-border {
-    border-right: 1px solid #e5e5ea;
-}
-
-.summary-select-ios {
-    width: 100%;
-    appearance: none;
-    -webkit-appearance: none;
-    background: transparent;
-    border: none;
-    color: #000000;
-    font-size: 15px;
+.date-select-standard {
+    height: 38px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 14px;
     font-weight: 500;
-    padding: 0.5rem 2rem 0.5rem 0.75rem;
-    outline: none;
     cursor: pointer;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.summary-select-arrow {
+.date-select-standard:hover {
+    border-color: #94a3b8;
+}
+
+.date-select-standard:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* Deprecated legacy fallback */
+.summary-date-card {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+    .search-ios {
+        max-width: 280px;
+    }
+}
+
+/* ──────────────────────────────────────────
+   Global iOS Toast Notifications (Swipe-Up)
+   ────────────────────────────────────────── */
+.toast-container {
+    position: fixed;
+    top: max(0.875rem, env(safe-area-inset-top, 0.875rem));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
     pointer-events: none;
-    position: absolute;
-    top: 50%;
-    right: 0.75rem;
-    transform: translateY(-50%);
-    color: #c7c7cc;
+    width: 100%;
+    max-width: 440px;
+    padding: 0 1rem;
+    box-sizing: border-box;
+}
+
+.toast-ios {
+    position: relative;
+    width: fit-content;
+    max-width: min(92vw, 440px);
+    background: #242426;
+    border-radius: 9999px;
+    padding: 0.38rem 0.5rem 0.38rem 0.85rem;
+    box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.45), 0 2px 6px -1px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.09);
     display: flex;
     align-items: center;
+    gap: 0.65rem;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
+    animation: toastSlideDown 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+.toast-ios:active {
+    cursor: grabbing;
+}
+
+@keyframes toastSlideDown {
+    from {
+        transform: translateY(-120%) scale(0.92);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.toast-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1;
+    color: #ffffff;
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+.toast-title {
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.toast-sep {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+}
+
+.toast-message {
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 400;
+    word-break: break-word;
+}
+
+.toast-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    border-radius: 9999px;
+    padding: 0.32rem 0.62rem;
+    color: #25D366;
+    font-size: 0.813rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+    touch-action: manipulation;
+}
+
+.toast-action-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #30D158;
+    transform: scale(1.03);
+}
+
+.toast-action-btn:active {
+    background: rgba(255, 255, 255, 0.28);
+    transform: scale(0.96);
+}
+
+.toast-ios.toast-error .toast-action-btn {
+    color: #FF453A;
+}
+
+.toast-ios.toast-warning .toast-action-btn {
+    color: #FF9F0A;
+}
+
+.toast-ios.toast-info .toast-action-btn {
+    color: #0A84FF;
+}
+
+.toast-ios.toast-success .toast-action-btn {
+    color: #25D366;
 }

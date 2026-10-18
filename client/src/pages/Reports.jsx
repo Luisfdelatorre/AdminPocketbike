@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getDailyReconciliationReport, toggleReconciliation } from '../services/api';
-import { Calendar, Download, RefreshCw, FileText, ListFilter, Check, X, Copy } from 'lucide-react';
+import { Calendar, Download, RefreshCw, FileText, Check, X, Copy } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import './Reports.css';
 
 const Reports = () => {
     const { t } = useTranslation();
+    const isMobile = useIsMobile();
     const today = new Date();
     const [month, setMonth] = useState(today.getMonth() + 1);
     const [year, setYear] = useState(today.getFullYear());
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
     const [reconciledDates, setReconciledDates] = useState({});
     const [activePromptDate, setActivePromptDate] = useState(null);
     const [tempTxId, setTempTxId] = useState('');
@@ -58,10 +60,6 @@ const Reports = () => {
         toggleReconciled(date, true, tempTxId.trim());
         setActivePromptDate(null);
     };
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
     useEffect(() => {
         loadReport();
@@ -180,85 +178,63 @@ const Reports = () => {
     const activeAmount = activeRow ? activeRow.bancolombia : 0;
     const activeFormattedDate = activePromptDate ? activePromptDate.split('-').reverse().join('/') : '';
 
-    return (
-        <div className="reports-page">
-            {portalElement && createPortal(
-                <button
-                    type="button"
-                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                    onClick={() => setShowFilters(!showFilters)}
-                    id="filterToggle"
-                    style={{ border: 'none', background: 'none', padding: '8px' }}
-                >
-                    <ListFilter size={20} />
-                </button>,
-                portalElement
-            )}
+    const renderDateSelectors = (isMobileView = false) => (
+        <div className={`date-selectors-group${isMobileView ? ' mobile-date-selectors' : ''}`}>
+            <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                    <option key={`m-${m}`} value={m}>
+                        {new Date(2000, m - 1).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+                    </option>
+                ))}
+            </select>
+            <select
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
+                    <option key={`y-${y}`} value={y}>{y}</option>
+                ))}
+            </select>
+        </div>
+    );
 
-            <div className="reports-header">
-                <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '24px', color: '#1e293b', margin: 0 }}>
-                        <FileText size={28} color="#2563eb" />
-                        Reconciliation Report
-                    </h1>
-                </div>
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('sidebar.reports', 'Reporte de Conciliación')}
+            onRefresh={loadReport}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            leadingActions={renderDateSelectors(false)}
+        />
+    );
 
-                {/* Desktop controls */}
-                <div className="reports-header-actions desktop-only-flex">
-                    <select
-                        value={month}
-                        onChange={(e) => setMonth(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b' }}
-                    >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                            <option key={`m-${m}`} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b' }}
-                    >
-                        {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
-                            <option key={`y-${y}`} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    <button onClick={loadReport} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', cursor: 'pointer' }}>
-                        <RefreshCw size={16} /> <span>Refresh</span>
-                    </button>
-                </div>
-            </div>
-
+    const mobileHeader = (
+        <>
+            <PageHeader.Mobile
+                onRefresh={loadReport}
+                loading={loading}
+                onFilterToggle={() => setShowFilters(!showFilters)}
+                showFilters={showFilters}
+            />
             {/* Mobile collapsible controls */}
             <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection" style={{ marginBottom: '.5rem' }}>
-                <div className="reports-header-actions">
-                    <select
-                        value={month}
-                        onChange={(e) => setMonth(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', width: '100%' }}
-                    >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                            <option key={`m-${m}`} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', width: '100%' }}
-                    >
-                        {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
-                            <option key={`y-${y}`} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    <button onClick={loadReport} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', cursor: 'pointer' }}>
-                        <RefreshCw size={16} />
-                    </button>
-                </div>
+                {renderDateSelectors(true)}
             </div>
+        </>
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
+    return (
+        <div className="reports-page">
+            {renderHeader}
 
             {/* Summary Cards */}
             <div className="reports-summary-cards">

@@ -68,7 +68,7 @@
     display: none;
 }
 
-.desktop-only {
+span.desktop-only {
     display: inline;
 }
 

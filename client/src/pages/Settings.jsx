@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import { getSettings, updateSettings, syncDevices, validateTraccarConnection } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import './Settings.css';
 
 const Settings = () => {
+    const isMobile = useIsMobile();
     const { settingsTab, setSettingsTab } = useOutletContext() || {};
     const [localActiveTab, setLocalActiveTab] = useState('branding');
 
@@ -65,13 +67,8 @@ const Settings = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
-    const [portalElement, setPortalElement] = useState(null);
     const [isValidatingTraccar, setIsValidatingTraccar] = useState(false);
     const [traccarValidationResult, setTraccarValidationResult] = useState(null);
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
 
     const handleSyncDevices = async () => {
@@ -524,34 +521,42 @@ const Settings = () => {
         setSaved(false);
     };
 
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('settings.title')}
+            subtitle={t('settings.subtitle')}
+            actions={
+                <button
+                    onClick={handleSave}
+                    className="btn-primary"
+                    title={t('settings.actions.save')}
+                >
+                    <Save size={16} /> {t('settings.actions.save')}
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            actions={
+                <button
+                    onClick={handleSave}
+                    className="btn-mobile-header-action"
+                    title={t('settings.actions.save')}
+                    aria-label={t('settings.actions.save')}
+                >
+                    <Save size={20} />
+                </button>
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="settings-page">
-            {portalElement && createPortal(
-                <button
-                    onClick={handleSave}
-                    className="btn-header-save"
-                    title={t('settings.actions.save')}
-                    style={{ border: 'none', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: '8px' }}
-                >
-                    <Save size={20} style={{ color: '#0d9488' }} />
-                </button>,
-                portalElement
-            )}
-            {/* Header */}
-            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div>
-                    <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>⚙️ {t('settings.title')}</h1>
-                    <p style={{ margin: '4px 0 0 0', color: '#6B7280', fontSize: '14px' }} className="desktop-only">{t('settings.subtitle')}</p>
-                </div>
-                <button
-                    onClick={handleSave}
-                    className="btn-header-save"
-                    title={t('settings.actions.save')}
-                    style={{ background: '#f0fdfa', border: '1px solid #0d9488', color: '#0d9488', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                >
-                    <Save size={18} />
-                </button>
-            </div>
+            {renderHeader}
 
             {/* Settings Sections */}
             <div className="settings-container">

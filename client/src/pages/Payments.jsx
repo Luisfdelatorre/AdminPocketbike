@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight, Download, ListFilter, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { Search, DollarSign, Calendar, CreditCard, Check, X, Clock, ChevronLeft, ChevronRight, Download, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import './Payments.css';
+import PageHeader from '../components/PageHeader';
 import Amount from '../components/Amount';
 import DateDisplay from '../components/DateDisplay';
 import StatusBadge from '../components/StatusBadge';
-import { getAllPayments } from '../services/api';
+import { getAllPayments, exportPaymentsCSV } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import StatCard from '../components/StatCard';
+import useIsMobile from '../hooks/useIsMobile';
 
 const Payments = () => {
     const { t } = useTranslation();
+    const isMobile = useIsMobile();
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, completed, pending, failed
@@ -26,11 +30,6 @@ const Payments = () => {
     });
 
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
     useFilterVisibilityOnScroll(setShowFilters);
 
@@ -66,7 +65,7 @@ const Payments = () => {
                 setPagination(prev => ({
                     ...prev,
                     ...result.pagination,
-                    page: Number(result.pagination.page || 1)
+                    page: Number(result.pagination?.page || 1)
                 }));
             } else {
                 console.error('Failed to load payments:', result.error);
@@ -78,11 +77,16 @@ const Payments = () => {
         }
     };
 
-    const downloadCSV = () => {
+    const downloadCSV = async () => {
         const now = new Date();
         const month = now.getMonth() + 1;
         const year = now.getFullYear();
-        window.open(`/api/payments/export?month=${month}&year=${year}`, '_blank');
+        try {
+            await exportPaymentsCSV(month, year);
+        } catch (error) {
+            console.error('Error downloading CSV via API, falling back to direct link:', error);
+            window.open(`/api/payments/export?month=${month}&year=${year}`, '_blank');
+        }
     };
 
 
@@ -125,8 +129,8 @@ const Payments = () => {
         .filter(p => {
             if (!searchQuery) return true;
             const query = searchQuery.toLowerCase();
-            const deviceMatch = p.deviceId && p.deviceId.toLowerCase().includes(query);
-            const invoiceMatch = (p.invoiceId || p.unpaidInvoiceId || p.paymentReference || '').toLowerCase().includes(query);
+            const deviceMatch = p.deviceId && p.deviceId.toString().toLowerCase().includes(query);
+            const invoiceMatch = (p.invoiceId || p.unpaidInvoiceId || p.paymentReference || '').toString().toLowerCase().includes(query);
             return deviceMatch || invoiceMatch;
         })
         .sort((a, b) => {
@@ -134,29 +138,29 @@ const Payments = () => {
                 case 'date':
                     return new Date(b.createdAt) - new Date(a.createdAt);
                 case 'amount':
-                    return b.amount - a.amount;
+                    return (b.amount || 0) - (a.amount || 0);
                 case 'device':
-                    return a.deviceId.localeCompare(b.deviceId);
+                    return String(a.deviceId || '').localeCompare(String(b.deviceId || ''));
                 default:
                     return 0;
             }
         });
 
     const totalAmount = payments.reduce((sum, p) => {
-        const status = p.status.toUpperCase();
+        const status = (p.status || '').toUpperCase();
         if (status === 'APPROVED' || status === 'COMPLETED') {
-            return sum + p.amount;
+            return sum + (p.amount || 0);
         }
         return sum;
     }, 0);
 
     const completedCount = payments.filter(p => {
-        const status = p.status.toUpperCase();
+        const status = (p.status || '').toUpperCase();
         return status === 'APPROVED' || status === 'COMPLETED';
     }).length;
 
     const pendingCount = payments.filter(p => {
-        const status = p.status.toUpperCase();
+        const status = (p.status || '').toUpperCase();
         return status === 'PENDING' || status === 'VERIFYING';
     }).length;
 
@@ -175,168 +179,82 @@ const Payments = () => {
     const completedPercentage = totalPagePayments > 0 ? Math.round((completedCount / totalPagePayments) * 100) : 0;
     const pendingPercentage = totalPagePayments > 0 ? Math.round((pendingCount / totalPagePayments) * 100) : 0;
 
+    const filterOptions = [
+        { value: 'all', label: t('payments.filters.all') },
+        { value: 'completed', label: t('payments.filters.completed') },
+        { value: 'pending', label: t('payments.filters.pending') },
+        { value: 'failed', label: t('payments.filters.failed') }
+    ];
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('payments.title')}
+            subtitle={t('payments.subtitle')}
+            onRefresh={loadPayments}
+            loading={loading}
+            refreshText={t('payments.refresh')}
+            actions={
+                <button type="button" className="btn-secondary" onClick={downloadCSV}>
+                    <Download size={16} style={{ marginRight: 4 }} /> CSV
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={loadPayments}
+            loading={loading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+            leadingActions={
+                pagination.totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
+                        <button
+                            type="button"
+                            onClick={() => handlePageChange(pagination.page - 1)}
+                            disabled={!pagination.hasPrev}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: pagination.hasPrev ? '#1f2937' : '#9ca3af' }}
+                            aria-label="Página anterior"
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+                        <span>{pagination.page}/{pagination.totalPages}</span>
+                        <button
+                            type="button"
+                            onClick={() => handlePageChange(pagination.page + 1)}
+                            disabled={!pagination.hasNext}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: pagination.hasNext ? '#1f2937' : '#9ca3af' }}
+                            aria-label="Página siguiente"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                )
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="payments-page">
-            {portalElement && createPortal(
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {pagination.totalPages > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563' }}>
-                            <button
-                                type="button"
-                                onClick={() => handlePageChange(pagination.page - 1)}
-                                disabled={!pagination.hasPrev}
-                                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: pagination.hasPrev ? '#1f2937' : '#9ca3af' }}
-                            >
-                                <ChevronLeft size={14} />
-                            </button>
-                            <span>{pagination.page}/{pagination.totalPages}</span>
-                            <button
-                                type="button"
-                                onClick={() => handlePageChange(pagination.page + 1)}
-                                disabled={!pagination.hasNext}
-                                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: pagination.hasNext ? '#1f2937' : '#9ca3af' }}
-                            >
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        style={{ border: 'none', background: 'none', padding: '8px' }}
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                </div>,
-                portalElement
-            )}
+            {renderHeader}
 
-            <div className="page-header hidden md:flex">
-                <div>
-                    <h1>💳 {t('payments.title')}</h1>
-                    <p>{t('payments.subtitle')}</p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-secondary" onClick={loadPayments}>
-                        <RefreshCw size={16} /> {t('payments.refresh')}
-                    </button>
-                    <button className="btn-secondary" onClick={downloadCSV}>
-                        <Download size={16} style={{ marginRight: 4 }} /> CSV
-                    </button>
-                </div>
-            </div>
-
-            {/* Mobile Collapsible Filter Section (Mobile only) */}
-            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
+            {/* Mobile Collapsible Filter Section */}
+            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
                 <div className="pt-2 pb-1">
-                    {/* Search Box */}
-                    <div className="search-box" style={{ maxWidth: 'none', marginBottom: '.5rem' }}>
-                        <Search className="search-icon" size={18} />
-                        <input
-                            type="text"
-                            placeholder={t('invoices.searchPlaceholder')}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                className="clear-search"
-                                onClick={() => setSearchQuery('')}
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Filter Badges (Horizontal scroll, compact) */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar" style={{ display: 'flex', gap: '8px', overflowX: 'auto', }}>
-                        <button
-                            type="button"
-                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'all'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'all' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'all' ? '#2563eb' : 'white',
-                                color: filter === 'all' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('all')}
-                        >
-                            {t('payments.filters.all')}
-                        </button>
-                        <button
-                            type="button"
-                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'completed'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'completed' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'completed' ? '#2563eb' : 'white',
-                                color: filter === 'completed' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('completed')}
-                        >
-                            {t('payments.filters.completed')}
-                        </button>
-                        <button
-                            type="button"
-                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'pending'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'pending' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'pending' ? '#2563eb' : 'white',
-                                color: filter === 'pending' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('pending')}
-                        >
-                            {t('payments.filters.pending')}
-                        </button>
-                        <button
-                            type="button"
-                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'failed'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            style={{
-                                padding: '4px 12px',
-                                borderRadius: '9999px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                border: filter === 'failed' ? '1px solid #2563eb' : '1px solid #e5e7eb',
-                                backgroundColor: filter === 'failed' ? '#2563eb' : 'white',
-                                color: filter === 'failed' ? 'white' : '#4b5563'
-                            }}
-                            onClick={() => handleFilterChange('failed')}
-                        >
-                            {t('payments.filters.failed')}
-                        </button>
-                    </div>
+                    <SearchAndFilterBar
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        searchPlaceholder={t('invoices.searchPlaceholder')}
+                        filter={filter}
+                        setFilter={handleFilterChange}
+                        filterOptions={filterOptions}
+                    />
 
                     {/* Sort & Action Items */}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '0.5rem' }}>
                         <select
                             className="sort-select"
                             value={sortBy}
@@ -357,126 +275,53 @@ const Payments = () => {
                 </div>
             </div>
 
-            {/* Summary Stats */}
-            <div className="payment-stats">
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: 'var(--brand-teal)' }}>
-                        <DollarSign size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('payments.stats.revenue')}</div>
-                        <div className="stat-value-container">
-                            <span className="stat-number"><Amount value={totalAmount} /></span>
-                            {revenuePercentage > 0 && (
-                                <span className="stat-change-inline positive">
-                                    <TrendingUp size={14} />
-                                    {revenuePercentage}%
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#00C292' }}>
-                        <Check size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('payments.stats.completed')}</div>
-                        <div className="stat-value-container">
-                            <span className="stat-number">{completedCount}</span>
-                            {completedPercentage > 0 && (
-                                <span className="stat-change-inline positive">
-                                    <TrendingUp size={14} />
-                                    {completedPercentage}%
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#FB9678' }}>
-                        <Clock size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('payments.stats.pending')}</div>
-                        <div className="stat-value-container">
-                            <span className="stat-number">{pendingCount}</span>
-                            {pendingPercentage > 0 && (
-                                <span className="stat-change-inline negative">
-                                    <TrendingDown size={14} />
-                                    {pendingPercentage}%
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="payment-stat-card">
-                    <div className="stat-icon" style={{ background: '#7460EE' }}>
-                        <CreditCard size={20} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-label">{t('payments.stats.total')}</div>
-                        <div className="stat-number">{pagination.total}</div>
-                    </div>
-                </div>
+            {/* Summary Stats — Minimalist iOS style */}
+            <div className="devices-stats-ios payments-stats-grid">
+                <StatCard
+                    title={t('payments.stats.revenue', 'INGRESOS')}
+                    value={<Amount value={totalAmount} />}
+                    valueColor="#00C292"
+                />
+                <StatCard
+                    title={t('payments.stats.completed', 'PAGADOS')}
+                    value={completedCount}
+                    valueColor="#0070eb"
+                />
+                <StatCard
+                    title={t('payments.stats.pending', 'PENDIENTES')}
+                    value={pendingCount}
+                    valueColor="#FB9678"
+                />
+                <StatCard
+                    title={t('payments.stats.total', 'TOTAL')}
+                    value={pagination.total}
+                    valueColor="#1a1c1c"
+                />
             </div>
 
             {/* Filters and Sort (Desktop only) */}
-            <div className="payment-controls hidden md:flex">
-                <div className="payment-filters">
-                    <button
-                        className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-                        onClick={() => handleFilterChange('all')}
-                    >
-                        {t('payments.filters.all')}
-                    </button>
-                    <button
-                        className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-                        onClick={() => handleFilterChange('completed')}
-                    >
-                        {t('payments.filters.completed')}
-                    </button>
-                    <button
-                        className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
-                        onClick={() => handleFilterChange('pending')}
-                    >
-                        {t('payments.filters.pending')}
-                    </button>
-                    <button
-                        className={`filter-btn ${filter === 'failed' ? 'active' : ''}`}
-                        onClick={() => handleFilterChange('failed')}
-                    >
-                        {t('payments.filters.failed')}
-                    </button>
-
-                    <div className="search-box">
-                        <Search className="search-icon" />
-                        <input
-                            type="text"
-                            placeholder={t('invoices.searchPlaceholder')}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <button
-                                className="clear-search"
-                                onClick={() => setSearchQuery('')}
-                            >
-                                <X />
-                            </button>
-                        )}
-                    </div>
-                </div>
+            <div className="payment-controls hidden md:flex items-center justify-between gap-4">
+                <SearchAndFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    searchPlaceholder={t('invoices.searchPlaceholder')}
+                    filter={filter}
+                    setFilter={handleFilterChange}
+                    filterOptions={filterOptions}
+                />
                 <select
                     className="sort-select"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
+                    style={{ minWidth: '150px' }}
                 >
                     <option value="date">{t('payments.sort.date')}</option>
                     <option value="amount">{t('payments.sort.amount')}</option>
                     <option value="device">{t('payments.sort.device')}</option>
                 </select>
             </div>
+
+
 
             {/* Payments Table */}
             <div className="payments-table-container">
@@ -505,22 +350,27 @@ const Payments = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {sortedPayments.map(payment => (
-                                    <tr key={payment.paymentId}>
-                                        <td className="payment-id desktop-only" title="Click to copy full ID" onClick={() => copyToClipboard(payment.paymentId)} style={{ cursor: 'pointer' }}>
-                                            <code>...{payment.paymentId.split('-').pop()}</code>
-                                        </td>
-                                        <td className="desktop-only"><strong>{payment.deviceId}</strong></td>
-                                        <td className="date"><DateDisplay dateString={payment.createdAt} /></td>
-                                        <td className="amount"><Amount value={payment.amount} /></td>
-                                        <td>
-                                            <StatusBadge status={payment.status} type={payment.type} />
-                                        </td>
-                                        <td className="payment-method">
-                                            {formatInvoiceId(payment.invoiceId || payment.unpaidInvoiceId || payment.paymentReference)}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {sortedPayments.map((payment, index) => {
+                                    const paymentKey = payment.paymentId || payment._id || `payment-${index}`;
+                                    const displayId = String(payment.paymentId || payment._id || '');
+                                    const shortId = displayId.includes('-') ? displayId.split('-').pop() : displayId.slice(-6);
+                                    return (
+                                        <tr key={paymentKey}>
+                                            <td className="payment-id desktop-only" title="Click to copy full ID" onClick={() => copyToClipboard(displayId)} style={{ cursor: 'pointer' }}>
+                                                <code>...{shortId || 'N/A'}</code>
+                                            </td>
+                                            <td className="desktop-only"><strong>{payment.deviceId || 'N/A'}</strong></td>
+                                            <td className="date"><DateDisplay dateString={payment.createdAt} /></td>
+                                            <td className="amount"><Amount value={payment.amount} /></td>
+                                            <td>
+                                                <StatusBadge status={payment.status} type={payment.type} />
+                                            </td>
+                                            <td className="payment-method">
+                                                {formatInvoiceId(payment.invoiceId || payment.unpaidInvoiceId || payment.paymentReference)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
 
