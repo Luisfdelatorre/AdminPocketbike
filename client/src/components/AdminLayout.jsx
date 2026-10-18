@@ -75,6 +75,7 @@ const AdminLayout = () => {
         return <Navigate to="/admin/login" replace />;
     }
 
+    // Only admins can access this layout
     return (
         <div className="admin-layout">
             <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />

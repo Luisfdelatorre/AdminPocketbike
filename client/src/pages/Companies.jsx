@@ -108,8 +108,9 @@ const Companies = () => {
             const payload = {
                 ...companyForm,
                 wompiConfig: {
-                    wompiCommission: companyForm.wompiCommission,
-                    paymentMethod: companyForm.paymentMethod
+                    ...selectedCompany?.wompiConfig,
+                    paymentMethod: companyForm.paymentMethod || 'NEQUI_PUSH',
+                    wompiCommission: companyForm.wompiCommission ? parseFloat(companyForm.wompiCommission) : undefined
                 },
                 billingConfig: {
                     transactionFixedFee: companyForm.transactionFixedFee,
@@ -314,6 +315,7 @@ const Companies = () => {
                     {/* Form Container */}
                     <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <div className="ios-detail-body">
+
                             {/* General Information Section */}
                             <section>
                                 <h3 className="ios-section-title">General Information</h3>

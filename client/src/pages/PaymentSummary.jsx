@@ -15,6 +15,7 @@ import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
@@ -51,6 +52,7 @@ const PaymentSummary = () => {
     const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
     const [companies, setCompanies] = useState([]);
     const [selectedCompany, setSelectedCompany] = useState('all');
+
 
 
 
@@ -558,6 +560,7 @@ const PaymentSummary = () => {
             {renderHeader}
 
             <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
+
                 <SearchAndFilterBar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -608,6 +611,7 @@ const PaymentSummary = () => {
                     </div>
                 </div>
             )}
+
 
         </div>
     );
