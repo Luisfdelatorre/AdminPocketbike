@@ -118,11 +118,13 @@ export class ContractRepository {
         }
 
         const paidAmount = payment.amount_in_cents ? payment.amount_in_cents / 100 : payment.amount;
-        const paidDays = contract.paymentFrequency || 1;
+        const paidDays = payment.billingMultiplier
+            || (contract.dailyRate > 0 && paidAmount > 0 ? Math.round(paidAmount / contract.dailyRate) : null)
+            || (typeof contract.getBillingMultiplier === 'function' ? contract.getBillingMultiplier() : (contract.paymentFrequency || 1));
 
         contract.paidAmount += paidAmount;
         contract.paidDays += paidDays;
-        contract.remainingDays = contract.contractDays - contract.paidDays;
+        contract.remainingDays = Math.max(0, contract.contractDays - contract.paidDays);
 
         // Check if contract is completed
         const isCompleted = contract.paidDays >= contract.contractDays;
