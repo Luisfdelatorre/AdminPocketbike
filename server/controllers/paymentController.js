@@ -372,8 +372,10 @@ const paymentController = {
             }
             const configuredTypes = await settingRepository.getAdjustmentTypes();
             const validTypes = Object.keys(configuredTypes || {});
-            if (!validTypes.includes(adjustmentType)) {
-                return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${validTypes.join(', ')}` });
+            const fallbackReasons = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA'];
+            const allAllowed = Array.from(new Set([...validTypes, ...fallbackReasons]));
+            if (!allAllowed.includes(adjustmentType)) {
+                return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${allAllowed.join(', ')}` });
             }
             const result = await paymentService.applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note });
             sseService.broadcast('payment-updated', {

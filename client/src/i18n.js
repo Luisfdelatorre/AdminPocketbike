@@ -652,7 +652,7 @@ const resources = {
                     instruction3: '✓ Puedes regenerarlo cuando quieras'
                 },
                 share: {
-                    title: 'Compartir Link de Pago',
+                    title: 'Link',
                     subtitle: 'Comparte este link para acceder a la página de pago.',
                     copy: 'Copiar',
                     note: 'Nota:',

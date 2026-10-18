@@ -16,6 +16,16 @@ export default defineConfig({
         host: true, // Enable network access
         port: 5173,
         proxy: {
+            '/api': {
+                target: 'http://127.0.0.1:8084',
+                changeOrigin: true,
+                configure: (proxy) => {
+                    proxy.on('error', (err) => {
+                        if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return;
+                        console.error('[vite-proxy] Error:', err.message);
+                    });
+                }
+            },
             '/apinode': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
@@ -51,6 +61,10 @@ export default defineConfig({
     preview: {
         port: 4173,
         proxy: {
+            '/api': {
+                target: 'http://127.0.0.1:8084',
+                changeOrigin: true,
+            },
             '/apinode': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,

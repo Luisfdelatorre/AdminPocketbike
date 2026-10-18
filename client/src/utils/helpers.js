@@ -19,20 +19,79 @@ export function getStatusIcon(status) {
     return icons[status] || '❓';
 }
 
-export function formatCompact(value) {
-    if (value === null || value === undefined || isNaN(value)) return '$0';
-    const num = Number(value);
-    if (num === 0) return '$0';
-    if (Math.abs(num) >= 1000000) {
-        const millions = num / 1000000;
-        return `$${Number.isInteger(millions) ? millions : millions.toFixed(1)}M`;
+/**
+ * Format amount as Colombian Pesos with thousand separators.
+ * Supports compact formatting (e.g., "$1.588M", "$350K") and optional " COP" suffix.
+ * 
+ * @param {number|string} amount 
+ * @param {boolean|object} [withSuffixOrOptions=true] - Appends " COP" suffix if true, or options object { withSuffix, compact }
+ * @param {boolean} [compact=false] - Formats number compactly if true
+ */
+export function formatCurrencyCOP(amount, withSuffixOrOptions = true, compact = false) {
+    let withSuffix = true;
+    let isCompact = false;
+
+    if (typeof withSuffixOrOptions === 'object' && withSuffixOrOptions !== null) {
+        withSuffix = withSuffixOrOptions.withSuffix !== false;
+        isCompact = Boolean(withSuffixOrOptions.compact);
+    } else {
+        withSuffix = Boolean(withSuffixOrOptions);
+        isCompact = Boolean(compact);
     }
-    if (Math.abs(num) >= 1000) {
-        const thousands = num / 1000;
-        return `$${Number.isInteger(thousands) ? thousands : Math.round(thousands)}K`;
+
+    if (amount === null || amount === undefined || isNaN(amount)) {
+        return withSuffix ? '$0 COP' : '$0';
     }
-    return `$${num.toLocaleString('es-CO')}`;
+
+    const num = Number(amount) || 0;
+
+    if (isCompact) {
+        let compactStr;
+        if (Math.abs(num) >= 1000000) {
+            const millions = num / 1000000;
+            const formatted = Math.abs(millions) >= 100
+                ? Math.round(millions).toLocaleString('es-CO')
+                : (Number.isInteger(millions) ? millions.toLocaleString('es-CO') : millions.toFixed(1).replace('.', ','));
+            compactStr = `$${formatted}M`;
+        } else if (Math.abs(num) >= 1000) {
+            const thousands = Math.round(num / 1000);
+            compactStr = `$${thousands.toLocaleString('es-CO')}K`;
+        } else {
+            compactStr = `$${Math.round(num).toLocaleString('es-CO')}`;
+        }
+        return withSuffix ? `${compactStr}` : compactStr;
+    }
+
+    const formatted = `$${(Math.round(num)).toLocaleString('es-CO')}`;
+    return withSuffix ? `${formatted} COP` : formatted;
 }
+
+export function formatCompact(value) {
+    return formatCurrencyCOP(value, false, true);
+}
+
+export function formatCompactCOP(value) {
+    return formatCurrencyCOP(value, true, true);
+}
+
+/**
+ * Format date input string or Date object into standard "YYYY-MM-DD" format.
+ */
+export function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch (e) {
+        return dateStr;
+    }
+}
+
 
 /**
  * Format last update date into relative offline duration string (e.g., "4h offline", "35m offline").

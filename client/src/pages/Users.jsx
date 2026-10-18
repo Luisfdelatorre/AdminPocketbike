@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getAllUsers, createUser, updateUser, deleteUser, getAllCompanies } from '../services/api';
 import { Users as UsersIcon, UserPlus, Trash2, Search, X, Pencil } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import './Users.css'; // We'll create this CSS next
 
 const Users = () => {
+    const isMobile = useIsMobile();
+    const { t } = useTranslation();
     const [users, setUsers] = useState([]);
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -113,25 +117,53 @@ const Users = () => {
         (user.companyName && user.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    const desktopHeader = (
+        <PageHeader.Desktop 
+            title={t('sidebar.users', 'Usuarios')}
+            breadcrumbs={[
+                { label: 'Administración' },
+                { label: t('sidebar.users', 'Usuarios') }
+            ]}
+            onRefresh={loadData}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            actions={
+                <button className="btn-primary" onClick={() => {
+                    resetForm();
+                    setShowUserModal(true);
+                }}>
+                    <UserPlus size={16} /> {t('users.addUser', 'Agregar Usuario')}
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={loadData}
+            loading={loading}
+            actions={
+                <button
+                    type="button"
+                    className="btn-mobile-header-action"
+                    onClick={() => {
+                        resetForm();
+                        setShowUserModal(true);
+                    }}
+                    title={t('users.addUser', 'Agregar Usuario')}
+                    aria-label={t('users.addUser', 'Agregar Usuario')}
+                >
+                    <UserPlus size={20} />
+                </button>
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="users-page">
-            <PageHeader 
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <UsersIcon className="inline-icon" /> Users Management
-                    </span>
-                }
-                desktopActions={
-                    <button className="btn-primary" onClick={() => {
-                        setUserForm({ name: '', email: '', password: '', role: 'viewer', companyId: '', accessibleCompanies: [] });
-                        setIsEditing(false);
-                        setEditUserId(null);
-                        setShowUserModal(true);
-                    }}>
-                        <UserPlus size={16} /> Add User
-                    </button>
-                }
-            />
+            {renderHeader}
 
             {/* Search */}
             <div className="users-search">

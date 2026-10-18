@@ -427,7 +427,7 @@
     display: none !important;
 }
 
-.desktop-only {
+span.desktop-only {
     display: inline !important;
 }
 

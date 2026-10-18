@@ -215,4 +215,3 @@ export const cronLogger = createLogger({
 
 const defaultLogger = new Logger();
 export default defaultLogger;
-

@@ -28,10 +28,12 @@ import {
     ChevronUp
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { downloadContractDocument, downloadContractPdf, getContractDocxBlob } from '../../services/api';
+import { downloadContractDocument, getContractDocxBlob } from '../../services/api';
+import { downloadContractPdf } from '../../utils/contractPdfGenerator';
 import { showToast } from '../../utils/toast';
 import { safeCalcularPrecioMoto } from '../../utils/contractCalculations';
 import Amount from '../Amount';
+import useAdminScrollLock from '../../hooks/useAdminScrollLock';
 import './ContractDocPreviewModal.css';
 
 const formatCOP = (val) => {
@@ -45,6 +47,21 @@ const formatCOP = (val) => {
 
 const ContractDocPreviewModal = ({ contract, isOpen, onClose }) => {
     const { t } = useTranslation();
+    useAdminScrollLock(isOpen);
+
+    // Handle ESC key to dismiss modal
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const paperDocRef = useRef(null);
     const [activeTab, setActiveTab] = useState('financial'); // 'legal' | 'financial' | 'installments'
     const [zoom, setZoom] = useState(100);
@@ -226,9 +243,19 @@ const ContractDocPreviewModal = ({ contract, isOpen, onClose }) => {
         window.print();
     };
 
+    if (!isOpen || !contract) return null;
+
     return createPortal(
-        <div className="contract-immersive-overlay" role="dialog" aria-modal="true">
-            <div className="contract-immersive-container">
+        <div
+            className="contract-immersive-overlay"
+            role="dialog"
+            aria-modal="true"
+            onClick={onClose}
+        >
+            <div
+                className="contract-immersive-container"
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 {/* APP HEADER */}
                 <header className="contract-immersive-header no-print">
@@ -308,209 +335,7 @@ const ContractDocPreviewModal = ({ contract, isOpen, onClose }) => {
                 {/* CONTENIDO PRINCIPAL */}
                 <main className="contract-immersive-main custom-scrollbar">
 
-                    {/* ACTIONS BAR 
-                    <section className="contract-actions-bar no-print">
-                        <button
-                            className="contract-btn-primary"
-                            onClick={handleDownloadPdf}
-                            disabled={generatingPdf}
-                            type="button"
-                        >
-                            <Download size={15} />
-                            <span>{generatingPdf ? 'Generando PDF...' : 'Descargar PDF'}</span>
-                        </button>
-                        <button
-                            className="contract-btn-secondary"
-                            onClick={handlePrint}
-                            type="button"
-                        >
-                            <Printer size={15} />
-                            <span>Imprimir</span>
-                        </button>
-                        <button
-                            className="contract-btn-secondary"
-                            onClick={handleDownloadDocx}
-                            disabled={downloadingDocx}
-                            type="button"
-                        >
-                            <FileDown size={15} className="text-blue-600" />
-                            <span>{downloadingDocx ? 'Descargando...' : '.docx Word'}</span>
-                        </button>
-                    </section>*/}
 
-                    {/* FINANCIAL METRICS CARD 
-                    <section className={`contract-financial-hero ${isFinancialCollapsed ? 'is-collapsed' : ''}`}>
-                        <div className="contract-hero-watermark" aria-hidden="true">
-                            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="5.5" />
-                                <text
-                                    x="50"
-                                    y="68"
-                                    textAnchor="middle"
-                                    fill="currentColor"
-                                    fontSize="54"
-                                    fontWeight="700"
-                                    fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                                >
-                                    $
-                                </text>
-                            </svg>
-                        </div>
-
-                        {isFinancialCollapsed ? (
-                            <div
-                                className="contract-hero-collapsed-row"
-                                onClick={() => setIsFinancialCollapsed(false)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsFinancialCollapsed(false); } }}
-                            >
-                                <div className="contract-hero-collapsed-left">
-                                    <span className="contract-hero-collapsed-tag">FINANCIACIÓN</span>
-                                    <div className="contract-hero-collapsed-item">
-                                        <span className="contract-hero-collapsed-lbl">Total:</span>
-                                        <strong className="text-white"><Amount value={totalAmount} /></strong>
-                                    </div>
-                                    <span className="contract-hero-collapsed-dot">•</span>
-                                    <div className="contract-hero-collapsed-item">
-                                        <span className="contract-hero-collapsed-lbl">Tarifa:</span>
-                                        <strong className="text-emerald-400"><Amount value={dailyRate} /></strong>
-                                    </div>
-                                    <span className="contract-hero-collapsed-dot">•</span>
-                                    <div className="contract-hero-collapsed-item">
-                                        <span className="contract-hero-collapsed-paid">{paidInvoicesCount} de {contractDays} pagadas ({paidPercent}%)</span>
-                                    </div>
-                                </div>
-                                <div className="contract-hero-collapsed-right">
-                                    <div className="contract-hero-collapsed-bar" title={`${paidPercent}% completado`}>
-                                        <div
-                                            className="contract-progress-fill"
-                                            style={{ width: `${Math.min(100, Math.max(0, paidPercent))}%` }}
-                                        ></div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="contract-hero-toggle-btn"
-                                        onClick={(e) => { e.stopPropagation(); setIsFinancialCollapsed(false); }}
-                                        title="Expandir métricas financieras"
-                                        aria-label="Expandir métricas financieras"
-                                    >
-                                        <ChevronDown size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="contract-hero-top">
-                                    <div className="contract-hero-left">
-                                        <span className="contract-hero-label-cyan">VALOR FINANCIADO</span>
-                                        <div className="contract-hero-amount">
-                                            {formatCOP(totalAmount)} <span className="contract-hero-cur">COP</span>
-                                        </div>
-                                    </div>
-                                    <div className="contract-hero-actions-group">
-                                        <div className="contract-hero-right">
-                                            <span className="contract-hero-label-muted">TARIFA DIARIA</span>
-                                            <div className="contract-hero-daily">
-                                                {formatCOP(dailyRate)} <span className="contract-hero-cur">COP</span>
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="contract-hero-toggle-btn"
-                                            onClick={() => setIsFinancialCollapsed(true)}
-                                            title="Plegar métricas financieras"
-                                            aria-label="Plegar métricas financieras"
-                                        >
-                                            <ChevronUp size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="contract-hero-progress-section">
-                                    <div className="contract-hero-progress-info">
-                                        <span className="contract-hero-term">
-                                            Plazo pactado: <strong>{contractDays} Cuotas Diarias</strong>
-                                        </span>
-                                        <span className="contract-hero-paid-plain">
-                                            {paidInvoicesCount} pagadas ({paidPercent}%)
-                                        </span>
-                                    </div>
-                                    <div className="contract-progress-track">
-                                        <div
-                                            className="contract-progress-fill"
-                                            style={{ width: `${Math.min(100, Math.max(0, paidPercent))}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </section>*/}
-
-                    {/* PARTES INTERVINIENTES 
-                    <section className={`contract-parties-card ${isPartiesCollapsed ? 'is-collapsed' : ''}`}>
-                        <div
-                            className="contract-parties-header is-clickable"
-                            onClick={() => setIsPartiesCollapsed(!isPartiesCollapsed)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsPartiesCollapsed(!isPartiesCollapsed); } }}
-                            aria-expanded={!isPartiesCollapsed}
-                        >
-                            <div className="contract-parties-header-left">
-                                <h2 className="contract-card-title">Partes Intervinientes</h2>
-                                <span className="contract-badge-pill">3 Registros</span>
-                                {isPartiesCollapsed && (
-                                    <span className="contract-parties-collapsed-preview">
-                                        POCKETBIKE • UPAYSOLUTIONS • {customerName}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="contract-parties-header-right">
-                                <button
-                                    type="button"
-                                    className="contract-toggle-chevron-btn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsPartiesCollapsed(!isPartiesCollapsed);
-                                    }}
-                                    title={isPartiesCollapsed ? "Expandir partes intervinientes" : "Plegar partes intervinientes"}
-                                    aria-label={isPartiesCollapsed ? "Expandir partes intervinientes" : "Plegar partes intervinientes"}
-                                >
-                                    {isPartiesCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {!isPartiesCollapsed && (
-                            <div className="contract-parties-grid">
-                                <div className="contract-party-item">
-                                    <div className="contract-party-avatar bg-blue-100 text-blue-700">VE</div>
-                                    <div className="contract-party-info">
-                                        <span className="contract-party-role">VENDEDOR</span>
-                                        <p className="contract-party-name">POCKETBIKE S.A.S.</p>
-                                        <p className="contract-party-doc">NIT: 901366393-9</p>
-                                    </div>
-                                </div>
-                                <div className="contract-party-item">
-                                    <div className="contract-party-avatar bg-teal-100 text-teal-700">PR</div>
-                                    <div className="contract-party-info">
-                                        <span className="contract-party-role">PRESTAMISTA Y PROVEEDOR</span>
-                                        <p className="contract-party-name">UPAYSOLUTIONS S.A.S.</p>
-                                        <p className="contract-party-doc">NIT: 902068285</p>
-                                    </div>
-                                </div>
-                                <div className="contract-party-item">
-                                    <div className="contract-party-avatar bg-amber-100 text-amber-800">CO</div>
-                                    <div className="contract-party-info">
-                                        <span className="contract-party-role">COMPRADOR Y DEUDOR</span>
-                                        <p className="contract-party-name">{customerName}</p>
-                                        <p className="contract-party-doc">DOC: {customerDoc} {customerPhone ? `• Tel: ${customerPhone}` : ''}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </section>*/}
 
                     {/* VISTA 1: DOCUMENTO LEGAL (SINTETIZADO DESDE CONTRATO_TEMPLATE.docx) */}
                     {activeTab === 'legal' && (

@@ -5,13 +5,14 @@
 
 
 .payment-summary-container {
+    width: 100%;
     padding: 0;
     background-color: transparent;
     --summary-header-height: 0px;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: 0rem;
     box-sizing: border-box;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
 }
@@ -24,21 +25,16 @@
     position: sticky;
     top: -4px;
     z-index: 30;
-    row-gap: 10px;
-    margin-bottom: 0;
+    row-gap: 8px;
     background: #ffffff;
-    padding: 0;
-    border-radius: 0.75rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    border: 0.5px solid rgba(198, 198, 200, 0.3);
+    padding: 6px 4px;
     flex: 0 0 auto;
-    transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+    transition: box-shadow 0.2s ease;
 }
 
 .summary-header.is-stuck {
-    border-radius: 0 0 0.75rem 0.75rem;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    border-top: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .summary-heading {
@@ -187,36 +183,12 @@
     margin-bottom: 0;
 }
 
-.filter-pills-ios {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-}
-
-.filter-pill-ios {
-    padding: 0.35rem 0.875rem;
-    border-radius: 9999px;
-    border: 1px solid #e8e8e8;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    background-color: #f3f3f4;
-    color: #414755;
-    font-family: inherit;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.filter-pill-ios:hover {
-    background-color: #e8e8e8;
-}
-
-/* Todos -> azul */
-.filter-pill-ios.active {
-    background-color: #0070eb;
-    color: #ffffff;
-    border-color: #005bc5;
-    box-shadow: 0 1px 4px rgba(0, 112, 235, 0.35);
-    font-weight: 600;
+/* Note: Base .filter-pills-ios, .filter-pill-ios and .search-ios* are centralized in index.css */
+.summary-filter-row-ios .filter-pills-ios {
+    padding-top: 8px;
+    padding-right: 8px;
+    padding-bottom: 6px;
+    gap: 0.75rem;
 }
 
 /* Con deuda -> rojo */
@@ -240,67 +212,6 @@
     box-shadow: 0 1px 4px rgba(65, 71, 85, 0.35);
 }
 
-/* Search iOS */
-.search-ios {
-    position: relative;
-    width: 100%;
-    border: 1px solid #e8e8e8;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.search-ios-icon {
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6b7280;
-    pointer-events: none;
-}
-
-.search-ios-input {
-    width: 100%;
-    background-color: #f3f3f4;
-    border: none;
-    border-radius: 0.5rem;
-    padding: 0.5rem 2.5rem 0.5rem 2.25rem;
-    font-size: 13px;
-    font-weight: 500;
-    color: #1a1c1c;
-    outline: none;
-    font-family: inherit;
-    transition: background-color 0.2s ease;
-    box-sizing: border-box;
-}
-
-.search-ios-input:focus {
-    background-color: #e8e8e8;
-}
-
-.search-ios-input::placeholder {
-    color: #9ca3af;
-    font-weight: 400;
-}
-
-.search-ios-clear {
-    position: absolute;
-    right: 0.625rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6b7280;
-    display: flex;
-    align-items: center;
-    padding: 0.2rem;
-    border-radius: 50%;
-    transition: background-color 0.15s ease;
-}
-
-.search-ios-clear:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-}
 
 /* -- Matrix Shell */
 .matrix-shell {
@@ -333,16 +244,14 @@
     border-radius: 0 0 0.75rem 0.75rem;
 }
 
-/* -- Bike Summary List */
+/* -- Bike Summary List / Container */
+.bike-summary-container,
 .bike-summary-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 4px;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    overflow-x: hidden;
-    overflow-y: auto;
+    gap: 0.75rem;
+    box-sizing: border-box;
 }
 
 .bike-summary-card {
@@ -756,7 +665,7 @@
         max-width: 100vw;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0rem;
         overflow: visible;
         box-sizing: border-box;
     }
@@ -861,65 +770,38 @@
 }
 
 @media (min-width: 768px) {
+    .summary-header {
+        display: none !important;
+    }
+
+    .payment-summary-container .expandable-metrics-container {
+        margin-bottom: 0.75rem;
+    }
+
     .summary-filter-row-ios {
         flex-direction: row;
         align-items: center;
     }
 
-    .search-ios {
-        max-width: 260px;
-        margin-left: auto;
-    }
+
 }
 
-/* ──────────────────────────────────────────
-   Vanilla CSS Components for Payment Summary
-   ────────────────────────────────────────── */
-.summary-date-card {
-    display: flex;
-    gap: 0.75rem;
-    background-color: #ffffff;
-    border-radius: 10px;
-    padding: 0.25rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    border: 1px solid #e5e5ea;
-    width: 100%;
-    max-width: 380px;
-    margin: 0 auto;
-}
-
-.summary-date-field {
-    position: relative;
-    flex: 1;
-}
-
-.summary-date-field.has-border {
-    border-right: 1px solid #e5e5ea;
-}
-
-.summary-select-ios {
-    width: 100%;
-    appearance: none;
-    -webkit-appearance: none;
-    background: transparent;
-    border: none;
-    color: #000000;
-    font-size: 15px;
-    font-weight: 500;
-    padding: 0.5rem 2rem 0.5rem 0.75rem;
-    outline: none;
-    cursor: pointer;
-}
-
-.summary-select-arrow {
-    pointer-events: none;
-    position: absolute;
-    top: 50%;
-    right: 0.75rem;
-    transform: translateY(-50%);
-    color: #c7c7cc;
-    display: flex;
+/* Legacy compatibility alias */
+.summary-date-selectors-desktop {
+    display: inline-flex;
     align-items: center;
+    gap: 8px;
+}
+
+.summary-select-desktop {
+    height: 38px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 /* Bike Summary Card Vanilla Components */
@@ -933,7 +815,6 @@
     flex-direction: column;
     gap: 0.75rem;
     width: 100%;
-    max-width: 380px;
     box-sizing: border-box;
 }
 

@@ -357,18 +357,12 @@ const downloadContractPdf = async (req, res) => {
             return res.status(403).json({ success: false, error: 'Access denied to this contract' });
         }
 
-        const vInfo = contract.vehicleInfo || {};
-        const placa = vInfo.placa || contract.deviceIdName || 'SIN_PLACA';
-        let pdfInfo = findContractPdf(contract.contractId || contract._id, placa);
-
-        if (!pdfInfo || !fs.existsSync(pdfInfo.filePath)) {
-            console.log(`[ContractPdf] PDF no encontrado en disco para ${contractId}, generando ahora...`);
-            let device = null;
-            if (contract.deviceIdName) {
-                device = await Device.findOne({ name: contract.deviceIdName }).lean();
-            }
-            pdfInfo = await generateAndSaveContractPdf(contract, device);
+        let device = null;
+        if (contract.deviceIdName) {
+            device = await Device.findOne({ name: contract.deviceIdName }).lean();
         }
+
+        const pdfInfo = await generateAndSaveContractPdf(contract, device);
 
         return res.download(pdfInfo.filePath, pdfInfo.filename);
     } catch (error) {

@@ -91,15 +91,6 @@ class WompiAdapter {
     const finalizedAt = data?.finalized_at ? dayjs(data.finalized_at).toDate() : null;
     const extra = data?.payment_method?.extra;
 
-    // ── DIAGNOSTIC: log QR image format from Wompi ──────────────────────────
-    if (extra?.qr_image) {
-      const qrSample = String(extra.qr_image).substring(0, 120);
-      logger.info(`[WOMPI-QR-DIAG] qr_image prefix (120 chars): ${qrSample}`);
-      logger.info(`[WOMPI-QR-DIAG] payment_method_type: ${data?.payment_method_type}`);
-    } else {
-      logger.info(`[WOMPI-QR-DIAG] status=${data?.status} – qr_image is null/empty for ref=${data?.reference}`);
-    }
-    // ────────────────────────────────────────────────────────────────────────
 
     const paymentDataUpdate = {
       _id: data?.id,

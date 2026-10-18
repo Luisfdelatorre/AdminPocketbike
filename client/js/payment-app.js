@@ -18,8 +18,21 @@ let CONFIG = {
     TRANSITION_DURATION: 500
 };
 
-// Dynamic status class mapping loaded dynamically from DB API (/apinode/invoices/history)
-let STATUS_CLASS_MAP = {};
+// Fallback defaults, updated dynamically from DB API (/apinode/invoices/history)
+let STATUS_CLASS_MAP = {
+    'PAID': { textClass: 'status-paid', badgeClass: 'badge-paid', rowClass: 'row-paid' },
+    'FREE': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
+    'FREEPASS': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
+    'ADJUSTMENT': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
+    'VERIFYING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '' },
+    'CONFIRMING': { textClass: 'status-verifying', badgeClass: 'badge-verifying', rowClass: '' },
+    'PENDING': { textClass: 'status-pending', badgeClass: 'badge-pending', rowClass: 'row-pending' },
+    'DEBT': { textClass: 'status-debt', badgeClass: 'badge-debt', rowClass: 'row-debt' },
+    'LOAN': { textClass: 'status-loan', badgeClass: 'badge-loan', rowClass: '' },
+    'DECLINED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' },
+    'ERROR': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' },
+    'VOIDED': { textClass: 'status-rejected', badgeClass: 'badge-debt', rowClass: '' }
+};
 
 // ============================================================================
 // State Management
@@ -883,7 +896,7 @@ class PaymentManager {
     }
 
     renderHistory(history) {
-        const historyBody = this.dom.get('tables.historyBody');
+            const historyBody = this.dom.get('tables.historyBody');
         if (!historyBody) return;
 
         if (!history || history.length === 0) {
@@ -893,11 +906,11 @@ class PaymentManager {
 
         historyBody.innerHTML = history.map(item => {
             const key = item.adjustmentType || item.dayType;
-            const fallbackConfig = STATUS_CLASS_MAP[key] || {};
+            const config = STATUS_CLASS_MAP[key] || STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
 
-            const color = item.color || fallbackConfig.color || '#6b7280';
-            const bg = item.bg || fallbackConfig.bg || 'transparent';
-            const badgeLabel = item.badgeLabel || item.status || fallbackConfig.badgeLabel || 'Pendiente';
+            const color = item.color || config.color;
+            const bg = item.bg || config.bg;
+            const badgeLabel = item.badgeLabel || item.status || config.badgeLabel || 'Pendiente';
 
             let paymentTimeHtml = '<span style="color: #9ca3af; font-size: 13px;">---</span>';
 
@@ -907,22 +920,24 @@ class PaymentManager {
                 const pTimeStr = pDate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
                 paymentTimeHtml = `
                     <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
-                        <span style="font-size: 11px; font-weight: 500; color: #1f2937;">${pDateStr}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: #1f2937;">${pDateStr}</span>
                         <span style="font-size: 10px; color: #6b7280;">${pTimeStr}</span>
                     </div>
                 `;
             }
 
             const rowStyle = bg ? `style="background-color: ${bg};"` : '';
-            const badgeStyle = `style="color: ${color}; background-color: ${bg}; display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; white-space: nowrap;"`;
+            const badgeStyle = color && bg
+                ? `style="color: ${color}; background-color: ${bg}; display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; white-space: nowrap;"`
+                : '';
 
             return `
-            <tr ${rowStyle}>
+            <tr class="${config.rowClass || ''}" ${rowStyle}>
                 <td style="font-weight: 600; color: #374151;">${UIUtils.formatDate(item.date)}</td>
-                <td style="font-weight: 400; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
+                <td style="font-weight: 700; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
                 <td style="text-align: center;">${paymentTimeHtml}</td>
                 <td style="text-align: right; padding-right: 8px;">
-                    <span ${badgeStyle}>${badgeLabel}</span>
+                    <span class="badge-status ${config.badgeClass || 'badge-pending'}" ${badgeStyle}>${badgeLabel}</span>
                 </td>
             </tr>
             `;

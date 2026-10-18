@@ -45,6 +45,7 @@ const companyController = {
 
             const company = await companyService.updateCompany(id, req.body, req.auth);
 
+
             res.json({
                 success: true,
                 data: company
@@ -154,6 +155,7 @@ const companyController = {
         try {
             const { companyId } = req.auth;
             const company = await companyService.updateCompanySettings(companyId, req.body);
+
 
             res.json({
                 success: true,

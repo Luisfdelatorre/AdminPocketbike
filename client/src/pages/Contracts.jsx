@@ -3,20 +3,24 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings, downloadContractDocument, extractContractDocument } from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, ListFilter, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download } from 'lucide-react';
+import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download } from 'lucide-react';
 import { showToast } from '../utils/toast';
-import { formatPhoneNumber } from '../utils/helpers';
+import { formatPhoneNumber, formatCurrencyCOP, formatCompact, formatCompactCOP, formatDate } from '../utils/helpers';
 import { safeCalcularPrecioMoto } from '../utils/contractCalculations';
 import useAdminScrollLock from '../hooks/useAdminScrollLock';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import ContractDocPreviewModal from '../components/modals/ContractDocPreviewModal';
 import ImageCropModal from '../components/modals/ImageCropModal';
 import WhatsAppAttachmentModal from '../components/modals/WhatsAppAttachmentModal';
-import { convertPdfToImage, isPdfDocument } from '../utils/pdfToImage';
+import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import StatCard from '../components/StatCard';
 import './Contracts.css';
 import './ContractModalRestyle.css';
 
 const Contracts = () => {
+    const isMobile = useIsMobile();
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
@@ -107,7 +111,6 @@ const Contracts = () => {
     };
 
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
     const [fabPortalElement, setFabPortalElement] = useState(null);
     const tarjetaInputRef = useRef(null);
     const cedulaInputRef = useRef(null);
@@ -213,10 +216,6 @@ const Contracts = () => {
         });
     }, [formData.dailyRate, formData.contractDays, formData.initialFee, totalGastosFijos]);
 
-    const formatCurrencyCOP = (value) => {
-        return '$ ' + (Math.round(Number(value) || 0)).toLocaleString('es-CO');
-    };
-
     useEffect(() => {
         if (isContractModalOpen) {
             setIsModalMounted(true);
@@ -288,7 +287,6 @@ const Contracts = () => {
         loadContracts();
         loadAvailableDevices();
         loadCompanySettings();
-        setPortalElement(document.getElementById('mobile-header-actions'));
         setFabPortalElement(document.body);
     }, [filter]);
 
@@ -346,6 +344,10 @@ const Contracts = () => {
         } catch (error) {
             console.error('Error loading devices:', error);
         }
+    };
+
+    const handleRefresh = async () => {
+        await Promise.all([loadContracts(), loadAvailableDevices(), loadCompanySettings()]);
     };
 
     const openContractModal = () => {
@@ -744,14 +746,6 @@ const Contracts = () => {
                             }
                         }
 
-                        if (data.propietario) {
-                            next.customerName = String(data.propietario).toUpperCase();
-                        }
-                        if (data.documentoPropietario) {
-                            next.customerDocumentType = 'CC';
-                            next.customerDocumentNumber = String(data.documentoPropietario);
-                            next.customerDocument = `CC ${data.documentoPropietario}`;
-                        }
 
                         // Guardar datos técnicos estructurados para la BD
                         next.vehicleInfo = {
@@ -980,35 +974,6 @@ const Contracts = () => {
         });
     };
 
-    const getFullAttachmentUrl = () => {
-        if (!previewAttachmentModal?.url) return '';
-        let fullUrl = previewAttachmentModal.url;
-        if (!fullUrl.startsWith('http://') && !fullUrl.startsWith('https://') && !fullUrl.startsWith('data:')) {
-            fullUrl = `${window.location.origin}${fullUrl.startsWith('/') ? '' : '/'}${fullUrl}`;
-        }
-        return fullUrl;
-    };
-
-    const isIOSDevice = () => {
-        if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-        const ua = navigator.userAgent || navigator.vendor || window.opera || '';
-        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    };
-
-    const isChromeOnIOS = () => {
-        if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-        const ua = navigator.userAgent || '';
-        return isIOSDevice() && (/CriOS/i.test(ua) || /Chrome/i.test(ua));
-    };
-
-    const isMobileOrIOS = () => {
-        if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-        const ua = navigator.userAgent || navigator.vendor || window.opera || '';
-        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-        return isIOS || isMobile;
-    };
-
     const handleShareAttachment = async () => {
         if (!window.isSecureContext || typeof navigator.share !== 'function') {
             showToast(
@@ -1130,60 +1095,7 @@ const Contracts = () => {
         }
     };
 
-    const handleDownloadContractDoc = async (contract) => {
-        try {
-            setDownloadingDocId(contract.contractId);
-            showToast('info', 'Contrato', t('contracts.generatingDoc', 'Generando documento de contrato...'));
-            const safePlate = (contract.deviceIdName || contract.contractId || 'Contrato').replace(/[^a-zA-Z0-9_-]/g, '_');
-            const filename = `Contrato_${safePlate}_${contract.contractId}.docx`;
-            await downloadContractDocument(contract.contractId, filename);
-            showToast('success', 'Contrato', t('contracts.docGeneratedSuccess', 'Contrato descargado correctamente'));
-        } catch (error) {
-            console.error('Error generating contract document:', error);
-            showToast('error', 'Error', t('contracts.docGeneratedError', 'Error al generar el contrato'));
-        } finally {
-            setDownloadingDocId(null);
-        }
-    };
 
-    const formatCurrency = (amount) => {
-        return `$${amount.toLocaleString()} COP`;
-    };
-
-    const formatCompact = (value) => {
-        if (!value) return '$0';
-        if (value >= 1000000) {
-            return `$${Math.round(value / 1000000)}M`;
-        }
-        if (value >= 1000) {
-            return `$${Math.round(value / 1000)}k`;
-        }
-        return `$${value}`;
-    };
-
-    // Compact COP for headers: $35K, $17.5M (up to 1 decimal, trailing .0 removed)
-    const formatCompactCOP = (value) => {
-        const n = Number(value) || 0;
-        const trim = (x) => String(Math.round(x * 10) / 10).replace(/\.0$/, '');
-        if (n >= 1000000) return `$${trim(n / 1000000)}M COP`;
-        if (n >= 1000) return `$${trim(n / 1000)}K COP`;
-        return `$${n} COP`;
-    };
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        try {
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr;
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        } catch (e) {
-            return dateStr;
-        }
-    };
 
     const getStatusColor = (status) => {
         const colors = {
@@ -1197,7 +1109,7 @@ const Contracts = () => {
 
     const filteredContracts = contracts.filter(contract => {
         // Status filter
-        if (filter !== 'all' && contract.status.toLowerCase() !== filter.toLowerCase()) {
+        if (filter !== 'all' && contract.status?.toLowerCase() !== filter.toLowerCase()) {
             return false;
         }
 
@@ -1205,208 +1117,94 @@ const Contracts = () => {
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             return (
-                contract.deviceId.toLowerCase().includes(query) ||
-                contract.contractId.toLowerCase().includes(query) ||
-                contract.customerName?.toLowerCase().includes(query) ||
-                contract.customerEmail?.toLowerCase().includes(query)
+                (contract.deviceId || '').toLowerCase().includes(query) ||
+                (contract.contractId || '').toLowerCase().includes(query) ||
+                (contract.customerName || '').toLowerCase().includes(query) ||
+                (contract.customerEmail || '').toLowerCase().includes(query)
             );
         }
 
         return true;
     });
 
-    const StatCard = ({ title, value, icon: Icon, color }) => (
-        <div className="contract-stat-card">
-            <div className="stat-icon" style={{ background: color }}>
-                <Icon size={18} />
-            </div>
-            <div className="stat-content">
-                <h3>{title}</h3>
-                <div className="stat-value">{value}</div>
-            </div>
-        </div>
+    const filterOptions = [
+        { value: 'all', label: t('contracts.filters.all') },
+        { value: 'active', label: t('contracts.filters.active') },
+        { value: 'completed', label: t('contracts.filters.completed') },
+        { value: 'cancelled', label: t('contracts.filters.cancelled') }
+    ];
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('contracts.title')}
+            breadcrumbs={[
+                { label: 'Operaciones' },
+                { label: t('contracts.title') }
+            ]}
+            onRefresh={handleRefresh}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            actions={
+                <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleNewContract}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <Plus size={18} /> {t('contracts.newContract', 'Nuevo Contrato')}
+                </button>
+            }
+        />
     );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={handleRefresh}
+            loading={loading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
 
     return (
         <div className="admin-page-container">
-            {/* Render filter toggle button in Mobile Top Bar via Portal */}
-            {portalElement && createPortal(
-                <button
-                    type="button"
-                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'
-                        }`}
-                    onClick={() => setShowFilters(!showFilters)}
-                    id="filterToggle"
-                >
-                    <ListFilter size={20} />
-                </button>,
-                portalElement
-            )}
+            {renderHeader}
 
-            {/* Desktop Header (Desktop only) */}
-            <div className="page-header !hidden md:!flex">
-                <div>
-                    <h1>📋 {t('contracts.title')}</h1>
-                    <p>{t('contracts.subtitle')}</p>
-                </div>
-                <button className="btn-primary" onClick={handleNewContract}>
-                    <Plus size={24} />
-                    <span className="btn-text">{t('contracts.newContract')}</span>
-                </button>
-            </div>
-
-            {/* Mobile Collapsible Filter Section (Mobile only, no duplicate header) */}
-            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
-                <div className="pt-2 pb-1 ">
-                    {/* Search Bar */}
-                    <div className="search-box" style={{ maxWidth: 'none', marginBottom: '.5rem' }}>
-                        <Search className="search-icon" size={18} />
-                        <input
-                            type="text"
-                            placeholder={t('contracts.searchPlaceholder')}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                className="clear-search"
-                                onClick={() => setSearchQuery('')}
-                                aria-label="Clear search"
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Filter Badges */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        <button
-                            type="button"
-                            className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'all'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            onClick={() => setFilter('all')}
-                        >
-                            {t('contracts.filters.all')}
-                        </button>
-                        <button
-                            type="button"
-                            className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'active'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            onClick={() => setFilter('active')}
-                        >
-                            {t('contracts.filters.active')}
-                        </button>
-                        <button
-                            type="button"
-                            className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'completed'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            onClick={() => setFilter('completed')}
-                        >
-                            {t('contracts.filters.completed')}
-                        </button>
-                        <button
-                            type="button"
-                            className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filter === 'cancelled'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                            onClick={() => setFilter('cancelled')}
-                        >
-                            {t('contracts.filters.cancelled')}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Desktop Filters (Desktop only) */}
-            <div className="contracts-filters hidden md:flex">
-                <button
-                    type="button"
-                    className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-                    onClick={() => setFilter('all')}
-                >
-                    {t('contracts.filters.all')}
-                </button>
-                <button
-                    type="button"
-                    className={`filter-btn ${filter === 'active' ? 'active' : ''}`}
-                    onClick={() => setFilter('active')}
-                >
-                    {t('contracts.filters.active')}
-                </button>
-                <button
-                    type="button"
-                    className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-                    onClick={() => setFilter('completed')}
-                >
-                    {t('contracts.filters.completed')}
-                </button>
-                <button
-                    type="button"
-                    className={`filter-btn ${filter === 'cancelled' ? 'active' : ''}`}
-                    onClick={() => setFilter('cancelled')}
-                >
-                    {t('contracts.filters.cancelled')}
-                </button>
-
-                <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder={t('contracts.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+            {/* Expandable Metrics and Search & Filter Section */}
+            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
+                {/* Summary Stats — Minimalist iOS style consistent with DeviceSelector */}
+                <div className="contracts-stats">
+                    <StatCard
+                        title={t('contracts.stats.total', 'TOTAL')}
+                        value={contracts.length}
                     />
-                    {searchQuery && (
-                        <button
-                            type="button"
-                            className="clear-search"
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Clear search"
-                        >
-                            <X />
-                        </button>
-                    )}
+                    <StatCard
+                        title={t('contracts.stats.active', 'ACTIVOS')}
+                        value={contracts.filter(c => c.status === 'ACTIVE').length}
+                        valueColor="#00C292"
+                    />
+                    <StatCard
+                        title={t('contracts.stats.completed', 'FINALIZADOS')}
+                        value={contracts.filter(c => c.status === 'COMPLETED').length}
+                        valueColor="#0070eb"
+                    />
+                    <StatCard
+                        title={t('contracts.stats.totalValue', 'VALOR TOTAL')}
+                        value={formatCompactCOP(contracts.reduce((sum, c) => sum + (c.totalAmount || 0), 0))}
+                        fullValue={formatCurrencyCOP(contracts.reduce((sum, c) => sum + (c.totalAmount || 0), 0), true)}
+                        valueColor="#1a1c1c"
+                    />
                 </div>
-            </div>
 
-            {/* Summary Stats */}
-            <div className="contracts-stats">
-                <StatCard
-                    title={t('contracts.stats.total')}
-                    value={contracts.length}
-                    icon={FileText}
-                    color="var(--brand-teal)"
-                />
-                <StatCard
-                    title={t('contracts.stats.active')}
-                    value={contracts.filter(c => c.status === 'ACTIVE').length}
-                    icon={TrendingUp}
-                    color="#00C292"
-                />
-                <StatCard
-                    title={t('contracts.stats.completed')}
-                    value={contracts.filter(c => c.status === 'COMPLETED').length}
-                    icon={Check}
-                    color="#7460EE"
-                />
-                <StatCard
-                    title={t('contracts.stats.totalValue')}
-                    value={
-                        <>
-                            <span className="mobile-only">{formatCompact(contracts.reduce((sum, c) => sum + c.totalAmount, 0))}</span>
-                            <span className="desktop-only">{formatCurrency(contracts.reduce((sum, c) => sum + c.totalAmount, 0))}</span>
-                        </>
-                    }
-                    icon={DollarSign}
-                    color="#FB9678"
+                <SearchAndFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    searchPlaceholder={t('contracts.searchPlaceholder', 'Buscar por ID, nombre o email…')}
+                    filter={filter}
+                    setFilter={setFilter}
+                    filterOptions={filterOptions}
                 />
             </div>
 
@@ -1514,7 +1312,7 @@ const Contracts = () => {
                                 <div className="grid grid-cols-2 gap-3 border-b border-gray-100 pb-1">
                                     <section>
                                         <p className="text-[15px] text-main-dark">
-                                            {formatCurrency(contract.totalAmount)}
+                                            {formatCurrencyCOP(contract.totalAmount)}
                                         </p>
                                     </section>
                                     <section>
@@ -1532,7 +1330,7 @@ const Contracts = () => {
                                     </section>
                                     <section>
                                         <p className="text-[12px] font-medium text-main-dark">
-                                            {formatCurrency(contract.dailyRate)}
+                                            {formatCurrencyCOP(contract.dailyRate)}
                                         </p>
                                     </section>
                                 </div>
@@ -1562,7 +1360,7 @@ const Contracts = () => {
                                 <div className="flex items-center justify-between text-[11px] text-gray-500">
                                     <div className="flex items-center gap-x-1">
                                         <Check size={12} className="text-gray-400" strokeWidth={2.5} />
-                                        <span>{formatCurrency(contract.paidAmount)}</span>
+                                        <span>{formatCurrencyCOP(contract.paidAmount)}</span>
                                     </div>
                                     <div className="flex items-center gap-x-1">
                                         <Calendar size={12} className="text-gray-400" />
@@ -1575,15 +1373,16 @@ const Contracts = () => {
                 )}
             </div>
 
-            {/* Floating Action Button (FAB) for Mobile */}
+            {/* Floating Action Button (FAB) for Desktop & Mobile */}
             {fabPortalElement && !isModalMounted && createPortal(
                 <button
                     type="button"
                     className="contracts-add-fab primary-blue"
                     onClick={handleNewContract}
-                    aria-label="Add Contract"
+                    aria-label={t('contracts.newContract', 'Nuevo Contrato')}
+                    title={t('contracts.newContract', 'Nuevo Contrato')}
                 >
-                    <Plus size={32} />
+                    <Plus size={30} />
                 </button>,
                 fabPortalElement
             )}
@@ -2084,32 +1883,32 @@ const Contracts = () => {
                                                             <div className="wa-fin-item">
                                                                 <span className="wa-fin-label">Precio Moto (antes IVA):</span>
                                                                 <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.precioAntesIVA)}
+                                                                    {formatCurrencyCOP(contractFinancials.data.precioAntesIVA, false)}
                                                                 </span>
                                                             </div>
                                                             <div className="wa-fin-item">
                                                                 <span className="wa-fin-label">+ IVA (19%):</span>
                                                                 <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.valorIVA)}
+                                                                    {formatCurrencyCOP(contractFinancials.data.valorIVA, false)}
                                                                 </span>
                                                             </div>
                                                             <div className="wa-fin-item">
                                                                 <span className="wa-fin-label">+ Gastos Fijos (Settings):</span>
                                                                 <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.gastos)}
+                                                                    {formatCurrencyCOP(contractFinancials.data.gastos, false)}
                                                                 </span>
                                                             </div>
                                                             <div className="wa-fin-divider" />
                                                             <div className="wa-fin-item wa-fin-highlight">
                                                                 <span className="wa-fin-label">Total Operación:</span>
                                                                 <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.totalOperacion)}
+                                                                    {formatCurrencyCOP(contractFinancials.data.totalOperacion, false)}
                                                                 </span>
                                                             </div>
                                                             <div className="wa-fin-item">
                                                                 <span className="wa-fin-label">Saldo Financiable:</span>
                                                                 <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.saldoFinanciable)}
+                                                                    {formatCurrencyCOP(contractFinancials.data.saldoFinanciable, false)}
                                                                 </span>
                                                             </div>
                                                             <div className="wa-fin-divider" />
@@ -2117,13 +1916,13 @@ const Contracts = () => {
                                                                 <div className="wa-fin-cuota-pill">
                                                                     <span className="wa-fin-cuota-name">Cuota Fin. (50%)</span>
                                                                     <span className="wa-fin-cuota-amount font-mono">
-                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaFinanciera)}/día
+                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaFinanciera, false)}/día
                                                                     </span>
                                                                 </div>
                                                                 <div className="wa-fin-cuota-pill">
                                                                     <span className="wa-fin-cuota-name">Cuota Cloud (50%)</span>
                                                                     <span className="wa-fin-cuota-amount font-mono">
-                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaCloud)}/día
+                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaCloud, false)}/día
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -2435,6 +2234,36 @@ const Contracts = () => {
                                                                     guarantor: { ...(formData.guarantor || {}), phone: formatPhoneNumber(e.target.value) }
                                                                 })}
                                                                 placeholder="310 000 0000"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="wa-profile-row">
+                                                        <span className="wa-profile-label">Email</span>
+                                                        <div className="wa-profile-value-wrap">
+                                                            <input
+                                                                type="email"
+                                                                className="wa-profile-input"
+                                                                value={formData.guarantor?.email || ''}
+                                                                onChange={(e) => setFormData({
+                                                                    ...formData,
+                                                                    guarantor: { ...(formData.guarantor || {}), email: e.target.value }
+                                                                })}
+                                                                placeholder="correo@ejemplo.com"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="wa-profile-row">
+                                                        <span className="wa-profile-label">Dirección</span>
+                                                        <div className="wa-profile-value-wrap">
+                                                            <input
+                                                                type="text"
+                                                                className="wa-profile-input"
+                                                                value={formData.guarantor?.address || ''}
+                                                                onChange={(e) => setFormData({
+                                                                    ...formData,
+                                                                    guarantor: { ...(formData.guarantor || {}), address: e.target.value }
+                                                                })}
+                                                                placeholder="Calle 123 #45-67"
                                                             />
                                                         </div>
                                                     </div>

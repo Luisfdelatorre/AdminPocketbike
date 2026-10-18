@@ -285,6 +285,7 @@ export class PaymentService {
         const isFreeAdjustment = typeCfg
             ? (typeCfg.isFree !== undefined ? typeCfg.isFree : (typeCfg.autoAmount === 0 || !typeCfg.isRealPayment))
             : ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
+
         const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
 
         const payment = await paymentRepository.createManualPayment({
@@ -460,6 +461,7 @@ export class PaymentService {
     };
     async pollPaymentStatus(reference, onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT) {
         const QR_INTERVAL_MS = 2000; // Fase QR: polling rápido hasta obtener qr_image
+
         const STATUS_INTERVAL_MS = 5000; // Fase estado: polling normal (igual que Nequi)
 
         // If a polling process exists for this reference, join it
@@ -476,6 +478,7 @@ export class PaymentService {
             const startTime = Date.now();
 
             const payment = await paymentRepository.getPaymentByReference(reference);
+
             const wompiAdapter = await companyService.getWompiAdapter(payment?.companyId);
 
             // Detect QR method — check multiple sources for robustness
@@ -745,6 +748,7 @@ export class PaymentService {
             const deviceInfoQuery = companyId ? { companyId } : {};
 
             // Fetch invoices, payments, device info, and companies in parallel (single round-trip each)
+
             const t1 = Date.now();
             const [invoices, payments, deviceDocs, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
@@ -753,6 +757,7 @@ export class PaymentService {
                 Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
+
 
             // Build company config map keyed by companyId string for isInvoiceDue lookup
             const companyCutoffMap = {};
@@ -800,6 +805,7 @@ export class PaymentService {
                             driverName: info.customerName || info.driverName || null,
                             companyId: compId,
                             companyName: info.companyName || compObj?.name || null,
+
                             unpaidTotal: 0,
                             cutOff: Boolean(info.cutOff)
                         },

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     FileText, Calendar, DollarSign, Check, X, Search, Filter,
     HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Download, RefreshCw, Building2,
-    ChevronLeft, ChevronRight, ListFilter, TrendingUp, TrendingDown
+    ChevronLeft, ChevronRight, TrendingUp, TrendingDown
 } from 'lucide-react';
 import './Payments.css';
 import './Invoices.css';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes, getPaymentStatuses } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
@@ -48,6 +49,7 @@ const Invoices = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalInvoices, setTotalInvoices] = useState(0);
+    const isMobile = useIsMobile();
     const PAGE_SIZE = 100;
 
     const today = new Date();
@@ -56,11 +58,6 @@ const Invoices = () => {
     const [downloading, setDownloading] = useState(false);
 
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
 
     useFilterVisibilityOnScroll(setShowFilters);
 
@@ -88,12 +85,94 @@ const Invoices = () => {
     const [manualPayLoading, setManualPayLoading] = useState(false);
     const [manualPayError, setManualPayError] = useState('');
 
-    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({});
+    const DEFAULT_ADJUSTMENT_CONFIG = {
+        NEQUI: {
+            label: 'Pago Real - Nequi',
+            color: '#E11D48',
+            bg: '#FFF1F2',
+            description: 'Pago real recibido vía Nequi.',
+            autoAmount: null,
+            autoReference: 'Pago Nequi recibido por Admin',
+            isRealPayment: true,
+        },
+        EFECTIVO: {
+            label: 'Pago Real - Efectivo',
+            color: '#16A34A',
+            bg: '#F0FDF4',
+            description: 'Pago real recibido en efectivo.',
+            autoAmount: null,
+            autoReference: 'Pago en Efectivo recibido por Admin',
+            isRealPayment: true,
+        },
+        TRANSFERENCIA: {
+            label: 'Pago Real - Transferencia Bancaria',
+            color: '#2563EB',
+            bg: '#EFF6FF',
+            description: 'Pago real recibido por transferencia bancaria.',
+            autoAmount: null,
+            autoReference: 'Transferencia Bancaria recibida por Admin',
+            isRealPayment: true,
+        },
+        ACCIDENT_TRANSIT: {
+            label: 'Ajuste - Retenida en tránsito por accidente ($0)',
+            badgeLabel: 'RETENIDA',
+            color: '#FB9678',
+            bg: '#FFF4EF',
+            description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+        },
+        REPAIR: {
+            label: 'Ajuste - Retenida en tránsito por accidente ($0)',
+            badgeLabel: 'RETENIDA',
+            color: '#FB9678',
+            bg: '#FFF4EF',
+            description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
+            hidden: true,
+        },
+        INCAPACITY: {
+            label: 'Ajuste - Incapacidad ($0)',
+            color: '#3b82f6',
+            bg: '#EFF6FF',
+            description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
+        },
+        MAINTENANCE: {
+            label: 'Ajuste - Mantenimiento ($0)',
+            color: '#7460EE',
+            bg: '#F5F3FF',
+            description: 'Mantenimiento programado — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
+        },
+        OFFICE: {
+            label: 'Ajuste - Oficina ($0)',
+            color: '#0891B2',
+            bg: '#ECFEFF',
+            description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'OFICINA - Día ajustado automáticamente',
+        },
+        WORKSHOP: {
+            label: 'Ajuste - Taller ($0)',
+            color: '#A3A3A3',
+            bg: '#F5F5F5',
+            description: 'Dispositivo en taller — día sin cobro al cliente.',
+            autoAmount: 0,
+            autoReference: 'TALLER - Día ajustado automáticamente',
+        },
+    };
+
+    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState(DEFAULT_ADJUSTMENT_CONFIG);
 
     useEffect(() => {
         Promise.all([getAdjustmentTypes(), getPaymentStatuses()])
             .then(([adjRes, payRes]) => {
                 const combined = {
+                    ...DEFAULT_ADJUSTMENT_CONFIG,
                     ...(payRes?.data || {}),
                     ...(adjRes?.data || {})
                 };
@@ -304,95 +383,100 @@ const Invoices = () => {
         setCurrentPage(1);
     };
 
+    const renderDateSelectors = () => (
+        <div className="date-selectors-group">
+            <select
+                value={selectedMonth}
+                onChange={e => {
+                    setSelectedMonth(Number(e.target.value));
+                    setCurrentPage(1);
+                }}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
+                    </option>
+                ))}
+            </select>
+            <select
+                value={selectedYear}
+                onChange={e => {
+                    setSelectedYear(Number(e.target.value));
+                    setCurrentPage(1);
+                }}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+            </select>
+        </div>
+    );
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('invoices.title')}
+            onRefresh={() => loadInvoices(currentPage)}
+            loading={loading}
+            refreshText={t('payments.refresh')}
+            leadingActions={renderDateSelectors()}
+            actions={
+                <button
+                    className="btn-secondary"
+                    onClick={handleExport}
+                    disabled={downloading}
+                >
+                    {downloading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} CSV
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={() => loadInvoices(currentPage)}
+            loading={loading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+            leadingActions={
+                totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage <= 1}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#9ca3af' : '#1f2937' }}
+                            aria-label="Página anterior"
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+                        <span>{currentPage}/{totalPages}</span>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(p => p + 1)}
+                            disabled={currentPage >= totalPages}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= totalPages ? '#9ca3af' : '#1f2937' }}
+                            aria-label="Página siguiente"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                )
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="payments-page">
-            {portalElement && createPortal(
-                <div className="invoices-portal-actions">
-                    {totalPages > 1 && (
-                        <div className="portal-pagination-pill">
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(p => p - 1)}
-                                disabled={currentPage <= 1}
-                                className="portal-pagination-arrow"
-                                aria-label="Página anterior"
-                            >
-                                <ChevronLeft size={14} />
-                            </button>
-                            <span>{currentPage}/{totalPages}</span>
-                            <button
-                                type="button"
-                                onClick={() => setCurrentPage(p => p + 1)}
-                                disabled={currentPage >= totalPages}
-                                className="portal-pagination-arrow"
-                                aria-label="Página siguiente"
-                            >
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        className={`portal-filter-toggle ${showFilters ? 'active' : ''}`}
-                        onClick={() => setShowFilters(!showFilters)}
-                        id="filterToggle"
-                        aria-label="Filtros"
-                    >
-                        <ListFilter size={20} />
-                    </button>
-                </div>,
-                portalElement
-            )}
-
-            <div className="page-header hidden md:flex">
-                <div>
-                    <h1>{t('invoices.title')}</h1>
-                </div>
-                <div className="invoices-header-actions">
-                    <select
-                        value={selectedMonth}
-                        onChange={e => {
-                            setSelectedMonth(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="select-control header-date-select"
-                    >
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={selectedYear}
-                        onChange={e => {
-                            setSelectedYear(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="select-control header-date-select"
-                    >
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                    </select>
-                    <button
-                        className="btn-secondary"
-                        onClick={() => loadInvoices(currentPage)}
-                    >
-                        <RefreshCw size={16} /> {t('payments.refresh')}
-                    </button>
-                    <button
-                        className="btn-secondary"
-                        onClick={handleExport}
-                        disabled={downloading}
-                    >
-                        {downloading ? <RefreshCw size={16} className="spinning" /> : <Download size={16} />} CSV
-                    </button>
-                </div>
-            </div>
+            {renderHeader}
 
             {/* Mobile Collapsible Filter Section (Mobile only) */}
-            <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
+            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
                 <div className="pt-2 pb-1">
                     <SearchAndFilterBar
                         searchQuery={searchInput}
@@ -653,17 +737,12 @@ const Invoices = () => {
                 <div className="modal-overlay" onClick={closeManualPayModal}>
                     <div className="modal-card modal-surface--invoice" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header" style={
-                            manualPayForm.adjustmentType
+                            manualPayForm.adjustmentType && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.color
                                 ? { background: `linear-gradient(135deg, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}cc)` }
                                 : {}
                         }>
                             <div className="modal-header-left">
-                                {(() => {
-                                    const ModalIcon = manualPayForm.adjustmentType
-                                        ? (ADJUSTMENT_ICONS[manualPayForm.adjustmentType] || HandCoins)
-                                        : HandCoins;
-                                    return <ModalIcon size={20} />;
-                                })()}
+
                                 <span>
                                     {manualPayForm.adjustmentType
                                         ? ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.label || manualPayForm.adjustmentType

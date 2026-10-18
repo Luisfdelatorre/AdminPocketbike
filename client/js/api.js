@@ -75,33 +75,33 @@ api.addRequestInterceptor((config) => {
 });
 
 // Auth
-export const login = (deviceIdName, pin) => api.post('/apinode/auth/pin-login', { deviceIdName, pin });
+export const login = (deviceIdName, pin) => api.post('/api/v1/auth/pin-login', { deviceIdName, pin });
 
 // Payment Data & History
-export const getPaymentStatus = () => api.get('/apinode/payments/status');
-export const getPaymentHistory = () => api.get('/apinode/payments/history');
+export const getPaymentStatus = () => api.get('/api/v1/payments/status');
+export const getPaymentHistory = () => api.get('/api/v1/payments/history');
 export const getInvoiceHistory = ({ month, year } = {}) => {
   const params = new URLSearchParams();
   if (month) params.set('month', month);
   if (year)  params.set('year',  year);
   const qs = params.toString();
-  return api.get(`/apinode/invoices/history${qs ? `?${qs}` : ''}`);
+  return api.get(`/api/v1/invoices/history${qs ? `?${qs}` : ''}`);
 };
 
 // Transactions
-export const requestFreeDay = () => api.post('/apinode/payments/use-free-day');
-export const requestLoan = () => api.post('/apinode/payments/request-loan');
-export const createNequiPayment = (data) => api.post('/apinode/payments/request', data);
+export const requestFreeDay = () => api.post('/api/v1/payments/use-free-day');
+export const requestLoan = () => api.post('/api/v1/payments/request-loan');
+export const createNequiPayment = (data) => api.post('/api/v1/payments/request', data);
 
 // Messages
-export const getUIMessages = () => api.get('/apinode/messages/ui');
-export const getAdjustmentTypes = () => api.get('/apinode/settings/adjustment-types');
+export const getUIMessages = () => api.get('/api/v1/messages/ui');
+export const getAdjustmentTypes = () => api.get('/api/v1/settings/adjustment-types');
 
 // EventSource helper for payment streaming
 export const createPaymentStream = (reference) => {
   const token = localStorage.getItem('paymentAuthToken');
-  const url = `/apinode/payments/stream/${reference}?token=${token}`;
+  const url = `/api/v1/payments/stream/${reference}?token=${token}`;
   return new EventSource(url);
 };
 
-export const getDeviceStatus = () => api.get('/apinode/devices/status');
+export const getDeviceStatus = () => api.get('/api/v1/devices/status');

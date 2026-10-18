@@ -9,10 +9,12 @@ import SystemJobs from '../components/SystemJobs';
 import OcrTemplatesManager from '../components/OcrTemplatesManager';
 import CompaniesGrid from '../components/CompaniesGrid';
 import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import './Users.css'; // Reusing Users CSS for consistency
 import './Companies.css';
 
 const Companies = () => {
+    const isMobile = useIsMobile();
     const [companies, setCompanies] = useState([]);
     const [allDevices, setAllDevices] = useState([]); // Store all devices
     const [loading, setLoading] = useState(true);
@@ -106,8 +108,9 @@ const Companies = () => {
             const payload = {
                 ...companyForm,
                 wompiConfig: {
-                    wompiCommission: companyForm.wompiCommission,
-                    paymentMethod: companyForm.paymentMethod
+                    ...selectedCompany?.wompiConfig,
+                    paymentMethod: companyForm.paymentMethod || 'NEQUI_PUSH',
+                    wompiCommission: companyForm.wompiCommission ? parseFloat(companyForm.wompiCommission) : undefined
                 },
                 billingConfig: {
                     transactionFixedFee: companyForm.transactionFixedFee,
@@ -155,37 +158,75 @@ const Companies = () => {
     const currentTab = companiesTab || localTab;
     const handleTabChange = setCompaniesTab || setLocalTab;
 
+    const getTabLabel = (tab) => {
+        switch (tab) {
+            case 'adjustmentTypes': return 'Tipos de Ajuste';
+            case 'systemJobs': return 'Rutinas Globales';
+            case 'ocrTemplates': return 'Plantillas OCR';
+            default: return null;
+        }
+    };
+    const tabLabel = getTabLabel(currentTab);
+    const breadcrumbs = [
+        { label: 'Gestión' },
+        { label: t('sidebar.companies', 'Empresas'), path: tabLabel ? '/companies' : undefined },
+        ...(tabLabel ? [{ label: tabLabel }] : [])
+    ];
+
+    const currentPrimaryAction = (
+        currentTab === 'companies' ? (
+            { label: 'Agregar Empresa', onClick: () => setShowCompanyModal(true) }
+        ) : currentTab === 'adjustmentTypes' && adjSubTab !== 'statuses' ? (
+            { label: 'Nuevo Tipo', onClick: () => adjustmentTypesRef.current?.triggerAdd() }
+        ) : currentTab === 'systemJobs' ? (
+            { label: 'Añadir Rutina', onClick: () => systemJobsRef.current?.triggerAdd() }
+        ) : currentTab === 'ocrTemplates' ? (
+            { label: 'Nueva Plantilla', onClick: () => ocrTemplatesRef.current?.triggerAdd() }
+        ) : null
+    );
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={tabLabel || t('sidebar.companies', 'Empresas')}
+            breadcrumbs={breadcrumbs}
+            onRefresh={loadData}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            actions={
+                currentPrimaryAction ? (
+                    <button className="btn-primary" onClick={currentPrimaryAction.onClick}>
+                        <Plus size={16} /> {currentPrimaryAction.label}
+                    </button>
+                ) : null
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={loadData}
+            loading={loading}
+            actions={
+                currentPrimaryAction ? (
+                    <button
+                        type="button"
+                        className="btn-mobile-header-action"
+                        onClick={currentPrimaryAction.onClick}
+                        title={currentPrimaryAction.label}
+                        aria-label={currentPrimaryAction.label}
+                    >
+                        <Plus size={20} />
+                    </button>
+                ) : null
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="users-page">
-            <PageHeader
-                title={
-                    <div>
-                        <h1><Building className="inline-icon" /> Gestión de Empresas</h1>
-                    </div>
-                }
-                onRefresh={loadData}
-                loading={loading}
-                refreshText="Actualizar"
-                desktopActions={
-                    currentTab === 'companies' ? (
-                        <button className="btn-primary" onClick={() => setShowCompanyModal(true)}>
-                            <Plus size={16} /> Agregar Empresa
-                        </button>
-                    ) : currentTab === 'adjustmentTypes' && adjSubTab !== 'statuses' ? (
-                        <button className="btn-primary" onClick={() => adjustmentTypesRef.current?.triggerAdd()}>
-                            <Plus size={16} /> Nuevo Tipo
-                        </button>
-                    ) : currentTab === 'systemJobs' ? (
-                        <button className="btn-primary" onClick={() => systemJobsRef.current?.triggerAdd()}>
-                            <Plus size={16} /> Añadir Rutina
-                        </button>
-                    ) : currentTab === 'ocrTemplates' ? (
-                        <button className="btn-primary" onClick={() => ocrTemplatesRef.current?.triggerAdd()}>
-                            <Plus size={16} /> Nueva Plantilla
-                        </button>
-                    ) : null
-                }
-            />
+            {renderHeader}
 
             {/* Desktop Tabs Navigation */}
             <div className="companies-tabs desktop-only">
@@ -274,6 +315,7 @@ const Companies = () => {
                     {/* Form Container */}
                     <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <div className="ios-detail-body">
+
                             {/* General Information Section */}
                             <section>
                                 <h3 className="ios-section-title">General Information</h3>

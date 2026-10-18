@@ -2,21 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getDailyReconciliationReport, toggleReconciliation } from '../services/api';
-import { Calendar, Download, RefreshCw, FileText, ListFilter, Check, X, Copy } from 'lucide-react';
+import { Calendar, Download, RefreshCw, FileText, Check, X, Copy } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import './Reports.css';
 
 const Reports = () => {
     const { t } = useTranslation();
+    const isMobile = useIsMobile();
     const today = new Date();
     const [month, setMonth] = useState(today.getMonth() + 1);
     const [year, setYear] = useState(today.getFullYear());
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
-    const [portalElement, setPortalElement] = useState(null);
     const [reconciledDates, setReconciledDates] = useState({});
     const [activePromptDate, setActivePromptDate] = useState(null);
     const [tempTxId, setTempTxId] = useState('');
+    const [selectedDates, setSelectedDates] = useState([]);
+    const [copiedTotal, setCopiedTotal] = useState(false);
 
     const toggleReconciled = async (date, nextState, transactionId) => {
         const currentlyReconciled = reconciledDates[date]?.reconciled || reconciledDates[date] === true;
@@ -58,10 +62,6 @@ const Reports = () => {
     };
 
     useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
-
-    useEffect(() => {
         loadReport();
     }, [month, year]);
 
@@ -71,6 +71,7 @@ const Reports = () => {
             const res = await getDailyReconciliationReport(month, year);
             if (res.success) {
                 setReportData(res.data);
+                setSelectedDates([]);
                 if (res.reconciledDates) {
                     setReconciledDates(res.reconciledDates);
                 }
@@ -115,91 +116,127 @@ const Reports = () => {
     const totalCommission = reportData.reduce((acc, row) => acc + (row.commission || 0), 0);
     const totalBancolombia = reportData.reduce((acc, row) => acc + (row.bancolombia || 0), 0);
 
+    // Selection logic for weekly Bancolombia transfer calculation
+    const selectedRows = reportData.filter(row => selectedDates.includes(row.date));
+    const selectedTotal = selectedRows.reduce((acc, row) => acc + (row.bancolombia || 0), 0);
+    const selectableRows = reportData.filter(row => (row.bancolombia || 0) > 0);
+    const allSelectableChecked = selectableRows.length > 0 && selectableRows.every(row => selectedDates.includes(row.date));
+    const isIndeterminate = selectedDates.length > 0 && !allSelectableChecked;
+
+    const handleToggleSelectDate = (date) => {
+        setSelectedDates(prev =>
+            prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
+        );
+    };
+
+    const handleToggleSelectAll = () => {
+        if (allSelectableChecked) {
+            setSelectedDates([]);
+        } else {
+            setSelectedDates(selectableRows.map(row => row.date));
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedDates([]);
+    };
+
+    const copySelectedTotal = async () => {
+        if (selectedTotal === undefined || selectedTotal === null) return;
+        const textToCopy = selectedTotal.toString();
+        let copied = false;
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                copied = true;
+            } catch (err) {
+                console.error('Clipboard API failed', err);
+            }
+        }
+        if (!copied) {
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            textArea.style.position = 'fixed';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copied = true;
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+        if (copied) {
+            setCopiedTotal(true);
+            setTimeout(() => setCopiedTotal(false), 2200);
+        }
+    };
+
     const activeRow = reportData.find(row => row.date === activePromptDate);
     const activeAmount = activeRow ? activeRow.bancolombia : 0;
     const activeFormattedDate = activePromptDate ? activePromptDate.split('-').reverse().join('/') : '';
 
-    return (
-        <div className="reports-page">
-            {portalElement && createPortal(
-                <button
-                    type="button"
-                    className={`p-2 rounded-full transition-colors flex items-center justify-center ${showFilters ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
-                    onClick={() => setShowFilters(!showFilters)}
-                    id="filterToggle"
-                    style={{ border: 'none', background: 'none', padding: '8px' }}
-                >
-                    <ListFilter size={20} />
-                </button>,
-                portalElement
-            )}
+    const renderDateSelectors = (isMobileView = false) => (
+        <div className={`date-selectors-group${isMobileView ? ' mobile-date-selectors' : ''}`}>
+            <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                    <option key={`m-${m}`} value={m}>
+                        {new Date(2000, m - 1).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+                    </option>
+                ))}
+            </select>
+            <select
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
+                    <option key={`y-${y}`} value={y}>{y}</option>
+                ))}
+            </select>
+        </div>
+    );
 
-            <div className="reports-header">
-                <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '24px', color: '#1e293b', margin: 0 }}>
-                        <FileText size={28} color="#2563eb" />
-                        Reconciliation Report
-                    </h1>
-                </div>
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('sidebar.reports', 'Reporte de Conciliación')}
+            onRefresh={loadReport}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            leadingActions={renderDateSelectors(false)}
+        />
+    );
 
-                {/* Desktop controls */}
-                <div className="reports-header-actions desktop-only-flex">
-                    <select
-                        value={month}
-                        onChange={(e) => setMonth(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b' }}
-                    >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                            <option key={`m-${m}`} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b' }}
-                    >
-                        {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
-                            <option key={`y-${y}`} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    <button onClick={loadReport} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', cursor: 'pointer' }}>
-                        <RefreshCw size={16} /> <span>Refresh</span>
-                    </button>
-                </div>
-            </div>
-
+    const mobileHeader = (
+        <>
+            <PageHeader.Mobile
+                onRefresh={loadReport}
+                loading={loading}
+                onFilterToggle={() => setShowFilters(!showFilters)}
+                showFilters={showFilters}
+            />
             {/* Mobile collapsible controls */}
             <div className={`collapsible-content max-w-[380px] mx-auto md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection" style={{ marginBottom: '.5rem' }}>
-                <div className="reports-header-actions">
-                    <select
-                        value={month}
-                        onChange={(e) => setMonth(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', width: '100%' }}
-                    >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                            <option key={`m-${m}`} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(Number(e.target.value))}
-                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', width: '100%' }}
-                    >
-                        {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
-                            <option key={`y-${y}`} value={y}>{y}</option>
-                        ))}
-                    </select>
-
-                    <button onClick={loadReport} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', background: 'white', color: '#1e293b', cursor: 'pointer' }}>
-                        <RefreshCw size={16} />
-                    </button>
-                </div>
+                {renderDateSelectors(true)}
             </div>
+        </>
+    );
 
-             {/* Summary Cards */}
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
+    return (
+        <div className="reports-page">
+            {renderHeader}
+
+            {/* Summary Cards */}
             <div className="reports-summary-cards">
                 <div className="report-card payments">
                     <h3 className="report-card-title">{t('reports.totalPayments')}</h3>
@@ -216,11 +253,23 @@ const Reports = () => {
                     </div>
                 </div>
                 <div className="report-card bancolombia">
-                    <h3 className="report-card-title">{t('reports.bancolombia')}</h3>
+                    <div className="report-card-header-flex">
+                        <h3 className="report-card-title">{t('reports.bancolombia')}</h3>
+                        {selectedDates.length > 0 && (
+                            <span className="selected-card-badge">
+                                {selectedDates.length} sel.
+                            </span>
+                        )}
+                    </div>
                     <div className="report-card-value">
                         <span className="desktop-only">{formatCurrency(totalBancolombia)}</span>
                         <span className="mobile-only">{formatCompact(totalBancolombia)}</span>
                     </div>
+                    {/*selectedDates.length > 0 && (
+                        <div className="report-card-selected-total">
+                            Seleccionado: <strong>{formatCurrency(selectedTotal)}</strong>
+                        </div>
+                    )*/}
                 </div>
             </div>
 
@@ -232,7 +281,21 @@ const Reports = () => {
                     <table className="reports-table">
                         <thead className="reports-thead">
                             <tr>
-                                <th className="reports-th text-left">Fecha</th>
+                                <th className="reports-th text-left col-header-date">
+                                    <div className="date-th-wrapper">
+                                        <input
+                                            type="checkbox"
+                                            className="bancolombia-checkbox bancolombia-checkbox--header"
+                                            checked={allSelectableChecked}
+                                            ref={el => {
+                                                if (el) el.indeterminate = isIndeterminate;
+                                            }}
+                                            onChange={handleToggleSelectAll}
+                                            title={allSelectableChecked ? "Deseleccionar todo" : "Seleccionar todos los abonos a Bancolombia"}
+                                        />
+                                        <span>Fecha</span>
+                                    </div>
+                                </th>
                                 {/*<th className="reports-th text-center">Day</th>*/}
                                 <th className="reports-th">Payments</th>
                                 <th className="reports-th">Bancolombia</th>
@@ -244,10 +307,20 @@ const Reports = () => {
                             {reportData.map((row, index) => {
                                 const isReconciled = reconciledDates[row.date]?.reconciled || reconciledDates[row.date] === true;
                                 const transactionId = reconciledDates[row.date]?.transactionId || '';
+                                const isRowSelected = selectedDates.includes(row.date);
                                 return (
-                                    <tr key={row.date} className={`reports-tr ${index % 2 === 0 ? 'even' : 'odd'}`}>
+                                    <tr key={row.date} className={`reports-tr ${index % 2 === 0 ? 'even' : 'odd'} ${isRowSelected ? 'reports-tr--selected' : ''}`}>
                                         <td className="reports-td col-date">
-                                            {row.date.split('-').reverse().join('/')}
+                                            <div className="date-cell-content">
+                                                <input
+                                                    type="checkbox"
+                                                    className="bancolombia-checkbox"
+                                                    checked={isRowSelected}
+                                                    onChange={() => handleToggleSelectDate(row.date)}
+                                                    title={`Seleccionar fecha ${row.date} (${formatCurrency(row.bancolombia)})`}
+                                                />
+                                                <span>{row.date.split('-').reverse().join('/')}</span>
+                                            </div>
                                         </td>
                                         {/*<td className="reports-td text-center">
                                                 {row.day}
@@ -257,6 +330,7 @@ const Reports = () => {
                                         </td>
                                         <td className="reports-td col-bancolombia">
                                             <div className="bancolombia-cell-content">
+
                                                 <div className="bancolombia-amount-wrapper">
                                                     <span>{formatCurrency(row.bancolombia)}</span>
                                                     {transactionId && (
@@ -309,11 +383,11 @@ const Reports = () => {
                         </button>
                         <div className="reconcile-popover-header">
                             <span className="reconcile-popover-title">
-                                ID Transacción 
+                                ID Transacción
                                 <span className="reconcile-popover-meta">
                                     {activeFormattedDate} • {formatCurrency(activeAmount)}
-                                    <button 
-                                        className="reconcile-popover-copy-btn" 
+                                    <button
+                                        className="reconcile-popover-copy-btn"
                                         type="button"
                                         title="Copiar cantidad"
                                         onClick={async (e) => {
@@ -361,6 +435,54 @@ const Reports = () => {
                                 if (e.key === 'Escape') setActivePromptDate(null);
                             }}
                         />
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Floating Selection Bar for Bancolombia Transfers */}
+            {selectedDates.length > 0 && createPortal(
+                <div className="bancolombia-floating-bar-wrapper">
+                    <div className="bancolombia-floating-bar">
+                        <div className="floating-bar-info">
+                            <div className="floating-bar-count">
+                                <span className="floating-bar-badge">{selectedDates.length}</span>
+                                <span>{selectedDates.length === 1 ? 'día seleccionado' : 'días seleccionados'}</span>
+                            </div>
+                            <div className="floating-bar-total">
+                                <span className="floating-bar-label">Total a transferir:</span>
+                                <span className="floating-bar-amount">{formatCurrency(selectedTotal)}</span>
+                            </div>
+                        </div>
+                        <div className="floating-bar-actions">
+                            <button
+                                type="button"
+                                onClick={copySelectedTotal}
+                                className={`floating-bar-btn floating-bar-btn--copy ${copiedTotal ? 'floating-bar-btn--copied' : ''}`}
+                                title="Copiar monto numérico exacto para transferir en Bancolombia"
+                            >
+                                {copiedTotal ? (
+                                    <>
+                                        <Check size={16} />
+                                        <span>¡Copiado!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy size={16} />
+                                        <span>Copiar valor ({selectedTotal.toLocaleString('es-CO')})</span>
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleClearSelection}
+                                className="floating-bar-btn floating-bar-btn--clear"
+                                title="Limpiar selección"
+                            >
+                                <X size={16} />
+                                <span className="desktop-only">Limpiar</span>
+                            </button>
+                        </div>
                     </div>
                 </div>,
                 document.body

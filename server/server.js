@@ -61,22 +61,24 @@ app.use((req, res, next) => {
 
 import settingsRoutes from './routes/settingsRoutes.js';
 
-// API Routes
-app.use('/apinode/users', usersRoutes);
-app.use('/apinode/companies', companiesRoutes);
-app.use('/apinode/auth', authRouter);
-app.use('/apinode/payments', paymentsRouter);
-app.use('/apinode/webhooks', webhooksRouter);
-app.use('/apinode/sse', sseRouter);
-app.use('/apinode/invoices', invoicesRouter);
-app.use('/apinode/contracts', contractsRouter);
-app.use('/apinode/dashboard', dashboardRouter);
-app.use('/apinode/device-access', deviceAccessRouter);
-app.use('/apinode/devices', devicesRouter);
-app.use('/apinode/company-invoices', companyBillingRouter);
-app.use('/apinode/cron', cronRoutes);
-app.use('/apinode/system-jobs', systemJobsRoutes);
-app.use('/apinode/settings', settingsRoutes);
+// API Routes (mounted on both /api/v1 and /apinode for full compatibility)
+['/api/v1', '/apinode'].forEach(prefix => {
+    app.use(`${prefix}/users`, usersRoutes);
+    app.use(`${prefix}/companies`, companiesRoutes);
+    app.use(`${prefix}/auth`, authRouter);
+    app.use(`${prefix}/payments`, paymentsRouter);
+    app.use(`${prefix}/webhooks`, webhooksRouter);
+    app.use(`${prefix}/sse`, sseRouter);
+    app.use(`${prefix}/invoices`, invoicesRouter);
+    app.use(`${prefix}/contracts`, contractsRouter);
+    app.use(`${prefix}/dashboard`, dashboardRouter);
+    app.use(`${prefix}/device-access`, deviceAccessRouter);
+    app.use(`${prefix}/devices`, devicesRouter);
+    app.use(`${prefix}/company-invoices`, companyBillingRouter);
+    app.use(`${prefix}/cron`, cronRoutes);
+    app.use(`${prefix}/system-jobs`, systemJobsRoutes);
+    app.use(`${prefix}/settings`, settingsRoutes);
+});
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -96,14 +98,17 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/p', paymentPageRouter);
 
 // Health check
-app.get('/apinode/health', async (req, res) => {
+app.get(['/api/v1/health', '/apinode/health', '/health'], async (req, res) => {
     try {
         const method = (req.query.method || req.query.mode || req.query.sync || 'daily').toLowerCase();
         const targetDate = req.query.date ? new Date(req.query.date) : new Date();
         let kmResult = null;
 
         if (method === 'yesterday') {
-            kmResult = await syncYesterdayKm(targetDate);
+            const yesterdayFn = syncYesterdayKm?.run || (typeof syncYesterdayKm === 'function' ? syncYesterdayKm : null);
+            if (typeof yesterdayFn === 'function') {
+                kmResult = await yesterdayFn(targetDate);
+            }
         } else {
             const runFn = syncDailyKm?.run || syncDailyKm?.syncDailyKm || (typeof syncDailyKm === 'function' ? syncDailyKm : null);
             if (typeof runFn === 'function') {
@@ -129,8 +134,6 @@ app.get('/apinode/health', async (req, res) => {
         });
     }
 });
-
-// Serve static files from dist directory (Moved to top)
 
 // Serve index.html for all non-API routes (SPA support)
 app.get('*', (req, res) => {

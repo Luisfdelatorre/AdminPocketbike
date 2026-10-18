@@ -17,14 +17,17 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     padding: 0.75rem;
+    cursor: pointer;
     animation: contractOverlayFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Hide mobile top header and bottom navigation bar when contract viewer or modal is open */
+/* Hide mobile top header and bottom navigation bar when immersive modal is open */
 body.modal-open-hide-header .mobile-header,
 body.modal-open-hide-header .mobile-bottom-nav,
 body:has(.contract-immersive-overlay) .mobile-header,
 body:has(.contract-immersive-overlay) .mobile-bottom-nav,
+body:has(.device-share-immersive-overlay) .mobile-header,
+body:has(.device-share-immersive-overlay) .mobile-bottom-nav,
 body:has(.modal-surface--contract) .mobile-header,
 body:has(.modal-surface--contract) .mobile-bottom-nav {
     display: none !important;
@@ -50,6 +53,7 @@ body:has(.modal-surface--contract) .mobile-bottom-nav {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    cursor: default;
     box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
     animation: contractModalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }

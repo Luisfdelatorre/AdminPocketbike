@@ -67,6 +67,10 @@ class CompanyRepository {
         const docs = await Company.find({ automaticInvoicing: true, isActive: true, type: { $ne: 'system' } }).lean();
         return docs.map(d => decryptCompanyFields(d));
     }
+
+    async getCompanyById(companyId) {
+        return await this.findByIdLean(companyId);
+    }
 }
 
 export default new CompanyRepository();

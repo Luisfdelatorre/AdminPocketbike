@@ -578,21 +578,18 @@
 }
 
 .status-paid {
-    color: #0ea5e9;
-    /* Azul (Sky-500) */
+    color: #0ea5e9; /* Azul (Sky-500) */
     font-weight: 600;
 }
 
 .status-free,
 .status-freepass {
-    color: #22c55e;
-    /* Verde (Green-500) */
+    color: #22c55e; /* Verde (Green-500) */
     font-weight: 600;
 }
 
 .status-debt {
-    color: #ef4444;
-    /* Rojo (Red-500) */
+    color: #ef4444; /* Rojo (Red-500) */
     font-weight: 600;
 }
 
@@ -602,8 +599,7 @@
 }
 
 .status-pending {
-    color: #eab308;
-    /* Amarillo (Yellow-500) */
+    color: #eab308; /* Amarillo (Yellow-500) */
     font-weight: 600;
 }
 

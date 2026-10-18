@@ -10,6 +10,7 @@ import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import StatCard from '../components/StatCard';
 import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
@@ -18,6 +19,7 @@ import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 
 const DeviceManagement = () => {
+    const isMobile = useIsMobile();
     const { subscribe } = useSSE();
     const { t } = useTranslation();
     const { user } = useAuth();
@@ -26,6 +28,7 @@ const DeviceManagement = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [selectedShareDevice, setSelectedShareDevice] = useState(null);
     const [shareUrl, setShareUrl] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState('all'); // all, active, available
@@ -95,9 +98,9 @@ const DeviceManagement = () => {
 
 
     const handleShare = (device) => {
+        setSelectedShareDevice(device);
         const url = `${window.location.origin}/p/${device.name}`;
         setShareUrl(url);
-        setSelectedDeviceId(device.deviceId);
         setShowShareModal(true);
     };
 
@@ -219,20 +222,36 @@ const DeviceManagement = () => {
         );
     }
 
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('devices.title')}
+            breadcrumbs={[
+                { label: 'Flota' },
+                { label: t('devices.title') }
+            ]}
+            onRefresh={loadDevices}
+            loading={loading}
+            refreshText={t('payments.refresh')}
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={loadDevices}
+            loading={loading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="admin-page-container ios-devices-page">
-            {/* Desktop Header */}
-            <PageHeader
-                title={t('devices.title')}
-                onRefresh={loadDevices}
-                loading={loading}
-                refreshText={t('payments.refresh')}
-                onFilterToggle={() => setShowFilters(!showFilters)}
-                showFilters={showFilters}
-            />
+            {renderHeader}
 
             {/* Expandable Metrics Section */}
-            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
+            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
                 <div className="devices-stats-ios">
                     <StatCard
                         title={t('devices.totalDevices')}
@@ -399,8 +418,12 @@ const DeviceManagement = () => {
 
             <ShareDeviceModal
                 isOpen={showShareModal}
-                onClose={() => setShowShareModal(false)}
+                onClose={() => {
+                    setShowShareModal(false);
+                    setSelectedShareDevice(null);
+                }}
                 shareUrl={shareUrl}
+                device={selectedShareDevice}
                 onCopy={copyToClipboard}
             />
 
