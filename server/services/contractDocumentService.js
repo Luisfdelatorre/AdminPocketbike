@@ -137,11 +137,11 @@ export function mapContractToTemplateData(contract, device = null) {
         prestamistaNit: '902068285',
 
         // Cliente
-        clienteNombre: (contract.customerName || '____________________').trim().toUpperCase(),
+        clienteNombre: (contract.customerName || '                 ').trim().toUpperCase(),
         clienteDocumento: formatCustomerDoc(contract.customerDocument),
-        clienteTelefono: contract.customerPhone || device?.phone || '[COMPLETAR]',
-        clienteEmail: contract.customerEmail || '[COMPLETAR]',
-        clienteDireccion: (contract.customerAddress && contract.customerAddress.trim()) ? contract.customerAddress.trim() : '[COMPLETAR]',
+        clienteTelefono: contract.customerPhone || device?.phone || '           ',
+        clienteEmail: contract.customerEmail || '           ',
+        clienteDireccion: (contract.customerAddress && contract.customerAddress.trim()) ? contract.customerAddress.trim() : '           ',
 
         // Motocicleta
         motoPlaca,
@@ -176,11 +176,11 @@ export function mapContractToTemplateData(contract, device = null) {
         totalCuotasPactadas: formatCOP(totalCuotasVal),
 
         // Codeudor
-        codeudorNombre: (contract.guarantor?.name || contract.guarantorName || '__________________________').trim().toUpperCase(),
+        codeudorNombre: (contract.guarantor?.name || contract.guarantorName || '                   ').trim().toUpperCase(),
         codeudorDocumento: formatCustomerDoc(contract.guarantor?.document || contract.guarantorDocument),
-        codeudorTelefono: (contract.guarantor?.phone || contract.guarantorPhone || '[COMPLETAR]').trim(),
-        codeudorEmail: (contract.guarantor?.email || contract.guarantorEmail || '[COMPLETAR]').trim(),
-        codeudorDireccion: (contract.guarantor?.address || contract.guarantorAddress || '[COMPLETAR]').trim().toUpperCase(),
+        codeudorTelefono: (contract.guarantor?.phone || contract.guarantorPhone || '           ').trim(),
+        codeudorEmail: (contract.guarantor?.email || contract.guarantorEmail || '           ').trim(),
+        codeudorDireccion: (contract.guarantor?.address || contract.guarantorAddress || '           ').trim().toUpperCase(),
 
         // Identificación y Fechas
         contratoId: contract.contractId || contract._id || 'CIYIE41HUA',
@@ -332,10 +332,10 @@ export function invalidateContractPdfCache(contractId) {
             if (file.endsWith(`_${cleanId}.pdf`) || file.includes(cleanId)) {
                 try {
                     fs.unlinkSync(path.join(UPLOADS_CONTRACT_PDF_DIR, file));
-                } catch (_) {}
+                } catch (_) { }
             }
         }
-    } catch (_) {}
+    } catch (_) { }
 }
 
 /**
