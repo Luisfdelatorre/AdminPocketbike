@@ -38,7 +38,9 @@ class WompiAdapter {
     const body = this.buildTransactionBody(phone, invoicePayload, reference, acceptanceToken, paymentMethod);
     let transactionData;
     try {
+      logger.debug('[WOMPI] Create Transaction Body:', JSON.stringify(body, null, 2));
       const response = await this.api.createTransaction(body);
+      logger.debug('[WOMPI] Create Transaction Response:', JSON.stringify(response.data, null, 2));
       transactionData = response.data.data;
     } catch (error) {
       if (error.response) {
@@ -89,14 +91,15 @@ class WompiAdapter {
     const finalizedAt = data?.finalized_at ? dayjs(data.finalized_at).toDate() : null;
     const extra = data?.payment_method?.extra;
 
+
     const paymentDataUpdate = {
       _id: data?.id,
       status: data?.status,
       finalized_at: finalizedAt,
       reference: data?.reference,
       // QR fields — null until Wompi generates them (async, appears after 1-3 polls at 2s)
-      qrImage: extra?.qr_image           ?? null,
-      qrId:    extra?.qr_id              ?? null,
+      qrImage: extra?.qr_image ?? null,
+      qrId: extra?.qr_id ?? null,
       externalIdentifier: extra?.external_identifier ?? null,
     };
     return paymentDataUpdate;

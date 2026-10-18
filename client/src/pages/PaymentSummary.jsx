@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Download, ZapOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
+import { RefreshCw, Download, PowerOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
+import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine, getAllCompanies } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, DollarSign, Activity, FileText, ChevronDown, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone } from 'lucide-react';
+import { Calendar, DollarSign, Activity, FileText, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone } from 'lucide-react';
 import MobileHeaderAction from '../components/MobileHeaderAction';
 import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
@@ -14,6 +14,8 @@ import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
+
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 const DESKTOP_VIEW_STORAGE_KEY = 'payment-summary.desktop-view';
@@ -38,7 +40,7 @@ const PaymentSummary = () => {
     const tableContainerRef = useRef(null);
     const matrixTableRef = useRef(null);
     const matrixHeaderViewportRef = useRef(null);
-    const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+    const isMobile = useIsMobile();
     const [desktopView, setDesktopView] = useState(getInitialDesktopView);
     const [summaryHeaderHeight, setSummaryHeaderHeight] = useState(0);
     const [isSummaryHeaderStuck, setIsSummaryHeaderStuck] = useState(false);
@@ -46,6 +48,11 @@ const PaymentSummary = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
+
+    const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
+    const [companies, setCompanies] = useState([]);
+    const [selectedCompany, setSelectedCompany] = useState('all');
+
 
 
 
@@ -164,12 +171,26 @@ const PaymentSummary = () => {
         return () => observer.disconnect();
     }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
 
+    useEffect(() => {
+        if (isSystemAdmin) {
+            getAllCompanies().then(res => {
+                const list = Array.isArray(res) ? res : (res.data || res.companies || []);
+                setCompanies(list);
+            }).catch(err => console.error('Failed to load companies list:', err));
+        }
+    }, [isSystemAdmin]);
+
+    const activeCompanyId = isSystemAdmin
+        ? (selectedCompany !== 'all' ? selectedCompany : undefined)
+        : undefined;
+
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
             const response = await getPaymentSummary({
                 month: selectedMonth,
-                year: selectedYear
+                year: selectedYear,
+                companyId: activeCompanyId
             });
 
             if (response.success && Array.isArray(response.data)) {
@@ -206,7 +227,7 @@ const PaymentSummary = () => {
     const handleExport = async () => {
         setDownloading(true);
         try {
-            await exportPaymentsCSV(selectedMonth, selectedYear);
+            await exportPaymentsCSV(selectedMonth, selectedYear, activeCompanyId);
         } catch (err) {
             console.error('CSV export error:', err);
             alert('Error al descargar el CSV: ' + err.message);
@@ -260,16 +281,19 @@ const PaymentSummary = () => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedMonth, selectedYear]);
+    }, [selectedMonth, selectedYear, selectedCompany]);
+
+    const [bulkOffLoading, setBulkOffLoading] = useState(false);
+    const [showBulkOffModal, setShowBulkOffModal] = useState(false);
 
     const handleBulkEngineOff = async () => {
-        setBulkOffModal(false);
+        setShowBulkOffModal(false);
         setBulkOffLoading(true);
         try {
             const result = await cutoffDebtors();
-            const msg = result?.message || (result?.success ? 'Listo' : 'Error');
+            const msg = result?.message || (result?.success ? 'Comandos de apagado encolados para vehículos morosos' : 'Error al apagar morosos');
             showToast(msg, result?.success ? 'success' : 'error');
-            fetchData(); // Reload to reflect new cutoff state in table
+            await fetchData(true);
         } catch (err) {
             showToast(err.message || 'Error al apagar morosos', 'error');
         } finally {
@@ -337,7 +361,20 @@ const PaymentSummary = () => {
         }
     }, [matrixGeometry]);
 
-    const morososCount = summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
+    const morososCount = useMemo(() => {
+        return summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
+    }, [summaryData]);
+
+    const okCount = useMemo(() => {
+        return summaryData.filter(item => (item.device.unpaidTotal || 0) === 0).length;
+    }, [summaryData]);
+
+    const cutoffCount = useMemo(() => {
+        return summaryData.filter(item => {
+            const status = getDeviceStatus(item.device.deviceId || item.device.name);
+            return Boolean(status?.cutOff);
+        }).length;
+    }, [summaryData, getDeviceStatus]);
 
     // ── Frontend filter (no extra API call) ─────────────────────────────────
     const filteredSummaryData = summaryData.filter(item => {
@@ -345,7 +382,7 @@ const PaymentSummary = () => {
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             const nameMatch = item.device.name?.toLowerCase().includes(q);
-            const driverMatch = item.device.driverName?.toLowerCase().includes(q);
+            const driverMatch = (item.device.customerName || item.device.driverName)?.toLowerCase().includes(q);
             if (!nameMatch && !driverMatch) return false;
         }
         // Status pill filter
@@ -424,77 +461,106 @@ const PaymentSummary = () => {
         loading, user, pendingCommands, matrixGeometry
     ]);
 
+    const autoOffButton = (
+        <button
+            type="button"
+            className="select-control auto-cutoff-btn"
+            title={`Apagar motor de vehículos morosos (${morososCount})`}
+            onClick={() => setShowBulkOffModal(true)}
+            disabled={bulkOffLoading || morososCount === 0}
+        >
+            <Power size={19} className={bulkOffLoading ? 'spin' : ''} aria-hidden="true" />
+        </button>
+    );
+
+    const renderDateSelectors = (isMobileView = false) => (
+        <div className={`date-selectors-group${isMobileView ? ' mobile-date-selectors' : ''}`}>
+            <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
+                    </option>
+                ))}
+            </select>
+
+            <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+            </select>
+
+            {isSystemAdmin && companies.length > 0 && (
+                <select
+                    value={selectedCompany}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    className="date-select-standard"
+                    aria-label="Seleccionar empresa"
+                >
+                    <option value="all">Todas las empresas</option>
+                    {companies.map(c => (
+                        <option key={c._id} value={c._id}>
+                            {c.name}
+                        </option>
+                    ))}
+                </select>
+            )}
+        </div>
+    );
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('sidebar.summary', 'Estatus de Pagos')}
+            breadcrumbs={[
+                { label: 'Cobranza' },
+                { label: t('sidebar.summary', 'Estatus de Pagos') }
+            ]}
+            onRefresh={fetchData}
+            loading={loading}
+            refreshText={t('payments.refresh', 'Actualizar')}
+            leadingActions={renderDateSelectors(false)}
+            actions={
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    {autoOffButton}
+                </div>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <>
+            <PageHeader.Mobile
+                onRefresh={fetchData}
+                loading={loading}
+                onFilterToggle={handleFilterToggle}
+                showFilters={showFilters}
+                actions={autoOffButton}
+            />
+            {/* Mobile-only Sticky Date Header */}
+            <div ref={summaryHeaderRef} className={`summary-header md:hidden${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
+                {renderDateSelectors(true)}
+            </div>
+        </>
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
     return (
         <div className="payment-summary-container" style={{ '--summary-header-height': `${summaryHeaderHeight}px` }} >
 
-            {/* Desktop Header */}
-            <PageHeader
-                title={<h1>Estatus de Pagos</h1>}
-                onRefresh={fetchData}
-                loading={loading}
-                refreshText="Actualizar"
-                onFilterToggle={handleFilterToggle}
-                showFilters={showFilters}
-                desktopActions={
-                    <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
-                        <button
-                            type="button"
-                            className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
-                            onClick={() => handleDesktopViewChange('bike')}
-                            aria-pressed={desktopView === 'bike'}
-                        >
-                            <LayoutList size={16} aria-hidden="true" />
-                            <span>Por moto</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
-                            onClick={() => handleDesktopViewChange('matrix')}
-                            aria-pressed={desktopView === 'matrix'}
-                        >
-                            <Table2 size={16} aria-hidden="true" />
-                            <span>Matriz</span>
-                        </button>
-                    </div>
-                }
-            />
-            <div ref={summaryHeaderRef} className={`summary-header${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
-                <div className="summary-date-card">
-                    <div className="summary-date-field has-border">
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="summary-select-ios"
-                        >
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="summary-select-arrow">
-                            <ChevronDown size={16} />
-                        </div>
-                    </div>
+            {renderHeader}
 
-                    <div className="summary-date-field">
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="summary-select-ios"
-                        >
-                            <option value={2025}>2025</option>
-                            <option value={2026}>2026</option>
-                            <option value={2027}>2027</option>
-                        </select>
-                        <div className="summary-select-arrow">
-                            <ChevronDown size={16} />
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
 
-            <div className={`expandable-metrics-container ${showFilters ? 'expanded' : 'collapsed'}`}>
                 <SearchAndFilterBar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -502,16 +568,49 @@ const PaymentSummary = () => {
                     filter={statusFilter}
                     setFilter={setStatusFilter}
                     filterOptions={[
-                        { value: 'all', label: 'Todos' },
-                        { value: 'debt', label: 'Con deuda' },
-                        { value: 'ok', label: 'Al día' },
-                        { value: 'cutoff', label: 'Apagados' }
+                        { value: 'all', label: 'Todos', badge: summaryData.length, badgeType: 'all' },
+                        { value: 'debt', label: 'Con deuda', badge: morososCount, badgeType: 'debt' },
+                        { value: 'ok', label: 'Al día', badge: okCount, badgeType: 'ok' },
+                        { value: 'cutoff', label: 'Apagados', badge: cutoffCount, badgeType: 'cutoff' }
                     ]}
                     filterRowClass="summary-filter-row-ios"
                 />
             </div>
 
             {renderViews}
+
+            {showBulkOffModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content bulk-cutoff-modal">
+                        <div className="bulk-cutoff-modal-icon">
+                            <PowerOff size={24} />
+                        </div>
+                        <h3 className="bulk-cutoff-modal-title">
+                            ¿Apagar motor de morosos?
+                        </h3>
+                        <p className="bulk-cutoff-modal-desc">
+                            Se enviará la orden de apagado de motor a los <strong>{morososCount}</strong> vehículos que presentan saldo pendiente.
+                        </p>
+                        <div className="bulk-cutoff-modal-actions">
+                            <button
+                                type="button"
+                                className="bulk-cutoff-modal-btn-cancel"
+                                onClick={() => setShowBulkOffModal(false)}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="bulk-cutoff-modal-btn-confirm"
+                                onClick={handleBulkEngineOff}
+                                disabled={bulkOffLoading}
+                            >
+                                {bulkOffLoading ? 'Enviando…' : 'Sí, Apagar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
         </div>

@@ -2,10 +2,7 @@
 import { Login, Url, ENGINE_COMMANDS, Transaction, GPS_SERVICES, ENGINESTOP, ENGINERESUME } from '../config/config.js';
 const { MAX_RETRY_ATTEMPTS, RETRY_CHECK_INTERVAL } = Transaction;
 import logger from '../config/logger.js';
-import { Company } from '../models/Company.js';
 import dayjs from '../config/dayjs.js';
-
-import companyService from './companyService.js';
 import MyTraccar from '../adapters/traccar/traccarAdapter.js';
 import MegaRastreo from '../adapters/megaRastreo/megaRastreoAdapter.js';
 
@@ -26,10 +23,14 @@ class GpsService {
         this.flushTimer = null;
         this.onFlush = null;
         this.serviceType = company?.gpsService || GPS_SERVICES.TRACCAR;
+        const config = {
+            ...(company?.gpsConfig?.toObject ? company.gpsConfig.toObject() : company?.gpsConfig),
+            groupId: company?.traccarGroupId || company?.gpsConfig?.groupId
+        };
         if (this.serviceType === GPS_SERVICES.TRACCAR) {
-            this.adapter = new MyTraccar(company?.gpsConfig); // inject company config
+            this.adapter = new MyTraccar(config); // inject company config
         } else {
-            this.adapter = new MegaRastreo(company?.gpsConfig); // inject company config
+            this.adapter = new MegaRastreo(config); // inject company config
         }
     }
 
@@ -82,6 +83,20 @@ class GpsService {
         return this.adapter.checkDeviceStatus(gpsId);
     }
 
+    async fetchPreviousDayKmDevice(date = new Date(), options = null) {
+        if (this.adapter && typeof this.adapter.fetchPreviousDayKmDevice === 'function') {
+            return this.adapter.fetchPreviousDayKmDevice(date, options);
+        }
+        return [];
+    }
+
+    async fetchLatestOdometerMap() {
+        if (this.adapter && typeof this.adapter.fetchLatestOdometerMap === 'function') {
+            return this.adapter.fetchLatestOdometerMap();
+        }
+        return {};
+    }
+
     async executeAndVerifyBatch(deviceIds, command, options = {}) {
         if (!deviceIds || deviceIds.length === 0) return {};
         let responseIds = [];
@@ -93,10 +108,10 @@ class GpsService {
         }
         return responseIds;
     }
-    async executeAndVerify(gpsId, command, options = {}) {
+    async sendEngineCommand(gpsId, command, options = {}) {
         let responseId;
         try {
-            responseId = await this.adapter.changeEngineStatus(gpsId, command)
+            responseId = await this.adapter.changeEngineStatus(gpsId, command);
         } catch (error) {
             logger.error(`[GPS] Failed to send ${command} command:`, error);
             return false;
@@ -106,6 +121,11 @@ class GpsService {
 
         // Return confirmed: true to indicate it was successfully queued
         return { confirmed: true, offline: false };
+    }
+
+    // Legacy alias
+    async executeAndVerify(gpsId, command, options = {}) {
+        return this.sendEngineCommand(gpsId, command, options);
     }
 
     updateDevice(pos) {

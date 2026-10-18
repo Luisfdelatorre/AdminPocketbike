@@ -3,12 +3,14 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 1rem); /* Desktop height */
+    height: calc(100vh - 1rem);
+    /* Desktop height */
 }
 
 @media (max-width: 768px) {
     .devices-page {
-        height: calc(100dvh - 135px); /* Mobile height accounting for headers/navs */
+        height: calc(100dvh - 135px);
+        /* Mobile height accounting for headers/navs */
     }
 }
 
@@ -609,10 +611,6 @@
 }
 
 @media (max-width: 768px) {
-    .devices-page>.page-header {
-        display: none;
-    }
-
     .desktop-only {
         display: none !important;
     }
@@ -702,120 +700,8 @@
     line-height: 1;
 }
 
-/* Filters + Search Row */
-.devices-filter-row-ios {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
+/* Note: Search & Filter bar base styles (.devices-filter-row-ios, .filter-pills-ios, .filter-pill-ios, .search-ios*) are centralized in index.css */
 
-.filter-pills-ios {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-}
-
-.filter-pill-ios {
-    padding: 0.35rem 0.875rem;
-    border-radius: 9999px;
-    border: 1px solid #e8e8e8;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    background-color: #f3f3f4;
-    color: #414755;
-    transition: background-color 0.2s ease, color 0.2s ease;
-    font-family: inherit;
-}
-
-.filter-pill-ios:hover {
-    background-color: #e8e8e8;
-}
-
-.filter-pill-ios.active {
-    background-color: #0070eb;
-    color: #ffffff;
-    border: 1.5px solid #005bc5;
-    box-shadow: 0 1px 4px rgba(0, 112, 235, 0.35);
-    font-weight: 600;
-}
-
-/* Activos pill — color verde más acentuado */
-.filter-pill-ios[data-filter='active'].active {
-    background-color: #1b9e3e;
-    border-color: #148030;
-    box-shadow: 0 1px 4px rgba(27, 158, 62, 0.35);
-}
-
-/* Libres pill — color naranja más acentuado */
-.filter-pill-ios[data-filter='available'].active {
-    background-color: #c96f00;
-    border-color: #a55900;
-    box-shadow: 0 1px 4px rgba(255, 149, 0, 0.35);
-}
-
-/* Search iOS */
-.search-ios {
-    position: relative;
-    width: 100%;
-    border: 1px solid #e8e8e8;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 10px;
-}
-
-.search-ios-icon {
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #414755;
-    pointer-events: none;
-}
-
-.search-ios-input {
-    width: 100%;
-    background-color: #f3f3f4;
-    border: none;
-    border-radius: 0.5rem;
-    padding: 0.5rem 2.5rem 0.5rem 2.25rem;
-    font-size: 13px;
-    font-weight: 500;
-    color: #1a1c1c;
-    outline: none;
-    font-family: inherit;
-    transition: background-color 0.2s ease;
-    box-sizing: border-box;
-}
-
-.search-ios-input:focus {
-    background-color: #e8e8e8;
-}
-
-.search-ios-input::placeholder {
-    color: #9ca3af;
-    font-weight: 400;
-}
-
-.search-ios-clear {
-    position: absolute;
-    right: 0.625rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #414755;
-    display: flex;
-    align-items: center;
-    padding: 0.2rem;
-    border-radius: 50%;
-}
-
-.search-ios-clear:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-}
 
 /* Devices Table Card */
 .devices-table-card-ios {
@@ -873,9 +759,11 @@
 .devices-table-rows-ios::-webkit-scrollbar {
     width: 6px;
 }
+
 .devices-table-rows-ios::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .devices-table-rows-ios::-webkit-scrollbar-thumb {
     background-color: rgba(198, 198, 200, 0.5);
     border-radius: 10px;
@@ -1053,6 +941,11 @@
 
 .battery-wrap.bat-low {
     color: #FF3B30;
+}
+
+.battery-wrap.bat-powercut {
+    color: #FF3B30;
+    filter: drop-shadow(0 0 5px rgba(255, 59, 48, 0.7));
 }
 
 /* Actions Column */
@@ -1303,8 +1196,5 @@
         align-items: center;
     }
 
-    .search-ios {
-        max-width: 280px;
-        margin-left: auto;
-    }
+
 }

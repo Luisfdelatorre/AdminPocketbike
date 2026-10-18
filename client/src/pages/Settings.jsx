@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft } from 'lucide-react';
-import { getSettings, updateSettings, syncDevices } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
+import { getSettings, updateSettings, syncDevices, validateTraccarConnection } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import PageHeader from '../components/PageHeader';
 import './Settings.css';
 
 const Settings = () => {
+    const isMobile = useIsMobile();
     const { settingsTab, setSettingsTab } = useOutletContext() || {};
     const [localActiveTab, setLocalActiveTab] = useState('branding');
 
@@ -24,7 +25,13 @@ const Settings = () => {
             contractDays: 500,
             freeDaysLimit: 4,
             initialFee: 0,
-            emailDomain: 'pocketbike.app'
+            emailDomain: 'pocketbike.app',
+            fixedCosts: {
+                gps: 500000,
+                soatPosterior: 370000,
+                traspasoPosterior: 273000,
+                registro: 217000
+            }
         },
         displayName: 'PocketBike',
         companyLogo: '/pocketbike_60x60.jpg',
@@ -60,11 +67,8 @@ const Settings = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
-    const [portalElement, setPortalElement] = useState(null);
-
-    useEffect(() => {
-        setPortalElement(document.getElementById('mobile-header-actions'));
-    }, []);
+    const [isValidatingTraccar, setIsValidatingTraccar] = useState(false);
+    const [traccarValidationResult, setTraccarValidationResult] = useState(null);
 
 
     const handleSyncDevices = async () => {
@@ -77,8 +81,50 @@ const Settings = () => {
         }
     };
 
+    const handleValidateTraccar = async () => {
+        setIsValidatingTraccar(true);
+        setTraccarValidationResult(null);
+        try {
+            const payload = {
+                host: settings.gpsConfig?.host,
+                user: settings.gpsConfig?.user,
+                password: settings.gpsConfig?.password
+            };
+            const res = await validateTraccarConnection(payload);
+            const isSuccess = res?.success ?? res?.data?.success;
+            const data = res?.data?.data ?? res?.data;
+            if (isSuccess && data) {
+                const groupName = data.selectedGroup ? `${data.selectedGroup.name} (ID: ${data.selectedGroup.id})` : 'Sin grupo asignado';
+                const timingStr = data.timing?.totalMs ? ` [${data.timing.totalMs}ms]` : '';
+                if (data.timing) {
+                    console.log('⏱️ [Traccar Timers]', data.timing);
+                }
+                setTraccarValidationResult({
+                    success: true,
+                    message: `Conexión exitosa. Usuario: ${data.user?.name || data.user?.email || 'OK'} | Grupo: ${groupName}${timingStr}`
+                });
+                if (data.selectedGroup?.id) {
+                    handleNestedChange('gpsConfig', 'groupId', data.selectedGroup.id);
+                }
+            } else {
+                setTraccarValidationResult({
+                    success: false,
+                    message: res?.error || res?.data?.error || 'Error al validar credenciales de Traccar'
+                });
+            }
+        } catch (err) {
+            setTraccarValidationResult({
+                success: false,
+                message: err.response?.data?.error || err.message || 'Error de conexión con Traccar'
+            });
+        } finally {
+            setIsValidatingTraccar(false);
+        }
+    };
+
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
+    const initialSettingsRef = useRef(null);
 
     const handleChange = (field, value) => {
         setSettings(prev => ({
@@ -96,15 +142,23 @@ const Settings = () => {
                 if (data.success) {
                     const { availableGpsServices: gpsList, ...rest } = data.data;
                     if (gpsList?.length) setAvailableGpsServices(gpsList);
-                    setSettings(prev => ({
-                        ...prev,
-                        ...rest,
-                        contractDefaults: {
-                            ...prev.contractDefaults,
-                            ...(rest.contractDefaults || {})
-                        },
-                        companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
-                    }));
+                    setSettings(prev => {
+                        const loaded = {
+                            ...prev,
+                            ...rest,
+                            contractDefaults: {
+                                ...prev.contractDefaults,
+                                ...(rest.contractDefaults || {}),
+                                fixedCosts: {
+                                    ...(prev.contractDefaults?.fixedCosts || {}),
+                                    ...(rest.contractDefaults?.fixedCosts || {})
+                                }
+                            },
+                            companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
+                        };
+                        initialSettingsRef.current = JSON.parse(JSON.stringify(loaded));
+                        return loaded;
+                    });
                 }
             } catch (error) {
                 console.error('Error fetching settings:', error);
@@ -209,6 +263,50 @@ const Settings = () => {
         setIsDragging(false);
     };
 
+    const getChangedSettings = (current, initial) => {
+        if (!initial) return { ...current, logo: current.companyLogo };
+        const diff = {};
+
+        // Top-level scalar fields
+        const scalarKeys = [
+            'currency', 'timezone', 'displayName',
+            'automaticCutOff', 'cutOffTime', 'cutOffStrategy',
+            'gpsService'
+        ];
+        scalarKeys.forEach(key => {
+            if (current[key] !== undefined && current[key] !== initial[key]) {
+                diff[key] = current[key];
+            }
+        });
+
+        // Logo mapping
+        if (current.companyLogo !== undefined && current.companyLogo !== initial.companyLogo) {
+            diff.logo = current.companyLogo;
+        }
+
+        // Object: curfew
+        if (current.curfew !== undefined && JSON.stringify(current.curfew) !== JSON.stringify(initial.curfew)) {
+            diff.curfew = current.curfew;
+        }
+
+        // Object: contractDefaults
+        if (current.contractDefaults !== undefined && JSON.stringify(current.contractDefaults) !== JSON.stringify(initial.contractDefaults)) {
+            diff.contractDefaults = current.contractDefaults;
+        }
+
+        // Object: gpsConfig
+        if (current.gpsConfig !== undefined && JSON.stringify(current.gpsConfig) !== JSON.stringify(initial.gpsConfig)) {
+            diff.gpsConfig = current.gpsConfig;
+        }
+
+        // Object: wompiConfig
+        if (current.wompiConfig !== undefined && JSON.stringify(current.wompiConfig) !== JSON.stringify(initial.wompiConfig)) {
+            diff.wompiConfig = current.wompiConfig;
+        }
+
+        return diff;
+    };
+
     const handleSave = async () => {
         await handleSaveSection('all');
     };
@@ -216,48 +314,54 @@ const Settings = () => {
     const handleSaveSection = async (section) => {
         setSavingSections(prev => ({ ...prev, [section]: true }));
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+            // Compute dirty diff against initial loaded snapshot
+            const allDirty = getChangedSettings(settings, initialSettingsRef.current);
 
-            // Prepare payload based on section
+            // Filter dirty fields if saving a specific section
             let payload = {};
             if (section === 'all') {
-                payload = { ...settings, logo: settings.companyLogo };
+                payload = allDirty;
             } else if (section === 'branding') {
-                payload = {
-                    displayName: settings.displayName,
-                    logo: settings.companyLogo
-                };
+                if (allDirty.displayName !== undefined) payload.displayName = allDirty.displayName;
+                if (allDirty.logo !== undefined) payload.logo = allDirty.logo;
             } else if (section === 'gps') {
-                payload = {
-                    gpsService: settings.gpsService,
-                    gpsConfig: settings.gpsConfig
-                };
+                if (allDirty.gpsService !== undefined) payload.gpsService = allDirty.gpsService;
+                if (allDirty.gpsConfig !== undefined) payload.gpsConfig = allDirty.gpsConfig;
             } else if (section === 'wompi') {
-                payload = {
-                    wompiConfig: settings.wompiConfig
-                };
+                if (allDirty.wompiConfig !== undefined) payload.wompiConfig = allDirty.wompiConfig;
             } else if (section === 'cutoff') {
-                payload = {
-                    automaticCutOff: settings.automaticCutOff,
-                    cutOffTime: settings.cutOffTime,
-                    cutOffStrategy: settings.cutOffStrategy
-                };
+                if (allDirty.automaticCutOff !== undefined) payload.automaticCutOff = allDirty.automaticCutOff;
+                if (allDirty.cutOffTime !== undefined) payload.cutOffTime = allDirty.cutOffTime;
+                if (allDirty.cutOffStrategy !== undefined) payload.cutOffStrategy = allDirty.cutOffStrategy;
             } else if (section === 'curfew') {
-                payload = {
-                    curfew: settings.curfew
-                };
+                if (allDirty.curfew !== undefined) payload.curfew = allDirty.curfew;
             } else if (section === 'general') {
-                payload = {
-                    currency: settings.currency,
-                    timezone: settings.timezone,
-                    contractDefaults: settings.contractDefaults
-                };
+                if (allDirty.currency !== undefined) payload.currency = allDirty.currency;
+                if (allDirty.timezone !== undefined) payload.timezone = allDirty.timezone;
+                if (allDirty.contractDefaults !== undefined) payload.contractDefaults = allDirty.contractDefaults;
+            }
+
+            // If nothing changed, do not send an HTTP request
+            if (Object.keys(payload).length === 0) {
+                console.log(`[Settings] No changes detected for section: ${section}`);
+                setSavedSections(prev => ({ ...prev, [section]: true }));
+                setTimeout(() => {
+                    setSavedSections(prev => ({ ...prev, [section]: false }));
+                }, 2000);
+                if (section === 'all') {
+                    setSaved(true);
+                    setTimeout(() => setSaved(false), 2000);
+                }
+                return;
             }
 
             const data = await updateSettings(payload);
 
             if (data.success) {
-                console.log(`${section} settings saved successfully`);
+                console.log(`${section} settings saved successfully:`, Object.keys(payload));
+
+                // Update baseline snapshot so subsequent saves know these are persisted
+                initialSettingsRef.current = JSON.parse(JSON.stringify(settings));
 
                 // Mark section as saved
                 setSavedSections(prev => ({ ...prev, [section]: true }));
@@ -265,9 +369,9 @@ const Settings = () => {
                     setSavedSections(prev => ({ ...prev, [section]: false }));
                 }, 3000);
 
-                if (section === 'all' || section === 'branding') {
-                    localStorage.setItem('companyLogo', settings.companyLogo);
-                    localStorage.setItem('displayName', settings.displayName);
+                if (payload.logo || payload.displayName) {
+                    if (payload.logo) localStorage.setItem('companyLogo', payload.logo);
+                    if (payload.displayName) localStorage.setItem('displayName', payload.displayName);
                 }
 
                 if (section === 'all') {
@@ -403,37 +507,56 @@ const Settings = () => {
         setSaved(false);
     };
 
-    return (
-        <div className="settings-page">
-            {portalElement && createPortal(
+    const handleFixedCostChange = (field, value) => {
+        setSettings(prev => ({
+            ...prev,
+            contractDefaults: {
+                ...prev.contractDefaults,
+                fixedCosts: {
+                    ...(prev.contractDefaults?.fixedCosts || {}),
+                    [field]: value
+                }
+            }
+        }));
+        setSaved(false);
+    };
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title={t('settings.title')}
+            subtitle={t('settings.subtitle')}
+            actions={
                 <button
                     onClick={handleSave}
-                    className="btn-header-save"
+                    className="btn-primary"
                     title={t('settings.actions.save')}
-                    style={{ border: 'none', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: '8px' }}
                 >
-                    <Save size={20} style={{ color: '#0d9488' }} />
-                </button>,
-                portalElement
-            )}
-            {/* Header */}
-            <PageHeader
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        ⚙️ {t('settings.title')}
-                    </span>
-                }
-                desktopActions={
-                    <button
-                        onClick={handleSave}
-                        className="btn-header-save"
-                        title={t('settings.actions.save')}
-                        style={{ background: '#f0fdfa', border: '1px solid #0d9488', color: '#0d9488', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                    >
-                        <Save size={18} />
-                    </button>
-                }
-            />
+                    <Save size={16} /> {t('settings.actions.save')}
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            actions={
+                <button
+                    onClick={handleSave}
+                    className="btn-mobile-header-action"
+                    title={t('settings.actions.save')}
+                    aria-label={t('settings.actions.save')}
+                >
+                    <Save size={20} />
+                </button>
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
+    return (
+        <div className="settings-page">
+            {renderHeader}
 
             {/* Settings Sections */}
             <div className="settings-container">
@@ -802,6 +925,95 @@ const Settings = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Costos Fijos del Contrato */}
+                        <div className="settings-card-section">
+                            <div className="card-section-header">
+                                <div className="card-title-group">
+                                    <DollarSign size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <div>
+                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Costos Fijos del Contrato</h2>
+                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                            Valores base y gastos fijos asociados a la configuración de contratos
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="contract-accordion-badge" style={{ background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                    Total: {formatCurrency(
+                                        (Number(settings.contractDefaults?.fixedCosts?.gps) || 0) +
+                                        (Number(settings.contractDefaults?.fixedCosts?.soatPosterior) || 0) +
+                                        (Number(settings.contractDefaults?.fixedCosts?.traspasoPosterior) || 0) +
+                                        (Number(settings.contractDefaults?.fixedCosts?.registro) || 0)
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="settings-card-content general-form">
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostGps">GPS</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostGps"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.gps ?? 500000}
+                                                onChange={(e) => handleFixedCostChange('gps', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="500000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostSoat">SOAT posterior (x2)</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostSoat"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.soatPosterior ?? 370000}
+                                                onChange={(e) => handleFixedCostChange('soatPosterior', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="370000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostTraspaso">Traspaso posterior</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostTraspaso"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.traspasoPosterior ?? 273000}
+                                                onChange={(e) => handleFixedCostChange('traspasoPosterior', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="273000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="settings-form-group">
+                                        <label htmlFor="fixedCostRegistro">Registro</label>
+                                        <div className="modern-input-box">
+                                            <span className="prefix">$</span>
+                                            <input
+                                                id="fixedCostRegistro"
+                                                type="number"
+                                                value={settings.contractDefaults?.fixedCosts?.registro ?? 217000}
+                                                onChange={(e) => handleFixedCostChange('registro', parseInt(e.target.value, 10) || 0)}
+                                                placeholder="217000"
+                                            />
+                                            <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -886,6 +1098,38 @@ const Settings = () => {
                                         value={settings.gpsConfig.password}
                                         onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
                                     />
+                                </div>
+                                <div style={{ gridColumn: '1 / -1', marginTop: '0.25rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            className="btn-secondary"
+                                            onClick={handleValidateTraccar}
+                                            disabled={isValidatingTraccar || !settings.gpsConfig?.user}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                                        >
+                                            <RefreshCw size={14} className={isValidatingTraccar ? 'spinning' : ''} />
+                                            {isValidatingTraccar ? 'Validando...' : 'Validar Conexión Traccar'}
+                                        </button>
+                                        {settings.gpsConfig?.groupId && (
+                                            <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                                                ✓ Grupo vinculado: ID {settings.gpsConfig.groupId}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {traccarValidationResult && (
+                                        <div style={{
+                                            marginTop: '0.6rem',
+                                            padding: '0.6rem 0.85rem',
+                                            borderRadius: '8px',
+                                            fontSize: '0.85rem',
+                                            backgroundColor: traccarValidationResult.success ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                            color: traccarValidationResult.success ? '#15803d' : '#b91c1c',
+                                            border: `1px solid ${traccarValidationResult.success ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                                        }}>
+                                            {traccarValidationResult.message}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

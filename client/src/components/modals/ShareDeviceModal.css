@@ -1,149 +1,284 @@
-/* iOS Style Share Modal */
-.ios-share-overlay {
+/* ========================================================================= */
+/* Standardized Immersive Share Device Modal Styles */
+/* Consistent with ContractDocPreviewModal architecture */
+/* ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   1. OVERLAY & CONTAINER
+   ------------------------------------------------------------------------- */
+.device-share-immersive-overlay {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    z-index: 9999;
-    font-family: "Hanken Grotesk", sans-serif;
-}
-@media (min-width: 640px) {
-    .ios-share-overlay {
-        align-items: center;
-    }
-}
-.ios-share-container {
-    background-color: #f3f4f6;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-@media (min-width: 640px) {
-    .ios-share-container {
-        border-radius: 12px;
-        height: auto;
-        max-height: 90vh;
-        max-width: 28rem;
-    }
-}
-.ios-share-header {
-    background-color: #ffffff;
-    border-bottom: 1px solid #e2e8f0;
+    z-index: 99999;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 0.75rem;
-    position: sticky;
-    top: 0;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 0.75rem;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    animation: deviceShareOverlayFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes deviceShareOverlayFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.device-share-immersive-container {
+    position: relative;
+    width: 100%;
+    max-width: 460px;
+    height: 94vh;
+    max-height: 870px;
+    background: #F8FAFC;
+    border-radius: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    cursor: default;
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    animation: deviceShareModalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes deviceShareModalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* -------------------------------------------------------------------------
+   2. APP HEADER (Standardized with ContractDocPreviewModal)
+   ------------------------------------------------------------------------- */
+.device-share-immersive-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.875rem 1.25rem;
+    flex-shrink: 0;
     z-index: 10;
 }
-.ios-share-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #2d3748;
-    margin: 0;
-}
-.ios-share-main {
-    flex: 1;
-    padding: 1rem;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-.ios-share-subtitle {
-    color: #4a5568;
-    font-size: 1rem;
-    text-align: center;
-    margin-top: 0.5rem;
-    margin-bottom: 0;
-}
-.ios-share-qr-section {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-    background-color: #ffffff;
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-.ios-share-link-row {
-    background-color: #ffffff;
-    border-radius: 0.75rem;
-    border: 1px solid #e2e8f0;
-    padding: 0.75rem;
+
+.device-share-header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    gap: 0.75rem;
 }
-.ios-share-link-text {
-    color: #4a5568;
-    font-size: 0.875rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-right: 0.5rem;
-    flex-grow: 1;
-}
-.ios-share-copy-btn {
+
+.device-share-header-left {
     display: flex;
     align-items: center;
-    color: #00d1d1;
-    font-weight: 500;
-    font-size: 0.875rem;
-    white-space: nowrap;
-    padding: 0.25rem 0.5rem;
-    background: transparent;
-    border: none;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
+    gap: 0.875rem;
+    min-width: 0;
+    flex: 1;
 }
-.ios-share-copy-btn:hover {
-    background-color: rgba(0, 209, 209, 0.1);
-}
-.ios-share-copy-icon {
-    height: 1.25rem;
-    width: 1.25rem;
-    margin-right: 0.25rem;
-}
-.ios-share-warning-box {
-    background-color: #fef3c7;
+
+.device-share-back-btn {
+    width: 38px;
+    height: 38px;
     border-radius: 0.75rem;
-    padding: 1rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-.ios-share-warning-text {
-    color: #92400e;
-    font-size: 0.875rem;
-    margin: 0;
-}
-.ios-share-footer {
-    padding: 1rem;
-    background-color: #f3f4f6;
-    padding-bottom: calc(1rem + var(--mobile-nav-height, 65px) + env(safe-area-inset-bottom, 0px));
-}
-.ios-share-submit {
-    width: 100%;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #475569;
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding: 0.75rem 1rem;
-    border: 1px solid transparent;
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #ffffff;
-    background-color: #00d1d1;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
 }
-.ios-share-submit:hover {
-    background-color: #2dd4bf;
+
+.device-share-back-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+    transform: translateX(-1px);
+}
+
+.device-share-header-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    flex-wrap: nowrap;
+    line-height: 1;
+}
+
+.device-share-header-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.device-share-separator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    line-height: 1;
+    user-select: none;
+    flex-shrink: 0;
+    padding: 0 0.05rem;
+}
+
+.device-share-separator svg {
+    display: block;
+}
+
+.device-share-header-plate {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.925rem;
+    font-weight: 600;
+    color: #475569;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.device-share-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 22px;
+    padding: 0 0.6rem;
+    border-radius: 9999px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    font-size: 0.688rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1;
+    white-space: nowrap;
+    margin-left: 0.4rem;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.device-share-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: #10b981;
+    box-shadow: 0 0 6px 1px rgba(16, 185, 129, 0.65);
+    animation: deviceSharePulseDot 2s infinite;
+    flex-shrink: 0;
+}
+
+@keyframes deviceSharePulseDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.device-share-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.device-share-util-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.device-share-util-btn:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+/* -------------------------------------------------------------------------
+   3. RESPONSIVE DESIGN (< 768px Full-Screen Edge-to-Edge)
+   ------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .device-share-immersive-overlay {
+        padding: 0;
+    }
+
+    .device-share-immersive-container {
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .device-share-immersive-header {
+        padding: max(0.75rem, env(safe-area-inset-top, 0.75rem)) 1rem 0.75rem;
+    }
+
+    .device-share-footer {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+    }
+}
+
+/* -------------------------------------------------------------------------
+   4. TOUCH INTERACTIONS & SHADOWS
+   ------------------------------------------------------------------------- */
+.ios-press {
+    cursor: pointer;
+    transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.12s ease;
+}
+
+.ios-press:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+}
+
+.shadow-ios-sm {
+    box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.05), 0 1px 3px -1px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-ios-card {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-ios-sheet {
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.22);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

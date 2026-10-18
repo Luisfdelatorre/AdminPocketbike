@@ -1,33 +1,25 @@
 import React, { useState } from 'react';
 import MobileHeaderAction from './MobileHeaderAction';
+import Breadcrumbs from './Breadcrumbs';
 import { RefreshCw, Filter } from 'lucide-react';
 
 /**
- * PageHeader Component
+ * DesktopPageHeader Component
  * 
- * Reusable header for all pages. It standardizes the desktop title,
- * desktop-specific actions, and mobile-specific actions.
- * 
- * @param {string|ReactNode} title - The title of the page (displayed in desktop view)
- * @param {Function} onRefresh - If provided, renders a refresh button (desktop and mobile)
- * @param {Function} onFilterToggle - If provided, renders a filter toggle button (mobile only by default, or you can manage desktop filters separately)
- * @param {boolean} showFilters - Indicates if filters are active (used to style the filter button)
- * @param {boolean} loading - Indicates if data is loading (spins the refresh icon)
- * @param {string} refreshText - Text to display next to the refresh icon on desktop (default: 'Actualizar')
- * @param {ReactNode} desktopActions - Elements (e.g., buttons) to show only on desktop next to the title
- * @param {ReactNode} mobileActions - Additional elements to render inside the MobileHeaderAction portal
- * @param {ReactNode} commonActions - Optional elements to show regardless of viewport
+ * Standardized header component exclusively for desktop viewports.
+ * Handles breadcrumbs, title, subtitle, leading controls (like date selects),
+ * refresh button with text and spinner, and desktop action buttons.
  */
-const PageHeader = ({ 
-    title, 
-    onRefresh, 
-    onFilterToggle, 
-    showFilters, 
-    loading = false, 
+export const DesktopPageHeader = ({
+    title,
+    breadcrumbs,
+    subtitle,
+    leadingActions,
+    actions,
+    onRefresh,
+    loading = false,
     refreshText = 'Actualizar',
-    desktopActions, 
-    mobileActions, 
-    commonActions 
+    className = ''
 }) => {
     const [isClickSpinning, setIsClickSpinning] = useState(false);
 
@@ -42,27 +34,63 @@ const PageHeader = ({
     const isSpinning = Boolean(loading || isClickSpinning);
 
     return (
-        <div className="page-header">
-            <div className="desktop-only">
-                {title && (typeof title === 'string' ? <h1>{title}</h1> : title)}
+        <div className={`page-header ${className}`.trim()}>
+            <div className="page-header-left">
+                <Breadcrumbs items={breadcrumbs} fallbackTitle={title} />
+                {subtitle && <p className="page-header-subtitle">{subtitle}</p>}
             </div>
-            
-            <div className="header-actions-desktop desktop-only">
+
+            <div className="header-actions-desktop">
+                {leadingActions}
                 {onRefresh && (
-                    <button className="btn-secondary" onClick={handleRefresh} disabled={isSpinning}>
+                    <button type="button" className="btn-secondary" onClick={handleRefresh} disabled={isSpinning}>
                         <RefreshCw size={16} className={isSpinning ? 'spin' : ''} /> {refreshText}
                     </button>
                 )}
-                {desktopActions}
-                {commonActions}
+                {actions}
             </div>
+        </div>
+    );
+};
 
-            {(onRefresh || onFilterToggle || mobileActions) && (
+/**
+ * MobilePageHeader Component
+ * 
+ * Standardized header component exclusively for mobile viewports.
+ * Portals mobile actions (leading actions, filter toggle, refresh, extra actions)
+ * directly into the top navbar (#mobile-header-actions), and renders any secondary
+ * sticky bar or controls passed as children.
+ */
+export const MobilePageHeader = ({
+    onFilterToggle,
+    showFilters,
+    onRefresh,
+    loading = false,
+    leadingActions,
+    actions,
+    children
+}) => {
+    const [isClickSpinning, setIsClickSpinning] = useState(false);
+
+    const handleRefresh = (e) => {
+        setIsClickSpinning(true);
+        setTimeout(() => setIsClickSpinning(false), 800);
+        if (onRefresh) {
+            onRefresh(e);
+        }
+    };
+
+    const isSpinning = Boolean(loading || isClickSpinning);
+
+    return (
+        <>
+            {(onRefresh || onFilterToggle || leadingActions || actions) && (
                 <MobileHeaderAction>
+                    {leadingActions}
                     {onFilterToggle && (
                         <button
                             type="button"
-                            className={`btn-mobile-header-action ${showFilters ? 'active text-blue-600' : ''}`}
+                            className={`btn-mobile-header-action ${showFilters ? 'active' : ''}`}
                             onClick={onFilterToggle}
                             title="Filtros"
                         >
@@ -70,15 +98,73 @@ const PageHeader = ({
                         </button>
                     )}
                     {onRefresh && (
-                        <button onClick={handleRefresh} className="btn-mobile-header-action" disabled={isSpinning}>
+                        <button
+                            type="button"
+                            onClick={handleRefresh}
+                            className="btn-mobile-header-action"
+                            disabled={isSpinning}
+                            title="Actualizar"
+                        >
                             <RefreshCw size={20} className={isSpinning ? 'spin' : ''} />
                         </button>
                     )}
-                    {mobileActions}
+                    {actions}
                 </MobileHeaderAction>
             )}
-        </div>
+            {children}
+        </>
     );
 };
+
+/**
+ * Unified PageHeader Component (with .Desktop and .Mobile subcomponents)
+ * 
+ * Provides backwards compatibility for legacy monolithic calls,
+ * while exposing PageHeader.Desktop and PageHeader.Mobile for clean separation.
+ */
+const PageHeader = ({
+    title,
+    breadcrumbs,
+    subtitle,
+    onRefresh,
+    onFilterToggle,
+    showFilters,
+    loading = false,
+    refreshText = 'Actualizar',
+    desktopLeadingActions,
+    desktopActions,
+    mobileLeadingActions,
+    mobileActions,
+    commonActions,
+    children
+}) => {
+    return (
+        <>
+            <DesktopPageHeader
+                title={title}
+                breadcrumbs={breadcrumbs}
+                subtitle={subtitle}
+                leadingActions={desktopLeadingActions}
+                actions={<>{desktopActions}{commonActions}</>}
+                onRefresh={onRefresh}
+                loading={loading}
+                refreshText={refreshText}
+            />
+            <MobilePageHeader
+                onFilterToggle={onFilterToggle}
+                showFilters={showFilters}
+                onRefresh={onRefresh}
+                loading={loading}
+                leadingActions={mobileLeadingActions}
+                actions={<>{mobileActions}{commonActions}</>}
+            >
+                {children}
+            </MobilePageHeader>
+        </>
+    );
+};
+
+PageHeader.Desktop = DesktopPageHeader;
+PageHeader.Mobile = MobilePageHeader;
 
 export default PageHeader;

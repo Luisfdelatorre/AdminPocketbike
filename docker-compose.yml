@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  cron-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    container_name: pocketbike-cron-server
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - NODE_ENV=production
+      - CRON_PORT=8082
+      - TZ=America/Bogota
+      - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27018/payments-wompi-pocketbike}
+      - TRACCAR_URL=${TRACCAR_URL:-https://pocketbike.app/}
+      - TRACCAR_USER=${TRACCAR_USER}
+      - TRACCAR_PASS=${TRACCAR_PASS}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

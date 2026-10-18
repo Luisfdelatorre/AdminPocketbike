@@ -1,0 +1,320 @@
+/* WhatsApp Native Crop Experience */
+.wa-crop-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: #000000;
+    z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    user-select: none;
+    touch-action: none;
+    overflow: hidden;
+    animation: waCropAppear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Stage & Canvas Area */
+.wa-crop-stage {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 1.5rem 1rem 0.5rem 1rem;
+}
+
+.wa-crop-frame {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    max-height: 65vh;
+    max-height: 65dvh;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.wa-crop-canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 65vh;
+    max-height: 65dvh;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+/* WhatsApp Crop Box */
+.wa-box {
+    position: absolute;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    cursor: move;
+    box-sizing: border-box;
+    touch-action: none;
+}
+
+/* 3x3 Grid Lines (Active on Drag) */
+.wa-grid {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.15;
+    transition: opacity 0.15s ease;
+}
+
+.wa-box.is-active .wa-grid {
+    opacity: 0.8;
+}
+
+.wa-gh1 {
+    top: 33.33%;
+    left: 0;
+    right: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.wa-gh2 {
+    top: 66.66%;
+    left: 0;
+    right: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.wa-gv1 {
+    left: 33.33%;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.wa-gv2 {
+    left: 66.66%;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+/* WhatsApp L-shaped Corner Brackets (Thick White Borders) */
+.wa-bracket {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    z-index: 10;
+    touch-action: none;
+}
+
+/* Generous touch target for fingers */
+.wa-bracket::after {
+    content: '';
+    position: absolute;
+    top: -18px;
+    bottom: -18px;
+    left: -18px;
+    right: -18px;
+    touch-action: none;
+    z-index: 20;
+}
+
+.wa-b-nw {
+    top: -2px;
+    left: -2px;
+    border-top: 3.5px solid #FFFFFF;
+    border-left: 3.5px solid #FFFFFF;
+    cursor: nwse-resize;
+    box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.wa-b-ne {
+    top: -2px;
+    right: -2px;
+    border-top: 3.5px solid #FFFFFF;
+    border-right: 3.5px solid #FFFFFF;
+    cursor: nesw-resize;
+    box-shadow: 1px -1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.wa-b-se {
+    bottom: -2px;
+    right: -2px;
+    border-bottom: 3.5px solid #FFFFFF;
+    border-right: 3.5px solid #FFFFFF;
+    cursor: nwse-resize;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.wa-b-sw {
+    bottom: -2px;
+    left: -2px;
+    border-bottom: 3.5px solid #FFFFFF;
+    border-left: 3.5px solid #FFFFFF;
+    cursor: nesw-resize;
+    box-shadow: -1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* WhatsApp Angle Dial / Protractor */
+.wa-angle-dial-container {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: ew-resize;
+    touch-action: none;
+    user-select: none;
+}
+
+.wa-angle-dial-canvas {
+    display: block;
+    width: 320px;
+    height: 64px;
+    touch-action: none;
+    cursor: ew-resize;
+}
+
+/* WhatsApp Tool Row */
+.wa-tool-row {
+    padding: 0.5rem 2rem 0.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wa-tool-btn {
+    background: transparent;
+    border: none;
+    color: #FFFFFF;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+}
+
+.wa-tool-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.08);
+}
+
+.wa-tool-btn:active {
+    transform: scale(0.92);
+}
+
+.wa-tool-btn.is-highlighted {
+    color: #25D366;
+}
+
+/* WhatsApp Bottom Action Row */
+.wa-action-row {
+    padding: 0.5rem 1.5rem 1.5rem 1.5rem;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wa-btn-circle {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Cancel Button (Dark Circular with White X) */
+.wa-btn-cancel {
+    background: #1F2428;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
+}
+
+.wa-btn-cancel:hover {
+    background: #2D3339;
+    transform: scale(1.06);
+}
+
+.wa-btn-cancel:active {
+    transform: scale(0.92);
+}
+
+/* Confirm Button (Iconic WhatsApp Green with White Check) */
+.wa-btn-confirm {
+    background: #25D366;
+    border: none;
+    color: #FFFFFF;
+    box-shadow: 0 4px 16px rgba(37, 211, 102, 0.45);
+}
+
+.wa-btn-confirm:hover {
+    background: #20BA5A;
+    transform: scale(1.08);
+    box-shadow: 0 6px 22px rgba(37, 211, 102, 0.6);
+}
+
+.wa-btn-confirm:active {
+    transform: scale(0.92);
+}
+
+.wa-btn-confirm:disabled {
+    background: #475569;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@keyframes waCropAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 640px) {
+    .wa-crop-stage {
+        padding: 1rem 0.5rem 0.25rem 0.5rem;
+    }
+
+    .wa-crop-frame,
+    .wa-crop-canvas {
+        max-height: 62vh;
+        max-height: 62dvh;
+    }
+
+    .wa-tool-row {
+        padding: 0.25rem 1.75rem;
+    }
+
+    .wa-action-row {
+        padding: 0.5rem 1.25rem 1.25rem 1.25rem;
+        padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 1.25rem));
+    }
+
+    .wa-btn-circle {
+        width: 54px;
+        height: 54px;
+    }
+}
+
+/* Stacking fix: .wa-box is absolutely positioned and its 9999px shadow darkens
+   everything painted beneath it. Lift the controls above the dimming overlay. */
+.wa-angle-dial-container,
+.wa-tool-row,
+.wa-action-row {
+    position: relative;
+    z-index: 30;
+}

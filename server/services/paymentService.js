@@ -3,6 +3,7 @@ import paymentRepository from '../repositories/paymentRepository.js';
 import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import invoiceServices from './invoiceServices.js';
+import settingRepository from '../repositories/settingRepository.js';
 import deviceServices from './deviceServices.js';
 import wompiService from './wompiService.js';
 import { Transaction, TIMEZONE, PAYMENTMESSAGES, ENGINE_COMMANDS, DEFAULT_CUTOFF_TIME } from '../config/config.js';
@@ -14,6 +15,8 @@ import { Payment, Reconciliation, Contract } from '../models/index.js';
 import { Company } from '../models/Company.js';
 import companyService from './companyService.js';
 import GpsService from './gpsServices.js';
+import { sseService } from '../utils/sseService.js';
+import { getFirstName } from '../utils/helpers.js';
 import mongoose from 'mongoose';
 
 
@@ -234,6 +237,37 @@ export class PaymentService {
         await unpaidInvoice.applyPayment(payment);
         logger.info(`[FREE DAY AUTO] Applied free day for ${deviceIdName}, invoice: ${unpaidInvoice._id}`);
     }
+
+    async applyFreeDayAutomaticBulk(contracts, date) {
+        if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
+            return { applied: 0 };
+        }
+
+        const now = date ? dayjs(date).toDate() : new Date();
+        const freePaymentsToInsert = [];
+        const invoiceBulkOps = [];
+
+        for (const contract of contracts) {
+            if (!contract.deviceIdName) continue;
+            const { invoiceId, freePayment } = paymentRepository.buildFreePaymentData(contract, date, now);
+
+            freePaymentsToInsert.push(freePayment);
+            invoiceBulkOps.push(invoiceRepository.buildFreeDayBulkOp(invoiceId, freePayment.paymentId, now));
+        }
+
+        if (freePaymentsToInsert.length > 0) {
+            await paymentRepository.bulkInsertPayments(freePaymentsToInsert);
+        }
+
+        let modifiedCount = 0;
+        if (invoiceBulkOps.length > 0) {
+            const result = await invoiceRepository.executeBulkOps(invoiceBulkOps);
+            modifiedCount = result.modifiedCount || 0;
+        }
+
+        logger.info(`🎉 [FREE DAY BULK] Applied automatic free days for ${modifiedCount} invoices`);
+        return { applied: modifiedCount };
+    }
     async applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note }) {
         const invoice = await Invoice.findOne({ _id: invoiceId, paid: false });
         if (!invoice) {
@@ -245,8 +279,13 @@ export class PaymentService {
             throw new Error('Active contract not found for this device');
         }
 
-        // ACCIDENT_TRANSIT/REPAIR/MAINTENANCE/WORKSHOP/OFFICE/INCAPACITY → $0 (free day for customer), DAMAGE → full invoice amount
-        const isFreeAdjustment = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
+        // Check dynamic adjustment config from database/settings
+        const typesConfig = await settingRepository.getAdjustmentTypes();
+        const typeCfg = typesConfig?.[adjustmentType] || typesConfig?.[String(adjustmentType).toUpperCase()];
+        const isFreeAdjustment = typeCfg
+            ? (typeCfg.isFree !== undefined ? typeCfg.isFree : (typeCfg.autoAmount === 0 || !typeCfg.isRealPayment))
+            : ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
+
         const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
 
         const payment = await paymentRepository.createManualPayment({
@@ -421,7 +460,8 @@ export class PaymentService {
         }
     };
     async pollPaymentStatus(reference, onUpdate, timeout = TEMPORARY_RESERVATION_TIMEOUT) {
-        const QR_INTERVAL_MS     = 2000; // Fase QR: polling rápido hasta obtener qr_image
+        const QR_INTERVAL_MS = 2000; // Fase QR: polling rápido hasta obtener qr_image
+
         const STATUS_INTERVAL_MS = 5000; // Fase estado: polling normal (igual que Nequi)
 
         // If a polling process exists for this reference, join it
@@ -437,7 +477,8 @@ export class PaymentService {
         const promise = new Promise(async (resolve, reject) => {
             const startTime = Date.now();
 
-            const payment      = await paymentRepository.getPaymentByReference(reference);
+            const payment = await paymentRepository.getPaymentByReference(reference);
+
             const wompiAdapter = await companyService.getWompiAdapter(payment?.companyId);
 
             // Detect QR method — check multiple sources for robustness
@@ -706,50 +747,40 @@ export class PaymentService {
             // Fetch invoices, payments, device info, and company cutoff settings in parallel
             const deviceInfoQuery = companyId ? { companyId } : {};
 
-            // Fetch invoices, payments, device info, active contracts and companies in parallel (single round-trip each)
+            // Fetch invoices, payments, device info, and companies in parallel (single round-trip each)
+
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs, activeContracts, companyDocs] = await Promise.all([
+            const [invoices, payments, deviceDocs, companyDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
-                Device.find(deviceInfoQuery, { name: 1, driverName: 1, _id: 1, cutOff: 1, gpsId: 1 }).lean(),
-                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceIdName: 1, customerName: 1, driverName: 1 }).lean(),
-                Company.find(companyId ? { _id: companyId } : {}, { cutoffTime: 1, autoCutoffEnabled: 1 }).lean()
+                Device.find(deviceInfoQuery, { name: 1, customerName: 1, driverName: 1, _id: 1, telemetry: 1, gpsId: 1, companyId: 1, companyName: 1 }).lean(),
+                Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
             ]);
             logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
 
-            const getFirstName = (nameStr) => {
-                if (!nameStr || typeof nameStr !== 'string') return null;
-                const first = nameStr.trim().split(/\s+/)[0];
-                if (!first) return null;
-                return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
-            };
-
-            const contractDriverMap = {};
-            activeContracts.forEach(c => {
-                const driver = getFirstName(c.customerName || c.driverName);
-                if (c.deviceIdName && driver) {
-                    contractDriverMap[c.deviceIdName] = driver;
-                }
-            });
-
-            // Build a lookup map: deviceName -> { driverName, deviceId, gpsId, cutOff }
-            const deviceInfoMap = {};
-            deviceDocs.forEach(d => {
-                if (d.name) {
-                    const driver = contractDriverMap[d.name] || getFirstName(d.driverName) || null;
-                    deviceInfoMap[d.name] = {
-                        driverName: driver,
-                        deviceId: d._id,
-                        gpsId: d.gpsId || d._id || d.name,
-                        cutOff: Boolean(d.cutOff)
-                    };
-                }
-            });
 
             // Build company config map keyed by companyId string for isInvoiceDue lookup
             const companyCutoffMap = {};
             companyDocs.forEach(c => {
                 companyCutoffMap[c._id.toString()] = c;
+            });
+
+            // Build a lookup map: deviceName -> { customerName, driverName, deviceId, gpsId, companyId, companyName, cutOff }
+            const deviceInfoMap = {};
+            deviceDocs.forEach(d => {
+                if (d.name) {
+                    const driver = getFirstName(d.customerName || d.driverName) || null;
+                    const compObj = d.companyId ? companyCutoffMap[d.companyId.toString()] : null;
+                    deviceInfoMap[d.name] = {
+                        customerName: driver,
+                        driverName: driver,
+                        deviceId: d._id,
+                        gpsId: d.gpsId || d._id || d.name,
+                        companyId: d.companyId || null,
+                        companyName: d.companyName || compObj?.name || null,
+                        cutOff: Boolean(d.telemetry?.cutOff)
+                    };
+                }
             });
 
             const paymentsObj = payments.length > 0 ? payments[0] : {};
@@ -763,12 +794,18 @@ export class PaymentService {
 
                 if (!deviceMap[devName]) {
                     const info = deviceInfoMap[devName] || {};
+                    const compId = info.companyId || invoice.companyId || null;
+                    const compObj = compId ? companyCutoffMap[compId.toString()] : null;
                     deviceMap[devName] = {
                         device: {
                             name: devName,
                             deviceId: info.deviceId || invoice.deviceId || devName,
                             gpsId: info.gpsId || info.deviceId || invoice.deviceId || devName,
-                            driverName: info.driverName || contractDriverMap[devName] || null,
+                            customerName: info.customerName || info.driverName || null,
+                            driverName: info.customerName || info.driverName || null,
+                            companyId: compId,
+                            companyName: info.companyName || compObj?.name || null,
+
                             unpaidTotal: 0,
                             cutOff: Boolean(info.cutOff)
                         },
@@ -781,7 +818,9 @@ export class PaymentService {
                 const latestPaymentAt = typeof paymentData === 'object' ? (paymentData.latestPaymentAt || null) : null;
 
                 // Centralised debt rule: delegate to companyService.isInvoiceDue()
-                const company = companyCutoffMap[invoice.companyId?.toString()];
+                const devInfo = deviceInfoMap[devName];
+                const compIdStr = invoice.companyId?.toString() || devInfo?.companyId?.toString() || companyId?.toString();
+                const company = companyCutoffMap[compIdStr];
                 const isDue = companyService.isInvoiceDue(company, invoice.date);
 
                 if (invoice.dayType !== 'FREE' && invoice.dayType !== 'ADJUSTMENT' && isDue) {
@@ -1014,6 +1053,74 @@ export class PaymentService {
 
 
 
+    /**
+     * Reconcile pending payments (check status with Wompi API per company)
+     */
+    async reconcilePendingPayments(olderThanMinutes = 0) {
+        const pendingPayments = await paymentRepository.getPendingPaymentsOlderThan(olderThanMinutes);
+        if (pendingPayments && pendingPayments.length > 0) {
+            logger.info(`[PAYMENT-RECONCILE] Found ${pendingPayments.length} pending payments to reconcile`);
+        }
+
+        const results = [];
+
+        for (const payment of pendingPayments) {
+            const txId = payment.wompiTransactionId || payment._id;
+            if (!txId) {
+                logger.info(`[PAYMENT-RECONCILE] Skipping payment ${payment.paymentReference || payment._id} - no transaction ID`);
+                continue;
+            }
+
+            try {
+                const wompiAdapter = await companyService.getWompiAdapter(payment.companyId);
+                const paymentData = await wompiAdapter.getTransactionStatus(txId);
+                const wompiStatus = paymentData.status;
+
+                if (wompiStatus && wompiStatus !== payment.status) {
+                    logger.info(`[PAYMENT-RECONCILE] Status mismatch for ${payment.paymentReference || payment._id}: local=${payment.status}, wompi=${wompiStatus}`);
+
+                    const paymentInstance = await paymentRepository.upsertPayment(paymentData);
+
+                    if (wompiStatus === PS.S_APPROVED) {
+                        const dummyOnUpdate = () => { };
+                        await this.processApprovedPayment(paymentInstance, dummyOnUpdate);
+                        sseService.broadcast('payment-updated', {
+                            type: 'payment',
+                            reference: paymentData.reference || payment.paymentReference,
+                            amount: paymentData.amountInCents ? paymentData.amountInCents / 100 : paymentData.amount,
+                            status: wompiStatus,
+                            timestamp: new Date().toISOString()
+                        });
+                    } else if ([PS.S_DECLINED, PS.S_VOIDED, PS.S_ERROR].includes(wompiStatus)) {
+                        if (paymentData.invoiceId || payment.invoiceId) {
+                            await invoiceRepository.unreserveInvoice(paymentData.invoiceId || payment.invoiceId);
+                        }
+                    }
+
+                    results.push({
+                        paymentReference: payment.paymentReference || payment._id,
+                        oldStatus: payment.status,
+                        newStatus: wompiStatus,
+                        updated: true
+                    });
+                } else {
+                    results.push({
+                        paymentReference: payment.paymentReference || payment._id,
+                        status: payment.status,
+                        updated: false
+                    });
+                }
+            } catch (error) {
+                logger.error(`[PAYMENT-RECONCILE] Error reconciling payment ${payment._id}:`, error.message);
+                results.push({
+                    paymentReference: payment.paymentReference || payment._id,
+                    error: error.message
+                });
+            }
+        }
+
+        return results;
+    }
 }
 
 export default new PaymentService();

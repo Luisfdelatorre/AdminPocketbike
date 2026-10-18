@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
 import deviceRepository from './deviceRepository.js';
@@ -45,7 +46,9 @@ export class ContractRepository {
      * Get contract by ID
      */
     async getContractById(contractId) {
-        return await Contract.findOne({ contractId }).lean();
+        if (!contractId) return null;
+        const isObjectId = mongoose.Types.ObjectId.isValid(contractId);
+        return await Contract.findOne(isObjectId ? { $or: [{ contractId }, { _id: contractId }] } : { contractId }).lean();
     }
 
     /**
@@ -60,7 +63,26 @@ export class ContractRepository {
                 { deviceId: deviceIdName }
             ],
             status: 'ACTIVE',
-        }).lean();
+        });
+    }
+
+    /**
+     * Get active contracts for all or specified company IDs
+     */
+    async getActiveContracts(companyIds = null) {
+        const query = {
+            status: 'ACTIVE',
+            dailyRate: { $gt: 0 },
+            deviceIdName: { $exists: true, $ne: null }
+        };
+        if (companyIds && Array.isArray(companyIds) && companyIds.length > 0) {
+            query.companyId = { $in: companyIds };
+        }
+        return await Contract.find(query).lean();
+    }
+
+    async getActiveContractsByCompanyIds(companyIds = null) {
+        return await this.getActiveContracts(companyIds);
     }
 
     /**
@@ -96,11 +118,13 @@ export class ContractRepository {
         }
 
         const paidAmount = payment.amount_in_cents ? payment.amount_in_cents / 100 : payment.amount;
-        const paidDays = contract.paymentFrequency || 1;
+        const paidDays = payment.billingMultiplier
+            || (contract.dailyRate > 0 && paidAmount > 0 ? Math.round(paidAmount / contract.dailyRate) : null)
+            || (typeof contract.getBillingMultiplier === 'function' ? contract.getBillingMultiplier() : (contract.paymentFrequency || 1));
 
         contract.paidAmount += paidAmount;
         contract.paidDays += paidDays;
-        contract.remainingDays = contract.contractDays - contract.paidDays;
+        contract.remainingDays = Math.max(0, contract.contractDays - contract.paidDays);
 
         // Check if contract is completed
         const isCompleted = contract.paidDays >= contract.contractDays;
@@ -114,7 +138,7 @@ export class ContractRepository {
         if (isCompleted) {
             const deviceTarget = contract.deviceIdName || contract.deviceId;
             if (deviceTarget) {
-                await deviceRepository.updateContractStatus(deviceTarget, null, false);
+                await deviceRepository.updateContractStatus(deviceTarget, null, false, { customerName: null });
             }
         }
 
@@ -136,7 +160,8 @@ export class ContractRepository {
             const activeContractId = hasActiveContract ? contractId : null;
             const deviceTarget = contract.deviceIdName || contract.deviceId;
             if (deviceTarget) {
-                await deviceRepository.updateContractStatus(deviceTarget, activeContractId, hasActiveContract);
+                const customerName = hasActiveContract ? (contract.customerName || null) : null;
+                await deviceRepository.updateContractStatus(deviceTarget, activeContractId, hasActiveContract, { customerName });
             }
             return contract.toObject();
         }
@@ -202,6 +227,8 @@ export class ContractRepository {
         if (updates.customerEmail !== undefined) contract.customerEmail = updates.customerEmail;
         if (updates.customerPhone !== undefined) contract.customerPhone = updates.customerPhone;
         if (updates.customerDocument !== undefined) contract.customerDocument = updates.customerDocument;
+        if (updates.customerAddress !== undefined) contract.customerAddress = updates.customerAddress;
+        if (updates.guarantor !== undefined) contract.guarantor = updates.guarantor;
         if (updates.notes !== undefined) contract.notes = updates.notes;
         if (updates.freeDaysLimit !== undefined) contract.freeDaysLimit = updates.freeDaysLimit;
         if (updates.freeDayPolicy !== undefined) contract.freeDayPolicy = updates.freeDayPolicy;
@@ -210,6 +237,10 @@ export class ContractRepository {
         if (updates.exemptFromCutOff !== undefined) contract.exemptFromCutOff = updates.exemptFromCutOff;
         if (updates.exemptFromCurfew !== undefined) contract.exemptFromCurfew = updates.exemptFromCurfew;
         if (updates.cutOffTime !== undefined) contract.cutOffTime = updates.cutOffTime;
+        if (updates.attachments !== undefined) contract.attachments = updates.attachments;
+        if (updates.vehicleInfo !== undefined) contract.vehicleInfo = updates.vehicleInfo;
+        if (updates.soatDueDate !== undefined) contract.soatDueDate = updates.soatDueDate;
+        if (updates.financialBreakdown !== undefined) contract.financialBreakdown = updates.financialBreakdown;
 
         // Handle updates that affect calculations (dailyRate, contractDays)
         let recalculate = false;
@@ -257,7 +288,13 @@ export class ContractRepository {
         const deviceTarget = contract.deviceIdName || contract.deviceId;
         if (deviceTarget) {
             try {
-                await deviceRepository.updateContractStatus(deviceTarget, hasActiveContract ? contract.contractId : null, hasActiveContract);
+                const customerName = hasActiveContract ? (contract.customerName || null) : null;
+                await deviceRepository.updateContractStatus(
+                    deviceTarget,
+                    hasActiveContract ? contract.contractId : null,
+                    hasActiveContract,
+                    { customerName }
+                );
             } catch (err) {
                 // non-blocking device status sync
             }

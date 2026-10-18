@@ -112,7 +112,7 @@ class ComponentLoader {
     static async loadMessages() {
         console.log('Loading messages & config...');
         try {
-            const response = await fetch('/apinode/messages/ui');
+            const response = await fetch('/api/v1/messages/ui');
             if (response.ok) {
                 const data = await response.json();
 

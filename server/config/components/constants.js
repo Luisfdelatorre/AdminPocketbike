@@ -2,6 +2,8 @@ export const ENGINERESUME = 'engineResume';
 export const ENGINESTOP = 'engineStop';
 export const ENGINE_COMMANDS = { STOP: 0, RESUME: 1 };
 export const LOGFILENAMEFORMAT = 'roll-<DATE>.log';
+export const CRON_LOG_FILENAME_FORMAT = 'cron-<DATE>.log';
+export const CRON_LOG_SUBDIR = 'cron';
 export const DATEFORMAT = 'YYYY.MM.DD';
 export const TIMEFORMAT = 'YYYY-MM-DD HH:mm:ss.SSS';
 export const TIMEZONE = 'America/Bogota';
@@ -101,6 +103,6 @@ export const GPS_SERVICES = {
 export const DEFAULT_CUTOFF_TIME = '23:59';
 
 export const GPS_THROTTLE = {
-    NORMAL_MS: 5000,
-    URGENT_MS: 1000
+    NORMAL_MS: 30000, // 30 seconds for routine persistence
+    URGENT_MS: 1000   // 1 second for urgent events (cutOff, powerCut, ignition)
 };

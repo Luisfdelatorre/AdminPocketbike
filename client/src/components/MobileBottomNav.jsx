@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Home, Users, FileText, CreditCard, DollarSign,
     Image as ImageIcon, Settings as SettingsIcon, Database,
-    RefreshCw, ArrowLeft, Building
+    RefreshCw, ArrowLeft, Building, Sliders
 } from 'lucide-react';
 
 const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }) => {
@@ -67,18 +67,32 @@ const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompani
         return (
             <nav className="mobile-bottom-nav" aria-label="Navegación de Empresas">
                 <button
-                    onClick={() => setCompaniesTab('companies')}
+                    onClick={() => setCompaniesTab && setCompaniesTab('companies')}
                     className={`nav-btn ${companiesTab === 'companies' ? 'active' : ''}`}
                 >
                     <Building size={20} />
                     <span>Empresas</span>
                 </button>
                 <button
-                    onClick={() => setCompaniesTab('systemJobs')}
+                    onClick={() => setCompaniesTab && setCompaniesTab('adjustmentTypes')}
+                    className={`nav-btn ${companiesTab === 'adjustmentTypes' ? 'active' : ''}`}
+                >
+                    <Sliders size={20} />
+                    <span>Ajustes</span>
+                </button>
+                <button
+                    onClick={() => setCompaniesTab && setCompaniesTab('systemJobs')}
                     className={`nav-btn ${companiesTab === 'systemJobs' ? 'active' : ''}`}
                 >
                     <SettingsIcon size={20} />
                     <span>Rutinas</span>
+                </button>
+                <button
+                    onClick={() => setCompaniesTab && setCompaniesTab('ocrTemplates')}
+                    className={`nav-btn ${companiesTab === 'ocrTemplates' ? 'active' : ''}`}
+                >
+                    <FileText size={20} />
+                    <span>Plantillas</span>
                 </button>
                 <button
                     onClick={() => navigate(-1)}

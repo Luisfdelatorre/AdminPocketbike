@@ -2,7 +2,7 @@ import { Device } from '../models/Device.js';
 import { DeviceState } from '../entities/deviceEntities.js';
 import logger from '../config/logger.js';
 
-const GPS_CACHE_PROJECTION = '_id name gpsId imei ignition lastUpdate cutOff queued batteryLevel companyId';
+const GPS_CACHE_PROJECTION = '_id name gpsId imei companyId telemetry';
 
 class DeviceRepository {
     async findForGpsCache() {
@@ -42,28 +42,28 @@ class DeviceRepository {
             if (!devices || devices.length === 0) return { created: 0, updated: 0, errors: 0 };
 
             const bulkOps = devices.map(mem => {
-                const updateSet = {
+                const telemetry = {
                     ignition: mem.ignition,
                     lastUpdate: mem.lastUpdate,
                     cutOff: mem.cutOff,
                     batteryLevel: mem.batteryLevel,
+                    queued: Boolean(mem.queued),
+                    powerCut: Boolean(mem.powerCut),
+                    alarm: mem.alarm || null,
+                    motion: Boolean(mem.motion)
                 };
-                
-                // Only touch queued if it was cleared by a cutOff change
-                if (mem._cutOffChanged && mem.queued === false) {
-                    updateSet.queued = false;
-                }
 
                 return {
                     updateOne: {
                         filter: { _id: mem._id },
-                        update: { $set: updateSet }
+                        update: {
+                            $set: { telemetry }
+                        }
                     }
                 };
             });
 
             const result = await Device.bulkWrite(bulkOps);
-            logger.info(`GPS sync upsert: ${result.upsertedCount} created, ${result.modifiedCount} updated`);
             return {
                 created: result.upsertedCount,
                 updated: result.modifiedCount,
@@ -71,6 +71,18 @@ class DeviceRepository {
             };
         } catch (error) {
             logger.error('Error upserting devices batch:', error);
+            throw error;
+        }
+    }
+    async getDevices(query = {}, projection = null) {
+        try {
+            const select = projection || 'id name status disabled gpsId companyId companyName contractId deviceId hasActiveContract isActive freeDays freeDaysUsed activeContractId monthPaid monthDebt nequiNumber simCardNumber telemetry';
+            return await Device.find(query)
+                .select(select)
+                .lean()
+                .sort({ _id: 1 });
+        } catch (error) {
+            logger.error('Error getting devices:', error);
             throw error;
         }
     }
@@ -103,6 +115,18 @@ class DeviceRepository {
             return await Device.find({ hasActiveContract: true }).lean();
         } catch (error) {
             logger.error('Error getting active devices:', error);
+            throw error;
+        }
+    }
+    async getDevicesWithActiveContracts(companyIds = null) {
+        try {
+            const query = { hasActiveContract: true };
+            if (companyIds && Array.isArray(companyIds) && companyIds.length > 0) {
+                query.companyId = { $in: companyIds };
+            }
+            return await Device.find(query).lean();
+        } catch (error) {
+            logger.error('Error getting devices with active contracts:', error);
             throw error;
         }
     }
@@ -153,37 +177,77 @@ class DeviceRepository {
             throw error;
         }
     }
-    async getDeviceStatusByName(name) {
+    async getDeviceStatusByName(deviceIdName) {
         try {
-            const device = await Device.findOne({ name });
+            const device = await Device.findOne(
+                { name: deviceIdName },
+                'name gpsId imei telemetry companyId hasActiveContract'
+            ).lean();
+
             if (!device) {
-                logger.warn(`[DEVICE STATUS] Device not found for name: ${name}`);
-                return { deviceIdName: name, engineOn: null, cutOff: null };
+                logger.warn(`[DEVICE STATUS] Device not found for name: ${deviceIdName}`);
+                return { deviceIdName, engineOn: null, cutOff: null };
             }
-            return device.toStatus();
+
+            const tel = device.telemetry || {};
+            const ignition = tel.ignition ?? false;
+            const cutOff = tel.cutOff ?? false;
+            const batteryLevel = tel.batteryLevel ?? null;
+            const lastUpdate = tel.lastUpdate || null;
+
+            return {
+                name: device.name,
+                gpsId: device.gpsId,
+                telemetry: {
+                    ignition,
+                    lastUpdate,
+                    cutOff,
+                    batteryLevel,
+                    powerCut: Boolean(tel.powerCut),
+                    alarm: tel.alarm || null,
+                    motion: Boolean(tel.motion),
+                    queued: Boolean(tel.queued)
+                },
+                ignition,
+                lastUpdate,
+                cutOff,
+                batteryLevel,
+                hasActiveContract: device.hasActiveContract,
+            };
         } catch (error) {
-            logger.error(`Error getting device status for name ${name}:`, error);
+            logger.error(`Error getting device status for ${deviceIdName}:`, error);
             throw error;
         }
     }
-    async updateContractStatus(deviceId, contractId, hasContract) {
+    async updateContractStatus(deviceIdName, contractId, hasActiveContract, extra = {}) {
         try {
-            const isNum = !isNaN(deviceId);
+            const isNum = !isNaN(deviceIdName);
             const filter = isNum
-                ? { _id: Number(deviceId) }
-                : { $or: [{ name: String(deviceId) }, { _id: deviceId }] };
+                ? { _id: Number(deviceIdName) }
+                : { $or: [{ name: String(deviceIdName) }, { _id: deviceIdName }] };
 
-        console.log('Update contract status for device:', numericId, contractId, hasContract);
-        const result = await Device.findByIdAndUpdate(numericId, {
-            activeContractId: contractId,
-            contractId: contractId,
-            hasActiveContract: hasContract
-        }, { new: true });
+            const updateFields = {
+                contractId: contractId || null,
+                activeContractId: contractId || null,
+                hasActiveContract: Boolean(hasActiveContract),
+                ...extra
+            };
 
-            logger.info(`Updated contract status for device ${deviceId}: hasActiveContract=${hasContract}, activeContractId=${contractId}`);
-            return result;
+            // If active contract is removed and customerName wasn't explicitly specified, clear customerName
+            if (!hasActiveContract && extra.customerName === undefined && extra.driverName === undefined) {
+                updateFields.customerName = null;
+                updateFields.driverName = null;
+            } else if (extra.customerName !== undefined && extra.driverName === undefined) {
+                updateFields.driverName = extra.customerName;
+            }
+
+            return await Device.findOneAndUpdate(
+                filter,
+                updateFields,
+                { new: true }
+            );
         } catch (error) {
-            logger.error(`Error updating contract status for device ${deviceId}:`, error);
+            logger.error(`Error updating contract status for device ${deviceIdName}:`, error);
             throw error;
         }
     }
@@ -193,7 +257,8 @@ class DeviceRepository {
                 activeContractId: contract.contractId,
                 hasActiveContract: true,
                 contractId: contract.contractId, // Sync requested by user
-                driverName: contract.customerName || contract.driverName,
+                customerName: contract.customerName || null,
+                driverName: contract.customerName || null,
                 nequiNumber: contract.nequiNumber,
                 companyId: contract.companyId,
                 companyName: contract.companyName,
@@ -217,9 +282,18 @@ class DeviceRepository {
     }
     async updateCutOffStatus(deviceId, cutOff) {
         try {
+            const isNum = !isNaN(deviceId);
+            const filter = isNum
+                ? { $or: [{ deviceId: Number(deviceId) }, { _id: Number(deviceId) }] }
+                : { $or: [{ name: String(deviceId) }, { _id: deviceId }] };
+
             return await Device.findOneAndUpdate(
-                { deviceId: deviceId },
-                { cutOff: Boolean(cutOff) },
+                filter,
+                {
+                    $set: {
+                        'telemetry.cutOff': Boolean(cutOff)
+                    }
+                },
                 { new: true }
             );
         } catch (error) {
@@ -231,7 +305,11 @@ class DeviceRepository {
         try {
             return await Device.findOneAndUpdate(
                 { gpsId: gpsId },
-                { cutOff: Boolean(cutOff) },
+                {
+                    $set: {
+                        'telemetry.cutOff': Boolean(cutOff)
+                    }
+                },
                 { new: true }
             );
         } catch (error) {
@@ -243,7 +321,11 @@ class DeviceRepository {
         try {
             return await Device.updateOne(
                 { _id: objectId },
-                { $set: { cutOff } }
+                {
+                    $set: {
+                        'telemetry.cutOff': Boolean(cutOff)
+                    }
+                }
             );
         } catch (error) {
             logger.error(`Error updating device _id ${objectId} cutOff:`, error);
@@ -254,7 +336,11 @@ class DeviceRepository {
         try {
             return await Device.updateOne(
                 { _id: objectId },
-                { $set: { queued: Boolean(queued) } }
+                {
+                    $set: {
+                        'telemetry.queued': Boolean(queued)
+                    }
+                }
             );
         } catch (error) {
             logger.error(`Error updating device _id ${objectId} queued status:`, error);
@@ -278,34 +364,25 @@ class DeviceRepository {
         }
     }
 
-    async getDeviceStatusByName(deviceIdName) {
+    async bulkUpdateDeviceOdometers(items = []) {
+        if (!items || items.length === 0) return { modifiedCount: 0 };
         try {
-            const device = await Device.findOne({ name: deviceIdName }, 'name gpsId imei ignition lastUpdate cutOff batteryLevel companyId hasActiveContract').lean();
-            if (!device) return null;
-            return {
-                name: device.name,
-                gpsId: device.gpsId,
-                ignition: device.ignition,
-                lastUpdate: device.lastUpdate,
-                cutOff: device.cutOff,
-                batteryLevel: device.batteryLevel,
-                hasActiveContract: device.hasActiveContract,
-            };
+            const now = new Date();
+            const bulkOps = items.map(item => ({
+                updateOne: {
+                    filter: { _id: item.deviceId },
+                    update: {
+                        $set: {
+                            'telemetry.totalKm': item.totalKm,
+                            'telemetry.lastKmSyncAt': now
+                        }
+                    }
+                }
+            }));
+            const result = await Device.bulkWrite(bulkOps, { ordered: false });
+            return result;
         } catch (error) {
-            logger.error(`Error getting device status for ${deviceIdName}:`, error);
-            throw error;
-        }
-    }
-
-    async updateContractStatus(deviceIdName, contractId, hasActiveContract) {
-        try {
-            return await Device.findOneAndUpdate(
-                { name: deviceIdName },
-                { contractId: contractId || null, hasActiveContract: Boolean(hasActiveContract) },
-                { new: true }
-            );
-        } catch (error) {
-            logger.error(`Error updating contract status for device ${deviceIdName}:`, error);
+            logger.error('Error bulk updating device odometers:', error);
             throw error;
         }
     }

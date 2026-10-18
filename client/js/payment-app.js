@@ -1,4 +1,4 @@
-import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getDeviceStatus } from './api.js';
+import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getDeviceStatus, getAdjustmentTypes } from './api.js';
 import messagesService from './messages-service.js';
 import { Templates } from './templates.js';
 
@@ -18,7 +18,8 @@ let CONFIG = {
     TRANSITION_DURATION: 500
 };
 
-const STATUS_CLASS_MAP = {
+// Fallback defaults, updated dynamically from DB API (/apinode/invoices/history)
+let STATUS_CLASS_MAP = {
     'PAID': { textClass: 'status-paid', badgeClass: 'badge-paid', rowClass: 'row-paid' },
     'FREE': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
     'FREEPASS': { textClass: 'status-free', badgeClass: 'badge-free', rowClass: 'row-free' },
@@ -627,9 +628,6 @@ class PaymentManager {
                 const response = await getPaymentStatus();
                 STATE.paymentData = response.data;
             }
-            console.log("Loading data", STATE.paymentData);
-
-
             const dom = this.dom;
 
             // Update UI
@@ -855,7 +853,11 @@ class PaymentManager {
             }
 
             const response = await getInvoiceHistory({ month, year });
-            const { history, month: resMonth, year: resYear } = response.data?.data || {};
+            const { history, month: resMonth, year: resYear, adjustmentTypes } = response.data?.data || {};
+
+            if (adjustmentTypes && typeof adjustmentTypes === 'object') {
+                STATUS_CLASS_MAP = adjustmentTypes;
+            }
 
             // Sync STATE with server-confirmed values
             STATE.historyMonth = resMonth;
@@ -903,7 +905,13 @@ class PaymentManager {
         }
 
         historyBody.innerHTML = history.map(item => {
-            const config = STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
+            const key = item.adjustmentType || item.dayType;
+            const config = STATUS_CLASS_MAP[key] || STATUS_CLASS_MAP[item.dayType] || { badgeClass: 'badge-pending', rowClass: '' };
+
+            const color = item.color || config.color;
+            const bg = item.bg || config.bg;
+            const badgeLabel = item.badgeLabel || item.status || config.badgeLabel || 'Pendiente';
+
             let paymentTimeHtml = '<span style="color: #9ca3af; font-size: 13px;">---</span>';
 
             if (item.paymentDate) {
@@ -918,13 +926,18 @@ class PaymentManager {
                 `;
             }
 
+            const rowStyle = bg ? `style="background-color: ${bg};"` : '';
+            const badgeStyle = color && bg
+                ? `style="color: ${color}; background-color: ${bg}; display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; white-space: nowrap;"`
+                : '';
+
             return `
-            <tr class="${config.rowClass || ''}">
+            <tr class="${config.rowClass || ''}" ${rowStyle}>
                 <td style="font-weight: 600; color: #374151;">${UIUtils.formatDate(item.date)}</td>
                 <td style="font-weight: 700; color: #111827; text-align: right;">$${UIUtils.formatMoney(item.paidAmount)}</td>
                 <td style="text-align: center;">${paymentTimeHtml}</td>
                 <td style="text-align: right; padding-right: 8px;">
-                    <span class="badge-status ${config.badgeClass || 'badge-pending'}">${item.status}</span>
+                    <span class="badge-status ${config.badgeClass || 'badge-pending'}" ${badgeStyle}>${badgeLabel}</span>
                 </td>
             </tr>
             `;
@@ -1002,8 +1015,8 @@ class PaymentManager {
 
         const statusLabel = this.dom.get('loading.statusLabel');
         if (statusLabel) {
-            statusLabel.textContent = isQrMode 
-                ? 'Generando código QR...' 
+            statusLabel.textContent = isQrMode
+                ? 'Generando código QR...'
                 : messagesService.get('STATUS.REQUESTING_PAYMENT');
         }
 
@@ -1012,8 +1025,8 @@ class PaymentManager {
             const data = response.data;
 
             if (statusLabel) {
-                statusLabel.textContent = isQrMode 
-                    ? 'Generando código QR...' 
+                statusLabel.textContent = isQrMode
+                    ? 'Generando código QR...'
                     : messagesService.get('STATUS.WAITING_NEQUI');
             }
 

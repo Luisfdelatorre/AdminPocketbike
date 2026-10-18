@@ -141,6 +141,58 @@ export class InvoiceRepository {
         }
     }
 
+    async getExistingInvoiceIds(ids) {
+        try {
+            return await Invoice.getExistingInvoiceIds(ids);
+        } catch (error) {
+            logger.error('Error getting existing invoice IDs:', error);
+            throw error;
+        }
+    }
+
+    async getExistingDeviceNamesForDate(date, deviceNames = null) {
+        try {
+            return await Invoice.getExistingDeviceNamesForDate(date, deviceNames);
+        } catch (error) {
+            logger.error('Error getting existing device names for date:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create daily invoices in bulk for multiple contracts in a single batch operation
+     */
+    async bulkCreateInvoicesForContracts(contracts, date) {
+        try {
+            return await Invoice.bulkCreateInvoicesForContracts(contracts, date);
+        } catch (error) {
+            logger.error('Error creating invoices in bulk for contracts:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Build updateOne bulkWrite operation for marking invoice as FREE
+     */
+    buildFreeDayBulkOp(invoiceId, paymentId, date = new Date()) {
+        return Invoice.buildFreeDayBulkOp(invoiceId, paymentId, date);
+    }
+
+    /**
+     * Execute bulkWrite operations on invoices
+     */
+    async executeBulkOps(bulkOps) {
+        if (!bulkOps || !Array.isArray(bulkOps) || bulkOps.length === 0) {
+            return { modifiedCount: 0 };
+        }
+        try {
+            return await Invoice.bulkWrite(bulkOps);
+        } catch (error) {
+            logger.error('Error executing bulkWrite on invoices:', error);
+            throw error;
+        }
+    }
+
     /**
      * Get invoice by invoice_id
      * Old: invoiceId field
@@ -619,7 +671,18 @@ export class InvoiceRepository {
         return result[0] ?? { totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0 };
     }
 
+    async getPaginatedInvoices({ query = {}, projection = null, skip = 0, limit = 100, sort = { date: -1, createdAt: -1, _id: -1 } } = {}) {
+        const [invoices, total] = await Promise.all([
+            Invoice.find(query, projection)
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Invoice.countDocuments(query)
+        ]);
 
+        return { invoices, total };
+    }
 }
 
 export default new InvoiceRepository();
