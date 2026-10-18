@@ -408,6 +408,7 @@
 
 /* Desktop: Filters and Stats MUST always be visible and interactive */
 @media (min-width: 769px) {
+
     .expandable-metrics-container,
     .expandable-metrics-container.collapsed,
     .expandable-metrics-container.expanded {
@@ -801,15 +802,15 @@ h3.uppercase-title-ios {
 .search-filter-wrapper-ios {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    gap: 0rem;
+    margin-bottom: 0rem;
     width: 100%;
 }
 
 @media (max-width: 767px) {
     .search-filter-wrapper-ios .search-ios {
         order: 1;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0rem;
     }
 
     .search-filter-wrapper-ios .filter-row-ios,
