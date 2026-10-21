@@ -330,7 +330,7 @@ export class InvoiceRepository {
     async findInvoicesForSummary(query) {
         try {
             return await Invoice.find(query)
-                .select('date deviceIdName dayType amount paidAmount cutOff distance')
+                .select('date deviceIdName dayType amount paidAmount cutOff distance paid companyId')
                 .lean();
         } catch (error) {
             logger.error('Error finding invoices for summary:', error);
