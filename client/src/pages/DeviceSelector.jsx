@@ -207,7 +207,7 @@ const DeviceManagement = () => {
         if (filter === 'active' && !device.hasActiveContract) return false;
         if (filter === 'available' && (device.hasActiveContract || !device.isActive)) return false;
         if (filter === 'off' && !device.cutOff) return false;
-        if (filter === 'on' && device.cutOff) return false;
+        if (filter === 'on' && !device.ignition) return false;
         return true;
     });
 
@@ -277,6 +277,7 @@ const DeviceManagement = () => {
                     filterOptions={[
                         { value: 'all', label: t('devices.filterAll') },
                         { value: 'active', label: t('devices.filterActive') },
+                        { value: 'on', label: t('devices.filterOn') },
                         { value: 'off', label: t('devices.filterOff') }
                     ]}
                 />
