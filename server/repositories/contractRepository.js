@@ -118,6 +118,12 @@ export class ContractRepository {
         }
 
         const paidAmount = payment.amount_in_cents ? payment.amount_in_cents / 100 : payment.amount;
+
+        // Free adjustments ($0) must never advance contract paidDays or alter contract duration
+        if (payment.isFree || (payment.type === 'ADJUSTMENT' && paidAmount === 0) || paidAmount <= 0) {
+            return contract.toObject();
+        }
+
         const paidDays = payment.billingMultiplier
             || (contract.dailyRate > 0 && paidAmount > 0 ? Math.round(paidAmount / contract.dailyRate) : null)
             || (typeof contract.getBillingMultiplier === 'function' ? contract.getBillingMultiplier() : (contract.paymentFrequency || 1));

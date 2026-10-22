@@ -203,9 +203,12 @@ const Invoices = () => {
     };
 
     const openManualPayModal = (invoice) => {
-        const reason = invoice.adjustmentType || 'ADJUSTMENT';
+        const availableKeys = Object.keys(ADJUSTMENT_CONFIG).filter(k => !ADJUSTMENT_CONFIG[k].hidden && ADJUSTMENT_CONFIG[k].category !== 'STATUS');
+        const reason = (invoice.adjustmentType && ADJUSTMENT_CONFIG[invoice.adjustmentType])
+            ? invoice.adjustmentType
+            : (availableKeys[0] || 'NEQUI');
         const cfg = ADJUSTMENT_CONFIG[reason] || null;
-        const autoAmount = cfg?.autoAmount ?? invoice.amount;
+        const autoAmount = cfg?.autoAmount !== undefined && cfg?.autoAmount !== null ? cfg.autoAmount : invoice.amount;
 
         setManualPayForm({
             amount: autoAmount,
