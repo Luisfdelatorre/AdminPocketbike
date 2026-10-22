@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { getAllCompanies, createCompany, updateCompany, getAllDevices, assignDevicesToCompany } from '../services/api';
@@ -14,6 +15,7 @@ import './Users.css'; // Reusing Users CSS for consistency
 import './Companies.css';
 
 const Companies = () => {
+    const { t } = useTranslation();
     const isMobile = useIsMobile();
     const [companies, setCompanies] = useState([]);
     const [allDevices, setAllDevices] = useState([]); // Store all devices
