@@ -24,7 +24,6 @@ const Layout = () => {
         eventSource.addEventListener('device_update', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('📡 Device Updated via SSE:', data);
                 window.dispatchEvent(new CustomEvent('device-update', { detail: data }));
             } catch (err) {
                 console.error('Error parsing SSE device_update event:', err);
