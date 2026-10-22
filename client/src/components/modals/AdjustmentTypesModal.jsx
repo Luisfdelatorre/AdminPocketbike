@@ -81,7 +81,9 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
             ...types[editingKey],
             ...editForm,
             autoAmount: editForm.isFree ? 0 : null,
-            autoReference: `${editForm.badgeLabel} - {deviceName} ({date})`
+            autoReference: `${editForm.badgeLabel} - {deviceName} ({date})`,
+            isRealPayment: !editForm.isFree,
+            category: types[editingKey]?.category || 'ADJUSTMENT'
         };
 
         const updatedTypes = {
@@ -147,8 +149,9 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
         const newItem = {
             ...newForm,
             autoAmount: newForm.isFree ? 0 : null,
-            autoReference: `${newForm.badgeLabel}-{deviceName}({date})`,
+            autoReference: `${newForm.badgeLabel} - {deviceName} ({date})`,
             isRealPayment: !newForm.isFree,
+            category: 'ADJUSTMENT',
             hidden: false
         };
 
