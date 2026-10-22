@@ -298,16 +298,19 @@ export class PaymentService {
             adjustmentReference: adjustmentReference,
             note,
         });
-        // Attach adjustmentType + adjustmentReference so applyPayment can persist them on the invoice
+        // Attach adjustmentType + adjustmentReference + isFree so applyPayment and contract repo can persist them properly
         payment.adjustmentType = adjustmentType;
         payment.adjustmentReference = adjustmentReference;
+        payment.isFree = isFreeAdjustment;
         await invoice.applyPayment(payment);
-        logger.info(`[MANUAL ADJ] ${adjustmentType} applied for ${deviceIdName}, invoice: ${invoice._id}, amount: ${paymentAmount}`);
+        logger.info(`[MANUAL ADJ] ${adjustmentType} applied for ${deviceIdName}, invoice: ${invoice._id}, amount: ${paymentAmount}, isFree: ${isFreeAdjustment}`);
 
-        try {
-            await contractRepository.updateContractProgress(payment);
-        } catch (err) {
-            logger.error(`[CONTRACT] Failed to update contract progress for manual payment: ${err.message}`);
+        if (!isFreeAdjustment && paymentAmount > 0) {
+            try {
+                await contractRepository.updateContractProgress(payment);
+            } catch (err) {
+                logger.error(`[CONTRACT] Failed to update contract progress for manual payment: ${err.message}`);
+            }
         }
 
         try {
