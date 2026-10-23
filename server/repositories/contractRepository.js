@@ -34,7 +34,8 @@ export class ContractRepository {
             totalAmount,
             remainingDays,
             status: 'ACTIVE',
-            cutOffTime: data.cutOffTime || null
+            cutOffTime: data.cutOffTime || null,
+            plainPin: data.devicePin || null
         }
 
         const contract = await Contract.create(contractData);
@@ -286,6 +287,7 @@ export class ContractRepository {
         // Handle PIN update - pre-save hook will hash it
         if (updates.devicePin !== undefined && updates.devicePin) {
             contract.devicePin = updates.devicePin;
+            contract.plainPin = updates.devicePin;
         }
 
         await contract.save();
