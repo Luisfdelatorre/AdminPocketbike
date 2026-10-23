@@ -3,6 +3,16 @@ import { Contract } from '../models/Contract.js';
 import daysjs from 'dayjs';
 import deviceRepository from './deviceRepository.js';
 
+export function resolveContractPlainPin(contract) {
+    if (!contract) return contract;
+    if (contract.plainPin) return contract.plainPin;
+    const phoneDigits = (contract.customerPhone || '').replace(/\D/g, '');
+    if (phoneDigits.length >= 4) return phoneDigits.slice(-4);
+    const docDigits = (contract.customerDocument || '').replace(/\D/g, '');
+    if (docDigits.length >= 4) return docDigits.slice(-4);
+    return '1234';
+}
+
 export class ContractRepository {
     /**
      * Create a new contract
@@ -49,7 +59,11 @@ export class ContractRepository {
     async getContractById(contractId) {
         if (!contractId) return null;
         const isObjectId = mongoose.Types.ObjectId.isValid(contractId);
-        return await Contract.findOne(isObjectId ? { $or: [{ contractId }, { _id: contractId }] } : { contractId }).lean();
+        const contract = await Contract.findOne(isObjectId ? { $or: [{ contractId }, { _id: contractId }] } : { contractId }).lean();
+        if (contract && !contract.plainPin) {
+            contract.plainPin = resolveContractPlainPin(contract);
+        }
+        return contract;
     }
 
     /**
@@ -57,7 +71,7 @@ export class ContractRepository {
      */
     async getActiveContractByDevice(deviceIdName) {
         if (!deviceIdName) return null;
-        return await Contract.findOne({
+        const contract = await Contract.findOne({
             $or: [
                 { deviceIdName: deviceIdName },
                 { plate: deviceIdName },
@@ -65,6 +79,10 @@ export class ContractRepository {
             ],
             status: 'ACTIVE',
         });
+        if (contract && !contract.plainPin) {
+            contract.plainPin = resolveContractPlainPin(contract);
+        }
+        return contract;
     }
 
     /**
@@ -90,9 +108,13 @@ export class ContractRepository {
      * Get all contracts for a device
      */
     async getContractsByDevice(deviceIdName) {
-        return await Contract.find({ deviceIdName })
+        const contracts = await Contract.find({ deviceIdName })
             .sort({ createdAt: -1 })
             .lean();
+        return contracts.map(c => {
+            if (!c.plainPin) c.plainPin = resolveContractPlainPin(c);
+            return c;
+        });
     }
 
     /**
@@ -100,9 +122,13 @@ export class ContractRepository {
      * @param {Object} query - Optional query filter
      */
     async getAllContracts(query = {}) {
-        return await Contract.find(query)
+        const contracts = await Contract.find(query)
             .sort({ createdAt: -1 })
             .lean();
+        return contracts.map(c => {
+            if (!c.plainPin) c.plainPin = resolveContractPlainPin(c);
+            return c;
+        });
     }
 
     /**

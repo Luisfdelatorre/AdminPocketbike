@@ -247,7 +247,17 @@ const Contracts = () => {
                 if (savedDraft) {
                     const parsed = JSON.parse(savedDraft);
                     if (parsed?.formData) {
-                        setFormData(parsed.formData);
+                        const rawForm = parsed.formData;
+                        if (!rawForm.devicePin && parsed.editingContract) {
+                            const ec = parsed.editingContract;
+                            rawForm.devicePin = ec.plainPin || ((ec.customerPhone || '').replace(/\D/g, '').slice(-4)) || ((ec.customerDocument || '').replace(/\D/g, '').slice(-4)) || '1234';
+                        }
+                        if (rawForm.startDate) {
+                            rawForm.startDate = toDateInputValue(rawForm.startDate);
+                        } else if (parsed.editingContract?.startDate) {
+                            rawForm.startDate = toDateInputValue(parsed.editingContract.startDate);
+                        }
+                        setFormData(rawForm);
                     }
                     if (parsed?.editingContract) {
                         setEditingContract(parsed.editingContract);
@@ -393,6 +403,20 @@ const Contracts = () => {
         return { type: 'CC', number: trimmed };
     };
 
+    const toDateInputValue = (dateVal) => {
+        if (!dateVal) return '';
+        if (typeof dateVal === 'string') {
+            const match = dateVal.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (match) return match[1];
+        }
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return '';
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     const handleNewContract = () => {
         setEditingContract(null);
         setOcrResultCard(null);
@@ -524,9 +548,9 @@ const Contracts = () => {
             },
             dailyRate: contract.dailyRate,
             contractDays: contract.contractDays,
-            startDate: contract.startDate,
+            startDate: toDateInputValue(contract.startDate),
             notes: contract.notes || '',
-            devicePin: contract.plainPin || '',
+            devicePin: contract.plainPin || ((contract.customerPhone || '').replace(/\D/g, '').slice(-4)) || ((contract.customerDocument || '').replace(/\D/g, '').slice(-4)) || '1234',
             freeDaysLimit: contract.freeDaysLimit || 4,
             freeDayPolicy: contract.freeDayPolicy || 'FLEXIBLE',
             fixedFreeDayOfWeek: contract.fixedFreeDayOfWeek ?? 0,
@@ -1258,6 +1282,12 @@ const Contracts = () => {
                                     >
                                         {t(`common.${contract.status.toLowerCase()}`, contract.status)}
                                     </span>
+                                    <span
+                                        className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200"
+                                        title="PIN de acceso"
+                                    >
+                                        PIN: {contract.plainPin || ((contract.customerPhone || '').replace(/\D/g, '').slice(-4)) || '----'}
+                                    </span>
                                 </div>
                                 <div className="action-menu-container" onClick={(e) => e.stopPropagation()}>
                                     <button
@@ -1953,10 +1983,10 @@ const Contracts = () => {
                                                         {(() => {
                                                             const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
                                                             const devName = dev?.name || dev?.deviceName || formData.deviceId;
-                                                            const displayPin = formData.devicePin || (editingContract?.plainPin || (editingContract?.devicePin ? '••••' : '----'));
+                                                            const displayPin = formData.devicePin || editingContract?.plainPin || ((editingContract?.customerPhone || '').replace(/\D/g, '').slice(-4)) || '----';
                                                             return devName
                                                                 ? `Moto: ${devName} • PIN: ${displayPin}`
-                                                                : 'Seleccionar vehículo, fecha y PIN de acceso';
+                                                                : `PIN: ${displayPin} • Seleccionar vehículo y fecha`;
                                                         })()}
                                                     </span>
                                                 </div>
@@ -1996,8 +2026,8 @@ const Contracts = () => {
                                                     <div className="wa-profile-value-wrap">
                                                         <input
                                                             type="date"
-                                                            className="wa-profile-date-input font-mono"
-                                                            value={formData.startDate}
+                                                            className="wa-profile-date-input font-mono font-bold"
+                                                            value={toDateInputValue(formData.startDate || editingContract?.startDate)}
                                                             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                                             required
                                                             disabled={editingContract}
@@ -2013,11 +2043,11 @@ const Contracts = () => {
                                                     <div className="wa-profile-value-wrap">
                                                         <input
                                                             type="text"
-                                                            value={formData.devicePin}
+                                                            value={formData.devicePin || (editingContract?.plainPin || ((editingContract?.customerPhone || '').replace(/\D/g, '').slice(-4)) || '')}
                                                             onChange={(e) => setFormData({ ...formData, devicePin: e.target.value })}
-                                                            placeholder={editingContract?.devicePin && !editingContract?.plainPin ? "••••" : "----"}
+                                                            placeholder="1234"
                                                             maxLength="4"
-                                                            className="wa-profile-pin-input font-mono"
+                                                            className="wa-profile-pin-input font-mono font-bold"
                                                             required={!editingContract}
                                                         />
                                                     </div>

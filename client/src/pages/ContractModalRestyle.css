@@ -807,6 +807,13 @@
     color: #0F172A !important;
 }
 
+.wa-profile-date-input:disabled {
+    color: #0F172A !important;
+    -webkit-text-fill-color: #0F172A !important;
+    opacity: 1 !important;
+    cursor: default;
+}
+
 .wa-profile-select-type-left {
     border: none !important;
     background: transparent !important;
