@@ -70,7 +70,15 @@ app.use('/api', async (req, res) => {
 });
 
 // Serve static assets for the custom payment page
-app.use('/js', express.static(path.join(__dirname, '../../client/js')));
+app.use('/js', express.static(path.join(__dirname, '../../client/js'), {
+    etag: false,
+    maxAge: 0,
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+}));
 app.use('/css', express.static(path.join(__dirname, '../../client/css')));
 app.use(express.static(path.join(__dirname, '../../dist')));
 

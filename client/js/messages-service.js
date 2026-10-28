@@ -61,6 +61,22 @@ const MESSAGES = {
         PHONE_PLACEHOLDER: 'Ingresa tu número Nequi',
         PAYMENT_HISTORY: 'Historial de Pagos',
         NO_HISTORY: 'No hay historial de pagos'
+    },
+    PAYMENT_METHODS: {
+        QR: {
+            BUTTON: 'Generar código QR Bancolombia / Nequi',
+            TITLE: 'Pago con Código QR',
+            INSTRUCTIONS: 'Haz clic en "Generar código QR" para obtener el código QR y escanearlo desde la app de Bancolombia o Nequi.',
+            GENERATING: 'Generando código QR...',
+            SCAN_HINT: 'Escanea el código QR con Bancolombia o Nequi'
+        },
+        NEQUI: {
+            BUTTON: 'Pagar con tu cuenta Nequi',
+            TITLE: 'Cómo pagar',
+            INSTRUCTIONS: 'Después de hacer clic en "Pagar", completa tu transacción en el centro de notificaciones de Nequi.',
+            REQUESTING: 'Solicitando pago a Nequi...',
+            WAITING: 'Por favor acepta la notificación en tu celular...'
+        }
     }
 };
 

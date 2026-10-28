@@ -47,7 +47,7 @@ export const Templates = {
                     <tr>
                         <th>Día</th>
                         <th>Cantidad</th>
-                        <th>Nequi</th>
+                        <th>Fecha / Hora</th>
                         <th>Estado</th>
                     </tr>
                 </thead>
