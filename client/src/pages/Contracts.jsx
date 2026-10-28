@@ -110,6 +110,7 @@ const Contracts = () => {
         }));
     };
 
+    const [showFinancialBreakdown, setShowFinancialBreakdown] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [fabPortalElement, setFabPortalElement] = useState(null);
     const tarjetaInputRef = useRef(null);
@@ -246,7 +247,17 @@ const Contracts = () => {
                 if (savedDraft) {
                     const parsed = JSON.parse(savedDraft);
                     if (parsed?.formData) {
-                        setFormData(parsed.formData);
+                        const rawForm = parsed.formData;
+                        if (!rawForm.devicePin && parsed.editingContract) {
+                            const ec = parsed.editingContract;
+                            rawForm.devicePin = ec.plainPin || ((ec.customerPhone || '').replace(/\D/g, '').slice(-4)) || ((ec.customerDocument || '').replace(/\D/g, '').slice(-4)) || '1234';
+                        }
+                        if (rawForm.startDate) {
+                            rawForm.startDate = toDateInputValue(rawForm.startDate);
+                        } else if (parsed.editingContract?.startDate) {
+                            rawForm.startDate = toDateInputValue(parsed.editingContract.startDate);
+                        }
+                        setFormData(rawForm);
                     }
                     if (parsed?.editingContract) {
                         setEditingContract(parsed.editingContract);
@@ -392,6 +403,20 @@ const Contracts = () => {
         return { type: 'CC', number: trimmed };
     };
 
+    const toDateInputValue = (dateVal) => {
+        if (!dateVal) return '';
+        if (typeof dateVal === 'string') {
+            const match = dateVal.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (match) return match[1];
+        }
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return '';
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     const handleNewContract = () => {
         setEditingContract(null);
         setOcrResultCard(null);
@@ -400,7 +425,7 @@ const Contracts = () => {
         setOpenSections({
             device: false,
             customer: false,
-            financial: false,
+            financial: true,
             advanced: false
         });
         const defaults = companySettings?.contractDefaults || {};
@@ -464,7 +489,7 @@ const Contracts = () => {
         setOpenSections({
             device: false,
             customer: false,
-            financial: false,
+            financial: true,
             advanced: false
         });
         const parsedDoc = parseCustomerDocument(contract.customerDocument || '');
@@ -523,9 +548,9 @@ const Contracts = () => {
             },
             dailyRate: contract.dailyRate,
             contractDays: contract.contractDays,
-            startDate: contract.startDate,
+            startDate: toDateInputValue(contract.startDate),
             notes: contract.notes || '',
-            devicePin: '',
+            devicePin: contract.plainPin || ((contract.customerPhone || '').replace(/\D/g, '').slice(-4)) || ((contract.customerDocument || '').replace(/\D/g, '').slice(-4)) || '1234',
             freeDaysLimit: contract.freeDaysLimit || 4,
             freeDayPolicy: contract.freeDayPolicy || 'FLEXIBLE',
             fixedFreeDayOfWeek: contract.fixedFreeDayOfWeek ?? 0,
@@ -1257,6 +1282,12 @@ const Contracts = () => {
                                     >
                                         {t(`common.${contract.status.toLowerCase()}`, contract.status)}
                                     </span>
+                                    <span
+                                        className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200"
+                                        title="PIN de acceso"
+                                    >
+                                        PIN: {contract.plainPin || ((contract.customerPhone || '').replace(/\D/g, '').slice(-4)) || '----'}
+                                    </span>
                                 </div>
                                 <div className="action-menu-container" onClick={(e) => e.stopPropagation()}>
                                     <button
@@ -1477,12 +1508,9 @@ const Contracts = () => {
                                                 tabIndex={0}
                                             >
                                                 <div className="btn-ocr-left">
-                                                    <span className="btn-ocr-icon btn-ocr-icon--attached">
-                                                        <Check size={14} strokeWidth={2.5} />
-                                                    </span>
                                                     <div className="btn-ocr-text-group">
                                                         <span className="btn-ocr-label">{tp?.placa ? `Tarjeta: ${tp.placa}` : 'Tarjeta Propiedad'}</span>
-                                                        <span className="btn-ocr-subtext">✓ Adjunta · Clic para ver</span>
+                                                        <span className="btn-ocr-subtext">✓</span>
                                                     </div>
                                                 </div>
                                                 <div className="btn-ocr-action-group">
@@ -1533,12 +1561,9 @@ const Contracts = () => {
                                                 tabIndex={0}
                                             >
                                                 <div className="btn-ocr-left">
-                                                    <span className="btn-ocr-icon btn-ocr-icon--attached">
-                                                        <Check size={14} strokeWidth={2.5} />
-                                                    </span>
                                                     <div className="btn-ocr-text-group">
                                                         <span className="btn-ocr-label">{cd?.documentNumber ? `Cédula: ${cd.documentNumber}` : 'Cédula / PPT'}</span>
-                                                        <span className="btn-ocr-subtext">✓ Adjunta · Clic para ver</span>
+                                                        <span className="btn-ocr-subtext">✓</span>
                                                     </div>
                                                 </div>
                                                 <div className="btn-ocr-action-group">
@@ -1589,12 +1614,9 @@ const Contracts = () => {
                                                 tabIndex={0}
                                             >
                                                 <div className="btn-ocr-left">
-                                                    <span className="btn-ocr-icon btn-ocr-icon--attached">
-                                                        <Check size={14} strokeWidth={2.5} />
-                                                    </span>
                                                     <div className="btn-ocr-text-group">
                                                         <span className="btn-ocr-label">{st?.numeroPoliza ? `SOAT: ${st.numeroPoliza}` : 'Póliza SOAT'}</span>
-                                                        <span className="btn-ocr-subtext">✓ Adjunta · Clic para ver</span>
+                                                        <span className="btn-ocr-subtext">✓</span>
                                                     </div>
                                                 </div>
                                                 <div className="btn-ocr-action-group">
@@ -1625,7 +1647,7 @@ const Contracts = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                className={`btn-ocr-capture mb-2 ${ocrLoadingCategory === 'soat' ? 'active-scanning' : ''}`}
+                                                className={`btn-ocr-capture ${ocrLoadingCategory === 'soat' ? 'active-scanning' : ''}`}
                                                 onClick={() => handleOpenAttachSheet('soat')}
                                                 disabled={Boolean(ocrLoadingCategory)}
                                                 title="Subir SOAT (PDF o foto)"
@@ -1869,64 +1891,74 @@ const Contracts = () => {
                                                 {/* Sub-tarjeta: Desglose Financiero (Fórmula Moto) */}
                                                 {contractFinancials?.isValid && contractFinancials.data && (
                                                     <div className="wa-financial-summary-box">
-                                                        <div className="wa-financial-header">
+                                                        <button
+                                                            type="button"
+                                                            className={`wa-financial-header ${showFinancialBreakdown ? 'is-open' : ''}`}
+                                                            onClick={() => setShowFinancialBreakdown(prev => !prev)}
+                                                            aria-expanded={showFinancialBreakdown}
+                                                        >
                                                             <span className="wa-financial-badge">
                                                                 <Sparkles size={13} /> Desglose Financiero
                                                             </span>
-                                                            <span className="wa-financial-ea-tag">
-                                                                E.A. {contractFinancials.data.eaCalculada ? `${(contractFinancials.data.eaCalculada * 100).toFixed(1)}%` : '29.0%'}
-                                                                {contractFinancials.data.cumpleObjetivo ? ' ✓' : ''}
-                                                            </span>
-                                                        </div>
+                                                            <div className="wa-financial-header-right">
+                                                                <span className="wa-financial-ea-tag">
+                                                                    E.A. {contractFinancials.data.eaCalculada ? `${(contractFinancials.data.eaCalculada * 100).toFixed(1)}%` : '29.0%'}
+                                                                    {contractFinancials.data.cumpleObjetivo ? ' ✓' : ''}
+                                                                </span>
+                                                                <ChevronDown size={14} className={`wa-financial-chevron transition-transform duration-200 ${showFinancialBreakdown ? 'rotate-180' : ''}`} />
+                                                            </div>
+                                                        </button>
 
-                                                        <div className="wa-financial-rows">
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">Precio Moto (antes IVA):</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.precioAntesIVA, false)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">+ IVA (19%):</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.valorIVA, false)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">+ Gastos Fijos (Settings):</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.gastos, false)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-divider" />
-                                                            <div className="wa-fin-item wa-fin-highlight">
-                                                                <span className="wa-fin-label">Total Operación:</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.totalOperacion, false)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-item">
-                                                                <span className="wa-fin-label">Saldo Financiable:</span>
-                                                                <span className="wa-fin-val font-mono">
-                                                                    {formatCurrencyCOP(contractFinancials.data.saldoFinanciable, false)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="wa-fin-divider" />
-                                                            <div className="wa-fin-cuotas-grid">
-                                                                <div className="wa-fin-cuota-pill">
-                                                                    <span className="wa-fin-cuota-name">Cuota Fin. (50%)</span>
-                                                                    <span className="wa-fin-cuota-amount font-mono">
-                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaFinanciera, false)}/día
+                                                        {showFinancialBreakdown && (
+                                                            <div className="wa-financial-rows">
+                                                                <div className="wa-fin-item">
+                                                                    <span className="wa-fin-label">Precio Moto (antes IVA):</span>
+                                                                    <span className="wa-fin-val font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.precioAntesIVA, false)}
                                                                     </span>
                                                                 </div>
-                                                                <div className="wa-fin-cuota-pill">
-                                                                    <span className="wa-fin-cuota-name">Cuota Cloud (50%)</span>
-                                                                    <span className="wa-fin-cuota-amount font-mono">
-                                                                        {formatCurrencyCOP(contractFinancials.data.cuotaCloud, false)}/día
+                                                                <div className="wa-fin-item">
+                                                                    <span className="wa-fin-label">+ IVA (19%):</span>
+                                                                    <span className="wa-fin-val font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.valorIVA, false)}
                                                                     </span>
                                                                 </div>
+                                                                <div className="wa-fin-item">
+                                                                    <span className="wa-fin-label">+ Gastos Fijos (Settings):</span>
+                                                                    <span className="wa-fin-val font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.gastos, false)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="wa-fin-divider" />
+                                                                <div className="wa-fin-item wa-fin-highlight">
+                                                                    <span className="wa-fin-label">Total Operación:</span>
+                                                                    <span className="wa-fin-val font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.totalOperacion, false)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="wa-fin-item">
+                                                                    <span className="wa-fin-label">Saldo Financiable:</span>
+                                                                    <span className="wa-fin-val font-mono">
+                                                                        {formatCurrencyCOP(contractFinancials.data.saldoFinanciable, false)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="wa-fin-divider" />
+                                                                <div className="wa-fin-cuotas-grid">
+                                                                    <div className="wa-fin-cuota-pill">
+                                                                        <span className="wa-fin-cuota-name">Cuota Fin. (50%)</span>
+                                                                        <span className="wa-fin-cuota-amount font-mono">
+                                                                            {formatCurrencyCOP(contractFinancials.data.cuotaFinanciera, false)}/día
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="wa-fin-cuota-pill">
+                                                                        <span className="wa-fin-cuota-name">Cuota Cloud (50%)</span>
+                                                                        <span className="wa-fin-cuota-amount font-mono">
+                                                                            {formatCurrencyCOP(contractFinancials.data.cuotaCloud, false)}/día
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </>
@@ -1951,9 +1983,10 @@ const Contracts = () => {
                                                         {(() => {
                                                             const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
                                                             const devName = dev?.name || dev?.deviceName || formData.deviceId;
+                                                            const displayPin = formData.devicePin || editingContract?.plainPin || ((editingContract?.customerPhone || '').replace(/\D/g, '').slice(-4)) || '----';
                                                             return devName
-                                                                ? `Moto: ${devName} • PIN: ${formData.devicePin || '----'}`
-                                                                : 'Seleccionar vehículo, fecha y PIN de acceso';
+                                                                ? `Moto: ${devName} • PIN: ${displayPin}`
+                                                                : `PIN: ${displayPin} • Seleccionar vehículo y fecha`;
                                                         })()}
                                                     </span>
                                                 </div>
@@ -1993,8 +2026,8 @@ const Contracts = () => {
                                                     <div className="wa-profile-value-wrap">
                                                         <input
                                                             type="date"
-                                                            className="wa-profile-date-input font-mono"
-                                                            value={formData.startDate}
+                                                            className="wa-profile-date-input font-mono font-bold"
+                                                            value={toDateInputValue(formData.startDate || editingContract?.startDate)}
                                                             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                                             required
                                                             disabled={editingContract}
@@ -2010,11 +2043,11 @@ const Contracts = () => {
                                                     <div className="wa-profile-value-wrap">
                                                         <input
                                                             type="text"
-                                                            value={formData.devicePin}
+                                                            value={formData.devicePin || (editingContract?.plainPin || ((editingContract?.customerPhone || '').replace(/\D/g, '').slice(-4)) || '')}
                                                             onChange={(e) => setFormData({ ...formData, devicePin: e.target.value })}
-                                                            placeholder="----"
+                                                            placeholder="1234"
                                                             maxLength="4"
-                                                            className="wa-profile-pin-input font-mono"
+                                                            className="wa-profile-pin-input font-mono font-bold"
                                                             required={!editingContract}
                                                         />
                                                     </div>

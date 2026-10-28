@@ -53,6 +53,8 @@ export async function getCompanyBranding(deviceName) {
     }
 }
 
+import settingRepository from '../repositories/settingRepository.js';
+
 let cachedTemplate = null;
 
 export async function injectBrandingIntoHTML(htmlPath, branding, deviceName = '') {
@@ -73,6 +75,38 @@ export async function injectBrandingIntoHTML(htmlPath, branding, deviceName = ''
         html = html.replace(/{{COMPANY_NAME}}/g, displayName);
         // Replace all instances of company logo placeholder
         html = html.replace(/{{COMPANY_LOGO}}/g, logo);
+
+        // Build status catalog for pre-injection (zero extra HTTP requests)
+        let statusMap = {};
+        try {
+            const allConfigs = await settingRepository.getAllStatusConfigs();
+            Object.entries(allConfigs).forEach(([k, cfg]) => {
+                const item = {
+                    badgeLabel: cfg.badgeLabel || cfg.label || k,
+                    color: cfg.color || '#6b7280',
+                    bg: cfg.bg || 'transparent'
+                };
+                statusMap[k] = item;
+                if (cfg.badgeLabel && cfg.badgeLabel.toUpperCase() !== k.toUpperCase()) {
+                    statusMap[cfg.badgeLabel.toUpperCase()] = item;
+                }
+            });
+        } catch (err) {
+            console.error('Error getting status configs for HTML injection:', err);
+        }
+
+        const initialData = {
+            deviceId: deviceName,
+            branding: { displayName, logo },
+            statusMap
+        };
+
+        const injectedScript = `<script id="pb-injected-data">window.__INITIAL_DATA__ = ${JSON.stringify(initialData)};</script>`;
+        if (html.includes('</head>')) {
+            html = html.replace('</head>', `${injectedScript}\n</head>`);
+        } else {
+            html = `${injectedScript}\n${html}`;
+        }
 
         return html;
     } catch (error) {

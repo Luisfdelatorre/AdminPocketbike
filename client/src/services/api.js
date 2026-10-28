@@ -209,10 +209,21 @@ export const updateOcrTemplates = (data) => api.put('/settings/ocr-templates', d
 export const resetOcrTemplates = () => api.post('/settings/ocr-templates/reset');
 
 // --- SSE ---
-export const createSSEConnection = (clientId) => {
+export const createSSEConnection = (clientId, companyId = null) => {
     const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('adminToken');
+    const authUserStr = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user');
+    let effectiveCompanyId = companyId;
+    if (!effectiveCompanyId && authUserStr) {
+        try {
+            const authUser = JSON.parse(authUserStr);
+            effectiveCompanyId = authUser.companyId || null;
+        } catch (e) {}
+    }
     const url = new URL(`${window.location.origin}${API_URL}/sse/subscribe`);
     url.searchParams.append('clientId', clientId);
+    if (effectiveCompanyId) {
+        url.searchParams.append('companyId', effectiveCompanyId);
+    }
     if (token) {
         url.searchParams.append('token', token);
     }

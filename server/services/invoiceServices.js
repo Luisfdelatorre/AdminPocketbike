@@ -66,22 +66,20 @@ const getInvoiceHistory = async (deviceIdName, month, year, contractId = null) =
             _id: 0
         }
     ).sort({ date: -1 }).limit(62).lean();
-    console.log('invoices', invoices);
-    const allConfigs = await settingRepository.getAllStatusConfigs();
 
-    invoices.forEach(invoice => enrichInvoice(invoice, allConfigs));
-
-    const clientAdjustmentTypes = {};
-    Object.entries(allConfigs).forEach(([k, cfg]) => {
-        if (cfg.hidden) return;
-        clientAdjustmentTypes[k] = {
-            badgeLabel: cfg.badgeLabel || cfg.label || k,
-            color: cfg.color || '#6b7280',
-            bg: cfg.bg || 'transparent'
+    // Mapear estrictamente a las 4 columnas que presenta la tabla
+    const history = invoices.map(inv => {
+        const isAdjustment = inv.dayType === 'ADJUSTMENT' || Boolean(inv.adjustmentType);
+        const effectiveType = isAdjustment ? (inv.adjustmentType || 'OFFICE') : inv.dayType;
+        return {
+            date: inv.date,
+            paidAmount: inv.paidAmount || 0,
+            paymentDate: inv.transaction?.finalized_at || null,
+            statusKey: String(effectiveType).toUpperCase()
         };
     });
 
-    return { invoices, month: targetMonth, year: targetYear, adjustmentTypes: clientAdjustmentTypes };
+    return { invoices: history, month: targetMonth, year: targetYear };
 };
 
 const MONTH_NAMES_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -116,48 +114,28 @@ const formatInvoiceId = (invoiceId) => {
     };
 };
 
-const enrichInvoice = (invoice, adjustmentTypes = {}) => {
+const enrichInvoice = (invoice) => {
     if (!invoice) return invoice;
-    const effectiveType = invoice.adjustmentType || (invoice.dayType === 'ADJUSTMENT' ? 'OFFICE' : invoice.dayType) || 'PENDING';
-    const keyUpper = String(effectiveType).toUpperCase();
-    const cfg = adjustmentTypes[keyUpper] || adjustmentTypes[effectiveType] || adjustmentTypes[invoice.dayType] || {};
-
-    const rawLabel = cfg.badgeLabel || cfg.label || invoice.dayType || '';
-    const badgeLabel = rawLabel ? String(rawLabel).trim().toUpperCase() : invoice.dayType;
-    const isPayable = (invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') && !invoice.paid;
-    const isPaidOrFree = invoice.dayType === 'PAID' || invoice.dayType === 'FREE';
-
-    const statusClass = `status-badge--${String(effectiveType).toLowerCase()}`;
+    const isAdjustment = invoice.dayType === 'ADJUSTMENT' || Boolean(invoice.adjustmentType);
+    const effectiveType = isAdjustment ? (invoice.adjustmentType || 'OFFICE') : invoice.dayType;
     const idDisplay = formatInvoiceId(invoice.invoiceId);
 
-    invoice.adjustmentType = effectiveType;
-    invoice.status = badgeLabel;
-    invoice.badgeLabel = badgeLabel;
-    invoice.label = badgeLabel;
-    invoice.statusClass = statusClass;
-    invoice.color = cfg.color || '#6b7280';
-    invoice.bg = cfg.bg || 'transparent';
+    invoice.statusKey = String(effectiveType).toUpperCase();
+    invoice.adjustmentType = isAdjustment ? effectiveType : null;
     invoice.paymentDate = invoice.transaction?.finalized_at || null;
     invoice.transactionId = invoice.transaction?.id || null;
-    invoice.isPayable = Boolean(isPayable);
-    invoice.isPaidOrFree = Boolean(isPaidOrFree);
+    invoice.isPayable = Boolean((invoice.dayType === 'PENDING' || invoice.dayType === 'DEBT') && !invoice.paid);
+    invoice.isPaidOrFree = Boolean(invoice.dayType === 'PAID' || invoice.dayType === 'FREE');
     invoice.formattedInvoiceId = idDisplay.formatted;
     invoice.invoiceIdMain = idDisplay.main;
     invoice.invoiceIdSub = idDisplay.sub;
-    invoice.badge = {
-        label: badgeLabel,
-        statusClass,
-        color: cfg.color || '#6b7280',
-        bg: cfg.bg || 'transparent'
-    };
 
     return invoice;
 };
 
 const enrichInvoices = async (invoices, cachedConfigs = null) => {
     if (!Array.isArray(invoices) || invoices.length === 0) return invoices;
-    const allConfigs = cachedConfigs || await settingRepository.getAllStatusConfigs();
-    invoices.forEach(inv => enrichInvoice(inv, allConfigs));
+    invoices.forEach(inv => enrichInvoice(inv));
     return invoices;
 };
 

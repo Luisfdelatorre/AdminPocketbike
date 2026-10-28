@@ -306,7 +306,11 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
 
             const adjTypeUpper = String(this.adjustmentType || '').toUpperCase();
-            const isFreeAdj = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'NOVEDAD', 'TALLER', 'MANTENIMIENTO', 'REPARACION'].includes(adjTypeUpper);
+            const isFreeAdj = Boolean(payment.isFree)
+                || payment.amount === 0
+                || ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'NOVEDAD', 'TALLER', 'MANTENIMIENTO', 'REPARACION', 'INCUMPLIMIENTO', 'NO_PAGO'].includes(adjTypeUpper)
+                || adjTypeUpper.includes('INCUMPLIMIENTO')
+                || adjTypeUpper.includes('NO_PAGO');
 
             if (isFreeAdj) {
                 this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;
@@ -315,7 +319,7 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             } else {
                 this.dayType = INVOICE_DAYTYPE.PAID;
                 this.paidAmount = payment.amount || 0;
-                this.amount = payment.amount || this.amount;
+                this.amount = typeof payment.amount === 'number' ? payment.amount : this.amount;
             }
 
             this.transaction.id = payment._id;
