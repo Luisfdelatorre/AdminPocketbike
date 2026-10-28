@@ -13,7 +13,8 @@ export const useSSE = () => {
 };
 
 export const SSEProvider = ({ children }) => {
-    const { token, isAuthenticated } = useAuth();
+    const { token, user, isAuthenticated } = useAuth();
+    const activeCompanyId = user?.companyId;
     const eventSourceRef = useRef(null);
     const subscribersRef = useRef({});
     const [status, setStatus] = useState('disconnected');
@@ -28,7 +29,7 @@ export const SSEProvider = ({ children }) => {
 
         setStatus('connecting');
         const clientId = `global-${Math.random().toString(36).substr(2, 9)}`;
-        const eventSource = createSSEConnection(clientId);
+        const eventSource = createSSEConnection(clientId, activeCompanyId);
 
         eventSource.addEventListener('connected', () => {
             console.log('✅ Global SSE Connected');
@@ -72,7 +73,7 @@ export const SSEProvider = ({ children }) => {
         });
 
         eventSourceRef.current = eventSource;
-    }, [token]);
+    }, [token, activeCompanyId]);
 
     useEffect(() => {
         if (isAuthenticated()) {
@@ -89,7 +90,7 @@ export const SSEProvider = ({ children }) => {
                 eventSourceRef.current = null;
             }
         };
-    }, [token, isAuthenticated, connect]);
+    }, [token, activeCompanyId, isAuthenticated, connect]);
 
     const subscribe = useCallback((eventName, callback) => {
         if (!subscribersRef.current[eventName]) {

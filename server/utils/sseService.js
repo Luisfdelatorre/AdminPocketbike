@@ -76,10 +76,8 @@ export class SSEService {
                 const clientCompanyId = clientEntry?.metadata?.companyId;
                 const clientRole = clientEntry?.metadata?.role;
 
-                // Global admins or clients without company constraints receive all events
-                const isGlobalAdmin = !clientCompanyId || clientRole === 'admin' || clientRole === 'super_admin';
-
-                if (targetCompanyId && !isGlobalAdmin) {
+                // Multi-tenant isolation: If event targets a specific company and client has an active company:
+                if (targetCompanyId && clientCompanyId && clientCompanyId !== 'all') {
                     if (String(clientCompanyId) !== String(targetCompanyId)) {
                         return; // Skip clients from other companies
                     }

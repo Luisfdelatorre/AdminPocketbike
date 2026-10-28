@@ -119,6 +119,10 @@ const contractSchema = new mongoose.Schema({
         type: String, // Hashed PIN for payment app authentication
         required: true,
     },
+    plainPin: {
+        type: String, // Plaintext PIN for admin display
+        default: null,
+    },
     // Rules
     freeDaysLimit: {
         type: Number,

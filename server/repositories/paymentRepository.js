@@ -419,7 +419,10 @@ export class PaymentRepository {
             paymentReference: p.paymentReference || p.reference,
             invoiceId: p.invoiceId || p.unpaidInvoiceId,
             paymentId: p.paymentId || p._id,
-            status: p.type === PAYMENT_TYPE.FREE ? 'Free' : (p.status || (p.response === 'APPROVED' ? 'APPROVED' : 'PENDING')), // Fallback if status missing
+            adjustmentType: p.adjustmentType || null,
+            status: (p.amount === 0 || p.isFree || p.type === PAYMENT_TYPE.FREE)
+                ? (p.adjustmentType || 'ADJUSTMENT')
+                : (p.status || (p.response === 'APPROVED' ? 'APPROVED' : 'PENDING')),
             deviceId: p.deviceIdName || p.deviceId // Prefer name, fallback to ID
         }));
 
