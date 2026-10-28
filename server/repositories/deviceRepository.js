@@ -181,12 +181,12 @@ class DeviceRepository {
         try {
             const device = await Device.findOne(
                 { name: deviceIdName },
-                'name gpsId imei telemetry companyId hasActiveContract'
+                'name gpsId imei telemetry companyId hasActiveContract status'
             ).lean();
 
             if (!device) {
                 logger.warn(`[DEVICE STATUS] Device not found for name: ${deviceIdName}`);
-                return { deviceIdName, engineOn: null, cutOff: null };
+                return { deviceIdName, engineOn: null, cutOff: null, online: false };
             }
 
             const tel = device.telemetry || {};
@@ -194,25 +194,13 @@ class DeviceRepository {
             const cutOff = tel.cutOff ?? false;
             const batteryLevel = tel.batteryLevel ?? null;
             const lastUpdate = tel.lastUpdate || null;
+            const online = device.status === 'online' || (lastUpdate ? (Date.now() - new Date(lastUpdate).getTime() < 10 * 60 * 1000) : false);
 
             return {
-                name: device.name,
-                gpsId: device.gpsId,
-                telemetry: {
-                    ignition,
-                    lastUpdate,
-                    cutOff,
-                    batteryLevel,
-                    powerCut: Boolean(tel.powerCut),
-                    alarm: tel.alarm || null,
-                    motion: Boolean(tel.motion),
-                    queued: Boolean(tel.queued)
-                },
                 ignition,
-                lastUpdate,
                 cutOff,
                 batteryLevel,
-                hasActiveContract: device.hasActiveContract,
+                online,
             };
         } catch (error) {
             logger.error(`Error getting device status for ${deviceIdName}:`, error);

@@ -52,20 +52,19 @@ export class PaymentService {
 
         // Run independent database queries in parallel to drastically reduce TTFB/latency
         const [
-            latestPaid,
             oldestUnpaidInvoice,
             pendingPayment,
-            paidInvoicesCount
+            telemetry
         ] = await Promise.all([
-            invoiceRepository.findLastPaid(deviceIdName),
             invoiceRepository.findLastUnPaid(deviceIdName),
             paymentRepository.findPendingPayment(deviceIdName, pendingTimeout),
-            Invoice.countDocuments({ deviceIdName, paid: true })
+            deviceRepository.getDeviceStatusByName(deviceIdName)
         ]);
 
         const now = dayjs();
-        const isUpToDate = companyService.isDeviceUpToDate(company, latestPaid, now);
-        const isOverdue = !isUpToDate;
+        const isOverdue = oldestUnpaidInvoice
+            ? companyService.isInvoiceDue(company, oldestUnpaidInvoice.date, now)
+            : false;
 
         let policy = contract.freeDayPolicy;
         if (!policy && contract.companyId && company) {
@@ -80,15 +79,14 @@ export class PaymentService {
         return {
             deviceIdName,
             customerPhone: contract.customerPhone,
-            dailyRate: amount, // Keep user's mapped value
             amount,
-            multiplier,
             pendingInvoiceDate: oldestUnpaidInvoice?.date,
             // freeDaysAvailable: monthlyFreeDaysAvailable,
             freeDayPolicy: policy, // Ultimate fallback 
             isOverdue,
-            cuotasPagadas: paidInvoicesCount,
+            cuotasPagadas: contract.paidDays ?? 0,
             cuotasTotal: contract.contractDays || 500,
+            ...(telemetry || {}),
             paymentMethod: company?.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH',
             pendingPayment: pendingPayment ? pendingPayment.getPendingFormat() : null
         };

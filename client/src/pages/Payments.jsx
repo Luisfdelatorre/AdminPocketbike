@@ -363,7 +363,11 @@ const Payments = () => {
                                             <td className="date"><DateDisplay dateString={payment.createdAt} /></td>
                                             <td className="amount"><Amount value={payment.amount} /></td>
                                             <td>
-                                                <StatusBadge status={payment.status} type={payment.type} />
+                                                <StatusBadge 
+                                                    status={payment.amount === 0 && (payment.adjustmentType || payment.type === 'ADJUSTMENT') ? (payment.adjustmentType || 'ADJUSTMENT') : payment.status} 
+                                                    type={payment.type} 
+                                                    adjustmentType={payment.adjustmentType} 
+                                                />
                                             </td>
                                             <td className="payment-method">
                                                 {formatInvoiceId(payment.invoiceId || payment.unpaidInvoiceId || payment.paymentReference)}
