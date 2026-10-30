@@ -6,6 +6,7 @@
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pago a {{COMPANY_NAME}}</title>
+  <link rel="modulepreload" href="/assets/payment-app-Bch7Dtvy.js?v=4">
 
   <style>
     :root {
@@ -685,7 +686,7 @@
       opacity: 0;
       transition: opacity 0.25s ease, transform 0.25s ease;
       max-width: 320px;
-      max-height: 100px;
+      max-height: 50px;
       text-align: center;
       pointer-events: none;
     }
@@ -793,14 +794,76 @@
       0% {
         background-position: 200% 0;
       }
-
       100% {
         background-position: -200% 0;
       }
     }
+
+    /* History table classes */
+      .history-empty {
+        text-align: center;
+        padding: 16px;
+        color: #9ca3af;
+      }
+
+      .history-date {
+        font-weight: 400;
+        color: #374151;
+      }
+
+      .history-amount {
+        font-weight: 400;
+        color: #111827;
+        text-align: right;
+      }
+
+      .history-time-col {
+        text-align: center;
+      }
+
+      .history-time-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.2;
+      }
+
+      .history-time-date {
+        font-size: 11px;
+        font-weight: 400;
+        color: #1f2937;
+      }
+
+      .history-time-hour {
+        font-size: 10px;
+        color: #6b7280;
+      }
+
+      .history-time-empty {
+        color: #9ca3af;
+        font-size: 13px;
+      }
+
+      .history-status-col {
+        text-align: right;
+        padding-right: 8px;
+      }
+
+      .badge-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 10px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
   </style>
   <!-- Scripts -->
 
+  <script type="module" crossorigin src="/assets/payment-B8PS9XD4.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="stylesheet" crossorigin href="/assets/payment-Ci0zoWqn.css">
 </head>
 
@@ -832,22 +895,22 @@
 
         <div class="numeric-keypad" id="numericKeypad">
           <div class="keypad-row">
-            <button class="keypad-btn" data-val="1" disabled>1</button>
-            <button class="keypad-btn" data-val="2" disabled>2</button>
-            <button class="keypad-btn" data-val="3" disabled>3</button>
+            <button class="keypad-btn" data-val="1">1</button>
+            <button class="keypad-btn" data-val="2">2</button>
+            <button class="keypad-btn" data-val="3">3</button>
           </div>
           <div class="keypad-row">
-            <button class="keypad-btn" data-val="4" disabled>4</button>
-            <button class="keypad-btn" data-val="5" disabled>5</button>
-            <button class="keypad-btn" data-val="6" disabled>6</button>
+            <button class="keypad-btn" data-val="4">4</button>
+            <button class="keypad-btn" data-val="5">5</button>
+            <button class="keypad-btn" data-val="6">6</button>
           </div>
           <div class="keypad-row">
-            <button class="keypad-btn" data-val="7" disabled>7</button>
-            <button class="keypad-btn" data-val="8" disabled>8</button>
-            <button class="keypad-btn" data-val="9" disabled>9</button>
+            <button class="keypad-btn" data-val="7">7</button>
+            <button class="keypad-btn" data-val="8">8</button>
+            <button class="keypad-btn" data-val="9">9</button>
           </div>
           <div class="keypad-row">
-            <button class="keypad-btn backspace-btn" id="keypadClear" disabled>
+            <button class="keypad-btn backspace-btn" id="keypadClear">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -855,8 +918,8 @@
                 </path>
               </svg>
             </button>
-            <button class="keypad-btn" data-val="0" disabled>0</button>
-            <button class="keypad-btn backspace-btn" id="keypadBackspace" disabled>⌫</button>
+            <button class="keypad-btn" data-val="0">0</button>
+            <button class="keypad-btn backspace-btn" id="keypadBackspace">⌫</button>
           </div>
         </div>
         <div id="loginError" class="error-message"></div>
@@ -865,7 +928,9 @@
 
   </div>
   <!-- Toast Notification Container -->
-  <div id="toastContainer"></div>
+  <div id="toastContainer">
+    <div id="toastNotification" class="toast-notification"></div>
+  </div>
   <div id="paymentScreen" class="screen ">
     <div class="container">
       <div id="paymentSection" class="payment-section">
@@ -901,9 +966,13 @@
 
             </div>
           </div>
-          <div class="device-details-column" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
-            <span class="device-id" id="deviceDisplay" style="display: block; padding: 0; margin: 0; line-height: 1.1;">{{DEVICE_ID}}</span>
-            <span id="paymentDueDate" class="text-muted payment-date-style" style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;">- ---</span>
+          <div class="device-details-column"
+            style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
+            <span class="device-id" id="deviceDisplay"
+              style="display: block; padding: 0; margin: 0; line-height: 1.1;">{{DEVICE_ID}}</span>
+            <span id="paymentDueDate" class="text-muted payment-date-style"
+              style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;">-
+              ---</span>
           </div>
         </div>
 
@@ -911,7 +980,8 @@
           <span class="currency">$</span><span id="paymentAmount">35.000</span><span class="currency-code">COP</span>
         </div>
         <div class="cuotas-pill-badge" style="display: flex; justify-content: center; margin: -2px 0 14px 0;">
-          <span style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px;">
+          <span
+            style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px;">
             Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">500</span>
           </span>
         </div>
@@ -958,11 +1028,51 @@
   <script>
     (function () {
       try {
-        const token = localStorage.getItem('paymentAuthToken');
+        function decodeTokenDevice(tok) {
+          try {
+            if (!tok) return null;
+            const parts = tok.split('.');
+            if (parts.length < 2) return null;
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return payload.deviceIdName || null;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        const targetPlate = window.__INITIAL_DATA__?.deviceId || (function () {
+          const parts = window.location.pathname.split('/').filter(Boolean);
+          return parts.length >= 2 && parts[0] === 'p' ? parts[1] : null;
+        })();
+
+        let token = localStorage.getItem('paymentAuthToken');
+        if (token && targetPlate) {
+          const tokenDevice = decodeTokenDevice(token) || localStorage.getItem('paymentDeviceId');
+          if (tokenDevice && tokenDevice.toUpperCase() !== targetPlate.toUpperCase()) {
+            localStorage.removeItem('paymentAuthToken');
+            localStorage.removeItem('paymentDeviceId');
+            token = null;
+          }
+        }
+
         const paymentScreen = document.getElementById('paymentScreen');
         const loginScreen = document.getElementById('loginScreen');
         const paymentTitle = document.getElementById('paymentTitle');
         const paymentLogo = document.getElementById('paymentLogo');
+
+        // Apply server-injected branding synchronously at millisecond 0
+        const injectedBranding = window.__INITIAL_DATA__?.branding;
+        if (injectedBranding) {
+          if (paymentTitle) paymentTitle.textContent = `Pago a ${injectedBranding.displayName}`;
+          if (paymentLogo && injectedBranding.logo) paymentLogo.src = injectedBranding.logo;
+          localStorage.setItem('displayName', injectedBranding.displayName);
+          localStorage.setItem('companyLogo', injectedBranding.logo);
+        } else {
+          const cachedName = localStorage.getItem('displayName');
+          const cachedLogo = localStorage.getItem('companyLogo');
+          if (cachedName && paymentTitle) paymentTitle.textContent = `Pago a ${cachedName}`;
+          if (cachedLogo && paymentLogo) paymentLogo.src = cachedLogo;
+        }
 
         if (token) {
           if (paymentScreen) {
@@ -974,39 +1084,21 @@
             loginScreen.style.display = 'none';
           }
         } else {
-          (async function () {
-            try {
-              const response = await fetch('/api/v1/companies/branding');
-              const data = await response.json();
-              if (data.success) {
-                const paymentTitle = document.getElementById('paymentTitle');
-                const paymentLogo = document.getElementById('paymentLogo');
-                if (paymentTitle) paymentTitle.textContent = `Pago a ${data.data.displayName}`;
-                if (paymentLogo) paymentLogo.src = data.data.logo;
-              }
-            } catch (error) {
-              console.error('Error loading branding:', error);
-              const companyLogo = localStorage.getItem('companyLogo');
-              const displayName = localStorage.getItem('displayName');
-              const paymentTitle = document.getElementById('paymentTitle');
-              const paymentLogo = document.getElementById('paymentLogo');
-              if (displayName && paymentTitle) paymentTitle.textContent = `Pago a ${displayName}`;
-              if (companyLogo && paymentLogo) paymentLogo.src = companyLogo;
-            }
-          })();
+          if (paymentScreen) {
+            paymentScreen.classList.remove('active');
+            paymentScreen.style.display = 'none';
+          }
+          if (loginScreen) {
+            loginScreen.classList.add('active');
+            loginScreen.style.display = 'block';
+          }
         }
       } catch (err) {
         console.error('Error initializing payment page:', err);
       }
-
-      setTimeout(() => {
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = '/js/payment-app.js';
-        document.body.appendChild(script);
-      }, 0);
     })();
   </script>
+
 
 
 
