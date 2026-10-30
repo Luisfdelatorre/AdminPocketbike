@@ -3,6 +3,10 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import nodeFetch from 'node-fetch';
+
+// Garantiza fetch disponible en cualquier version de Node (Anaconda, etc.)
+const fetchFn = globalThis.fetch ?? nodeFetch;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +41,7 @@ app.use('/api', async (req, res) => {
             options.duplex = 'half';
         }
 
-        const fetchRes = await fetch(targetUrl, options);
+        const fetchRes = await fetchFn(targetUrl, options);
         res.status(fetchRes.status);
         fetchRes.headers.forEach((value, key) => {
             res.setHeader(key, value);
