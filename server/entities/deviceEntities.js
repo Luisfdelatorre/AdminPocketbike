@@ -11,19 +11,25 @@ export class DeviceUpdate {
         // Battery disconnection & critical alarm detection
         const rawAlarm = (p.attributes?.alarm || '').toString().toLowerCase();
 
+        // Direct boolean state from Traccar attributes (e.g. blocked or cutOff)
+        if (typeof p.attributes?.blocked === 'boolean') {
+            this.cutOff = p.attributes.blocked;
+        } else if (typeof p.attributes?.cutOff === 'boolean') {
+            this.cutOff = p.attributes.cutOff;
+        }
+
         if (protocol === 'gt06') {
             this.powerCut = rawAlarm.includes('powercut') || p.attributes?.charge === false;
             const status = p.attributes?.status ?? null;
             const result = (p.attributes?.result || '').trim().toLowerCase();
             // Protocol 'gt06' and others derive cutOff from command result text
-            if ((result.includes('cut off') || result.includes('cutoff'))
-                && (result.includes('success') || result.includes('already'))) {
+            if ((result.includes('cut off') || result.includes('cutoff') || result.includes('relay 1') || result.includes('relay,1'))
+                && (result.includes('success') || result.includes('already') || result.includes('ok'))) {
                 this.cutOff = true;
-            } else if ((result.includes('restore') || result.includes('resume') || result.includes('fuel recovery'))
-                && (result.includes('success') || result.includes('already'))) {
+            } else if ((result.includes('restore') || result.includes('resume') || result.includes('fuel recovery') || result.includes('relay 0') || result.includes('relay,0'))
+                && (result.includes('success') || result.includes('already') || result.includes('ok'))) {
                 this.cutOff = false;
             }
-
         }
 
         // Protocol 'h02' derives cutOff from status bitfield  
