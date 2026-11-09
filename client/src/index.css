@@ -1098,6 +1098,25 @@ h3.uppercase-title-ios {
    Standard Date Selector Component (Separated Style)
    Used in PaymentSummary, AdminDashboard, Reports, etc.
    ────────────────────────────────────────── */
+.summary-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: sticky;
+    top: -4px;
+    z-index: 30;
+    row-gap: 8px;
+    background: #ffffff;
+    padding: 6px 4px;
+    flex: 0 0 auto;
+    transition: box-shadow 0.2s ease;
+}
+
+.summary-header.is-stuck {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid #e2e8f0;
+}
+
 .date-selectors-group {
     display: inline-flex;
     align-items: center;
