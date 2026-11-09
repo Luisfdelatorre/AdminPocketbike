@@ -20,7 +20,8 @@ const MatrixPaymentSummary = ({
     filteredSummaryData,
     daysArray,
     isFutureSummaryDay,
-    renderEngineButton
+    renderEngineButton,
+    onDayClick
 }) => {
     // Vertical sum of totalPaid per day across visible devices
     const dailyTotals = daysArray.reduce((acc, day) => {
@@ -98,8 +99,15 @@ const MatrixPaymentSummary = ({
                                     {daysArray.map(day => {
                                         const dayData = item.days[day];
                                         const isEmptyFutureDay = !dayData && isFutureSummaryDay(day);
+                                        const hasInvoice = Boolean(dayData?.invoiceId || dayData);
                                         return (
-                                            <td key={day} className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}>
+                                            <td
+                                                key={day}
+                                                className={`bike-summary-day${isEmptyFutureDay ? ' empty-day' : ''}`}
+                                                onClick={() => onDayClick && onDayClick(item, day, dayData)}
+                                                style={{ cursor: 'pointer' }}
+                                                title={hasInvoice ? `Día ${day}: Clic para ajustar factura / pago` : `Día ${day}: Clic para adicionar factura`}
+                                            >
                                                 <DayCell dayData={dayData} isMobile={false} />
                                             </td>
                                         );

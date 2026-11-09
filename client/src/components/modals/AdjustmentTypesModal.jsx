@@ -240,7 +240,7 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
 
                 {(() => {
                     const visibleKeys = Object.keys(types).filter(k => !types[k]?.hidden);
-                    const adjustmentKeys = visibleKeys.filter(k => types[k]?.category === 'ADJUSTMENT' || (!types[k]?.category && !SYSTEM_STATUS_KEYS.includes(k)));
+                    const adjustmentKeys = visibleKeys.filter(k => types[k]?.category === 'ADJUSTMENT' || (!types[k]?.category && !SYSTEM_STATUS_KEYS.includes(k)) || k === 'FREE');
                     const statusKeys = visibleKeys.filter(k => types[k]?.category === 'STATUS' || (!types[k]?.category && SYSTEM_STATUS_KEYS.includes(k)));
                     return (
                         <>
@@ -368,7 +368,7 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
                                 if (item?.hidden) return false; // Hide internal backward-compatibility alias keys
                                 const isSystemStatus = SYSTEM_STATUS_KEYS.includes(key);
                                 if (filterCategory === 'statuses') return isSystemStatus;
-                                if (filterCategory === 'adjustments') return !isSystemStatus;
+                                if (filterCategory === 'adjustments') return !isSystemStatus || key === 'FREE';
                                 return true;
                             })
                             .map(([key, item]) => {

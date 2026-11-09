@@ -109,6 +109,7 @@ export const extractContractDocument = (data) => api.post('/contracts/extract-do
 
 // --- Invoices ---
 export const getAllInvoices = (params) => api.get('/invoices/all', { params });
+export const createInvoice = (data) => api.post('/invoices/create', data);
 
 export const exportInvoicesCSV = async (month, year) => {
     const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')

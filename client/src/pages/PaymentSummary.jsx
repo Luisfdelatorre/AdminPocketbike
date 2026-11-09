@@ -9,12 +9,15 @@ import MobileHeaderAction from '../components/MobileHeaderAction';
 import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
+import './Invoices.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import InvoiceAdjustmentModal from '../components/modals/InvoiceAdjustmentModal';
+import CreateDayInvoiceModal from '../components/modals/CreateDayInvoiceModal';
 
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
@@ -48,6 +51,41 @@ const PaymentSummary = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
+
+    // Modals for day pill action (adjustment if invoice exists, create day invoice if not)
+    const [adjustmentModal, setAdjustmentModal] = useState({ open: false, invoice: null });
+    const [createInvoiceModal, setCreateInvoiceModal] = useState({ open: false, deviceName: '', date: '', driverName: '' });
+
+    const handleDayClick = (item, day, dayData) => {
+        const monthStr = String(selectedMonth).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        const dateStr = `${selectedYear}-${monthStr}-${dayStr}`;
+        const deviceName = item.device?.name || item.device?.deviceId || '';
+
+        if (dayData) {
+            setAdjustmentModal({
+                open: true,
+                invoice: {
+                    invoiceId: dayData.invoiceId || dayData._id || `${deviceName}-${dateStr}`,
+                    _id: dayData.invoiceId || dayData._id || `${deviceName}-${dateStr}`,
+                    deviceIdName: deviceName,
+                    amount: dayData.amount !== undefined && dayData.amount !== null ? dayData.amount : 35000,
+                    date: dayData.date || dateStr,
+                    dayType: dayData.dayType,
+                    adjustmentType: dayData.adjustmentType,
+                    adjustmentReference: dayData.adjustmentReference,
+                    adjustmentComment: dayData.adjustmentComment
+                }
+            });
+        } else {
+            setCreateInvoiceModal({
+                open: true,
+                deviceName,
+                date: dateStr,
+                driverName: item.device?.customerName || item.device?.driverName || ''
+            });
+        }
+    };
 
     const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
     const [companies, setCompanies] = useState([]);
@@ -437,6 +475,7 @@ const PaymentSummary = () => {
                     handleEngineToggle={handleEngineToggle}
                     pendingCommands={pendingCommands}
                     getDeviceStatus={getDeviceStatus}
+                    onDayClick={handleDayClick}
                 />
             );
         }
@@ -454,11 +493,12 @@ const PaymentSummary = () => {
                 daysArray={daysArray}
                 isFutureSummaryDay={isFutureSummaryDay}
                 renderEngineButton={renderEngineButton}
+                onDayClick={handleDayClick}
             />
         );
     }, [
         isMobile, desktopView, filteredSummaryData, daysArray, currentDay,
-        loading, user, pendingCommands, matrixGeometry
+        loading, user, pendingCommands, matrixGeometry, handleDayClick
     ]);
 
     const autoOffButton = (
@@ -612,6 +652,23 @@ const PaymentSummary = () => {
                 </div>
             )}
 
+            {/* Modal para Ajuste / Pago Manual si existe la factura */}
+            <InvoiceAdjustmentModal
+                isOpen={adjustmentModal.open}
+                invoice={adjustmentModal.invoice}
+                onClose={() => setAdjustmentModal({ open: false, invoice: null })}
+                onSuccess={() => fetchData()}
+            />
+
+            {/* Modal para Crear Factura Diaria del Día Seleccionado */}
+            <CreateDayInvoiceModal
+                isOpen={createInvoiceModal.open}
+                deviceName={createInvoiceModal.deviceName}
+                date={createInvoiceModal.date}
+                driverName={createInvoiceModal.driverName}
+                onClose={() => setCreateInvoiceModal({ open: false, deviceName: '', date: '', driverName: '' })}
+                onSuccess={() => fetchData()}
+            />
 
         </div>
     );
