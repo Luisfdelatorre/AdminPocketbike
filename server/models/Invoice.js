@@ -274,6 +274,9 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.transaction.reference = payment.reference;
             this.transaction.finalized_at = payment.finalized_at;
             this.transaction.type = payment.type;
+            if (payment.adjustmentType) this.adjustmentType = payment.adjustmentType;
+            if (payment.adjustmentReference) this.adjustmentReference = payment.adjustmentReference;
+            if (payment.adjustmentComment || payment.note) this.adjustmentComment = payment.adjustmentComment || payment.note;
             break;
 
         case PAYMENT_TYPE.FREEPASS:
@@ -304,13 +307,11 @@ InvoiceSchema.methods.applyPayment = async function (payment) {
             this.paid = true;
             this.adjustmentType = payment.adjustmentType || payment.adjustmentReason || null;
             this.adjustmentReference = payment.adjustmentReference || payment.reference || '';
+            if (payment.adjustmentComment || payment.note) {
+                this.adjustmentComment = payment.adjustmentComment || payment.note;
+            }
 
-            const adjTypeUpper = String(this.adjustmentType || '').toUpperCase();
-            const isFreeAdj = Boolean(payment.isFree)
-                || payment.amount === 0
-                || ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'NOVEDAD', 'TALLER', 'MANTENIMIENTO', 'REPARACION', 'INCUMPLIMIENTO', 'NO_PAGO'].includes(adjTypeUpper)
-                || adjTypeUpper.includes('INCUMPLIMIENTO')
-                || adjTypeUpper.includes('NO_PAGO');
+            const isFreeAdj = Boolean(payment.isFree) || payment.amount === 0;
 
             if (isFreeAdj) {
                 this.dayType = INVOICE_DAYTYPE.ADJUSTMENT;

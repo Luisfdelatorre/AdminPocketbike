@@ -267,9 +267,9 @@ export class PaymentService {
         return { applied: modifiedCount };
     }
     async applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note }) {
-        const invoice = await Invoice.findOne({ _id: invoiceId, paid: false });
+        const invoice = await Invoice.findOne({ _id: invoiceId });
         if (!invoice) {
-            throw new Error('Invoice not found or already paid');
+            throw new Error('Invoice not found');
         }
         const deviceIdName = invoice.deviceIdName;
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
@@ -280,26 +280,37 @@ export class PaymentService {
         // Check dynamic adjustment config from database/settings
         const typesConfig = await settingRepository.getAdjustmentTypes();
         const typeCfg = typesConfig?.[adjustmentType] || typesConfig?.[String(adjustmentType).toUpperCase()];
-        const isFreeAdjustment = typeCfg
-            ? (typeCfg.isFree !== undefined ? typeCfg.isFree : (typeCfg.autoAmount === 0 || !typeCfg.isRealPayment))
-            : ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
+        const isFreeDay = ['FREE', 'GRATIS'].includes(String(adjustmentType).toUpperCase());
+        const isFreeAdjustment = isFreeDay
+            || (typeCfg
+                ? (typeCfg.isFree !== undefined ? typeCfg.isFree : (typeCfg.autoAmount === 0 || !typeCfg.isRealPayment))
+                : (Number(amount) === 0));
 
         const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
 
-        const payment = await paymentRepository.createManualPayment({
-            deviceIdName,
-            contract,
-            invoice,
-            companyId,
-            amount: paymentAmount,
-            adjustmentType,
-            adjustmentReference: adjustmentReference,
-            note,
-        });
-        // Attach adjustmentType + adjustmentReference + isFree so applyPayment and contract repo can persist them properly
-        payment.adjustmentType = adjustmentType;
-        payment.adjustmentReference = adjustmentReference;
-        payment.isFree = isFreeAdjustment;
+        let payment;
+        if (isFreeDay) {
+            payment = await paymentRepository.createFreePayment(deviceIdName, contract, invoice);
+            payment.adjustmentType = 'FREE';
+            payment.adjustmentReference = adjustmentReference || 'Día libre asignado manualmente';
+            payment.adjustmentComment = note || '';
+            payment.isFree = true;
+        } else {
+            payment = await paymentRepository.createManualPayment({
+                deviceIdName,
+                contract,
+                invoice,
+                companyId,
+                amount: paymentAmount,
+                adjustmentType,
+                adjustmentReference: adjustmentReference,
+                note,
+            });
+            payment.adjustmentType = adjustmentType;
+            payment.adjustmentReference = adjustmentReference;
+            payment.isFree = isFreeAdjustment;
+        }
+
         await invoice.applyPayment(payment);
         logger.info(`[MANUAL ADJ] ${adjustmentType} applied for ${deviceIdName}, invoice: ${invoice._id}, amount: ${paymentAmount}, isFree: ${isFreeAdjustment}`);
 
@@ -831,10 +842,17 @@ export class PaymentService {
                     }
                 }
                 deviceMap[devName].days[day] = {
+                    invoiceId: invoice._id || invoice.invoiceId,
                     amount: invoice.amount,
                     paidAmount: invoice.paidAmount,
                     dayType: invoice.dayType,
+                    adjustmentType: invoice.adjustmentType || null,
+                    adjustmentReference: invoice.adjustmentReference || null,
+                    adjustmentComment: invoice.adjustmentComment || null,
+                    cutOff: invoice.cutOff,
+                    paid: invoice.paid,
                     distance: invoice.distance || 0,
+                    date: invoice.date,
                     totalPaid
                 };
             });
