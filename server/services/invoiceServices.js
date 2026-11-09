@@ -374,11 +374,19 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
     };
 };
 
+/**
+ * Create a daily invoice for a device via repository
+ */
+const createInvoice = async ({ deviceIdName, date }) => {
+    return await invoiceRepository.createInvoice({ deviceIdName, date });
+};
+
 export default {
     getInvoiceHistory,
     getStatusReportData,
     enrichInvoice,
     enrichInvoices,
-    getAllInvoices
+    getAllInvoices,
+    createInvoice
 };
 

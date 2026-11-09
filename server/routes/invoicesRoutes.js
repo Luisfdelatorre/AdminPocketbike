@@ -29,7 +29,6 @@ router.get('/history', verifyToken, invoiceController.getInvoiceHistory);
  */
 router.post('/create', verifyToken, invoiceController.createInvoice);
 
-
 /**
  * GET /api/invoices/all
  * Get all invoices with pagination
