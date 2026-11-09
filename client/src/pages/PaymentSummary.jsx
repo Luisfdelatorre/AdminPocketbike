@@ -281,11 +281,12 @@ const PaymentSummary = () => {
 
 
     const handleEngineToggle = async (device) => {
+        const vehicleId = device._id || device.id || device.gpsId;
         const gpsId = device.gpsId;
         const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
-        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true, [vehicleId]: true }));
         try {
-            const result = await controlEngine(gpsId, command);
+            const result = await controlEngine(vehicleId, command);
             const data = result.data || result;
             const resObj = data.response || data;
 
@@ -293,7 +294,7 @@ const PaymentSummary = () => {
                 showToast(`Comando encolado en Traccar para ${device.name}`, 'info');
                 setSummaryDataMap(prev => {
                     const next = { ...prev };
-                    const primaryKey = String(gpsId);
+                    const primaryKey = String(gpsId || vehicleId);
                     if (next[primaryKey]) {
                         // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
                         if (next[primaryKey].device.cutOff === !!device.cutOff) {
@@ -312,6 +313,7 @@ const PaymentSummary = () => {
             setPendingCommands(prev => {
                 const next = { ...prev };
                 delete next[gpsId];
+                delete next[vehicleId];
                 return next;
             });
         }
