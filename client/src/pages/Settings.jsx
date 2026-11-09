@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft } from 'lucide-react';
+import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import { getSettings, updateSettings, syncDevices, validateTraccarConnection } from '../services/api';
@@ -31,6 +31,12 @@ const Settings = () => {
                 soatPosterior: 370000,
                 traspasoPosterior: 273000,
                 registro: 217000
+            },
+            financialParameters: {
+                iva: 0.19,
+                objetivoEA: 0.29,
+                pagosPorAnio: 312,
+                proporcionUPAY: 0.95
             }
         },
         displayName: 'PocketBike',
@@ -152,6 +158,10 @@ const Settings = () => {
                                 fixedCosts: {
                                     ...(prev.contractDefaults?.fixedCosts || {}),
                                     ...(rest.contractDefaults?.fixedCosts || {})
+                                },
+                                financialParameters: {
+                                    ...(prev.contractDefaults?.financialParameters || {}),
+                                    ...(rest.contractDefaults?.financialParameters || {})
                                 }
                             },
                             companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
@@ -514,6 +524,20 @@ const Settings = () => {
                 ...prev.contractDefaults,
                 fixedCosts: {
                     ...(prev.contractDefaults?.fixedCosts || {}),
+                    [field]: value
+                }
+            }
+        }));
+        setSaved(false);
+    };
+
+    const handleFinancialParamChange = (field, value) => {
+        setSettings(prev => ({
+            ...prev,
+            contractDefaults: {
+                ...prev.contractDefaults,
+                financialParameters: {
+                    ...(prev.contractDefaults?.financialParameters || {}),
                     [field]: value
                 }
             }
@@ -1009,6 +1033,97 @@ const Settings = () => {
                                                 placeholder="217000"
                                             />
                                             <span className="suffix">COP</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── PARÁMETROS FINANCIEROS DEL CONTRATO ── */}
+                        <div className="settings-card-section" style={{ marginTop: '1.5rem' }}>
+                            <div className="card-section-header">
+                                <div className="card-title-group">
+                                    <Percent size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <div>
+                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                                            Parámetros Financieros del Contrato
+                                        </h2>
+                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                            Tasas, impuestos y proporciones utilizadas en el cálculo matemático y financiero del contrato
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="settings-card-content general-form">
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="finIva">IVA Intereses / Cálculo</label>
+                                        <div className="modern-input-box">
+                                            <input
+                                                id="finIva"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="1"
+                                                value={settings.contractDefaults?.financialParameters?.iva ?? 0.19}
+                                                onChange={(e) => handleFinancialParamChange('iva', parseFloat(e.target.value) || 0)}
+                                                placeholder="0.19"
+                                            />
+                                            <span className="suffix">{(Number(settings.contractDefaults?.financialParameters?.iva ?? 0.19) * 100).toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="settings-form-group">
+                                        <label htmlFor="finObjetivoEA">Tasa Objetivo E.A.</label>
+                                        <div className="modern-input-box">
+                                            <input
+                                                id="finObjetivoEA"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="2"
+                                                value={settings.contractDefaults?.financialParameters?.objetivoEA ?? 0.29}
+                                                onChange={(e) => handleFinancialParamChange('objetivoEA', parseFloat(e.target.value) || 0)}
+                                                placeholder="0.29"
+                                            />
+                                            <span className="suffix">{(Number(settings.contractDefaults?.financialParameters?.objetivoEA ?? 0.29) * 100).toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="settings-form-row">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="finPagosPorAnio">Pagos por Año</label>
+                                        <div className="modern-input-box">
+                                            <input
+                                                id="finPagosPorAnio"
+                                                type="number"
+                                                step="1"
+                                                min="1"
+                                                max="366"
+                                                value={settings.contractDefaults?.financialParameters?.pagosPorAnio ?? 312}
+                                                onChange={(e) => handleFinancialParamChange('pagosPorAnio', parseInt(e.target.value, 10) || 312)}
+                                                placeholder="312"
+                                            />
+                                            <span className="suffix">días/año</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="settings-form-group">
+                                        <label htmlFor="finProporcionUPAY">Proporción UPAY / Pocketbike</label>
+                                        <div className="modern-input-box">
+                                            <input
+                                                id="finProporcionUPAY"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="1"
+                                                value={settings.contractDefaults?.financialParameters?.proporcionUPAY ?? 0.95}
+                                                onChange={(e) => handleFinancialParamChange('proporcionUPAY', parseFloat(e.target.value) || 0)}
+                                                placeholder="0.95"
+                                            />
+                                            <span className="suffix">{(Number(settings.contractDefaults?.financialParameters?.proporcionUPAY ?? 0.95) * 100).toFixed(0)}%</span>
                                         </div>
                                     </div>
                                 </div>

@@ -205,17 +205,18 @@ const Contracts = () => {
     }, [companySettings]);
 
     const contractFinancials = useMemo(() => {
+        const fp = companySettings?.contractDefaults?.financialParameters || {};
         return safeCalcularPrecioMoto({
             dailyRate: formData.dailyRate,
             contractDays: formData.contractDays,
             gastos: totalGastosFijos,
             initialFee: formData.initialFee,
-            iva: 0.19,
-            objetivoEA: 0.29,
-            pagosPorAnio: 312,
-            proporcionUPAY: 0.95
+            iva: fp.iva !== undefined && fp.iva !== null && fp.iva !== '' ? Number(fp.iva) : 0.19,
+            objetivoEA: fp.objetivoEA !== undefined && fp.objetivoEA !== null && fp.objetivoEA !== '' ? Number(fp.objetivoEA) : 0.29,
+            pagosPorAnio: fp.pagosPorAnio !== undefined && fp.pagosPorAnio !== null && fp.pagosPorAnio !== '' ? Number(fp.pagosPorAnio) : 312,
+            proporcionUPAY: fp.proporcionUPAY !== undefined && fp.proporcionUPAY !== null && fp.proporcionUPAY !== '' ? Number(fp.proporcionUPAY) : 0.95
         });
-    }, [formData.dailyRate, formData.contractDays, formData.initialFee, totalGastosFijos]);
+    }, [formData.dailyRate, formData.contractDays, formData.initialFee, totalGastosFijos, companySettings]);
 
     useEffect(() => {
         if (isContractModalOpen) {
@@ -1427,8 +1428,29 @@ const Contracts = () => {
                                 <span className="contract-status-dot" />
                                 <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
                             </div>
-                            <button type="button" className="modal-close" onClick={closeContractModal} aria-label="Cerrar">
-                                <X size={20} />
+                            <button
+                                type="button"
+                                className={`contract-header-device-selector ${formData.deviceId ? 'has-device' : 'no-device'} ${editingContract ? 'is-disabled' : ''}`}
+                                onClick={() => !editingContract && setIsDevicePickerOpen(true)}
+                                disabled={Boolean(editingContract)}
+                                title={editingContract ? `Dispositivo asignado: ${formData.deviceId}` : (formData.deviceId ? 'Clic para cambiar placa / moto' : 'Seleccionar moto para este contrato')}
+                                aria-label="Seleccionar dispositivo"
+                            >
+                                <span className="contract-header-device-icon">
+                                    <Bike size={16} />
+                                </span>
+                                <span className="contract-header-device-label font-mono font-bold">
+                                    {(() => {
+                                        if (!formData.deviceId) return 'Seleccionar Moto';
+                                        const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
+                                        return dev?.name || dev?.deviceName || `ID: ${formData.deviceId}`;
+                                    })()}
+                                </span>
+                                {formData.deviceId ? (
+                                    <span className="contract-header-device-tag">✓</span>
+                                ) : (
+                                    <ChevronRight size={14} className="contract-header-device-arrow" />
+                                )}
                             </button>
                         </div>
                         <form id="contract-form" onSubmit={handleSubmit} className="contract-form custom-scrollbar">

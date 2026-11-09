@@ -84,6 +84,120 @@
     transform: scale(0.95);
 }
 
+/* Quick Header Device Selector */
+.contract-header-device-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.813rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid transparent;
+    user-select: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    max-width: 58%;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.contract-header-device-selector.no-device {
+    background: #F0FDFA;
+    border-color: #99F6E4;
+    color: #0D9488;
+}
+
+.contract-header-device-selector.no-device:hover {
+    background: #CCFBF1;
+    border-color: #5EEAD4;
+    color: #0F766E;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(13, 148, 136, 0.15);
+}
+
+.contract-header-device-selector.has-device {
+    background: #ECFDF5;
+    border-color: #A7F3D0;
+    color: #065F46;
+}
+
+.contract-header-device-selector.has-device:hover {
+    background: #D1FAE5;
+    border-color: #6EE7B7;
+    color: #047857;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
+}
+
+.contract-header-device-selector.is-disabled {
+    background: #F1F5F9;
+    border-color: #E2E8F0;
+    color: #64748B;
+    cursor: default;
+    opacity: 0.85;
+    box-shadow: none;
+}
+
+.contract-header-device-selector:active:not(.is-disabled) {
+    transform: scale(0.97);
+}
+
+.contract-header-device-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.contract-header-device-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+}
+
+.contract-header-device-tag {
+    font-size: 0.688rem;
+    font-weight: 700;
+    background: rgba(16, 185, 129, 0.2);
+    color: #047857;
+    padding: 0.1rem 0.35rem;
+    border-radius: 9999px;
+    line-height: 1;
+}
+
+.contract-header-device-arrow {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: transform 0.15s ease;
+}
+
+.contract-header-device-selector:hover .contract-header-device-arrow {
+    transform: translateX(2px);
+    opacity: 1;
+}
+
+@media (max-width: 480px) {
+    .modal-surface--contract .modal-header {
+        gap: 0.5rem;
+        padding: 0.875rem 1rem;
+    }
+
+    .contract-header-device-selector {
+        padding: 0.3rem 0.55rem;
+        font-size: 0.75rem;
+        max-width: 52%;
+    }
+
+    .modal-surface--contract .modal-header h2 {
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
 /* Form area */
 .modal-surface--contract .contract-form {
     padding: .5rem;
