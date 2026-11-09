@@ -229,6 +229,10 @@ class CompanyService {
                 fixedCosts: {
                     ...(currentDefaults.fixedCosts || {}),
                     ...(contractDefaults.fixedCosts || {})
+                },
+                financialParameters: {
+                    ...(currentDefaults.financialParameters || {}),
+                    ...(contractDefaults.financialParameters || {})
                 }
             };
         }
@@ -399,6 +403,13 @@ class CompanyService {
             traspasoPosterior: 273000,
             registro: 217000,
             ...(maskedData.contractDefaults.fixedCosts || {})
+        };
+        maskedData.contractDefaults.financialParameters = {
+            iva: 0.19,
+            objetivoEA: 0.29,
+            pagosPorAnio: 312,
+            proporcionUPAY: 0.95,
+            ...(maskedData.contractDefaults.financialParameters || {})
         };
 
         return {
