@@ -1428,8 +1428,29 @@ const Contracts = () => {
                                 <span className="contract-status-dot" />
                                 <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
                             </div>
-                            <button type="button" className="modal-close" onClick={closeContractModal} aria-label="Cerrar">
-                                <X size={20} />
+                            <button
+                                type="button"
+                                className={`contract-header-device-selector ${formData.deviceId ? 'has-device' : 'no-device'} ${editingContract ? 'is-disabled' : ''}`}
+                                onClick={() => !editingContract && setIsDevicePickerOpen(true)}
+                                disabled={Boolean(editingContract)}
+                                title={editingContract ? `Dispositivo asignado: ${formData.deviceId}` : (formData.deviceId ? 'Clic para cambiar placa / moto' : 'Seleccionar moto para este contrato')}
+                                aria-label="Seleccionar dispositivo"
+                            >
+                                <span className="contract-header-device-icon">
+                                    <Bike size={16} />
+                                </span>
+                                <span className="contract-header-device-label font-mono font-bold">
+                                    {(() => {
+                                        if (!formData.deviceId) return 'Seleccionar Moto';
+                                        const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
+                                        return dev?.name || dev?.deviceName || `ID: ${formData.deviceId}`;
+                                    })()}
+                                </span>
+                                {formData.deviceId ? (
+                                    <span className="contract-header-device-tag">✓</span>
+                                ) : (
+                                    <ChevronRight size={14} className="contract-header-device-arrow" />
+                                )}
                             </button>
                         </div>
                         <form id="contract-form" onSubmit={handleSubmit} className="contract-form custom-scrollbar">
