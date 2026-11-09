@@ -18,6 +18,7 @@ import {
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import MonthYearSelector from '../components/MonthYearSelector';
 import SendCommandModal from '../components/modals/SendCommandModal';
 import { getCommandHistory, getCommandStats } from '../services/api';
 import './CommandHistory.css';
@@ -160,36 +161,19 @@ const CommandHistory = () => {
     };
 
     const renderDateSelectors = () => (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <select
-                value={selectedMonth}
-                onChange={e => {
-                    setSelectedMonth(Number(e.target.value));
-                    setCurrentPage(1);
-                }}
-                className="date-select-standard"
-                aria-label="Seleccionar mes"
-            >
-                {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                    </option>
-                ))}
-            </select>
-            <select
-                value={selectedYear}
-                onChange={e => {
-                    setSelectedYear(Number(e.target.value));
-                    setCurrentPage(1);
-                }}
-                className="date-select-standard"
-                aria-label="Seleccionar año"
-            >
-                <option value={2025}>2025</option>
-                <option value={2026}>2026</option>
-                <option value={2027}>2027</option>
-            </select>
-        </div>
+        <MonthYearSelector
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onChangeMonth={m => {
+                setSelectedMonth(m);
+                setCurrentPage(1);
+            }}
+            onChangeYear={y => {
+                setSelectedYear(y);
+                setCurrentPage(1);
+            }}
+            variant="desktop"
+        />
     );
 
     const desktopHeader = (
@@ -281,32 +265,19 @@ const CommandHistory = () => {
 
                     {/* Action Items for Mobile */}
                     <div className="invoices-mobile-actions">
-                        <select
-                            value={selectedMonth}
-                            onChange={e => {
-                                setSelectedMonth(Number(e.target.value));
+                        <MonthYearSelector
+                            selectedMonth={selectedMonth}
+                            selectedYear={selectedYear}
+                            onChangeMonth={m => {
+                                setSelectedMonth(m);
                                 setCurrentPage(1);
                             }}
-                            className="sort-select mobile-select-month"
-                        >
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedYear}
-                            onChange={e => {
-                                setSelectedYear(Number(e.target.value));
+                            onChangeYear={y => {
+                                setSelectedYear(y);
                                 setCurrentPage(1);
                             }}
-                            className="sort-select mobile-select-year"
-                        >
-                            <option value={2025}>2025</option>
-                            <option value={2026}>2026</option>
-                            <option value={2027}>2027</option>
-                        </select>
+                            variant="mobile"
+                        />
                         <button
                             className="filter-action-btn filter-action-btn-icon"
                             onClick={() => {
@@ -396,7 +367,7 @@ const CommandHistory = () => {
                                         <User size={13} color="#94a3b8" />
                                         <span>
                                             {cmd.source === 'MANUAL' ? (
-                                                <><strong>({cmd.senderName})</strong></>
+                                                <><strong>{cmd.senderName}</strong></>
                                             ) : (
                                                 <><strong>{cmd.senderName}</strong> {cmd.reason && `• ${cmd.reason}`}</>
                                             )}
