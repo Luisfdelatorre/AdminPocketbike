@@ -1,18 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-    Terminal, 
-    RefreshCw, 
-    Bolt, 
-    PowerOff, 
-    ShieldAlert, 
-    User, 
-    Router, 
-    Plus, 
+import {
+    Terminal,
+    RefreshCw,
+    Bolt,
+    PowerOff,
+    ShieldAlert,
+    User,
+    Router,
+    Plus,
     LoaderCircle,
     Clock,
-    AlertCircle
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import useIsMobile from '../hooks/useIsMobile';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import SendCommandModal from '../components/modals/SendCommandModal';
 import { getCommandHistory, getCommandStats } from '../services/api';
@@ -20,12 +24,14 @@ import './CommandHistory.css';
 import './Invoices.css'; // Reutilizar estilos de mobile-select y FAB
 
 const CommandHistory = () => {
+    const isMobile = useIsMobile();
     const today = new Date();
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState('ALL');
     const [currentPage, setCurrentPage] = useState(1);
+    const [showFilters, setShowFilters] = useState(false);
 
     const [commands, setCommands] = useState([]);
     const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
@@ -131,7 +137,7 @@ const CommandHistory = () => {
         return (
             <div className="command-action-pill stop">
                 <PowerOff size={14} />
-                <span>APAGADO REMOTO</span>
+                <span>APAGADO</span>
             </div>
         );
     };
@@ -153,74 +159,180 @@ const CommandHistory = () => {
         return <span className="command-status-tag failed">Error / Timeout</span>;
     };
 
+    const renderDateSelectors = () => (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select
+                value={selectedMonth}
+                onChange={e => {
+                    setSelectedMonth(Number(e.target.value));
+                    setCurrentPage(1);
+                }}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
+                    </option>
+                ))}
+            </select>
+            <select
+                value={selectedYear}
+                onChange={e => {
+                    setSelectedYear(Number(e.target.value));
+                    setCurrentPage(1);
+                }}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+            </select>
+        </div>
+    );
+
+    const desktopHeader = (
+        <PageHeader.Desktop
+            title="Historial Comandos"
+            onRefresh={() => {
+                fetchStats();
+                fetchHistory(currentPage);
+            }}
+            loading={loading || statsLoading}
+            refreshText="Actualizar"
+            leadingActions={renderDateSelectors()}
+            actions={
+                <button
+                    className="btn-primary"
+                    type="button"
+                    onClick={() => setIsSendCommandOpen(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <Plus size={16} /> Nuevo Comando
+                </button>
+            }
+        />
+    );
+
+    const mobileHeader = (
+        <PageHeader.Mobile
+            onRefresh={() => {
+                fetchStats();
+                fetchHistory(currentPage);
+            }}
+            loading={loading || statsLoading}
+            onFilterToggle={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+            leadingActions={
+                pagination.totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage <= 1}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#9ca3af' : '#1f2937' }}
+                            aria-label="Página anterior"
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+                        <span>{currentPage}/{pagination.totalPages}</span>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(p => p + 1)}
+                            disabled={currentPage >= pagination.totalPages}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= pagination.totalPages ? '#9ca3af' : '#1f2937' }}
+                            aria-label="Página siguiente"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                )
+            }
+        />
+    );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
+
+    const filterOptions = [
+        { value: 'ALL', label: 'Todos', badge: stats.counts?.all || 0 },
+        { value: 'STOP', label: 'Apagados', badge: stats.counts?.stop || 0, badgeType: 'red' },
+        { value: 'RESUME', label: 'Encendidos', badge: stats.counts?.resume || 0, badgeType: 'blue' },
+        { value: 'PREVENTIVE', label: 'Preventivos', badge: stats.counts?.preventive || 0 },
+        { value: 'FAILED', label: 'Fallidos', badge: stats.counts?.failed || 0, badgeType: 'red' }
+    ];
+
     return (
-        <div className="commands-page">
-            {/* Header with Title and Month/Year selectors */}
-            <div className="commands-header">
-                <div className="commands-title-row">
-                    <Terminal size={22} color="#006194" />
-                    <h1 className="commands-title">Historial Comandos</h1>
-                </div>
+        <div className="commands-page payments-page">
+            {renderHeader}
 
-                <div className="commands-controls">
-                    <select
-                        value={selectedMonth}
-                        onChange={(e) => {
-                            setSelectedMonth(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="sort-select mobile-select-month"
-                    >
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                            </option>
-                        ))}
-                    </select>
+            {/* Mobile Collapsible Filter Section (Mobile only) */}
+            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
+                <div className="pt-2 pb-1">
+                    <SearchAndFilterBar
+                        searchQuery={searchQuery}
+                        setSearchQuery={handleSearchChange}
+                        searchPlaceholder="Buscar moto (ej. QBD25I) o comando..."
+                        filter={filter}
+                        setFilter={handleFilterChange}
+                        filterOptions={filterOptions}
+                        filterRowClass="summary-filter-row-ios"
+                    />
 
-                    <select
-                        value={selectedYear}
-                        onChange={(e) => {
-                            setSelectedYear(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="sort-select mobile-select-year"
-                    >
-                        <option value={2025}>2025</option>
-                        <option value={2026}>2026</option>
-                        <option value={2027}>2027</option>
-                    </select>
-
-                    <button
-                        className="filter-action-btn filter-action-btn-icon"
-                        onClick={() => {
-                            fetchStats();
-                            fetchHistory(currentPage);
-                        }}
-                        title="Actualizar datos de telemetría"
-                        type="button"
-                    >
-                        <RefreshCw size={17} className={loading || statsLoading ? 'animate-spin' : ''} />
-                    </button>
+                    {/* Action Items for Mobile */}
+                    <div className="invoices-mobile-actions">
+                        <select
+                            value={selectedMonth}
+                            onChange={e => {
+                                setSelectedMonth(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="sort-select mobile-select-month"
+                        >
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={e => {
+                                setSelectedYear(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="sort-select mobile-select-year"
+                        >
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                            <option value={2027}>2027</option>
+                        </select>
+                        <button
+                            className="filter-action-btn filter-action-btn-icon"
+                            onClick={() => {
+                                fetchStats();
+                                fetchHistory(currentPage);
+                            }}
+                            title="Actualizar"
+                        >
+                            <RefreshCw size={15} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Reusable Search and Filter Bar with Badges */}
-            <SearchAndFilterBar
-                searchQuery={searchQuery}
-                setSearchQuery={handleSearchChange}
-                searchPlaceholder="Buscar moto (ej. QBD25I) o comando..."
-                filter={filter}
-                setFilter={handleFilterChange}
-                filterOptions={[
-                    { value: 'ALL', label: 'Todos', badge: stats.counts?.all || 0 },
-                    { value: 'STOP', label: 'Apagados', badge: stats.counts?.stop || 0, badgeType: 'red' },
-                    { value: 'RESUME', label: 'Encendidos', badge: stats.counts?.resume || 0, badgeType: 'blue' },
-                    { value: 'PREVENTIVE', label: 'Preventivos', badge: stats.counts?.preventive || 0 },
-                    { value: 'FAILED', label: 'Fallidos', badge: stats.counts?.failed || 0, badgeType: 'red' }
-                ]}
-                filterRowClass="summary-filter-row-ios"
-            />
+            {/* Desktop Filters (Always visible on desktop) */}
+            <div className="hidden md:block" style={{ marginBottom: '1rem' }}>
+                <SearchAndFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={handleSearchChange}
+                    searchPlaceholder="Buscar moto (ej. QBD25I) o comando..."
+                    filter={filter}
+                    setFilter={handleFilterChange}
+                    filterOptions={filterOptions}
+                    filterRowClass="summary-filter-row-ios"
+                />
+            </div>
 
             {/* Telemetry Metric Cards */}
             <div className="telemetry-metrics-grid">
@@ -270,7 +382,6 @@ const CommandHistory = () => {
                         return (
                             <div key={cmd._id || cmd.sentAt} className="command-card">
                                 {/* Side Indicator Bar */}
-                                <div className={`command-card-bar ${type}`} />
 
                                 <div className="command-card-top">
                                     <div className="command-device-group">
@@ -285,9 +396,9 @@ const CommandHistory = () => {
                                         <User size={13} color="#94a3b8" />
                                         <span>
                                             {cmd.source === 'MANUAL' ? (
-                                                <>Admin <strong>({cmd.senderName || 'motos_azvi'})</strong></>
+                                                <><strong>({cmd.senderName})</strong></>
                                             ) : (
-                                                <><strong>{cmd.senderName || 'Upay System'}</strong> {cmd.reason && `• ${cmd.reason}`}</>
+                                                <><strong>{cmd.senderName}</strong> {cmd.reason && `• ${cmd.reason}`}</>
                                             )}
                                         </span>
                                     </div>
