@@ -34,14 +34,23 @@ export const logCommand = async ({
         let targetGpsId = gpsId;
 
         // Populate device details if missing
-        if ((!devName || !targetCompanyId || !targetGpsId) && (targetGpsId || devName)) {
-            const query = targetGpsId ? { gpsId: Number(targetGpsId) } : { name: devName };
-            const devDoc = await Device.findOne(query).lean();
-            if (devDoc) {
-                if (!devName) devName = devDoc.name;
-                if (!targetCompanyId) targetCompanyId = devDoc.companyId;
-                if (!targetDeviceId) targetDeviceId = devDoc.deviceId;
-                if (!targetGpsId) targetGpsId = devDoc.gpsId;
+        if ((!devName || devName === 'N/A' || !targetCompanyId || !targetGpsId) && (targetGpsId || devName)) {
+            let query = null;
+            if (targetGpsId) {
+                const num = Number(targetGpsId);
+                query = !isNaN(num) ? { $or: [{ gpsId: num }, { gpsId: String(targetGpsId) }] } : { gpsId: String(targetGpsId) };
+            } else if (devName && devName !== 'N/A') {
+                query = { name: devName };
+            }
+
+            if (query) {
+                const devDoc = await Device.findOne(query).lean();
+                if (devDoc) {
+                    if (!devName || devName === 'N/A') devName = devDoc.name;
+                    if (!targetCompanyId) targetCompanyId = devDoc.companyId;
+                    if (!targetDeviceId) targetDeviceId = devDoc.deviceId;
+                    if (!targetGpsId) targetGpsId = devDoc.gpsId;
+                }
             }
         }
 

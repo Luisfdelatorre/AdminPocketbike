@@ -288,22 +288,23 @@ const controlEngine = async (req, res) => {
             });
         }
 
-        console.log('Control engine request:', id, 'raw:', rawCommand);
-        const numericId = parseInt(id, 10);
+        console.log('Control engine request for vehicle identifier:', id, 'raw:', rawCommand);
         const startTime = Date.now();
-        const response = await deviceServices.controlEngine(numericId, rawCommand, companyId);
+        const response = await deviceServices.controlEngine(id, rawCommand, companyId);
         const latencyMs = Date.now() - startTime;
         const isSuccess = response && response.success;
 
         const senderLabel = `${req.auth?.name || req.auth?.username || 'Admin'} (${req.auth?.companyName || 'motos_azvi'})`;
         commandService.logCommand({
-            gpsId: String(numericId),
-            companyId,
+            deviceIdName: response?.device?.name || null,
+            deviceId: response?.device?.id ? String(response.device.id) : (isNaN(Number(id)) ? null : String(id)),
+            gpsId: response?.device?.gpsId ? String(response.device.gpsId) : null,
+            companyId: response?.device?.companyId || companyId,
             commandType: rawCommand === ENGINERESUME ? COMMAND_TYPE.RESUME : COMMAND_TYPE.STOP,
             rawCommand,
             source: COMMAND_SOURCE.MANUAL,
             senderName: senderLabel,
-            senderId: req.auth?.userId || null,
+            senderId: req.auth?.userId || req.auth?.email || req.auth?.id || null,
             status: isSuccess ? COMMAND_STATUS.EXECUTED : COMMAND_STATUS.FAILED,
             latencyMs,
             reason: 'Acción manual desde administración de dispositivos',

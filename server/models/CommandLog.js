@@ -21,7 +21,7 @@ const commandLogSchema = new mongoose.Schema({
     deviceIdName: { type: String, required: true, uppercase: true, trim: true, index: true },
     deviceId: { type: String, default: null },
     gpsId: { type: String, default: null, index: true },
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
+    companyId: { type: mongoose.Schema.Types.Mixed, default: null, index: true },
     companyName: { type: String, default: null },
     commandType: { 
         type: String, 
@@ -37,7 +37,7 @@ const commandLogSchema = new mongoose.Schema({
         index: true 
     },
     senderName: { type: String, default: 'Upay System' },
-    senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    senderId: { type: String, default: null },
     status: { 
         type: String, 
         enum: Object.values(COMMAND_STATUS), 

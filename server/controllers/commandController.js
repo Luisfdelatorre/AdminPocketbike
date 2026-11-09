@@ -83,9 +83,9 @@ export const sendCommand = async (req, res) => {
         const senderLabel = `${name || username || 'Admin'} (${companyName || 'motos_azvi'})`;
         const startTime = Date.now();
 
-        // Send via device service
+        // Send via device service using vehicle id
         const response = await deviceServices.controlEngine(
-            parseInt(gpsId, 10),
+            device._id || device.id,
             command,
             targetCompanyId
         );

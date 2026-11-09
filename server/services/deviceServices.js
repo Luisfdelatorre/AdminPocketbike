@@ -127,17 +127,62 @@ const initializeGpsUpdates = async () => {
  * @param {string} companyId - The ID of the company.
  * @returns {Promise<Object>} Object containing { success: boolean, message?: string, error?: string, cutOff?: boolean }
  */
-const controlEngine = async (gpsId, command, companyId) => {
+/**
+ * Control the engine status of a vehicle (stop or resume).
+ * Resolves the vehicle by its canonical vehicle ID (_id, id, deviceId), plate name, or gpsId fallback.
+ * 
+ * @param {string|number} deviceIdentifier - The vehicle ID (e.g. 81634350) or plate name
+ * @param {string} command - The command to send ('engineStop' or 'engineResume')
+ * @param {string} companyId - The ID of the company
+ * @returns {Promise<Object>} Object containing { success: boolean, message?: string, error?: string, queued?: boolean, device?: Object }
+ */
+const controlEngine = async (deviceIdentifier, command, companyId) => {
     try {
-        const gpsAdapter = await companyService.getGpsAdapterByCompany(companyId);
-        console.log('[EngineControl] GPS adapter for company', companyId, ':', gpsAdapter);
-        if (!gpsAdapter) {
-            return { success: false, error: `No GPS adapter configured for company ID: ${companyId}` };
+        const rawStr = String(deviceIdentifier ?? '').trim();
+        if (!rawStr) {
+            return { success: false, error: 'Identificador de vehículo requerido' };
         }
 
-        // 3. Send command to GPS adapter
-        logger.info(`[EngineControl] Sending command ${command} to gpsId ${gpsId}, Company: ${companyId}`);
-        const verifyResult = await gpsAdapter.sendEngineCommand(gpsId, command);
+        const numId = !isNaN(Number(rawStr)) ? Number(rawStr) : null;
+
+        // 1. Resolver el vehículo por su identidad canónica (_id, id, deviceId), placa name, o gpsId de fallback
+        const queryOr = [];
+        if (numId !== null) {
+            queryOr.push({ _id: numId });
+            queryOr.push({ id: numId });
+            queryOr.push({ deviceId: numId });
+        }
+        queryOr.push({ _id: rawStr });
+        queryOr.push({ name: rawStr.toUpperCase() });
+        if (numId !== null) {
+            queryOr.push({ gpsId: numId });
+        }
+
+        const targetDevice = await Device.findOne({ $or: queryOr });
+        if (!targetDevice) {
+            return {
+                success: false,
+                error: `Vehículo no encontrado para el identificador: ${deviceIdentifier}`
+            };
+        }
+
+        const actualGpsId = targetDevice.gpsId;
+        if (!actualGpsId) {
+            return {
+                success: false,
+                error: `El vehículo ${targetDevice.name} (ID: ${targetDevice._id}) no tiene un GPS ID asignado en plataforma.`
+            };
+        }
+
+        const effectiveCompanyId = companyId || targetDevice.companyId;
+        const gpsAdapter = await companyService.getGpsAdapterByCompany(effectiveCompanyId);
+        if (!gpsAdapter) {
+            return { success: false, error: `No GPS adapter configured for company ID: ${effectiveCompanyId}` };
+        }
+
+        // 2. Enviar comando a Traccar usando el gpsId actual del vehículo
+        logger.info(`[EngineControl] Sending command ${command} to gpsId ${actualGpsId} for vehicle ${targetDevice.name} (ID: ${targetDevice._id}), Company: ${effectiveCompanyId}`);
+        const verifyResult = await gpsAdapter.sendEngineCommand(actualGpsId, command);
         let isConfirmed = Boolean(verifyResult.confirmed);
         if (!isConfirmed) {
             return {
@@ -146,16 +191,22 @@ const controlEngine = async (gpsId, command, companyId) => {
             };
         }
 
-        const targetDevice = await Device.findOne({ gpsId: Number(gpsId) });
+        // 3. Marcar encolado en el _id único del vehículo
         await deviceRepository.updateDeviceQueuedStatus(targetDevice._id, true);
 
         return {
             success: true,
-            message: `Command to ${command} engine queued successfully. Awaiting confirmation from device.`,
-            queued: true
+            message: `Command to ${command} engine queued successfully for ${targetDevice.name}. Awaiting confirmation from device.`,
+            queued: true,
+            device: {
+                id: targetDevice._id,
+                name: targetDevice.name,
+                gpsId: actualGpsId,
+                companyId: targetDevice.companyId
+            }
         };
     } catch (error) {
-        logger.error(`[EngineControl] Error controlling engine for device ${gpsId}:`, error);
+        logger.error(`[EngineControl] Error controlling engine for device ${deviceIdentifier}:`, error);
         return {
             success: false,
             error: `Internal server error during engine control: ${error.message}`
