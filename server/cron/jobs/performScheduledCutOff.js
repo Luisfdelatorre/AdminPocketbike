@@ -5,6 +5,8 @@ import { Device } from "../../models/Device.js";
 import companyService from "../../services/companyService.js";
 import deviceServices from "../../services/deviceServices.js";
 import { ENGINESTOP } from "../../config/config.js";
+import commandService from "../../services/commandService.js";
+import { COMMAND_TYPE, COMMAND_SOURCE, COMMAND_STATUS } from "../../models/CommandLog.js";
 
 const verifyAndMarkCutOffBatch = async (batch, companyId) => {
   logger.info(`[CUT-OFF] Starting BATCH engine stop verification for ${batch.length} devices in company ${companyId}...`);
@@ -12,7 +14,27 @@ const verifyAndMarkCutOffBatch = async (batch, companyId) => {
     const gpsAdapter = await companyService.getGpsAdapterByCompany(companyId);
     const targetIds = batch.map(d => d.gpsId).filter(Boolean);
 
+    const startTime = Date.now();
     const responseIds = await gpsAdapter.executeAndVerifyBatch(targetIds, ENGINESTOP, { companyConfig: companyId });
+    const latencyMs = Date.now() - startTime;
+
+    // Log command for each device in batch
+    for (const dev of batch) {
+      const isConfirmed = responseIds.includes(dev.gpsId);
+      commandService.logCommand({
+        deviceIdName: dev.deviceName || dev.name,
+        deviceId: dev.deviceId,
+        gpsId: String(dev.gpsId),
+        companyId,
+        commandType: COMMAND_TYPE.STOP,
+        rawCommand: ENGINESTOP,
+        source: COMMAND_SOURCE.SYSTEM,
+        senderName: 'Upay System',
+        status: isConfirmed ? COMMAND_STATUS.EXECUTED : COMMAND_STATUS.FAILED,
+        latencyMs: Math.round(latencyMs / Math.max(1, batch.length)),
+        reason: 'Corte nocturno automático por mora en pago'
+      }).catch(err => logger.error(`[CUT-OFF] Error logging command for ${dev.name}:`, err.message));
+    }
 
     const successfulIds = batch.filter(d => responseIds.includes(d.gpsId)).map(d => d._id);
     if (successfulIds.length > 0) {

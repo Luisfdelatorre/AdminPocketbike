@@ -18,6 +18,8 @@ import GpsService from './gpsServices.js';
 import { sseService } from '../utils/sseService.js';
 import { getFirstName } from '../utils/helpers.js';
 import mongoose from 'mongoose';
+import commandService from './commandService.js';
+import { COMMAND_TYPE, COMMAND_SOURCE, COMMAND_STATUS } from '../models/CommandLog.js';
 
 
 const { INVOICE_DAYTYPE_TRANSLATION } = Transaction;
@@ -670,6 +672,7 @@ export class PaymentService {
     }
     async activateDevice(gpsId, reference, onUpdate, companyId) {
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
+        const startTime = Date.now();
         try {
             const gpsService = await companyService.getGpsAdapter(companyId);
             console.log(`[TRACE-6] activateDevice → gpsService.executeAndVerify | gpsId=${gpsId}`);
@@ -685,6 +688,21 @@ export class PaymentService {
                     });
                 }
             });
+
+            const latencyMs = Date.now() - startTime;
+
+            // Log command audit entry
+            commandService.logCommand({
+                gpsId: String(gpsId),
+                companyId,
+                commandType: COMMAND_TYPE.RESUME,
+                rawCommand: ENGINE_COMMANDS.RESUME,
+                source: COMMAND_SOURCE.SYSTEM,
+                senderName: 'Upay System',
+                status: isConfirmed ? COMMAND_STATUS.EXECUTED : COMMAND_STATUS.QUEUED,
+                latencyMs,
+                reason: `Activación automática tras pago/ajuste (${reference || 'N/A'})`
+            }).catch(err => logger.error('[activateDevice] Error logging command:', err.message));
 
             // 3. Handle result and database update
             if (isConfirmed) {

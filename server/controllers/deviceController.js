@@ -10,6 +10,8 @@ import { sseService } from '../utils/sseService.js';
 import { ENGINERESUME, ENGINESTOP, ENGINE_COMMANDS } from '../config/components/constants.js';
 
 import logger from '../utils/logger.js';
+import commandService from '../services/commandService.js';
+import { COMMAND_TYPE, COMMAND_SOURCE, COMMAND_STATUS } from '../models/CommandLog.js';
 
 const getAllDevices = async (req, res) => {
     try {
@@ -288,7 +290,26 @@ const controlEngine = async (req, res) => {
 
         console.log('Control engine request:', id, 'raw:', rawCommand);
         const numericId = parseInt(id, 10);
+        const startTime = Date.now();
         const response = await deviceServices.controlEngine(numericId, rawCommand, companyId);
+        const latencyMs = Date.now() - startTime;
+        const isSuccess = response && response.success;
+
+        const senderLabel = `${req.auth?.name || req.auth?.username || 'Admin'} (${req.auth?.companyName || 'motos_azvi'})`;
+        commandService.logCommand({
+            gpsId: String(numericId),
+            companyId,
+            commandType: rawCommand === ENGINERESUME ? COMMAND_TYPE.RESUME : COMMAND_TYPE.STOP,
+            rawCommand,
+            source: COMMAND_SOURCE.MANUAL,
+            senderName: senderLabel,
+            senderId: req.auth?.userId || null,
+            status: isSuccess ? COMMAND_STATUS.EXECUTED : COMMAND_STATUS.FAILED,
+            latencyMs,
+            reason: 'Acción manual desde administración de dispositivos',
+            response: response || null,
+            error: response?.error || null
+        }).catch(err => logger.error('[controlEngine] Error logging command:', err.message));
 
         if (response && response.success) {
             return res.json(response);
