@@ -77,6 +77,7 @@ export class DeviceState {
         this._lastDbPersistTime = this.lastUpdate ? this.lastUpdate.getTime() : 0;
         this._dirty = false;
         this._urgent = false;
+        this._sseChanged = false;
         this._cutOffChanged = false;
         this._updateReasons = [];
     }
@@ -110,11 +111,12 @@ export class DeviceState {
         const nowMs = update.lastUpdate ? new Date(update.lastUpdate).getTime() : Date.now();
         const dbHeartbeatDue = (nowMs - this._lastDbPersistTime) > 600000; // 10 minutes
 
-        // Any state change that frontend needs to see via SSE
-        const sseStateChanged = ignitionChanged || cutOffChanged || powerCutChanged || alarmChanged || batteryChanged || motionChanged;
+        // Any state change that frontend needs to see via SSE (exclude volatile motion)
+        const sseStateChanged = ignitionChanged || cutOffChanged || powerCutChanged || alarmChanged || batteryChanged;
+        this._sseChanged = sseStateChanged;
 
         // DB state change: critical events OR significant state transitions OR 10-minute periodic refresh
-        const dbStateChanged = sseStateChanged || dbHeartbeatDue;
+        const dbStateChanged = sseStateChanged || motionChanged || dbHeartbeatDue;
 
         // Always keep in-memory telemetry fresh to the millisecond
         this.lastUpdate = update.lastUpdate;
@@ -136,7 +138,8 @@ export class DeviceState {
             if (powerCutChanged) this._updateReasons.push('powerCut');
             if (alarmChanged) this._updateReasons.push('alarm');
             if (batteryChanged) this._updateReasons.push('battery');
-            if (dbHeartbeatDue && !sseStateChanged) this._updateReasons.push('heartbeat');
+            if (motionChanged) this._updateReasons.push('motion');
+            if (dbHeartbeatDue && !sseStateChanged && !motionChanged) this._updateReasons.push('heartbeat');
 
             // Urgent flush flag: cutOff change OR powerCut (battery disconnected) OR ignition change
             if (cutOffChanged || powerCutChanged || ignitionChanged) {
@@ -150,9 +153,27 @@ export class DeviceState {
         return sseStateChanged || dbStateChanged;
     }
 
+    toSsePayload() {
+        return {
+            _id: this._id,
+            gpsId: this.gpsId,
+            name: this.name,
+            ignition: this.ignition,
+            cutOff: this.cutOff,
+            batteryLevel: this.batteryLevel,
+            companyId: this.companyId,
+            lastUpdate: this.lastUpdate,
+            queued: this.queued,
+            powerCut: this.powerCut,
+            alarm: this.alarm,
+            motion: this.motion
+        };
+    }
+
     clearDirty() {
         this._dirty = false;
         this._urgent = false;
+        this._sseChanged = false;
         this._cutOffChanged = false;
         this._lastDbPersistTime = this.lastUpdate ? new Date(this.lastUpdate).getTime() : Date.now();
         this._updateReasons = [];

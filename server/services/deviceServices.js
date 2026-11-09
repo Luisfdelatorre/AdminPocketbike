@@ -53,11 +53,50 @@ const initializeGpsUpdates = async () => {
     let _lastGlobalDbWrite = 0;
     let _pendingUrgentFlush = false;
 
+    // SSE Aggregation Buffer (companyId -> Map<gpsId, ssePayload>)
+    const SSE_BATCH_WINDOW_MS = 2500; // 2.5s aggregation window for routine telemetry
+    const SSE_URGENT_WINDOW_MS = 300; // 300ms near-instant flush for cutOff / powerCut
+    const _pendingSseByCompany = new Map();
+    let _sseFlushTimer = null;
+    let _lastSseFlushTime = 0;
+
+    const flushSseUpdates = () => {
+        if (_sseFlushTimer) {
+            clearTimeout(_sseFlushTimer);
+            _sseFlushTimer = null;
+        }
+        if (_pendingSseByCompany.size === 0) return;
+
+        _lastSseFlushTime = Date.now();
+        for (const [companyId, devicesMap] of _pendingSseByCompany.entries()) {
+            if (devicesMap.size > 0) {
+                const companyUpdates = Array.from(devicesMap.values());
+                sseService.broadcast('device_update', companyUpdates, { companyId });
+            }
+        }
+        _pendingSseByCompany.clear();
+    };
+
+    const scheduleSseFlush = (isUrgent) => {
+        const now = Date.now();
+        if (isUrgent) {
+            if (_sseFlushTimer) clearTimeout(_sseFlushTimer);
+            _sseFlushTimer = setTimeout(flushSseUpdates, SSE_URGENT_WINDOW_MS);
+            return;
+        }
+
+        if (!_sseFlushTimer) {
+            const timeSinceLast = now - _lastSseFlushTime;
+            const delay = Math.max(100, SSE_BATCH_WINDOW_MS - timeSinceLast);
+            _sseFlushTimer = setTimeout(flushSseUpdates, delay);
+        }
+    };
+
     const onFlush = async (batch) => {
         if (!batch || batch.length === 0) return;
         const NOW = Date.now();
 
-        const sseUpdatesByCompany = {};
+        let batchHasUrgent = false;
 
         // 1. Detect state changes (ignition, cutOff, batteryLevel, powerCut)
         for (const update of batch) {
@@ -72,18 +111,25 @@ const initializeGpsUpdates = async () => {
             if (mem.applyUpdate(update)) {
                 if (mem._urgent) {
                     _pendingUrgentFlush = true;
+                    batchHasUrgent = true;
                 }
-                const cid = mem.companyId?.toString();
-                if (cid) {
-                    if (!sseUpdatesByCompany[cid]) sseUpdatesByCompany[cid] = [];
-                    sseUpdatesByCompany[cid].push(mem);
+                // Only queue for SSE if visual telemetry actually changed
+                if (mem._sseChanged) {
+                    const cid = mem.companyId?.toString();
+                    if (cid) {
+                        if (!_pendingSseByCompany.has(cid)) {
+                            _pendingSseByCompany.set(cid, new Map());
+                        }
+                        const payload = typeof mem.toSsePayload === 'function' ? mem.toSsePayload() : mem;
+                        _pendingSseByCompany.get(cid).set(mem.gpsId, payload);
+                    }
                 }
             }
         }
 
-        // 2. Broadcast live changes to frontend immediately via SSE
-        for (const [companyId, companyUpdates] of Object.entries(sseUpdatesByCompany)) {
-            sseService.broadcast('device_update', companyUpdates, { companyId });
+        // 2. Schedule aggregated SSE broadcast (avoids flooding with micro-events)
+        if (_pendingSseByCompany.size > 0) {
+            scheduleSseFlush(batchHasUrgent);
         }
 
         // 3. Dynamic throttle for MongoDB: 1s for urgent (cutOff, powerCut, ignition), otherwise 30s
