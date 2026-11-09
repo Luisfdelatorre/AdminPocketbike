@@ -135,9 +135,11 @@ const paymentController = {
             
             let targetCompanyId = null;
             if (req.auth) {
-                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && (companyName === 'System' || !companyId));
                 if (!isSystemAdmin) {
                     targetCompanyId = companyId;
+                } else if (req.query.companyId && req.query.companyId !== 'all') {
+                    targetCompanyId = req.query.companyId;
                 }
             }
             
@@ -169,9 +171,11 @@ const paymentController = {
 
             let targetCompanyId = null;
             if (req.auth) {
-                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && (companyName === 'System' || !companyId));
                 if (!isSystemAdmin) {
                     targetCompanyId = companyId;
+                } else if (req.query.companyId && req.query.companyId !== 'all') {
+                    targetCompanyId = req.query.companyId;
                 }
             }
 

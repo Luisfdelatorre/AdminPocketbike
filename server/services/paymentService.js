@@ -900,9 +900,21 @@ export class PaymentService {
             let txFixedFee = 700;
             let ivaMultiplier = 1.19;
 
+            let resolvedCompanyId = null;
             if (companyId) {
-                match.companyId = new mongoose.Types.ObjectId(companyId);
-                const company = await Company.findById(companyId);
+                if (mongoose.isValidObjectId(companyId)) {
+                    resolvedCompanyId = new mongoose.Types.ObjectId(companyId);
+                } else {
+                    const companyByName = await Company.findOne({ name: String(companyId).trim() }).lean();
+                    if (companyByName) {
+                        resolvedCompanyId = companyByName._id;
+                    }
+                }
+            }
+
+            if (resolvedCompanyId) {
+                match.companyId = { $in: [resolvedCompanyId, String(resolvedCompanyId)] };
+                const company = await Company.findById(resolvedCompanyId).lean();
                 if (company) {
                     if (company.timezone) {
                         companyTz = company.timezone;
@@ -1004,7 +1016,7 @@ export class PaymentService {
 
             // Fetch reconciled dates from database
             const reconciliationRecords = await Reconciliation.find({
-                companyId: companyId || null,
+                companyId: resolvedCompanyId || null,
                 date: { $regex: `^${year}-${String(month).padStart(2, '0')}-` }
             }).lean();
 
@@ -1029,12 +1041,24 @@ export class PaymentService {
 
     async toggleReconciliation({ date, reconciled, transactionId, companyId }) {
         try {
+            let resolvedCompanyId = null;
+            if (companyId) {
+                if (mongoose.isValidObjectId(companyId)) {
+                    resolvedCompanyId = new mongoose.Types.ObjectId(companyId);
+                } else {
+                    const companyByName = await Company.findOne({ name: String(companyId).trim() }).lean();
+                    if (companyByName) {
+                        resolvedCompanyId = companyByName._id;
+                    }
+                }
+            }
+
             const updateFields = { reconciled };
             if (transactionId !== undefined) {
                 updateFields.transactionId = transactionId;
             }
             const result = await Reconciliation.findOneAndUpdate(
-                { companyId: companyId || null, date },
+                { companyId: resolvedCompanyId || null, date },
                 { $set: updateFields },
                 { upsert: true, new: true }
             );

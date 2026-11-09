@@ -144,18 +144,26 @@ export const getStatusReport = async () => {
     return api.get('/invoices/status-report');
 };
 
-export const getDailyReconciliationReport = async (month, year) => {
+export const getDailyReconciliationReport = async (month, year, companyId) => {
     try {
-        const response = await api.get(`/payments/reconciliation?month=${month}&year=${year}`);
+        const params = new URLSearchParams({ month, year });
+        if (companyId && companyId !== 'all') {
+            params.append('companyId', companyId);
+        }
+        const response = await api.get(`/payments/reconciliation?${params.toString()}`);
         return response;
     } catch (error) {
         return Promise.reject(error);
     }
 };
 
-export const toggleReconciliation = async (date, reconciled, transactionId) => {
+export const toggleReconciliation = async (date, reconciled, transactionId, companyId) => {
     try {
-        const response = await api.post('/payments/reconciliation/toggle', { date, reconciled, transactionId });
+        const payload = { date, reconciled, transactionId };
+        if (companyId && companyId !== 'all') {
+            payload.companyId = companyId;
+        }
+        const response = await api.post('/payments/reconciliation/toggle', payload);
         return response;
     } catch (error) {
         return Promise.reject(error);
