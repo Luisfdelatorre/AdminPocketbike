@@ -205,17 +205,18 @@ const Contracts = () => {
     }, [companySettings]);
 
     const contractFinancials = useMemo(() => {
+        const fp = companySettings?.contractDefaults?.financialParameters || {};
         return safeCalcularPrecioMoto({
             dailyRate: formData.dailyRate,
             contractDays: formData.contractDays,
             gastos: totalGastosFijos,
             initialFee: formData.initialFee,
-            iva: 0.19,
-            objetivoEA: 0.29,
-            pagosPorAnio: 312,
-            proporcionUPAY: 0.95
+            iva: fp.iva !== undefined && fp.iva !== null && fp.iva !== '' ? Number(fp.iva) : 0.19,
+            objetivoEA: fp.objetivoEA !== undefined && fp.objetivoEA !== null && fp.objetivoEA !== '' ? Number(fp.objetivoEA) : 0.29,
+            pagosPorAnio: fp.pagosPorAnio !== undefined && fp.pagosPorAnio !== null && fp.pagosPorAnio !== '' ? Number(fp.pagosPorAnio) : 312,
+            proporcionUPAY: fp.proporcionUPAY !== undefined && fp.proporcionUPAY !== null && fp.proporcionUPAY !== '' ? Number(fp.proporcionUPAY) : 0.95
         });
-    }, [formData.dailyRate, formData.contractDays, formData.initialFee, totalGastosFijos]);
+    }, [formData.dailyRate, formData.contractDays, formData.initialFee, totalGastosFijos, companySettings]);
 
     useEffect(() => {
         if (isContractModalOpen) {
