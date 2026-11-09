@@ -103,7 +103,6 @@ const Invoices = () => {
         Promise.all([getAdjustmentTypes(), getPaymentStatuses()])
             .then(([adjRes, payRes]) => {
                 const combined = {
-                    ...DEFAULT_ADJUSTMENT_CONFIG,
                     ...(payRes?.data || {}),
                     ...(adjRes?.data || {})
                 };
