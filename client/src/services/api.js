@@ -37,6 +37,11 @@ export const switchCompany = (targetCompanyId) => api.post('/auth/switch-company
 export const verifyDevicePin = (data) => api.post('/auth/device-pin', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
+// --- Commands History ---
+export const getCommandHistory = (params) => api.get('/commands', { params });
+export const getCommandStats = (params) => api.get('/commands/stats', { params });
+export const sendCommand = (data) => api.post('/commands/send', data);
+
 // --- Dashboard ---
 export const getDashboardStats = (params) => api.get('/dashboard/stats', { params });
 

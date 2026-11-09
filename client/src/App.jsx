@@ -21,6 +21,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
 const Reports = lazy(() => import('./pages/Reports'));
 const CompanyInvoices = lazy(() => import('./pages/CompanyInvoices'));
+const CommandHistory = lazy(() => import('./pages/CommandHistory'));
 
 // Simple Loading Component
 const LoadingSpinner = () => (
@@ -58,6 +59,8 @@ function App() {
                                     <Route path="settings" element={<Settings />} />
                                     <Route path="reports" element={<Reports />} />
                                     <Route path="company-invoices" element={<CompanyInvoices />} />
+                                    <Route path="commands" element={<CommandHistory />} />
+                                    <Route path="historial-comandos" element={<Navigate to="/commands" replace />} />
                                 </Route>
 
                                 {/* Default redirect */}
