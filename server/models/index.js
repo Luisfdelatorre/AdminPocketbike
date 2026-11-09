@@ -6,3 +6,4 @@ export { Contract } from './Contract.js';
 export { Company } from './Company.js';
 export { CompanyInvoice } from './CompanyInvoice.js';
 export { Reconciliation } from './Reconciliation.js';
+export { CommandLog } from './CommandLog.js';

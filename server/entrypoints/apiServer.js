@@ -21,6 +21,7 @@ import companyBillingRouter from '../routes/companyBillingRoutes.js';
 import settingsRoutes from '../routes/settingsRoutes.js';
 import cronRoutes from '../routes/cronRoutes.js';
 import systemJobsRoutes from '../routes/systemJobsRoutes.js';
+import commandsRouter from '../routes/commandsRoutes.js';
 
 import deviceServices from '../services/deviceServices.js';
 import seedSuperAdmin from '../utils/seedSuperAdmin.js';
@@ -71,6 +72,7 @@ app.use('/api/v1/company-invoices', companyBillingRouter);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/cron', cronRoutes);
 app.use('/api/v1/system-jobs', systemJobsRoutes);
+app.use('/api/v1/commands', commandsRouter);
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
