@@ -675,6 +675,7 @@ const Settings = () => {
                                             alt={t('settings.branding.logo')}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }}
                                             onError={(e) => {
+                                                e.target.onerror = null;
                                                 e.target.src = '/pocketbike_60x60.jpg';
                                             }}
                                         />
