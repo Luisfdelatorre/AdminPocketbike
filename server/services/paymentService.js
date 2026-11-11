@@ -777,22 +777,31 @@ export class PaymentService {
             // Fetch invoices, payments, device info, and company cutoff settings in parallel
             const deviceInfoQuery = companyId ? { companyId } : {};
 
-            // Fetch invoices, payments, device info, and companies in parallel (single round-trip each)
+            // Fetch invoices, payments, device info, companies, and active contracts in parallel (single round-trip each)
 
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs, companyDocs] = await Promise.all([
+            const [invoices, payments, deviceDocs, companyDocs, contractDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
                 Device.find(deviceInfoQuery, { name: 1, customerName: 1, driverName: 1, _id: 1, telemetry: 1, gpsId: 1, companyId: 1, companyName: 1 }).lean(),
-                Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
+                Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean(),
+                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceId: 1, deviceIdName: 1, paymentFrequency: 1 }).lean()
             ]);
-            logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
+            logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length} contracts=${contractDocs.length}`);
 
 
             // Build company config map keyed by companyId string for isInvoiceDue lookup
             const companyCutoffMap = {};
             companyDocs.forEach(c => {
                 companyCutoffMap[c._id.toString()] = c;
+            });
+
+            // Build active contract payment frequency map
+            const contractFrequencyMap = {};
+            contractDocs.forEach(c => {
+                const freq = c.paymentFrequency || 1;
+                if (c.deviceIdName) contractFrequencyMap[c.deviceIdName] = freq;
+                if (c.deviceId) contractFrequencyMap[String(c.deviceId)] = freq;
             });
 
             // Build a lookup map: deviceName -> { customerName, driverName, deviceId, gpsId, companyId, companyName, cutOff }
@@ -826,6 +835,8 @@ export class PaymentService {
                     const info = deviceInfoMap[devName] || {};
                     const compId = info.companyId || invoice.companyId || null;
                     const compObj = compId ? companyCutoffMap[compId.toString()] : null;
+                    const devIdStr = info.deviceId ? String(info.deviceId) : (invoice.deviceId ? String(invoice.deviceId) : null);
+                    const paymentFrequency = contractFrequencyMap[devName] || (devIdStr ? contractFrequencyMap[devIdStr] : null) || 1;
                     deviceMap[devName] = {
                         device: {
                             name: devName,
@@ -835,7 +846,7 @@ export class PaymentService {
                             driverName: info.customerName || info.driverName || null,
                             companyId: compId,
                             companyName: info.companyName || compObj?.name || null,
-
+                            paymentFrequency,
                             unpaidTotal: 0,
                             cutOff: Boolean(info.cutOff)
                         },
