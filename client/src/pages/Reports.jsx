@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getDailyReconciliationReport, toggleReconciliation, getAllCompanies } from '../services/api';
@@ -31,6 +31,27 @@ const Reports = () => {
     const [statusFilter, setStatusFilter] = useState('all'); // all | payments | bancolombia | reconciled | pending | selected
 
     const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
+
+    const activeCompanyName = useMemo(() => {
+        if (selectedCompany && selectedCompany !== 'all') {
+            const comp = companies.find(c => String(c._id) === String(selectedCompany));
+            if (comp?.name) return comp.name;
+        }
+        if (user?.companyName && user.companyName !== 'System') {
+            return user.companyName;
+        }
+        return '';
+    }, [selectedCompany, companies, user?.companyName]);
+
+    useEffect(() => {
+        const titleText = activeCompanyName 
+            ? `${t('sidebar.reports', 'Reporte')} - ${activeCompanyName}` 
+            : t('sidebar.reports', 'Reporte');
+        window.dispatchEvent(new CustomEvent('set-mobile-header-title', { detail: titleText }));
+        return () => {
+            window.dispatchEvent(new CustomEvent('set-mobile-header-title', { detail: null }));
+        };
+    }, [activeCompanyName, t]);
 
     useEffect(() => {
         if (isSystemAdmin) {
