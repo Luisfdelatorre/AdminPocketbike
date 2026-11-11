@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings, downloadContractDocument, extractContractDocument } from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download } from 'lucide-react';
+import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download, Clock, CalendarDays, CalendarRange } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatPhoneNumber, formatCurrencyCOP, formatCompact, formatCompactCOP, formatDate } from '../utils/helpers';
 import { safeCalcularPrecioMoto } from '../utils/contractCalculations';
@@ -1133,9 +1133,39 @@ const Contracts = () => {
         return colors[status] || '#6B7280';
     };
 
+    const getFrequencyBadge = (freq = 1) => {
+        const f = Number(freq) || 1;
+        if (f >= 12) {
+            return {
+                label: 'Quincenal',
+                title: `Cobro quincenal (${f} días)`,
+                icon: CalendarRange,
+                className: 'bg-purple-50 text-purple-700 border-purple-200'
+            };
+        }
+        if (f >= 6) {
+            return {
+                label: 'Semanal',
+                title: `Cobro semanal (${f} días)`,
+                icon: CalendarDays,
+                className: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            };
+        }
+        return {
+            label: 'Diario',
+            title: 'Cobro diario (1 día)',
+            icon: Clock,
+            className: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        };
+    };
+
     const filteredContracts = contracts.filter(contract => {
-        // Status filter
-        if (filter !== 'all' && contract.status?.toLowerCase() !== filter.toLowerCase()) {
+        // Status / payment frequency filter
+        if (filter === 'weekly') {
+            if ((contract.paymentFrequency || 1) <= 1) {
+                return false;
+            }
+        } else if (filter !== 'all' && contract.status?.toLowerCase() !== filter.toLowerCase()) {
             return false;
         }
 
@@ -1157,7 +1187,8 @@ const Contracts = () => {
         { value: 'all', label: t('contracts.filters.all') },
         { value: 'active', label: t('contracts.filters.active') },
         { value: 'completed', label: t('contracts.filters.completed') },
-        { value: 'cancelled', label: t('contracts.filters.cancelled') }
+        { value: 'cancelled', label: t('contracts.filters.cancelled') },
+        { value: 'weekly', label: t('contracts.filters.weekly', 'Semanal+') }
     ];
 
     const desktopHeader = (
@@ -1259,7 +1290,7 @@ const Contracts = () => {
                         >
                             {/* Header with ID, Badge and Menu */}
                             <header className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-x-2">
+                                <div className="flex items-center flex-wrap gap-1.5">
                                     <h1 className="text-[15px] font-bold text-main-dark">
                                         <a
                                             onClick={(e) => {
@@ -1283,6 +1314,19 @@ const Contracts = () => {
                                     >
                                         {t(`common.${contract.status.toLowerCase()}`, contract.status)}
                                     </span>
+                                    {(() => {
+                                        const freqInfo = getFrequencyBadge(contract.paymentFrequency);
+                                        const FreqIcon = freqInfo.icon;
+                                        return (
+                                            <span
+                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${freqInfo.className}`}
+                                                title={freqInfo.title}
+                                            >
+                                                <FreqIcon size={11} strokeWidth={2.2} />
+                                                {freqInfo.label}
+                                            </span>
+                                        );
+                                    })()}
                                     <span
                                         className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200"
                                         title="PIN de acceso"
