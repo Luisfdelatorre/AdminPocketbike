@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getDailyReconciliationReport, toggleReconciliation, getAllCompanies } from '../services/api';
 import { Calendar, Download, RefreshCw, FileText, Check, X, Copy } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
-import MonthYearSelector from '../components/MonthYearSelector';
+import StatCard from '../components/StatCard';
 import useIsMobile from '../hooks/useIsMobile';
 import { useAuth } from '../context/AuthContext';
 import './Reports.css';
@@ -30,9 +30,6 @@ const Reports = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | payments | bancolombia | reconciled | pending | selected
 
-    const summaryHeaderRef = useRef(null);
-    const [isSummaryHeaderStuck, setIsSummaryHeaderStuck] = useState(false);
-
     const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
 
     useEffect(() => {
@@ -46,20 +43,6 @@ const Reports = () => {
                 .catch(err => console.error('Failed to load companies:', err));
         }
     }, [isSystemAdmin]);
-
-    useEffect(() => {
-        const updateStickyState = () => {
-            const headerTop = summaryHeaderRef.current?.getBoundingClientRect().top;
-            const nextIsStuck = typeof headerTop === 'number' && headerTop <= -3;
-            setIsSummaryHeaderStuck((previous) => (
-                previous === nextIsStuck ? previous : nextIsStuck
-            ));
-        };
-
-        updateStickyState();
-        window.addEventListener('scroll', updateStickyState, { capture: true, passive: true });
-        return () => window.removeEventListener('scroll', updateStickyState, { capture: true });
-    }, []);
 
     const toggleReconciled = async (date, nextState, transactionId) => {
         const currentlyReconciled = reconciledDates[date]?.reconciled || reconciledDates[date] === true;
@@ -259,20 +242,63 @@ const Reports = () => {
     const activeAmount = activeRow ? activeRow.bancolombia : 0;
     const activeFormattedDate = activePromptDate ? activePromptDate.split('-').reverse().join('/') : '';
 
+    const handleDownloadReport = () => {
+        if (!reportData || reportData.length === 0) return;
+        const headers = ["Fecha", "Pagos", "Comisión", "Bancolombia", "Estado", "Referencia"];
+        const rows = reportData.map(row => {
+            const isReconciled = Boolean(reconciledDates[row.date]?.reconciled || reconciledDates[row.date] === true);
+            const txId = reconciledDates[row.date]?.transactionId || '';
+            return [
+                row.date,
+                row.payments || 0,
+                row.commission || 0,
+                row.bancolombia || 0,
+                isReconciled ? "Conciliado" : "Pendiente",
+                txId
+            ];
+        });
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `reporte_conciliacion_${month}-${year}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const renderDateSelectors = (isMobileView = false) => (
         <div className={`date-selectors-group${isMobileView ? ' mobile-date-selectors' : ''}`}>
-            <MonthYearSelector
-                selectedMonth={month}
-                selectedYear={year}
-                onChangeMonth={setMonth}
-                onChangeYear={setYear}
-                variant={isMobileView ? 'mobile' : 'desktop'}
-            />
+            <select
+                value={month}
+                onChange={e => setMonth(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar mes"
+            >
+                {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+                    </option>
+                ))}
+            </select>
+
+            <select
+                value={year}
+                onChange={e => setYear(Number(e.target.value))}
+                className="date-select-standard"
+                aria-label="Seleccionar año"
+            >
+                {Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                ))}
+            </select>
+
             {isSystemAdmin && companies.length > 0 && (
                 <select
                     value={selectedCompany}
                     onChange={(e) => setSelectedCompany(e.target.value)}
-                    className={isMobileView ? 'sort-select' : 'date-select-standard'}
+                    className="date-select-standard"
                     aria-label="Seleccionar empresa"
                 >
                     <option value="all">Todas las empresas</option>
@@ -298,18 +324,28 @@ const Reports = () => {
             refreshText={t('payments.refresh', 'Actualizar')}
             leadingActions={renderDateSelectors(false)}
             actions={
-                selectedDates.length > 0 ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    {selectedDates.length > 0 && (
+                        <button
+                            type="button"
+                            className="select-control"
+                            onClick={copySelectedTotal}
+                            title={`Copiar total seleccionado: ${formatCurrency(selectedTotal)}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                        >
+                            {copiedTotal ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
+                            <span>{copiedTotal ? 'Copiado!' : `Copiar ${formatCompact(selectedTotal)}`}</span>
+                        </button>
+                    )}
                     <button
                         type="button"
-                        className="select-control"
-                        onClick={copySelectedTotal}
-                        title={`Copiar total seleccionado: ${formatCurrency(selectedTotal)}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                        className="btn-secondary"
+                        onClick={handleDownloadReport}
+                        title="Exportar CSV"
                     >
-                        {copiedTotal ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
-                        <span>{copiedTotal ? 'Copiado!' : `Copiar ${formatCompact(selectedTotal)}`}</span>
+                        <Download size={16} /> Exportar CSV
                     </button>
-                ) : null
+                </div>
             }
         />
     );
@@ -322,20 +358,30 @@ const Reports = () => {
                 onFilterToggle={() => setShowFilters(prev => !prev)}
                 showFilters={showFilters}
                 actions={
-                    selectedDates.length > 0 ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        {selectedDates.length > 0 && (
+                            <button
+                                type="button"
+                                className="btn-mobile-header-action"
+                                onClick={copySelectedTotal}
+                                title={`Copiar total seleccionado: ${formatCurrency(selectedTotal)}`}
+                            >
+                                {copiedTotal ? <Check size={18} color="#10b981" /> : <Copy size={18} />}
+                            </button>
+                        )}
                         <button
                             type="button"
-                            className="select-control"
-                            onClick={copySelectedTotal}
-                            title={`Copiar total seleccionado: ${formatCurrency(selectedTotal)}`}
+                            className="btn-mobile-header-action"
+                            onClick={handleDownloadReport}
+                            title="Exportar CSV"
                         >
-                            {copiedTotal ? <Check size={18} color="#10b981" /> : <Copy size={18} />}
+                            <Download size={18} />
                         </button>
-                    ) : null
+                    </div>
                 }
             />
-            {/* Mobile-only Sticky Date Header */}
-            <div ref={summaryHeaderRef} className={`summary-header md:hidden${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
+            {/* Header Controls Bar (Mobile / Collapsible) */}
+            <div className="dashboard-controls-row md:hidden">
                 {renderDateSelectors(true)}
             </div>
         </>
@@ -347,44 +393,33 @@ const Reports = () => {
         <div className="reports-page">
             {renderHeader}
 
-            {/* Standard iOS Search & Stat Pills Filter Bar */}
+            {/* Expandable Metrics Section */}
             <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
-                <SearchAndFilterBar
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    searchPlaceholder="Buscar por fecha (YYYY-MM-DD) o transacción…"
-                    filter={statusFilter}
-                    setFilter={setStatusFilter}
-                    filterOptions={filterOptions}
-                    filterRowClass="summary-filter-row-ios"
-                    extraActions={
-                        selectedDates.length > 0 ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <button
-                                    type="button"
-                                    className="filter-pill-ios active"
-                                    onClick={copySelectedTotal}
-                                    title="Copiar monto seleccionado"
-                                    style={{ background: '#10b981', borderColor: '#059669', color: '#fff' }}
-                                >
-                                    {copiedTotal ? <Check size={13} /> : <Copy size={13} />}
-                                    <span style={{ marginLeft: '4px' }}>
-                                        {copiedTotal ? '¡Copiado!' : `Copiar ${formatCompact(selectedTotal)}`}
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="filter-pill-ios"
-                                    onClick={handleClearSelection}
-                                    title="Deseleccionar todo"
-                                >
-                                    <X size={13} />
-                                    <span style={{ marginLeft: '4px' }}>Limpiar</span>
-                                </button>
-                            </div>
-                        ) : null
-                    }
-                />
+                {/* 3 Compact Stat Cards */}
+                <div className="stats-grid-mid-3">
+                    <StatCard
+                        title="TOTAL PAGOS"
+                        value={formatCompact(totalPayments)}
+                        fullValue={formatCurrency(totalPayments)}
+                        uppercaseTitle
+                    />
+                    <StatCard
+                        title="COMISIÓN"
+                        value={formatCompact(totalCommission)}
+                        fullValue={formatCurrency(totalCommission)}
+                        valueColor="#ef4444"
+                        uppercaseTitle
+                    />
+                    <StatCard
+                        title="BANCOLOMBIA"
+                        value={formatCompact(totalBancolombia)}
+                        fullValue={formatCurrency(totalBancolombia)}
+                        valueColor="#10b981"
+                        uppercaseTitle
+                    />
+                </div>
+
+
             </div>
 
             {/* Excel-like Data Table */}
