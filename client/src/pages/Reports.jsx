@@ -568,6 +568,54 @@ const Reports = () => {
                 </div>,
                 document.body
             )}
+
+            {/* Floating Selection Bar for Bancolombia Transfers */}
+            {selectedDates.length > 0 && createPortal(
+                <div className="bancolombia-floating-bar-wrapper">
+                    <div className="bancolombia-floating-bar">
+                        <div className="floating-bar-info">
+                            <div className="floating-bar-count">
+                                <span className="floating-bar-badge">{selectedDates.length}</span>
+                                <span>{selectedDates.length === 1 ? 'día seleccionado' : 'días seleccionados'}</span>
+                            </div>
+                            <div className="floating-bar-total">
+                                <span className="floating-bar-label">Total a transferir:</span>
+                                <span className="floating-bar-amount">{formatCurrency(selectedTotal)}</span>
+                            </div>
+                        </div>
+                        <div className="floating-bar-actions">
+                            <button
+                                type="button"
+                                onClick={copySelectedTotal}
+                                className={`floating-bar-btn floating-bar-btn--copy ${copiedTotal ? 'floating-bar-btn--copied' : ''}`}
+                                title="Copiar monto numérico exacto para transferir en Bancolombia"
+                            >
+                                {copiedTotal ? (
+                                    <>
+                                        <Check size={16} />
+                                        <span>¡Copiado!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy size={16} />
+                                        <span>Copiar valor ({selectedTotal.toLocaleString('es-CO')})</span>
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleClearSelection}
+                                className="floating-bar-btn floating-bar-btn--clear"
+                                title="Limpiar selección"
+                            >
+                                <X size={16} />
+                                <span className="desktop-only">Limpiar</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
