@@ -947,6 +947,10 @@ h3.uppercase-title-ios {
     background-color: #ffffff;
 }
 
+.filter-pill-badge.badge-weekly {
+    background-color: #ffffff;
+}
+
 .filter-pill-badge.badge-all {
     background-color: #ffffff;
 }
@@ -970,6 +974,12 @@ h3.uppercase-title-ios {
 }
 
 .filter-pill-ios[data-filter='cutoff'].active .filter-pill-badge.badge-cutoff {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #bdb0b0;
+}
+
+.filter-pill-ios[data-filter='weekly'].active .filter-pill-badge.badge-weekly {
     background-color: #ffffff;
     color: #000000;
     border-color: #bdb0b0;

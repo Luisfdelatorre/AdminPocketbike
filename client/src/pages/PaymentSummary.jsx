@@ -416,6 +416,10 @@ const PaymentSummary = () => {
         }).length;
     }, [summaryData, getDeviceStatus]);
 
+    const weeklyCount = useMemo(() => {
+        return summaryData.filter(item => (item.device?.paymentFrequency || 1) > 1).length;
+    }, [summaryData]);
+
     // ── Frontend filter (no extra API call) ─────────────────────────────────
     const filteredSummaryData = summaryData.filter(item => {
         // Text search: device name or driver name
@@ -431,6 +435,9 @@ const PaymentSummary = () => {
         if (statusFilter === 'cutoff') {
             const status = getDeviceStatus(item.device.deviceId || item.device.name);
             return Boolean(status?.cutOff);
+        }
+        if (statusFilter === 'weekly') {
+            return (item.device?.paymentFrequency || 1) > 1;
         }
         return true;
     });
@@ -613,7 +620,8 @@ const PaymentSummary = () => {
                         { value: 'all', label: 'Todos', badge: summaryData.length, badgeType: 'all' },
                         { value: 'debt', label: 'Con deuda', badge: morososCount, badgeType: 'debt' },
                         { value: 'ok', label: 'Al día', badge: okCount, badgeType: 'ok' },
-                        { value: 'cutoff', label: 'Apagados', badge: cutoffCount, badgeType: 'cutoff' }
+                        { value: 'cutoff', label: 'Apagados', badge: cutoffCount, badgeType: 'cutoff' },
+                        { value: 'weekly', label: 'Semanal+', badge: weeklyCount, badgeType: 'weekly' }
                     ]}
                     filterRowClass="summary-filter-row-ios"
                 />
