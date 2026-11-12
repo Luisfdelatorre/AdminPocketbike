@@ -44,9 +44,7 @@ const Reports = () => {
     }, [selectedCompany, companies, user?.companyName]);
 
     useEffect(() => {
-        const titleText = activeCompanyName 
-            ? `${t('sidebar.reports', 'Reporte')} - ${activeCompanyName}` 
-            : t('sidebar.reports', 'Reporte');
+        const titleText = activeCompanyName || t('sidebar.reports', 'Reporte');
         window.dispatchEvent(new CustomEvent('set-mobile-header-title', { detail: titleText }));
         return () => {
             window.dispatchEvent(new CustomEvent('set-mobile-header-title', { detail: null }));

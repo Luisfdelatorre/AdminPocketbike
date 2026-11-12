@@ -26,9 +26,9 @@ const MobileHeader = ({ sidebarOpen, setSidebarOpen }) => {
     }, [path]);
 
     // Sub-pages or secondary views that use Back button instead of Menu toggle
-    const isSubPage = path.startsWith('/settings') || 
-                      path.startsWith('/companies') || 
-                      path.startsWith('/company-invoices');
+    const isSubPage = path.startsWith('/settings') ||
+        path.startsWith('/companies') ||
+        path.startsWith('/company-invoices');
 
     const getPageTitle = () => {
         if (customTitle) return customTitle;
@@ -43,7 +43,7 @@ const MobileHeader = ({ sidebarOpen, setSidebarOpen }) => {
         if (path.startsWith('/settings')) return t('sidebar.settings');
         if (path.startsWith('/reports')) {
             const companyName = user?.companyName && user.companyName !== 'System' ? user.companyName : '';
-            return companyName ? `${t('sidebar.reports')} - ${companyName}` : t('sidebar.reports');
+            return companyName ? companyName : t('sidebar.reports');
         }
         if (path.startsWith('/summary')) return t('sidebar.summary');
         return 'PocketBike';
