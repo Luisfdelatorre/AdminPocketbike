@@ -125,6 +125,13 @@ const companySchema = new mongoose.Schema({
             soatPosterior: { type: Number, default: 370000 },
             traspasoPosterior: { type: Number, default: 273000 },
             registro: { type: Number, default: 217000 }
+        },
+        // Financial calculation parameters
+        financialParameters: {
+            iva: { type: Number, default: 0.19 },
+            objetivoEA: { type: Number, default: 0.29 },
+            pagosPorAnio: { type: Number, default: 312 },
+            proporcionUPAY: { type: Number, default: 0.95 }
         }
     }
 }, {

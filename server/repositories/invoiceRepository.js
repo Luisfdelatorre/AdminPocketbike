@@ -17,27 +17,38 @@ export class InvoiceRepository {
     /**
      * Create a daily invoice for a device
      */
-    async createInvoice({ deviceIdName, date, amount }) {
+    async createInvoice({ deviceIdName, date }) {
         try {
+            const devName = (deviceIdName || '').trim().toUpperCase();
             // Need numeric deviceId for the new Invoice schema
-            const device = await Device.findOne({ name: deviceIdName });
+            const device = await Device.findOne({ name: devName });
             if (!device) {
                 throw new Error(`Device not found for name: ${deviceIdName}`);
             }
 
-            const contractId = device.activeContractId;
+            let contract = null;
+            if (device.activeContractId) {
+                contract = await Contract.findOne({ contractId: device.activeContractId }).lean();
+            }
+            if (!contract) {
+                contract = await Contract.findOne({ deviceIdName: device.name, status: 'ACTIVE' }).lean();
+            }
+
+            const contractId = contract?.contractId || device.activeContractId || null;
+            const finalAmount = contract?.dailyRate || 35000;
 
             const invoice = await Invoice.createInvoice({
-                amount,
-                date,
-                deviceIdName,
+                amount: finalAmount,
+                date: dayjs(date).startOf('day').toDate(),
+                deviceIdName: device.name,
                 deviceId: device.deviceId,
-                gpsId: device.gpsId,
-                companyId: device.companyId,
+                gpsId: device.gpsId || contract?.gpsId,
+                companyId: device.companyId || contract?.companyId,
+                companyName: contract?.companyName,
                 contractId
             });
 
-            return invoice.toObject();
+            return invoice.toObject ? invoice.toObject() : invoice;
         } catch (error) {
             // Check if duplicate (device + date already exists)
             if (error.code === 11000) {
@@ -330,7 +341,7 @@ export class InvoiceRepository {
     async findInvoicesForSummary(query) {
         try {
             return await Invoice.find(query)
-                .select('date deviceIdName dayType amount paidAmount cutOff distance paid companyId')
+                .select('_id invoiceId date deviceIdName dayType adjustmentType adjustmentReference adjustmentComment amount paidAmount cutOff distance paid companyId')
                 .lean();
         } catch (error) {
             logger.error('Error finding invoices for summary:', error);

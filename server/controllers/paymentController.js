@@ -135,9 +135,11 @@ const paymentController = {
             
             let targetCompanyId = null;
             if (req.auth) {
-                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && (companyName === 'System' || !companyId));
                 if (!isSystemAdmin) {
                     targetCompanyId = companyId;
+                } else if (req.query.companyId && req.query.companyId !== 'all') {
+                    targetCompanyId = req.query.companyId;
                 }
             }
             
@@ -169,9 +171,11 @@ const paymentController = {
 
             let targetCompanyId = null;
             if (req.auth) {
-                const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
+                const isSystemAdmin = isSuperAdmin || (role === 'admin' && (companyName === 'System' || !companyId));
                 if (!isSystemAdmin) {
                     targetCompanyId = companyId;
+                } else if (req.query.companyId && req.query.companyId !== 'all') {
+                    targetCompanyId = req.query.companyId;
                 }
             }
 
@@ -372,7 +376,7 @@ const paymentController = {
             }
             const configuredTypes = await settingRepository.getAdjustmentTypes();
             const validTypes = Object.keys(configuredTypes || {});
-            const fallbackReasons = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA'];
+            const fallbackReasons = ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'DAMAGE', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD', 'MANUAL', 'NEQUI', 'EFECTIVO', 'TRANSFERENCIA', 'BANCOLOMBIA', 'FREE', 'GRATIS'];
             const allAllowed = Array.from(new Set([...validTypes, ...fallbackReasons]));
             if (!allAllowed.includes(adjustmentType)) {
                 return res.status(400).json({ success: false, error: `adjustmentReason must be one of ${allAllowed.join(', ')}` });

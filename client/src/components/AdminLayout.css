@@ -65,10 +65,21 @@
         display: none !important;
     }
 
+    .mobile-header .logo-container {
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+        padding: 0 6px;
+    }
+
     .mobile-header h2 {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
+        font-weight: 700;
         color: #1F2937;
         margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .admin-content {

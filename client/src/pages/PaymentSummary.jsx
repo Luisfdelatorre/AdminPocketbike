@@ -9,12 +9,15 @@ import MobileHeaderAction from '../components/MobileHeaderAction';
 import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
 import './PaymentSummary.css';
+import './Invoices.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import InvoiceAdjustmentModal from '../components/modals/InvoiceAdjustmentModal';
+import CreateDayInvoiceModal from '../components/modals/CreateDayInvoiceModal';
 
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
@@ -48,6 +51,41 @@ const PaymentSummary = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
     const [showFilters, setShowFilters] = useState(true);
+
+    // Modals for day pill action (adjustment if invoice exists, create day invoice if not)
+    const [adjustmentModal, setAdjustmentModal] = useState({ open: false, invoice: null });
+    const [createInvoiceModal, setCreateInvoiceModal] = useState({ open: false, deviceName: '', date: '', driverName: '' });
+
+    const handleDayClick = (item, day, dayData) => {
+        const monthStr = String(selectedMonth).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        const dateStr = `${selectedYear}-${monthStr}-${dayStr}`;
+        const deviceName = item.device?.name || item.device?.deviceId || '';
+
+        if (dayData) {
+            setAdjustmentModal({
+                open: true,
+                invoice: {
+                    invoiceId: dayData.invoiceId || dayData._id || `${deviceName}-${dateStr}`,
+                    _id: dayData.invoiceId || dayData._id || `${deviceName}-${dateStr}`,
+                    deviceIdName: deviceName,
+                    amount: dayData.amount !== undefined && dayData.amount !== null ? dayData.amount : 35000,
+                    date: dayData.date || dateStr,
+                    dayType: dayData.dayType,
+                    adjustmentType: dayData.adjustmentType,
+                    adjustmentReference: dayData.adjustmentReference,
+                    adjustmentComment: dayData.adjustmentComment
+                }
+            });
+        } else {
+            setCreateInvoiceModal({
+                open: true,
+                deviceName,
+                date: dateStr,
+                driverName: item.device?.customerName || item.device?.driverName || ''
+            });
+        }
+    };
 
     const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
     const [companies, setCompanies] = useState([]);
@@ -243,11 +281,12 @@ const PaymentSummary = () => {
 
 
     const handleEngineToggle = async (device) => {
+        const vehicleId = device._id || device.id || device.gpsId;
         const gpsId = device.gpsId;
         const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
-        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true, [vehicleId]: true }));
         try {
-            const result = await controlEngine(gpsId, command);
+            const result = await controlEngine(vehicleId, command);
             const data = result.data || result;
             const resObj = data.response || data;
 
@@ -255,7 +294,7 @@ const PaymentSummary = () => {
                 showToast(`Comando encolado en Traccar para ${device.name}`, 'info');
                 setSummaryDataMap(prev => {
                     const next = { ...prev };
-                    const primaryKey = String(gpsId);
+                    const primaryKey = String(gpsId || vehicleId);
                     if (next[primaryKey]) {
                         // Anti-Race Condition: Only set queued: true if the cutOff state hasn't already been flipped by a blazing-fast SSE webhook!
                         if (next[primaryKey].device.cutOff === !!device.cutOff) {
@@ -274,6 +313,7 @@ const PaymentSummary = () => {
             setPendingCommands(prev => {
                 const next = { ...prev };
                 delete next[gpsId];
+                delete next[vehicleId];
                 return next;
             });
         }
@@ -376,6 +416,10 @@ const PaymentSummary = () => {
         }).length;
     }, [summaryData, getDeviceStatus]);
 
+    const weeklyCount = useMemo(() => {
+        return summaryData.filter(item => (item.device?.paymentFrequency || 1) > 1).length;
+    }, [summaryData]);
+
     // ── Frontend filter (no extra API call) ─────────────────────────────────
     const filteredSummaryData = summaryData.filter(item => {
         // Text search: device name or driver name
@@ -391,6 +435,9 @@ const PaymentSummary = () => {
         if (statusFilter === 'cutoff') {
             const status = getDeviceStatus(item.device.deviceId || item.device.name);
             return Boolean(status?.cutOff);
+        }
+        if (statusFilter === 'weekly') {
+            return (item.device?.paymentFrequency || 1) > 1;
         }
         return true;
     });
@@ -425,7 +472,7 @@ const PaymentSummary = () => {
     const handleFilterToggle = () => setShowFilters(prev => !prev);
 
     const renderViews = useMemo(() => {
-        if (isMobile || desktopView === 'bike') {
+        if (desktopView === 'bike') {
             return (
                 <BikePaymentSummary
                     summaryData={filteredSummaryData}
@@ -437,6 +484,7 @@ const PaymentSummary = () => {
                     handleEngineToggle={handleEngineToggle}
                     pendingCommands={pendingCommands}
                     getDeviceStatus={getDeviceStatus}
+                    onDayClick={handleDayClick}
                 />
             );
         }
@@ -454,11 +502,12 @@ const PaymentSummary = () => {
                 daysArray={daysArray}
                 isFutureSummaryDay={isFutureSummaryDay}
                 renderEngineButton={renderEngineButton}
+                onDayClick={handleDayClick}
             />
         );
     }, [
-        isMobile, desktopView, filteredSummaryData, daysArray, currentDay,
-        loading, user, pendingCommands, matrixGeometry
+        desktopView, filteredSummaryData, daysArray, currentDay,
+        loading, user, pendingCommands, matrixGeometry, handleDayClick
     ]);
 
     const autoOffButton = (
@@ -471,6 +520,31 @@ const PaymentSummary = () => {
         >
             <Power size={19} className={bulkOffLoading ? 'spin' : ''} aria-hidden="true" />
         </button>
+    );
+
+    const viewToggleSegment = (
+        <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
+            <button
+                type="button"
+                className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
+                onClick={() => handleDesktopViewChange('bike')}
+                aria-pressed={desktopView === 'bike'}
+                title="Vista por tarjeta / moto"
+            >
+                <LayoutList size={16} aria-hidden="true" />
+                <span>Tarjetas</span>
+            </button>
+            <button
+                type="button"
+                className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
+                onClick={() => handleDesktopViewChange('matrix')}
+                aria-pressed={desktopView === 'matrix'}
+                title="Vista de matriz / tabla"
+            >
+                <Table2 size={16} aria-hidden="true" />
+                <span>Matriz</span>
+            </button>
+        </div>
     );
 
     const renderDateSelectors = (isMobileView = false) => (
@@ -527,7 +601,12 @@ const PaymentSummary = () => {
             onRefresh={fetchData}
             loading={loading}
             refreshText={t('payments.refresh', 'Actualizar')}
-            leadingActions={renderDateSelectors(false)}
+            leadingActions={
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+                    {renderDateSelectors(false)}
+                    {viewToggleSegment}
+                </div>
+            }
             actions={
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     {autoOffButton}
@@ -543,7 +622,20 @@ const PaymentSummary = () => {
                 loading={loading}
                 onFilterToggle={handleFilterToggle}
                 showFilters={showFilters}
-                actions={autoOffButton}
+                actions={
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                            type="button"
+                            className={`btn-mobile-header-action ${desktopView === 'matrix' ? 'active' : ''}`}
+                            onClick={() => handleDesktopViewChange(desktopView === 'matrix' ? 'bike' : 'matrix')}
+                            title={desktopView === 'matrix' ? 'Ver tarjetas' : 'Ver matriz'}
+                            aria-label={desktopView === 'matrix' ? 'Cambiar a vista de tarjetas' : 'Cambiar a vista de matriz'}
+                        >
+                            {desktopView === 'matrix' ? <LayoutList size={20} /> : <Table2 size={20} />}
+                        </button>
+                        {autoOffButton}
+                    </div>
+                }
             />
             {/* Mobile-only Sticky Date Header */}
             <div ref={summaryHeaderRef} className={`summary-header md:hidden${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
@@ -571,7 +663,8 @@ const PaymentSummary = () => {
                         { value: 'all', label: 'Todos', badge: summaryData.length, badgeType: 'all' },
                         { value: 'debt', label: 'Con deuda', badge: morososCount, badgeType: 'debt' },
                         { value: 'ok', label: 'Al día', badge: okCount, badgeType: 'ok' },
-                        { value: 'cutoff', label: 'Apagados', badge: cutoffCount, badgeType: 'cutoff' }
+                        { value: 'cutoff', label: 'Apagados', badge: cutoffCount, badgeType: 'cutoff' },
+                        { value: 'weekly', label: 'Semanal+', badge: weeklyCount, badgeType: 'weekly' }
                     ]}
                     filterRowClass="summary-filter-row-ios"
                 />
@@ -612,6 +705,23 @@ const PaymentSummary = () => {
                 </div>
             )}
 
+            {/* Modal para Ajuste / Pago Manual si existe la factura */}
+            <InvoiceAdjustmentModal
+                isOpen={adjustmentModal.open}
+                invoice={adjustmentModal.invoice}
+                onClose={() => setAdjustmentModal({ open: false, invoice: null })}
+                onSuccess={() => fetchData()}
+            />
+
+            {/* Modal para Crear Factura Diaria del Día Seleccionado */}
+            <CreateDayInvoiceModal
+                isOpen={createInvoiceModal.open}
+                deviceName={createInvoiceModal.deviceName}
+                date={createInvoiceModal.date}
+                driverName={createInvoiceModal.driverName}
+                onClose={() => setCreateInvoiceModal({ open: false, deviceName: '', date: '', driverName: '' })}
+                onSuccess={() => fetchData()}
+            />
 
         </div>
     );

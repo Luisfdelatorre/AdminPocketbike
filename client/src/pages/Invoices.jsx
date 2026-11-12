@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     FileText, Calendar, DollarSign, Check, X, Search, Filter,
-    HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Download, RefreshCw, Building2,
+    HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Plus, Download, RefreshCw, Building2,
     ChevronLeft, ChevronRight, TrendingUp, TrendingDown
 } from 'lucide-react';
 import './Payments.css';
@@ -12,8 +13,11 @@ import useIsMobile from '../hooks/useIsMobile';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes, getPaymentStatuses } from '../services/api';
 import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
+import CreateDayInvoiceModal from '../components/modals/CreateDayInvoiceModal';
+import InvoiceAdjustmentModal from '../components/modals/InvoiceAdjustmentModal';
 
 const ADJUSTMENT_ICONS = {
     REPAIR: Wrench,
@@ -73,106 +77,32 @@ const Invoices = () => {
         }
     };
 
+    // ── Add Invoices to Device Modal ──────────────────────
+    const [addInvoicesModalOpen, setAddInvoicesModalOpen] = useState(false);
+    const [fabPortalElement, setFabPortalElement] = useState(null);
+
+    useEffect(() => {
+        setFabPortalElement(document.body);
+    }, []);
+
     // ── Manual Payment Modal ──────────────────────────────
     const [manualPayModal, setManualPayModal] = useState({ open: false, invoice: null });
-    const [manualPayForm, setManualPayForm] = useState({
-        amount: '',
-        reference: '',
-        note: '',
-        paymentDate: new Date().toISOString().split('T')[0],
-        adjustmentType: null, // REPAIR | DAMAGE | MAINTENANCE | null
-    });
-    const [manualPayLoading, setManualPayLoading] = useState(false);
-    const [manualPayError, setManualPayError] = useState('');
 
-    const DEFAULT_ADJUSTMENT_CONFIG = {
-        NEQUI: {
-            label: 'Pago Real - Nequi',
-            color: '#E11D48',
-            bg: '#FFF1F2',
-            description: 'Pago real recibido vía Nequi.',
-            autoAmount: null,
-            autoReference: 'Pago Nequi recibido por Admin',
-            isRealPayment: true,
-        },
-        EFECTIVO: {
-            label: 'Pago Real - Efectivo',
-            color: '#16A34A',
-            bg: '#F0FDF4',
-            description: 'Pago real recibido en efectivo.',
-            autoAmount: null,
-            autoReference: 'Pago en Efectivo recibido por Admin',
-            isRealPayment: true,
-        },
-        TRANSFERENCIA: {
-            label: 'Pago Real - Transferencia Bancaria',
-            color: '#2563EB',
-            bg: '#EFF6FF',
-            description: 'Pago real recibido por transferencia bancaria.',
-            autoAmount: null,
-            autoReference: 'Transferencia Bancaria recibida por Admin',
-            isRealPayment: true,
-        },
-        ACCIDENT_TRANSIT: {
-            label: 'Ajuste - Retenida en tránsito por accidente ($0)',
-            badgeLabel: 'RETENIDA',
-            color: '#FB9678',
-            bg: '#FFF4EF',
-            description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
-        },
-        REPAIR: {
-            label: 'Ajuste - Retenida en tránsito por accidente ($0)',
-            badgeLabel: 'RETENIDA',
-            color: '#FB9678',
-            bg: '#FFF4EF',
-            description: 'Vehículo retenido en tránsito por accidente — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'RETENIDA EN TRÁNSITO POR ACCIDENTE - Día ajustado automáticamente',
-            hidden: true,
-        },
-        INCAPACITY: {
-            label: 'Ajuste - Incapacidad ($0)',
-            color: '#3b82f6',
-            bg: '#EFF6FF',
-            description: 'Incapacidad médica del cliente — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'INCAPACIDAD - Día ajustado automáticamente',
-        },
-        MAINTENANCE: {
-            label: 'Ajuste - Mantenimiento ($0)',
-            color: '#7460EE',
-            bg: '#F5F3FF',
-            description: 'Mantenimiento programado — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'MANTENIMIENTO - Día ajustado automáticamente',
-        },
-        OFFICE: {
-            label: 'Ajuste - Oficina ($0)',
-            color: '#0891B2',
-            bg: '#ECFEFF',
-            description: 'Ajuste realizado en oficina — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'OFICINA - Día ajustado automáticamente',
-        },
-        WORKSHOP: {
-            label: 'Ajuste - Taller ($0)',
-            color: '#A3A3A3',
-            bg: '#F5F5F5',
-            description: 'Dispositivo en taller — día sin cobro al cliente.',
-            autoAmount: 0,
-            autoReference: 'TALLER - Día ajustado automáticamente',
-        },
+    const openManualPayModal = (invoice) => {
+        setManualPayModal({ open: true, invoice });
     };
 
-    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState(DEFAULT_ADJUSTMENT_CONFIG);
+    const closeManualPayModal = () => {
+        setManualPayModal({ open: false, invoice: null });
+    };
+
+
+    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({});
 
     useEffect(() => {
         Promise.all([getAdjustmentTypes(), getPaymentStatuses()])
             .then(([adjRes, payRes]) => {
                 const combined = {
-                    ...DEFAULT_ADJUSTMENT_CONFIG,
                     ...(payRes?.data || {}),
                     ...(adjRes?.data || {})
                 };
@@ -180,77 +110,6 @@ const Invoices = () => {
             })
             .catch(err => console.warn('No se pudo cargar la configuración de tipos de ajuste:', err));
     }, []);
-
-    const buildAutoReference = (cfg, invoice) => {
-        if (!cfg) return '';
-        const badge = cfg.badgeLabel || '';
-        const deviceName = invoice?.deviceName || invoice?.deviceIdName || invoice?.plate || invoice?.device?.name || '';
-        const rawDate = invoice?.date || invoice?.invoiceDate || invoice?.dueDate;
-        const dateStr = rawDate ? new Date(rawDate).toISOString().split('T')[0] : '';
-
-        if (cfg.autoReference) {
-            let ref = cfg.autoReference;
-            if (ref.includes('{deviceName}') || ref.includes('{date}') || ref.includes('{type}')) {
-                return ref
-                    .replace(/{type}/g, badge)
-                    .replace(/{deviceName}/g, deviceName)
-                    .replace(/{date}/g, dateStr);
-            }
-        }
-
-        const parts = [badge, deviceName, dateStr ? `(${dateStr})` : ''].filter(Boolean);
-        return parts.join(' - ');
-    };
-
-    const openManualPayModal = (invoice) => {
-        const availableKeys = Object.keys(ADJUSTMENT_CONFIG).filter(k => !ADJUSTMENT_CONFIG[k].hidden && ADJUSTMENT_CONFIG[k].category !== 'STATUS');
-        const reason = (invoice.adjustmentType && ADJUSTMENT_CONFIG[invoice.adjustmentType])
-            ? invoice.adjustmentType
-            : (availableKeys[0] || 'NEQUI');
-        const cfg = ADJUSTMENT_CONFIG[reason] || null;
-        const autoAmount = cfg?.autoAmount !== undefined && cfg?.autoAmount !== null ? cfg.autoAmount : invoice.amount;
-
-        setManualPayForm({
-            amount: autoAmount,
-            reference: buildAutoReference(cfg, invoice),
-            note: invoice.adjustmentComment || '',
-            paymentDate: new Date().toISOString().split('T')[0],
-            adjustmentType: reason,
-        });
-        setManualPayError('');
-        setManualPayModal({ open: true, invoice });
-    };
-
-    const closeManualPayModal = () => {
-        setManualPayModal({ open: false, invoice: null });
-        setManualPayError('');
-    };
-
-    const handleManualPaySubmit = async (e) => {
-        e.preventDefault();
-        const isAdjustment = !!manualPayForm.adjustmentType;
-        if (!isAdjustment && (!manualPayForm.amount || Number(manualPayForm.amount) <= 0)) {
-            setManualPayError('El monto debe ser mayor a 0.');
-            return;
-        }
-        setManualPayLoading(true);
-        setManualPayError('');
-        try {
-            await registerManualAdjustment({
-                invoiceId: manualPayModal.invoice.invoiceId || manualPayModal.invoice._id,
-                adjustmentType: manualPayForm.adjustmentType || 'NEQUI',
-                amount: Number(manualPayForm.amount),
-                adjustmentReference: manualPayForm.reference || 'Pago manual Nequi / Registro directo por Admin',
-                note: manualPayForm.note,
-            });
-            await loadInvoices(currentPage);
-            closeManualPayModal();
-        } catch (err) {
-            setManualPayError(err.message || 'Error al registrar el pago.');
-        } finally {
-            setManualPayLoading(false);
-        }
-    };
     // ─────────────────────────────────────────────────────
 
     const [stats, setStats] = useState({
@@ -387,36 +246,19 @@ const Invoices = () => {
     };
 
     const renderDateSelectors = () => (
-        <div className="date-selectors-group">
-            <select
-                value={selectedMonth}
-                onChange={e => {
-                    setSelectedMonth(Number(e.target.value));
-                    setCurrentPage(1);
-                }}
-                className="date-select-standard"
-                aria-label="Seleccionar mes"
-            >
-                {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                    </option>
-                ))}
-            </select>
-            <select
-                value={selectedYear}
-                onChange={e => {
-                    setSelectedYear(Number(e.target.value));
-                    setCurrentPage(1);
-                }}
-                className="date-select-standard"
-                aria-label="Seleccionar año"
-            >
-                <option value={2025}>2025</option>
-                <option value={2026}>2026</option>
-                <option value={2027}>2027</option>
-            </select>
-        </div>
+        <MonthYearSelector
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onChangeMonth={m => {
+                setSelectedMonth(m);
+                setCurrentPage(1);
+            }}
+            onChangeYear={y => {
+                setSelectedYear(y);
+                setCurrentPage(1);
+            }}
+            variant="desktop"
+        />
     );
 
     const desktopHeader = (
@@ -427,13 +269,23 @@ const Invoices = () => {
             refreshText={t('payments.refresh')}
             leadingActions={renderDateSelectors()}
             actions={
-                <button
-                    className="btn-secondary"
-                    onClick={handleExport}
-                    disabled={downloading}
-                >
-                    {downloading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} CSV
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                        className="btn-primary"
+                        type="button"
+                        onClick={() => setAddInvoicesModalOpen(true)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                        <PlusCircle size={16} /> Adicionar Facturas
+                    </button>
+                    <button
+                        className="btn-secondary"
+                        onClick={handleExport}
+                        disabled={downloading}
+                    >
+                        {downloading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} CSV
+                    </button>
+                </div>
             }
         />
     );
@@ -502,32 +354,19 @@ const Invoices = () => {
 
                     {/* Action Items for Mobile */}
                     <div className="invoices-mobile-actions">
-                        <select
-                            value={selectedMonth}
-                            onChange={e => {
-                                setSelectedMonth(Number(e.target.value));
+                        <MonthYearSelector
+                            selectedMonth={selectedMonth}
+                            selectedYear={selectedYear}
+                            onChangeMonth={m => {
+                                setSelectedMonth(m);
                                 setCurrentPage(1);
                             }}
-                            className="sort-select mobile-select-month"
-                        >
-                            {Array.from({ length: 12 }, (_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                    {new Date(0, i).toLocaleString('es-ES', { month: 'long' }).replace(/^\w/, (c) => c.toUpperCase())}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedYear}
-                            onChange={e => {
-                                setSelectedYear(Number(e.target.value));
+                            onChangeYear={y => {
+                                setSelectedYear(y);
                                 setCurrentPage(1);
                             }}
-                            className="sort-select mobile-select-year"
-                        >
-                            <option value={2025}>2025</option>
-                            <option value={2026}>2026</option>
-                            <option value={2027}>2027</option>
-                        </select>
+                            variant="mobile"
+                        />
                         <button className="filter-action-btn filter-action-btn-icon" onClick={() => loadInvoices(currentPage)} title="Actualizar">
                             <RefreshCw size={18} />
                         </button>
@@ -736,157 +575,39 @@ const Invoices = () => {
             )}
 
             {/* ── Manual Payment Modal ─────────────────────────── */}
-            {manualPayModal.open && manualPayModal.invoice && (
-                <div className="modal-overlay" onClick={closeManualPayModal}>
-                    <div className="modal-card modal-surface--invoice" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header" style={
-                            manualPayForm.adjustmentType && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.color
-                                ? { background: `linear-gradient(135deg, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}, ${ADJUSTMENT_CONFIG[manualPayForm.adjustmentType].color}cc)` }
-                                : {}
-                        }>
-                            <div className="modal-header-left">
+            <InvoiceAdjustmentModal
+                isOpen={manualPayModal.open}
+                invoice={manualPayModal.invoice}
+                onClose={closeManualPayModal}
+                onSuccess={() => {
+                    loadInvoices(currentPage);
+                    loadStats();
+                }}
+            />
 
-                                <span>
-                                    {manualPayForm.adjustmentType
-                                        ? ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.label || manualPayForm.adjustmentType
-                                        : 'Pago Manual'}
-                                </span>
-                            </div>
-                            <button className="modal-close" onClick={closeManualPayModal}>
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <div className="modal-invoice-info">
-                            <div className="modal-info-row">
-                                <span className="modal-info-label">Factura</span>
-                                <span className="modal-info-value">{manualPayModal.invoice.invoiceId}</span>
-                            </div>
-                            <div className="modal-info-row">
-                                <span className="modal-info-label">Dispositivo</span>
-                                <span className="modal-info-value">{manualPayModal.invoice.deviceIdName}</span>
-                            </div>
-                            <div className="modal-info-row">
-                                <span className="modal-info-label">Monto total</span>
-                                <span className="modal-info-value modal-info-amount">
-                                    {formatCurrency(manualPayModal.invoice.amount)}
-                                </span>
-                            </div>
-                        </div>
-
-                        <form className="modal-form" onSubmit={handleManualPaySubmit}>
-                            {manualPayForm.adjustmentType && (() => {
-                                const cfg = ADJUSTMENT_CONFIG[manualPayForm.adjustmentType];
-                                if (!cfg) return null;
-                                return (
-                                    <div className="adjustment-info-banner" style={{ background: cfg.bg, borderColor: (cfg.color || '#3b82f6') + '50', color: cfg.color || '#3b82f6' }}>
-                                        <AlertTriangle size={14} />
-                                        <span>{cfg.description}</span>
-                                    </div>
-                                );
-                            })()}
-
-                            <div className="modal-field">
-                                <label>Tipo de ajuste</label>
-                                <select
-                                    value={manualPayForm.adjustmentType || ''}
-                                    onChange={(e) => {
-                                        const reason = e.target.value || null;
-                                        const cfg = reason ? ADJUSTMENT_CONFIG[reason] : null;
-                                        const invoice = manualPayModal.invoice;
-                                        setManualPayForm(f => ({
-                                            ...f,
-                                            adjustmentType: reason,
-                                            amount: cfg?.autoAmount ?? invoice.amount,
-                                            reference: buildAutoReference(cfg, invoice),
-                                        }));
-                                    }}
-                                    style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}
-                                >
-                                    {Object.entries(ADJUSTMENT_CONFIG)
-                                        .filter(([key, cfg]) => !cfg.hidden && cfg.category !== 'STATUS')
-                                        .map(([key, cfg]) => (
-                                            <option key={key} value={key} style={{ color: cfg.color, background: cfg.bg, fontWeight: 600 }}>{cfg.label}</option>
-                                        ))
-                                    }
-                                </select>
-                            </div>
-
-                            <div className="modal-field">
-                                <label>Monto pagado {!manualPayForm.adjustmentType && <span className="required">*</span>}</label>
-                                <div className="modal-amount-input">
-                                    <span className="currency-symbol">$</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="1"
-                                        placeholder="0"
-                                        value={manualPayForm.amount}
-                                        onChange={(e) => setManualPayForm(f => ({ ...f, amount: e.target.value }))}
-                                        readOnly={!!manualPayForm.adjustmentType && !ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.isRealPayment && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.autoAmount !== null}
-                                        style={manualPayForm.adjustmentType && !ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.isRealPayment && ADJUSTMENT_CONFIG[manualPayForm.adjustmentType]?.autoAmount !== null ? { background: '#F9FAFB', cursor: 'default', fontWeight: 700 } : {}}
-                                        required={!manualPayForm.adjustmentType}
-                                    />
-                                </div>
-                                {manualPayForm.adjustmentType && (
-                                    <span className="field-hint">
-                                        {Number(manualPayForm.amount) === 0
-                                            ? '✓ Dia sin cobro (ajuste automatico)'
-                                            : `✓ Cobro completo: ${formatCurrency(manualPayForm.amount)}`}
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="modal-field">
-                                <label>Fecha de pago <span className="required">*</span></label>
-                                <input
-                                    type="date"
-                                    value={manualPayForm.paymentDate}
-                                    onChange={(e) => setManualPayForm(f => ({ ...f, paymentDate: e.target.value }))}
-                                    required
-                                />
-                            </div>
-
-                            <div className="modal-field">
-                                <label>Referencia / comprobante</label>
-                                <input
-                                    type="text"
-                                    placeholder="Nro. transferencia, recibo, etc."
-                                    value={manualPayForm.reference}
-                                    onChange={(e) => setManualPayForm(f => ({ ...f, reference: e.target.value }))}
-                                />
-                            </div>
-
-                            <div className="modal-field">
-                                <label>Nota</label>
-                                <textarea
-                                    rows={2}
-                                    placeholder="Ej: Pago en efectivo, deposito bancario..."
-                                    value={manualPayForm.note}
-                                    onChange={(e) => setManualPayForm(f => ({ ...f, note: e.target.value }))}
-                                />
-                            </div>
-
-                            {manualPayError && (
-                                <div className="modal-error">{manualPayError}</div>
-                            )}
-
-                            <div className="modal-actions">
-                                <button type="button" className="btn-cancel" onClick={closeManualPayModal}>
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="btn-confirm" disabled={manualPayLoading}>
-                                    {manualPayLoading ? (
-                                        <><span className="btn-spinner" /> Registrando...</>
-                                    ) : (
-                                        <><Check size={15} /> Confirmar pago</>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div >
+            {/* Floating Action Button (FAB) for Mobile */}
+            {fabPortalElement && !addInvoicesModalOpen && !manualPayModal.open && createPortal(
+                <button
+                    type="button"
+                    className="contracts-add-fab primary-blue"
+                    onClick={() => setAddInvoicesModalOpen(true)}
+                    aria-label="Adicionar Facturas"
+                    title="Adicionar Facturas a Moto"
+                >
+                    <Plus size={30} />
+                </button>,
+                fabPortalElement
             )}
+
+            {/* Modal para Crear Factura Diaria */}
+            <CreateDayInvoiceModal
+                isOpen={addInvoicesModalOpen}
+                onClose={() => setAddInvoicesModalOpen(false)}
+                onSuccess={() => {
+                    loadInvoices(1);
+                    loadStats();
+                }}
+            />
         </div >
     );
 };

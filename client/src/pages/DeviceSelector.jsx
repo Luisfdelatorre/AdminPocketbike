@@ -164,17 +164,18 @@ const DeviceManagement = () => {
 
 
     const handleEngineToggle = async (device) => {
+        const vehicleId = device._id || device.id || device.gpsId;
         const gpsId = device.gpsId;
         const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
         console.log(command);
-        setPendingCommands(prev => ({ ...prev, [gpsId]: true }));
+        setPendingCommands(prev => ({ ...prev, [gpsId]: true, [vehicleId]: true }));
         try {
-            const data = await controlEngine(gpsId, command);
+            const data = await controlEngine(vehicleId, command);
             console.log(data);
             if (data.success) {
                 setDevices((prevDevices) => {
                     const next = { ...prevDevices };
-                    const targetId = String(gpsId);
+                    const targetId = String(gpsId || vehicleId);
                     if (targetId && next[targetId]) {
                         next[targetId] = {
                             ...next[targetId],
@@ -207,7 +208,7 @@ const DeviceManagement = () => {
         if (filter === 'active' && !device.hasActiveContract) return false;
         if (filter === 'available' && (device.hasActiveContract || !device.isActive)) return false;
         if (filter === 'off' && !device.cutOff) return false;
-        if (filter === 'on' && device.cutOff) return false;
+        if (filter === 'on' && !device.ignition) return false;
         return true;
     });
 
@@ -277,6 +278,7 @@ const DeviceManagement = () => {
                     filterOptions={[
                         { value: 'all', label: t('devices.filterAll') },
                         { value: 'active', label: t('devices.filterActive') },
+                        { value: 'on', label: t('devices.filterOn') },
                         { value: 'off', label: t('devices.filterOff') }
                     ]}
                 />

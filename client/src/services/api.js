@@ -37,6 +37,11 @@ export const switchCompany = (targetCompanyId) => api.post('/auth/switch-company
 export const verifyDevicePin = (data) => api.post('/auth/device-pin', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
+// --- Commands History ---
+export const getCommandHistory = (params) => api.get('/commands', { params });
+export const getCommandStats = (params) => api.get('/commands/stats', { params });
+export const sendCommand = (data) => api.post('/commands/send', data);
+
 // --- Dashboard ---
 export const getDashboardStats = (params) => api.get('/dashboard/stats', { params });
 
@@ -109,6 +114,7 @@ export const extractContractDocument = (data) => api.post('/contracts/extract-do
 
 // --- Invoices ---
 export const getAllInvoices = (params) => api.get('/invoices/all', { params });
+export const createInvoice = (data) => api.post('/invoices/create', data);
 
 export const exportInvoicesCSV = async (month, year) => {
     const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
@@ -138,18 +144,26 @@ export const getStatusReport = async () => {
     return api.get('/invoices/status-report');
 };
 
-export const getDailyReconciliationReport = async (month, year) => {
+export const getDailyReconciliationReport = async (month, year, companyId) => {
     try {
-        const response = await api.get(`/payments/reconciliation?month=${month}&year=${year}`);
+        const params = new URLSearchParams({ month, year });
+        if (companyId && companyId !== 'all') {
+            params.append('companyId', companyId);
+        }
+        const response = await api.get(`/payments/reconciliation?${params.toString()}`);
         return response;
     } catch (error) {
         return Promise.reject(error);
     }
 };
 
-export const toggleReconciliation = async (date, reconciled, transactionId) => {
+export const toggleReconciliation = async (date, reconciled, transactionId, companyId) => {
     try {
-        const response = await api.post('/payments/reconciliation/toggle', { date, reconciled, transactionId });
+        const payload = { date, reconciled, transactionId };
+        if (companyId && companyId !== 'all') {
+            payload.companyId = companyId;
+        }
+        const response = await api.post('/payments/reconciliation/toggle', payload);
         return response;
     } catch (error) {
         return Promise.reject(error);

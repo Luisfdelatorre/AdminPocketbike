@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
     Home, Users, CreditCard, DollarSign, FileText,
-    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown
+    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, Terminal
 } from 'lucide-react';
 import { switchCompany } from '../services/api';
 import './AdminSidebar.css';
@@ -178,6 +178,17 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                             >
                                 <DollarSign size={20} />
                                 <span>{t('sidebar.invoices')}</span>
+                            </button>
+                        )}
+
+                        {user?.role !== 'viewer' && (
+                            <button
+                                className={`nav-item ${isActive('/commands') || isActive('/historial-comandos') ? 'active' : ''}`}
+                                onClick={() => handleNavigation('/commands')}
+                                title="Historial Comandos"
+                            >
+                                <Terminal size={20} />
+                                <span>Comandos</span>
                             </button>
                         )}
                     </div>

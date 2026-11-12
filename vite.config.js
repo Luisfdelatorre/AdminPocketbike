@@ -36,7 +36,7 @@ export default defineConfig({
                     });
                 }
             },
-            '/p': {
+            '^/p(/|$)': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
                 configure: (proxy) => {
@@ -69,7 +69,7 @@ export default defineConfig({
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
             },
-            '/p': {
+            '^/p(/|$)': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
             },

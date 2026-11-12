@@ -36,19 +36,18 @@ const getStatusReport = async (req, res) => {
  */
 const createInvoice = async (req, res) => {
     try {
-        const { deviceId, date, amount } = req.body;
-
-        if (!deviceId || !date || !amount) {
+        const { deviceId, deviceIdName, date } = req.body;
+        const targetDevice = (deviceIdName || deviceId || '').trim();
+        if (!targetDevice || !date) {
             return res.status(400).json({
                 success: false,
-                error: 'deviceId, date, and amount are required',
+                error: 'deviceIdName and date are required',
             });
         }
 
-        const invoice = await invoiceRepository.createInvoice({
-            deviceId,
+        const invoice = await invoiceServices.createInvoice({
+            deviceIdName: targetDevice,
             date,
-            amount,
         });
 
         res.json({

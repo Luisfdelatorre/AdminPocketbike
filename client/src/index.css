@@ -947,6 +947,10 @@ h3.uppercase-title-ios {
     background-color: #ffffff;
 }
 
+.filter-pill-badge.badge-weekly {
+    background-color: #ffffff;
+}
+
 .filter-pill-badge.badge-all {
     background-color: #ffffff;
 }
@@ -970,6 +974,12 @@ h3.uppercase-title-ios {
 }
 
 .filter-pill-ios[data-filter='cutoff'].active .filter-pill-badge.badge-cutoff {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #bdb0b0;
+}
+
+.filter-pill-ios[data-filter='weekly'].active .filter-pill-badge.badge-weekly {
     background-color: #ffffff;
     color: #000000;
     border-color: #bdb0b0;
@@ -1098,6 +1108,25 @@ h3.uppercase-title-ios {
    Standard Date Selector Component (Separated Style)
    Used in PaymentSummary, AdminDashboard, Reports, etc.
    ────────────────────────────────────────── */
+.summary-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: sticky;
+    top: -4px;
+    z-index: 30;
+    row-gap: 8px;
+    background: #ffffff;
+    padding: 6px 4px;
+    flex: 0 0 auto;
+    transition: box-shadow 0.2s ease;
+}
+
+.summary-header.is-stuck {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid #e2e8f0;
+}
+
 .date-selectors-group {
     display: inline-flex;
     align-items: center;

@@ -18,6 +18,8 @@ import GpsService from './gpsServices.js';
 import { sseService } from '../utils/sseService.js';
 import { getFirstName } from '../utils/helpers.js';
 import mongoose from 'mongoose';
+import commandService from './commandService.js';
+import { COMMAND_TYPE, COMMAND_SOURCE, COMMAND_STATUS } from '../models/CommandLog.js';
 
 
 const { INVOICE_DAYTYPE_TRANSLATION } = Transaction;
@@ -267,9 +269,9 @@ export class PaymentService {
         return { applied: modifiedCount };
     }
     async applyManualAdjustment(invoiceId, companyId, { adjustmentType, amount, adjustmentReference, note }) {
-        const invoice = await Invoice.findOne({ _id: invoiceId, paid: false });
+        const invoice = await Invoice.findOne({ _id: invoiceId });
         if (!invoice) {
-            throw new Error('Invoice not found or already paid');
+            throw new Error('Invoice not found');
         }
         const deviceIdName = invoice.deviceIdName;
         const contract = await contractRepository.getActiveContractByDevice(deviceIdName);
@@ -280,26 +282,37 @@ export class PaymentService {
         // Check dynamic adjustment config from database/settings
         const typesConfig = await settingRepository.getAdjustmentTypes();
         const typeCfg = typesConfig?.[adjustmentType] || typesConfig?.[String(adjustmentType).toUpperCase()];
-        const isFreeAdjustment = typeCfg
-            ? (typeCfg.isFree !== undefined ? typeCfg.isFree : (typeCfg.autoAmount === 0 || !typeCfg.isRealPayment))
-            : ['ACCIDENT_TRANSIT', 'RETENIDA_TRANSITO', 'REPAIR', 'MAINTENANCE', 'WORKSHOP', 'OFFICE', 'OFICINA', 'INCAPACITY', 'INCAPACIDAD'].includes(adjustmentType);
+        const isFreeDay = ['FREE', 'GRATIS'].includes(String(adjustmentType).toUpperCase());
+        const isFreeAdjustment = isFreeDay
+            || (typeCfg
+                ? (typeCfg.isFree !== undefined ? typeCfg.isFree : (typeCfg.autoAmount === 0 || !typeCfg.isRealPayment))
+                : (Number(amount) === 0));
 
         const paymentAmount = isFreeAdjustment ? 0 : (amount ?? invoice.amount);
 
-        const payment = await paymentRepository.createManualPayment({
-            deviceIdName,
-            contract,
-            invoice,
-            companyId,
-            amount: paymentAmount,
-            adjustmentType,
-            adjustmentReference: adjustmentReference,
-            note,
-        });
-        // Attach adjustmentType + adjustmentReference + isFree so applyPayment and contract repo can persist them properly
-        payment.adjustmentType = adjustmentType;
-        payment.adjustmentReference = adjustmentReference;
-        payment.isFree = isFreeAdjustment;
+        let payment;
+        if (isFreeDay) {
+            payment = await paymentRepository.createFreePayment(deviceIdName, contract, invoice);
+            payment.adjustmentType = 'FREE';
+            payment.adjustmentReference = adjustmentReference || 'Día libre asignado manualmente';
+            payment.adjustmentComment = note || '';
+            payment.isFree = true;
+        } else {
+            payment = await paymentRepository.createManualPayment({
+                deviceIdName,
+                contract,
+                invoice,
+                companyId,
+                amount: paymentAmount,
+                adjustmentType,
+                adjustmentReference: adjustmentReference,
+                note,
+            });
+            payment.adjustmentType = adjustmentType;
+            payment.adjustmentReference = adjustmentReference;
+            payment.isFree = isFreeAdjustment;
+        }
+
         await invoice.applyPayment(payment);
         logger.info(`[MANUAL ADJ] ${adjustmentType} applied for ${deviceIdName}, invoice: ${invoice._id}, amount: ${paymentAmount}, isFree: ${isFreeAdjustment}`);
 
@@ -659,6 +672,7 @@ export class PaymentService {
     }
     async activateDevice(gpsId, reference, onUpdate, companyId) {
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
+        const startTime = Date.now();
         try {
             const gpsService = await companyService.getGpsAdapter(companyId);
             console.log(`[TRACE-6] activateDevice → gpsService.executeAndVerify | gpsId=${gpsId}`);
@@ -674,6 +688,21 @@ export class PaymentService {
                     });
                 }
             });
+
+            const latencyMs = Date.now() - startTime;
+
+            // Log command audit entry
+            commandService.logCommand({
+                gpsId: String(gpsId),
+                companyId,
+                commandType: COMMAND_TYPE.RESUME,
+                rawCommand: ENGINE_COMMANDS.RESUME,
+                source: COMMAND_SOURCE.SYSTEM,
+                senderName: 'Upay System',
+                status: isConfirmed ? COMMAND_STATUS.EXECUTED : COMMAND_STATUS.QUEUED,
+                latencyMs,
+                reason: `Activación automática tras pago/ajuste (${reference || 'N/A'})`
+            }).catch(err => logger.error('[activateDevice] Error logging command:', err.message));
 
             // 3. Handle result and database update
             if (isConfirmed) {
@@ -748,22 +777,31 @@ export class PaymentService {
             // Fetch invoices, payments, device info, and company cutoff settings in parallel
             const deviceInfoQuery = companyId ? { companyId } : {};
 
-            // Fetch invoices, payments, device info, and companies in parallel (single round-trip each)
+            // Fetch invoices, payments, device info, companies, and active contracts in parallel (single round-trip each)
 
             const t1 = Date.now();
-            const [invoices, payments, deviceDocs, companyDocs] = await Promise.all([
+            const [invoices, payments, deviceDocs, companyDocs, contractDocs] = await Promise.all([
                 invoiceRepository.findInvoicesForSummary(deviceQuery),
                 paymentRepository.getTotalPerDayByDevice(deviceQuery),
                 Device.find(deviceInfoQuery, { name: 1, customerName: 1, driverName: 1, _id: 1, telemetry: 1, gpsId: 1, companyId: 1, companyName: 1 }).lean(),
-                Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean()
+                Company.find(companyId ? { _id: companyId } : {}, { name: 1, cutOffTime: 1, cutOffStrategy: 1, automaticCutOff: 1 }).lean(),
+                Contract.find({ status: 'ACTIVE', ...(companyId ? { companyId } : {}) }, { deviceId: 1, deviceIdName: 1, paymentFrequency: 1 }).lean()
             ]);
-            logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length}`);
+            logger.info(`[SUMMARY TIMING] DB queries: ${Date.now() - t1}ms | invoices=${invoices.length} contracts=${contractDocs.length}`);
 
 
             // Build company config map keyed by companyId string for isInvoiceDue lookup
             const companyCutoffMap = {};
             companyDocs.forEach(c => {
                 companyCutoffMap[c._id.toString()] = c;
+            });
+
+            // Build active contract payment frequency map
+            const contractFrequencyMap = {};
+            contractDocs.forEach(c => {
+                const freq = c.paymentFrequency || 1;
+                if (c.deviceIdName) contractFrequencyMap[c.deviceIdName] = freq;
+                if (c.deviceId) contractFrequencyMap[String(c.deviceId)] = freq;
             });
 
             // Build a lookup map: deviceName -> { customerName, driverName, deviceId, gpsId, companyId, companyName, cutOff }
@@ -797,6 +835,8 @@ export class PaymentService {
                     const info = deviceInfoMap[devName] || {};
                     const compId = info.companyId || invoice.companyId || null;
                     const compObj = compId ? companyCutoffMap[compId.toString()] : null;
+                    const devIdStr = info.deviceId ? String(info.deviceId) : (invoice.deviceId ? String(invoice.deviceId) : null);
+                    const paymentFrequency = contractFrequencyMap[devName] || (devIdStr ? contractFrequencyMap[devIdStr] : null) || 1;
                     deviceMap[devName] = {
                         device: {
                             name: devName,
@@ -806,7 +846,7 @@ export class PaymentService {
                             driverName: info.customerName || info.driverName || null,
                             companyId: compId,
                             companyName: info.companyName || compObj?.name || null,
-
+                            paymentFrequency,
                             unpaidTotal: 0,
                             cutOff: Boolean(info.cutOff)
                         },
@@ -831,10 +871,17 @@ export class PaymentService {
                     }
                 }
                 deviceMap[devName].days[day] = {
+                    invoiceId: invoice._id || invoice.invoiceId,
                     amount: invoice.amount,
                     paidAmount: invoice.paidAmount,
                     dayType: invoice.dayType,
+                    adjustmentType: invoice.adjustmentType || null,
+                    adjustmentReference: invoice.adjustmentReference || null,
+                    adjustmentComment: invoice.adjustmentComment || null,
+                    cutOff: invoice.cutOff,
+                    paid: invoice.paid,
                     distance: invoice.distance || 0,
+                    date: invoice.date,
                     totalPaid
                 };
             });
@@ -864,9 +911,21 @@ export class PaymentService {
             let txFixedFee = 700;
             let ivaMultiplier = 1.19;
 
+            let resolvedCompanyId = null;
             if (companyId) {
-                match.companyId = new mongoose.Types.ObjectId(companyId);
-                const company = await Company.findById(companyId);
+                if (mongoose.isValidObjectId(companyId)) {
+                    resolvedCompanyId = new mongoose.Types.ObjectId(companyId);
+                } else {
+                    const companyByName = await Company.findOne({ name: String(companyId).trim() }).lean();
+                    if (companyByName) {
+                        resolvedCompanyId = companyByName._id;
+                    }
+                }
+            }
+
+            if (resolvedCompanyId) {
+                match.companyId = { $in: [resolvedCompanyId, String(resolvedCompanyId)] };
+                const company = await Company.findById(resolvedCompanyId).lean();
                 if (company) {
                     if (company.timezone) {
                         companyTz = company.timezone;
@@ -968,7 +1027,7 @@ export class PaymentService {
 
             // Fetch reconciled dates from database
             const reconciliationRecords = await Reconciliation.find({
-                companyId: companyId || null,
+                companyId: resolvedCompanyId || null,
                 date: { $regex: `^${year}-${String(month).padStart(2, '0')}-` }
             }).lean();
 
@@ -993,12 +1052,24 @@ export class PaymentService {
 
     async toggleReconciliation({ date, reconciled, transactionId, companyId }) {
         try {
+            let resolvedCompanyId = null;
+            if (companyId) {
+                if (mongoose.isValidObjectId(companyId)) {
+                    resolvedCompanyId = new mongoose.Types.ObjectId(companyId);
+                } else {
+                    const companyByName = await Company.findOne({ name: String(companyId).trim() }).lean();
+                    if (companyByName) {
+                        resolvedCompanyId = companyByName._id;
+                    }
+                }
+            }
+
             const updateFields = { reconciled };
             if (transactionId !== undefined) {
                 updateFields.transactionId = transactionId;
             }
             const result = await Reconciliation.findOneAndUpdate(
-                { companyId: companyId || null, date },
+                { companyId: resolvedCompanyId || null, date },
                 { $set: updateFields },
                 { upsert: true, new: true }
             );

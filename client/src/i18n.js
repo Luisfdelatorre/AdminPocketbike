@@ -84,7 +84,8 @@ const resources = {
                     all: 'All',
                     active: 'Active',
                     completed: 'Completed',
-                    cancelled: 'Cancelled'
+                    cancelled: 'Cancelled',
+                    weekly: 'Weekly+'
                 },
                 searchPlaceholder: 'Search by ID, name or email...',
                 loading: 'Loading contracts...',
@@ -515,7 +516,8 @@ const resources = {
                     all: 'Todos',
                     active: 'Activos',
                     completed: 'Completados',
-                    cancelled: 'Cancelados'
+                    cancelled: 'Cancelados',
+                    weekly: 'Semanal+'
                 },
                 searchPlaceholder: 'Buscar por ID, nombre o email...',
                 loading: 'Cargando contratos...',

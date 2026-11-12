@@ -3,7 +3,7 @@ import { Power, RefreshCw } from 'lucide-react';
 import { formatOfflineTimeShort, formatCurrency } from '../utils/helpers';
 import DayCell from './DayCell';
 
-const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay }) => {
+const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay, onDayClick }) => {
   const containerRef = useRef(null);
   const visibleDays = daysArray.filter((day) => Boolean(item.days[day]) || !isFutureSummaryDay(day));
 
@@ -18,8 +18,15 @@ const PillContainer = ({ daysArray, currentDay, item, isFutureSummaryDay }) => {
     <div className="bike-summary-pills-row no-scrollbar" ref={containerRef}>
       {visibleDays.map((day) => {
         const dayData = item.days[day];
+        const hasInvoice = Boolean(dayData?.invoiceId || dayData);
         return (
-          <div key={day} className="bike-summary-day-item">
+          <div
+            key={day}
+            className="bike-summary-day-item"
+            onClick={() => onDayClick && onDayClick(item, day, dayData)}
+            style={{ cursor: 'pointer' }}
+            title={hasInvoice ? `Día ${day}: Clic para ajustar factura / pago` : `Día ${day}: Clic para adicionar factura`}
+          >
             <span className={`bike-day-label ${day === currentDay ? 'is-today' : ''}`}>
               {String(day).padStart(2, '0')}
             </span>
@@ -89,7 +96,17 @@ const EngineToggleButton = ({ item, handleEngineToggle, user }) => {
   );
 };
 
-const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummaryDay, loading, user, handleEngineToggle, getDeviceStatus }) => {
+const BikePaymentSummary = ({
+  summaryData,
+  daysArray,
+  currentDay,
+  isFutureSummaryDay,
+  loading,
+  user,
+  handleEngineToggle,
+  getDeviceStatus,
+  onDayClick
+}) => {
   if (loading) {
     return <div className="loading-state">Cargando...</div>;
   }
@@ -138,6 +155,7 @@ const BikePaymentSummary = ({ summaryData, daysArray, currentDay, isFutureSummar
               currentDay={currentDay}
               item={item}
               isFutureSummaryDay={isFutureSummaryDay}
+              onDayClick={onDayClick}
             />
           </div>
         );
