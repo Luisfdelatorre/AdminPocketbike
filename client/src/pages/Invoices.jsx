@@ -520,7 +520,7 @@ const Invoices = () => {
                                             <span className="desktop-only">{formatDate(invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt, false)}</span>
                                             <span className="mobile-only">{formatDate(invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt, true)}</span>
                                             {paymentId && (
-                                                <div className="invoice-payment-id" title={`ID de pago: ${paymentId}`}>
+                                                <div className="invoice-payment-id desktop-only" title={`ID de pago: ${paymentId}`}>
                                                     {paymentId}
                                                 </div>
                                             )}
