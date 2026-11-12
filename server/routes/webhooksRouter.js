@@ -7,6 +7,7 @@ const router = express.Router();
 /**
  * POST /api/webhooks/wompi
  * Receive Wompi webhook events
+ * anterior https://pagos.pocketbike.app/payments/webhook 
  */
 router.post('/wompi', validateWompiSignature, webhookController.handleWompiWebhook);
 
