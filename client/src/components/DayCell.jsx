@@ -36,7 +36,7 @@ const DayCell = ({ dayData, isMobile }) => {
             contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
         } else if (dayData.dayType === 'ADJUSTMENT') {
             cellClass = 'status-cell adjusted';
-            contentStr = '🔧';
+            contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '🔧';
         } else {
             cellClass = 'status-cell pending';
             contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';

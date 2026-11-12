@@ -472,7 +472,7 @@ const PaymentSummary = () => {
     const handleFilterToggle = () => setShowFilters(prev => !prev);
 
     const renderViews = useMemo(() => {
-        if (isMobile || desktopView === 'bike') {
+        if (desktopView === 'bike') {
             return (
                 <BikePaymentSummary
                     summaryData={filteredSummaryData}
@@ -506,7 +506,7 @@ const PaymentSummary = () => {
             />
         );
     }, [
-        isMobile, desktopView, filteredSummaryData, daysArray, currentDay,
+        desktopView, filteredSummaryData, daysArray, currentDay,
         loading, user, pendingCommands, matrixGeometry, handleDayClick
     ]);
 
@@ -520,6 +520,31 @@ const PaymentSummary = () => {
         >
             <Power size={19} className={bulkOffLoading ? 'spin' : ''} aria-hidden="true" />
         </button>
+    );
+
+    const viewToggleSegment = (
+        <div className="summary-view-segment" role="group" aria-label="Vista del resumen de pagos">
+            <button
+                type="button"
+                className={`summary-view-option${desktopView === 'bike' ? ' active' : ''}`}
+                onClick={() => handleDesktopViewChange('bike')}
+                aria-pressed={desktopView === 'bike'}
+                title="Vista por tarjeta / moto"
+            >
+                <LayoutList size={16} aria-hidden="true" />
+                <span>Tarjetas</span>
+            </button>
+            <button
+                type="button"
+                className={`summary-view-option${desktopView === 'matrix' ? ' active' : ''}`}
+                onClick={() => handleDesktopViewChange('matrix')}
+                aria-pressed={desktopView === 'matrix'}
+                title="Vista de matriz / tabla"
+            >
+                <Table2 size={16} aria-hidden="true" />
+                <span>Matriz</span>
+            </button>
+        </div>
     );
 
     const renderDateSelectors = (isMobileView = false) => (
@@ -576,7 +601,12 @@ const PaymentSummary = () => {
             onRefresh={fetchData}
             loading={loading}
             refreshText={t('payments.refresh', 'Actualizar')}
-            leadingActions={renderDateSelectors(false)}
+            leadingActions={
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+                    {renderDateSelectors(false)}
+                    {viewToggleSegment}
+                </div>
+            }
             actions={
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     {autoOffButton}
@@ -592,7 +622,20 @@ const PaymentSummary = () => {
                 loading={loading}
                 onFilterToggle={handleFilterToggle}
                 showFilters={showFilters}
-                actions={autoOffButton}
+                actions={
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                            type="button"
+                            className={`btn-mobile-header-action ${desktopView === 'matrix' ? 'active' : ''}`}
+                            onClick={() => handleDesktopViewChange(desktopView === 'matrix' ? 'bike' : 'matrix')}
+                            title={desktopView === 'matrix' ? 'Ver tarjetas' : 'Ver matriz'}
+                            aria-label={desktopView === 'matrix' ? 'Cambiar a vista de tarjetas' : 'Cambiar a vista de matriz'}
+                        >
+                            {desktopView === 'matrix' ? <LayoutList size={20} /> : <Table2 size={20} />}
+                        </button>
+                        {autoOffButton}
+                    </div>
+                }
             />
             {/* Mobile-only Sticky Date Header */}
             <div ref={summaryHeaderRef} className={`summary-header md:hidden${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
