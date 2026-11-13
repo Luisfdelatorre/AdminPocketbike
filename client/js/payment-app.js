@@ -1508,6 +1508,11 @@ class EventHandler {
             toggleBtn.classList.toggle('is-expanded', isExpanded);
         }
 
+        const moreRow = document.querySelector('.more-options-row');
+        if (moreRow) {
+            moreRow.classList.toggle('is-expanded', isExpanded);
+        }
+
         const accordionLabel = document.getElementById('accordion-label');
         if (accordionLabel) {
             accordionLabel.textContent = isExpanded ? 'Ocultar' : 'Ver detalle';

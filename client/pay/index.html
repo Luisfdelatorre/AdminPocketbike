@@ -672,6 +672,10 @@
       align-items: center;
       justify-content: space-between;
       width: 100%;
+      min-width: 0;
+      margin: 0;
+      text-align: left;
+      justify-self: start;
       padding: 0 14px;
       height: 40px;
       box-sizing: border-box;
@@ -679,18 +683,16 @@
       border: 1px solid #e2e8f0;
       border-radius: var(--radius-md, 12px);
       cursor: pointer;
-      transition: width 0.25s ease, background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+      transition: padding 0.3s ease, background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
       -webkit-tap-highlight-color: transparent;
       font-family: inherit;
       outline: none;
       white-space: nowrap;
+      overflow: hidden;
     }
 
     #toggle-schedule-btn.is-expanded {
-      width: auto;
-      flex-shrink: 0;
-      gap: 8px;
-      justify-content: center;
+      padding: 0 10px;
     }
 
     #toggle-schedule-btn:hover {
@@ -768,12 +770,25 @@
       background: #3b82f6;
     }
 
-    /* ── Month Selector ─────────────────────────────────── */
+    /* ── Month Selector & More Options Grid Transition ── */
     .more-options-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr 0fr;
+      column-gap: 0px;
+      width: 100%;
+      margin: var(--spacing-sm) 0;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      justify-items: stretch;
+      text-align: left;
+      overflow: hidden;
+      transition: grid-template-columns 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                  column-gap 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .more-options-row.is-expanded,
+    .more-options-row:has(#toggle-schedule-btn.is-expanded) {
+      grid-template-columns: 148px 1fr;
+      column-gap: 8px;
     }
 
     .more-options-row>a {
@@ -790,13 +805,32 @@
       padding: 0 4px;
       height: 40px;
       box-sizing: border-box;
-      flex: 1;
       justify-content: space-between;
       min-width: 0;
+      width: 100%;
+      overflow: hidden;
+      transform-origin: right center;
+      transform: translateX(20px) scaleX(0);
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 0.3s ease,
+                  border-color 0.2s ease;
     }
 
-    .month-selector-hidden {
-      display: none !important;
+    .more-options-row.is-expanded .month-selector,
+    .more-options-row:has(#toggle-schedule-btn.is-expanded) .month-selector,
+    .month-selector:not(.month-selector-hidden) {
+      transform: translateX(0) scaleX(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .month-selector.month-selector-hidden {
+      transform: translateX(20px) scaleX(0);
+      opacity: 0;
+      pointer-events: none;
     }
 
     .month-label {
