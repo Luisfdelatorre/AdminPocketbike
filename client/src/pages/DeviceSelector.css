@@ -1198,3 +1198,21 @@
 
 
 }
+
+/* Offline filter pill & table header sortable */
+.filter-pill-ios[data-filter='offline'].active {
+    background-color: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}
+
+.table-header-sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.table-header-sortable:hover {
+    color: #0f172a;
+    opacity: 0.85;
+}

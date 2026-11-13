@@ -31,7 +31,8 @@ const DeviceManagement = () => {
     const [selectedShareDevice, setSelectedShareDevice] = useState(null);
     const [shareUrl, setShareUrl] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [filter, setFilter] = useState('all'); // all, active, available
+    const [filter, setFilter] = useState('all'); // all, active, available, off, on, offline
+    const [sortBy, setSortBy] = useState('default'); // default, offline
     const [pendingCommands, setPendingCommands] = useState({});
     const [showFilters, setShowFilters] = useState(false);
 
@@ -190,7 +191,25 @@ const DeviceManagement = () => {
         }
     };
 
+    const getOfflineMs = (device) => {
+        if (!device?.lastUpdate) return -1;
+        let lastMs = typeof device.lastUpdate === 'number' ? device.lastUpdate : new Date(device.lastUpdate).getTime();
+        if (isNaN(lastMs)) {
+            lastMs = new Date(String(device.lastUpdate).replace(' ', 'T')).getTime();
+        }
+        if (isNaN(lastMs)) return -1;
+        return Math.max(0, Date.now() - lastMs);
+    };
+
+    const isDeviceOffline = (device) => {
+        if (!device?.lastUpdate) return true;
+        const diffMs = getOfflineMs(device);
+        return diffMs >= 3 * 60 * 1000; // >= 3 minutes matching DEVICE_ONLINE_TIMEOUT
+    };
+
     const devicesList = Object.values(devices);
+    const offlineDevicesCount = devicesList.filter(isDeviceOffline).length;
+
     const filteredDevices = devicesList.filter(device => {
         // Search filter
         if (searchQuery) {
@@ -209,7 +228,22 @@ const DeviceManagement = () => {
         if (filter === 'available' && (device.hasActiveContract || !device.isActive)) return false;
         if (filter === 'off' && !device.cutOff) return false;
         if (filter === 'on' && !device.ignition) return false;
+        if (filter === 'offline' && !isDeviceOffline(device)) return false;
         return true;
+    });
+
+    const sortedDevices = [...filteredDevices].sort((a, b) => {
+        if (filter === 'offline' || sortBy === 'offline') {
+            const msA = getOfflineMs(a);
+            const msB = getOfflineMs(b);
+            // Both have positive offline timestamps: largest elapsed time first (e.g. 35d before 2d)
+            if (msA > 0 && msB > 0) return msB - msA;
+            // Known offline time comes before unknown signal
+            if (msA > 0 && msB <= 0) return -1;
+            if (msB > 0 && msA <= 0) return 1;
+            return 0;
+        }
+        return 0;
     });
 
     if (loading) {
@@ -279,7 +313,13 @@ const DeviceManagement = () => {
                         { value: 'all', label: t('devices.filterAll') },
                         { value: 'active', label: t('devices.filterActive') },
                         { value: 'on', label: t('devices.filterOn') },
-                        { value: 'off', label: t('devices.filterOff') }
+                        { value: 'off', label: t('devices.filterOff') },
+                        {
+                            value: 'offline',
+                            label: 'Mayor Desconexión',
+                            badge: offlineDevicesCount,
+                            badgeType: 'cutoff'
+                        }
                     ]}
                 />
             </div>
@@ -293,13 +333,19 @@ const DeviceManagement = () => {
                     <span className="col-center desktop-col">Deuda</span>
                     <span className="col-center desktop-col">Estado</span>
                     <span className="col-center desktop-col">Días</span>
-                    <span className="col-center">Motor</span>
+                    <span
+                        className="col-center table-header-sortable"
+                        onClick={() => setSortBy(prev => prev === 'offline' ? 'default' : 'offline')}
+                        title="Clic para alternar orden por mayor tiempo de desconexión"
+                    >
+                        Motor {sortBy === 'offline' || filter === 'offline' ? '⏱️↓' : ''}
+                    </span>
                     <span className="col-center">Acc.</span>
                 </div>
 
                 {/* Table Rows */}
                 <div className="devices-table-rows-ios">
-                    {filteredDevices.map((device) => (
+                    {sortedDevices.map((device) => (
                         <div key={device._id} className="devices-row-ios">
                             {/* Device Name + Contract ID */}
                             <div className="device-name-col">
@@ -357,12 +403,22 @@ const DeviceManagement = () => {
                                             <BatteryLow size={15} className={device.batteryLevel <= 30 ? 'animate-pulse' : ''} />
                                         )}
                                     </div>
-                                    {formatOfflineTimeShort(device.lastUpdate) && (
+                                    {device.lastUpdate ? (
+                                        formatOfflineTimeShort(device.lastUpdate) && (
+                                            <span
+                                                className="battery-offline-subtext"
+                                                title={`Inactivo desde: ${new Date(device.lastUpdate).toLocaleString('es-CO')}`}
+                                            >
+                                                {formatOfflineTimeShort(device.lastUpdate)}
+                                            </span>
+                                        )
+                                    ) : (
                                         <span
                                             className="battery-offline-subtext"
-                                            title={`Inactivo desde: ${device.lastUpdate ? new Date(device.lastUpdate).toLocaleString('es-CO') : 'Desconocido'}`}
+                                            style={{ color: '#94a3b8' }}
+                                            title="Sin reportes GPS registrados"
                                         >
-                                            {formatOfflineTimeShort(device.lastUpdate)}
+                                            Sin GPS
                                         </span>
                                     )}
                                 </div>
@@ -403,7 +459,7 @@ const DeviceManagement = () => {
                 </div>
             </div>
 
-            {filteredDevices.length === 0 && (
+            {sortedDevices.length === 0 && (
                 <div className="empty-state-ios">
                     <p>{t('devices.emptyState')}</p>
                 </div>
