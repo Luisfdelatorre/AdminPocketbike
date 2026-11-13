@@ -40,7 +40,7 @@ const register = async (req, res) => {
  */
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, rememberMe } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({
@@ -49,7 +49,7 @@ const login = async (req, res) => {
             });
         }
 
-        const result = await authService.loginUser(email, password);
+        const result = await authService.loginUser(email, password, !!rememberMe);
 
         // Forward Traccar cookies if present
         if (result.traccarCookies && Array.isArray(result.traccarCookies)) {

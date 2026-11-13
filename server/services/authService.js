@@ -51,7 +51,7 @@ export class AuthService {
     /**
      * Login user with Traccar fallback/sync
      */
-    async loginUser(email, password) {
+    async loginUser(email, password, rememberMe = false) {
         let traccarUser = null;
         let traccarCookies = null;
 
@@ -123,6 +123,7 @@ export class AuthService {
         }
 
         // 5. Generate Token
+        const expiresIn = rememberMe ? '30d' : null;
         const token = this.generateToken({
             userId: user.userId,
             email: user.email,
@@ -131,7 +132,7 @@ export class AuthService {
             companyName: user.companyName,
             isSuperAdmin: user.isSuperAdmin,
             type: 'user'
-        });
+        }, expiresIn);
 
         return {
             user: {
