@@ -7,6 +7,7 @@ import logger from '../config/logger.js';
 
 // Cooldown window in minutes to prevent flooding duplicate alerts for the same device
 const DEDUPLICATION_COOLDOWN_MINUTES = {
+    [ALERT_TYPE.UNAUTHORIZED_DRIVING]: 15,
     [ALERT_TYPE.POWER_CUT]: 20,
     [ALERT_TYPE.UNAUTHORIZED_MOVEMENT]: 15,
     [ALERT_TYPE.UNAUTHORIZED_IGNITION]: 15,
@@ -72,7 +73,7 @@ export const recordAlert = async ({
         // Determine default severity if not provided
         let alertSeverity = severity;
         if (!alertSeverity) {
-            if ([ALERT_TYPE.POWER_CUT, ALERT_TYPE.UNAUTHORIZED_MOVEMENT, ALERT_TYPE.UNAUTHORIZED_IGNITION].includes(alertType)) {
+            if ([ALERT_TYPE.UNAUTHORIZED_DRIVING, ALERT_TYPE.POWER_CUT, ALERT_TYPE.UNAUTHORIZED_MOVEMENT, ALERT_TYPE.UNAUTHORIZED_IGNITION].includes(alertType)) {
                 alertSeverity = ALERT_SEVERITY.CRITICAL;
             } else if ([ALERT_TYPE.GEOFENCE_EXIT, ALERT_TYPE.EXTENDED_OFFLINE].includes(alertType)) {
                 alertSeverity = ALERT_SEVERITY.WARNING;
@@ -113,6 +114,9 @@ export const recordAlert = async ({
         let alertTitle = title;
         if (!alertTitle) {
             switch (alertType) {
+                case ALERT_TYPE.UNAUTHORIZED_DRIVING:
+                    alertTitle = `🚨 Sabotaje: Conducción en corte activo en ${devName}`;
+                    break;
                 case ALERT_TYPE.POWER_CUT:
                     alertTitle = `⚡ Corte de batería externa en ${devName}`;
                     break;
@@ -289,7 +293,7 @@ export const getAlertsStats = async ({
                     resolved: 0,
                     critical: 0,
                     warning: 0,
-                    counts: { powerCut: 0, movement: 0, ignition: 0, geofence: 0, offline: 0 }
+                    counts: { unauthorizedDriving: 0, powerCut: 0, movement: 0, ignition: 0, geofence: 0, offline: 0 }
                 };
             }
         } else if (companyId && companyId !== 'all') {
@@ -317,6 +321,7 @@ export const getAlertsStats = async ({
         let info = 0;
 
         const counts = {
+            unauthorizedDriving: 0,
             powerCut: 0,
             movement: 0,
             ignition: 0,
@@ -333,7 +338,8 @@ export const getAlertsStats = async ({
             else if (a.severity === ALERT_SEVERITY.WARNING) warning++;
             else if (a.severity === ALERT_SEVERITY.INFO) info++;
 
-            if (a.alertType === ALERT_TYPE.POWER_CUT) counts.powerCut++;
+            if (a.alertType === ALERT_TYPE.UNAUTHORIZED_DRIVING) counts.unauthorizedDriving++;
+            else if (a.alertType === ALERT_TYPE.POWER_CUT) counts.powerCut++;
             else if (a.alertType === ALERT_TYPE.UNAUTHORIZED_MOVEMENT) counts.movement++;
             else if (a.alertType === ALERT_TYPE.UNAUTHORIZED_IGNITION) counts.ignition++;
             else if (a.alertType === ALERT_TYPE.GEOFENCE_EXIT) counts.geofence++;
@@ -445,27 +451,27 @@ export const processTelemetryAlert = async (deviceState, update, rawPos = {}) =>
             });
         }
 
-        // 2. 🚨 Unauthorized movement / towing (Vehicle in cutOff with motion or towing alarm)
+        // 2. 🚨 Theft / Sabotage / Bypass detection when motor is in cutOff state
         const rawAlarm = (rawPos.attributes?.alarm || '').toString().toLowerCase();
         const hasTowingAlarm = rawAlarm.includes('tow') || rawAlarm.includes('vibration') || rawAlarm.includes('movement');
         const hasPhysicalMovement = motion === true || speed > 10;
 
-        if (cutOff === true && (hasTowingAlarm || hasPhysicalMovement)) {
+        if (cutOff === true && ignition === true && speed >= 15) {
+            // CERTEZA ABSOLUTA DE SABOTAJE / RELÉ PUENTEADO:
+            // El vehículo tiene orden de apagado (cutOff=true), switch encendido (ignition=true) y avanza a velocidad de tránsito (speed >= 15 km/h).
             await recordAlert({
                 deviceIdName: devName,
                 gpsId,
                 companyId,
-                alertType: ALERT_TYPE.UNAUTHORIZED_MOVEMENT,
+                alertType: ALERT_TYPE.UNAUTHORIZED_DRIVING,
                 severity: ALERT_SEVERITY.CRITICAL,
-                title: `🚨 Movimiento no autorizado / Remolque en ${devName}`,
-                message: `Se detectó desplazamiento (${Math.round(speed)} km/h) o vibración con el motor en corte.`,
+                title: `🚨 Sabotaje: Conducción en corte activo en ${devName}`,
+                message: `El vehículo está en marcha activa (${Math.round(speed)} km/h) con el switch encendido a pesar de tener orden de corte de motor. Posible relé puenteado o inoperativo.`,
                 location,
-                metadata: { ...metadata, speed, rawAlarm }
+                metadata: { ...metadata, speed, bypassSuspected: true }
             });
-        }
-
-        // 3. 🔑 Unauthorized ignition (Ignition turned on while engine is in cutOff state)
-        if (cutOff === true && ignition === true) {
+        } else if (cutOff === true && ignition === true) {
+            // Intento de encendido con corte activo (estacionario o velocidad baja < 15 km/h)
             await recordAlert({
                 deviceIdName: devName,
                 gpsId,
@@ -476,6 +482,19 @@ export const processTelemetryAlert = async (deviceState, update, rawPos = {}) =>
                 message: `El switch de encendido fue activado mientras el vehículo tiene orden de bloqueo activa.`,
                 location,
                 metadata
+            });
+        } else if (cutOff === true && (hasTowingAlarm || hasPhysicalMovement)) {
+            // Desplazamiento o remolque con switch apagado
+            await recordAlert({
+                deviceIdName: devName,
+                gpsId,
+                companyId,
+                alertType: ALERT_TYPE.UNAUTHORIZED_MOVEMENT,
+                severity: ALERT_SEVERITY.CRITICAL,
+                title: `🚨 Movimiento no autorizado / Remolque en ${devName}`,
+                message: `Se detectó desplazamiento (${Math.round(speed)} km/h) o vibración con el motor en corte.`,
+                location,
+                metadata: { ...metadata, speed, rawAlarm }
             });
         }
 

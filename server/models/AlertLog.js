@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 export const ALERT_TYPE = {
+    UNAUTHORIZED_DRIVING: 'UNAUTHORIZED_DRIVING',   // Conducción en corte / Relé puenteado o saboteado (certeza absoluta)
     POWER_CUT: 'POWER_CUT',                         // Corte de batería / alimentación externa
     UNAUTHORIZED_MOVEMENT: 'UNAUTHORIZED_MOVEMENT', // Alarma de vibración/movimiento con motor bloqueado
     UNAUTHORIZED_IGNITION: 'UNAUTHORIZED_IGNITION', // Switch encendido con motor en corte
