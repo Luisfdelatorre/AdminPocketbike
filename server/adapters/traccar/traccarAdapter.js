@@ -316,6 +316,10 @@ class MyTraccar {
                 import('../../services/alertService.js').then(({ default: alertService }) => {
                     alertService.processTraccarEvents(data.events);
                 }).catch(err => logger.error('[Traccar] Error processing events in alertService:', err));
+
+                this.processCommandResultEvents(data.events).catch(err =>
+                    logger.error('[Traccar] Error processing commandResult events:', err)
+                );
             }
             if (data.logs) {
                 //  dispatch(sessionActions.updateLogs(data.logs));
@@ -337,6 +341,59 @@ class MyTraccar {
         }
 
         this._onFlushCallback(standardBatch);
+    };
+
+    processCommandResultEvents = async (events = []) => {
+        if (!Array.isArray(events) || events.length === 0) return;
+        const cmdEvents = events.filter(e => {
+            const type = (e.type || '').toLowerCase();
+            return type === 'commandresult' || Boolean(e.attributes?.result);
+        });
+        if (cmdEvents.length === 0) return;
+
+        const commandBatch = [];
+        for (const evt of cmdEvents) {
+            const gpsId = evt.deviceId;
+            if (!gpsId) continue;
+            const resultText = (evt.attributes?.result || '').trim();
+            logger.info(`[Traccar] Command result received for gpsId ${gpsId}: "${resultText}" (positionId: ${evt.positionId})`);
+
+            let posSnapshot = null;
+            if (evt.positionId) {
+                try {
+                    const posRes = await this._api.getPositions({ id: evt.positionId });
+                    if (posRes?.data && posRes.data.length > 0) {
+                        posSnapshot = posRes.data[0];
+                    }
+                } catch (posErr) {
+                    logger.warn(`[Traccar] Failed to fetch position ${evt.positionId} for commandResult:`, posErr.message);
+                }
+            }
+
+            const rawUpdate = posSnapshot ? { ...posSnapshot } : {
+                deviceId: gpsId,
+                deviceTime: evt.eventTime || evt.serverTime || new Date(),
+                attributes: {
+                    result: resultText,
+                    ...(evt.attributes || {})
+                }
+            };
+
+            if (!rawUpdate.attributes) rawUpdate.attributes = {};
+            if (resultText && !rawUpdate.attributes.result) {
+                rawUpdate.attributes.result = resultText;
+            }
+
+            const deviceUpdate = new DeviceUpdate(rawUpdate);
+            deviceUpdate.isCommandResult = true;
+            deviceUpdate.commandResultText = resultText;
+
+            commandBatch.push(deviceUpdate);
+        }
+
+        if (commandBatch.length > 0 && typeof this._onFlushCallback === 'function') {
+            await this._onFlushCallback(commandBatch);
+        }
     };
 
 

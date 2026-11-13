@@ -109,7 +109,22 @@ const initializeGpsUpdates = async () => {
                 deviceStateCache.get(Number(rawGpsId));
             if (!mem) continue;
 
+            // Resolve cutOff for H02 command ACK if not already determined by hardware status bitfield
+            if (update.cutOff === undefined && update.isH02Ack) {
+                if (mem.pendingCommand === 'engineResume') {
+                    update.cutOff = false;
+                } else if (mem.pendingCommand === 'engineStop') {
+                    update.cutOff = true;
+                } else {
+                    update.cutOff = !mem.cutOff;
+                }
+            }
+
             if (mem.applyUpdate(update)) {
+                if (update.isCommandResult) {
+                    deviceRepository.updateDeviceQueuedStatus(mem._id, false)
+                        .catch(err => logger.error(`[DeviceServices] Error clearing queued status for device ${mem._id}:`, err));
+                }
                 if (mem._urgent) {
                     _pendingUrgentFlush = true;
                     batchHasUrgent = true;
@@ -251,6 +266,27 @@ const controlEngine = async (deviceIdentifier, command, companyId) => {
 
         // 3. Marcar encolado en el _id único del vehículo
         await deviceRepository.updateDeviceQueuedStatus(targetDevice._id, true);
+
+        // Actualizar en memoria para sincronización inmediata de SSE y reconocimiento de confirmaciones
+        const mem = deviceStateCache.get(actualGpsId) ||
+            deviceStateCache.get(String(actualGpsId)) ||
+            deviceStateCache.get(Number(actualGpsId));
+        if (mem) {
+            mem.queued = true;
+            mem.pendingCommand = command; // 'engineResume' | 'engineStop'
+            mem._dirty = true;
+            mem._urgent = true;
+            mem._sseChanged = true;
+            const cid = mem.companyId?.toString();
+            if (cid) {
+                if (!_pendingSseByCompany.has(cid)) {
+                    _pendingSseByCompany.set(cid, new Map());
+                }
+                const payload = typeof mem.toSsePayload === 'function' ? mem.toSsePayload() : mem;
+                _pendingSseByCompany.get(cid).set(mem.gpsId, payload);
+                scheduleSseFlush(true);
+            }
+        }
 
         return {
             success: true,

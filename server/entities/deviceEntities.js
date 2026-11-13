@@ -37,11 +37,30 @@ export class DeviceUpdate {
             const status = p.attributes?.status ?? null;
             if (status !== null && status > 255) {
                 this.powerCut = ((status >>> 19) & 1) === 0;
-                this.cutOff = (((status >> 27) & 1) == 0);
+                this.cutOff = (((status >>> 27) & 1) === 0);
             }
 
             if (status !== null && status <= 255) {
                 this.cutOff = (status & 128) !== 0;
+            }
+        }
+
+        // Generic / cross-protocol command result recognition
+        const result = (p.attributes?.result || '').trim().toLowerCase();
+        if (result) {
+            this.isCommandResult = true;
+            this.commandResultText = (p.attributes?.result || '').trim();
+
+            if (this.cutOff === undefined) {
+                if ((result.includes('restore') || result.includes('resume') || result.includes('fuel recovery') || result.includes('relay 0') || result.includes('relay,0'))
+                    && (result.includes('success') || result.includes('already') || result.includes('ok'))) {
+                    this.cutOff = false;
+                } else if ((result.includes('cut off') || result.includes('cutoff') || result.includes('relay 1') || result.includes('relay,1'))
+                    && (result.includes('success') || result.includes('already') || result.includes('ok'))) {
+                    this.cutOff = true;
+                } else if (result.includes('s20,ok') || result.includes('s20,0k') || result.includes('s20,done')) {
+                    this.isH02Ack = true;
+                }
             }
         }
 
@@ -79,6 +98,7 @@ export class DeviceState {
         this.powerCut = Boolean(tel.powerCut);
         this.alarm = tel.alarm || null;
         this.motion = Boolean(tel.motion);
+        this.pendingCommand = null;
 
         this._lastDbPersistTime = this.lastUpdate ? this.lastUpdate.getTime() : 0;
         this._dirty = false;
@@ -103,6 +123,12 @@ export class DeviceState {
         const powerCutChanged = update.powerCut !== undefined && this.powerCut !== newPowerCut;
         const alarmChanged = update.alarm !== undefined && this.alarm !== newAlarm;
         const motionChanged = update.motion !== undefined && this.motion !== newMotion;
+        const queuedChanged = (this.queued === true && update.isCommandResult);
+
+        if (update.isCommandResult) {
+            this.queued = false;
+            this.pendingCommand = null;
+        }
 
         // Battery change filter: meaningful delta (>= 5%) or dropping to critical (<= 20%)
         let batteryChanged = false;
@@ -118,7 +144,7 @@ export class DeviceState {
         const dbHeartbeatDue = (nowMs - this._lastDbPersistTime) > 600000; // 10 minutes
 
         // Any state change that frontend needs to see via SSE (exclude volatile motion)
-        const sseStateChanged = ignitionChanged || cutOffChanged || powerCutChanged || alarmChanged || batteryChanged;
+        const sseStateChanged = ignitionChanged || cutOffChanged || powerCutChanged || alarmChanged || batteryChanged || queuedChanged;
         this._sseChanged = sseStateChanged;
 
         // DB state change: critical events OR significant state transitions OR 10-minute periodic refresh
@@ -141,14 +167,17 @@ export class DeviceState {
                 this._cutOffChanged = true;
                 this.queued = false;
             }
+            if (queuedChanged && !cutOffChanged) {
+                this._updateReasons.push('queued');
+            }
             if (powerCutChanged) this._updateReasons.push('powerCut');
             if (alarmChanged) this._updateReasons.push('alarm');
             if (batteryChanged) this._updateReasons.push('battery');
             if (motionChanged) this._updateReasons.push('motion');
             if (dbHeartbeatDue && !sseStateChanged && !motionChanged) this._updateReasons.push('heartbeat');
 
-            // Urgent flush flag: cutOff change OR powerCut (battery disconnected) OR ignition change
-            if (cutOffChanged || powerCutChanged || ignitionChanged) {
+            // Urgent flush flag: cutOff change OR powerCut (battery disconnected) OR ignition change OR command result
+            if (cutOffChanged || powerCutChanged || ignitionChanged || update.isCommandResult) {
                 this._urgent = true;
             }
 
