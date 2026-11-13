@@ -229,11 +229,11 @@ const Alerts = () => {
                 prev.map((a) =>
                     a._id === resolvingAlert._id
                         ? {
-                              ...a,
-                              status: 'RESOLVED',
-                              resolvedAt: new Date(),
-                              resolutionNotes
-                          }
+                            ...a,
+                            status: 'RESOLVED',
+                            resolvedAt: new Date(),
+                            resolutionNotes
+                        }
                         : a
                 )
             );
@@ -260,22 +260,31 @@ const Alerts = () => {
         if (!dateStr) return '';
         const d = new Date(dateStr);
         const now = new Date();
-        const diffMs = now - d;
+        const diffMs = Math.max(0, now - d);
         const diffMins = Math.floor(diffMs / 60000);
+
+        // Menor o igual a 30 minutos: desplegar tiempo relativo ágil
         if (diffMins < 1) return 'Hace 1 min';
-        if (diffMins < 60) return `Hace ${diffMins} min`;
-        const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `Hace ${diffHours} h`;
-        return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+        if (diffMins <= 30) return `Hace ${diffMins} min`;
+
+        // Después de 30 minutos: desplegar la hora exacta en que ocurrió
+        const isToday = d.toDateString() === now.toDateString();
+        const timeStr = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        if (isToday) {
+            return timeStr;
+        }
+
+        return `${d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })} ${timeStr}`;
     };
 
     const filterOptions = [
         { value: 'ALL', label: 'Todas', badge: stats.total || 0 },
-        { value: 'POWER_CUT', label: '⚡ Corte Batería', badge: stats.counts?.powerCut || 0, badgeType: 'red' },
-        { value: 'UNAUTHORIZED_MOVEMENT', label: '🚨 Remolque / Mov.', badge: stats.counts?.movement || 0, badgeType: 'red' },
-        { value: 'UNAUTHORIZED_IGNITION', label: '🔑 Ignición Switch', badge: stats.counts?.ignition || 0, badgeType: 'red' },
-        { value: 'GEOFENCE_EXIT', label: '📍 Salida Geocerca', badge: stats.counts?.geofence || 0, badgeType: 'blue' },
-        { value: 'EXTENDED_OFFLINE', label: '📡 Offline', badge: stats.counts?.offline || 0 }
+        { value: 'POWER_CUT', label: 'Batería', badge: stats.counts?.powerCut || 0, badgeType: 'red' },
+        { value: 'UNAUTHORIZED_MOVEMENT', label: 'Movimie.', badge: stats.counts?.movement || 0, badgeType: 'red' },
+        { value: 'UNAUTHORIZED_IGNITION', label: 'Ignición', badge: stats.counts?.ignition || 0, badgeType: 'red' },
+        { value: 'GEOFENCE_EXIT', label: 'Geocerca', badge: stats.counts?.geofence || 0, badgeType: 'blue' },
+        { value: 'EXTENDED_OFFLINE', label: 'Offline', badge: stats.counts?.offline || 0 }
     ];
 
     const desktopHeader = (
@@ -413,17 +422,14 @@ const Alerts = () => {
                 <div className="alert-metric-card">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Críticas</span>
-                        <div className="metric-card-icon-wrap rose" title="Alerta crítica: Corte / Movimiento">
-                            <AlertTriangle size={16} className="animate-pulse" />
+                        <div className="metric-card-pill rose">
+                            <Zap size={12} />
+                            <span>Prioridad</span>
                         </div>
                     </div>
                     <div className="metric-card-value-row">
                         <span className="metric-card-value rose">{stats.critical}</span>
                         <span className="metric-card-sub">corte / fuga</span>
-                    </div>
-                    <div className="metric-card-pill rose">
-                        <Zap size={12} />
-                        <span>Prioridad máx.</span>
                     </div>
                 </div>
 
@@ -431,17 +437,14 @@ const Alerts = () => {
                 <div className="alert-metric-card">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Activas</span>
-                        <div className="metric-card-icon-wrap amber" title="Pendientes de gestión">
-                            <Clock size={16} />
+                        <div className="metric-card-pill amber">
+                            <Clock size={12} />
+                            <span>Pendientes</span>
                         </div>
                     </div>
                     <div className="metric-card-value-row">
                         <span className="metric-card-value amber">{stats.active}</span>
-                        <span className="metric-card-sub">pendientes</span>
-                    </div>
-                    <div className="metric-card-pill amber">
-                        <Clock size={12} />
-                        <span>Sin despachar</span>
+                        <span className="metric-card-sub">sin despachar</span>
                     </div>
                 </div>
 
@@ -449,17 +452,14 @@ const Alerts = () => {
                 <div className="alert-metric-card">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Resueltas</span>
-                        <div className="metric-card-icon-wrap emerald" title="Atendidas por equipo">
-                            <CheckCircle2 size={16} />
+                        <div className="metric-card-pill slate">
+                            <Check size={12} color="#059669" />
+                            <span>Cerradas</span>
                         </div>
                     </div>
                     <div className="metric-card-value-row">
                         <span className="metric-card-value slate">{stats.resolved}</span>
-                        <span className="metric-card-sub">cerradas</span>
-                    </div>
-                    <div className="metric-card-pill slate">
-                        <Check size={12} color="#059669" />
-                        <span>Por equipo</span>
+                        <span className="metric-card-sub">por equipo</span>
                     </div>
                 </div>
 
@@ -467,35 +467,20 @@ const Alerts = () => {
                 <div className="alert-metric-card">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Total Mes</span>
-                        <div className="metric-card-icon-wrap slate" title="Total incidentes detectados">
-                            <Activity size={16} />
+                        <div className="metric-card-pill slate">
+                            <Activity size={12} color="#64748b" />
+                            <span>Globales</span>
                         </div>
                     </div>
                     <div className="metric-card-value-row">
                         <span className="metric-card-value slate">{stats.total}</span>
-                        <span className="metric-card-sub">globales</span>
-                    </div>
-                    <div className="metric-card-pill slate">
-                        <Activity size={12} color="#64748b" />
-                        <span>Incidentes</span>
+                        <span className="metric-card-sub">incidentes</span>
                     </div>
                 </div>
             </section>
             {/* ── END: KPI Dashboard ───────────────────────────────────── */}
 
             {/* ── BEGIN: Stream Status Banner ─────────────────────────── */}
-            <section aria-label="Estado de conexión en tiempo real" className="alerts-live-banner">
-                <div className="alerts-live-icon-box">
-                    <Radio size={20} />
-                    <span className="alerts-live-dot" />
-                </div>
-                <div className="alerts-live-texts">
-                    <h2 className="alerts-live-title">Stream Telemétrico Conectado (SSE)</h2>
-                    <p className="alerts-live-sub">
-                        Escuchando eventos de Traccar WebSocket y telemetría de corte en tiempo real.
-                    </p>
-                </div>
-            </section>
             {/* ── END: Stream Status Banner ───────────────────────────── */}
 
             {/* ── BEGIN: Incidents Cards List ─────────────────────────── */}
@@ -541,7 +526,7 @@ const Alerts = () => {
                                             <span className="incident-plate-badge">{alert.deviceIdName}</span>
                                             <span className={`incident-type-tag ${meta.themeClass}`}>
                                                 <IconComponent size={12} className={meta.themeClass === 'critical' ? 'animate-pulse' : ''} />
-                                                <span>{meta.label}</span>
+                                                <span>{meta.shortLabel}</span>
                                             </span>
                                             {alert.occurrenceCount > 1 && (
                                                 <span className="incident-events-badge">
@@ -549,16 +534,11 @@ const Alerts = () => {
                                                 </span>
                                             )}
                                         </div>
-                                        {alert.companyName && (
-                                            <div className="incident-company-info">
-                                                <span className="incident-company-dot" />
-                                                <span className="incident-company-name">{alert.companyName}</span>
-                                            </div>
-                                        )}
+
                                     </div>
 
                                     <div className="incident-header-right">
-                                        <div className="incident-time">
+                                        <div className="incident-time" title={alert.timestamp ? new Date(alert.timestamp).toLocaleString('es-CO') : ''}>
                                             <Clock size={12} />
                                             <span>{formatTimeAgo(alert.timestamp)}</span>
                                         </div>
@@ -570,29 +550,26 @@ const Alerts = () => {
                                     {/* 1. Motor */}
                                     <div className={`telemetry-cell ${cutOff ? 'highlight-rose' : ''}`}>
                                         <div className="telemetry-cell-top">
-                                            <span className="telemetry-cell-label">Motor</span>
                                             <MotorIcon size={14} color={cutOff ? '#e11d48' : '#059669'} />
                                         </div>
                                         <span className={`telemetry-cell-value ${cutOff ? 'text-rose' : 'text-emerald'}`}>
-                                            {cutOff === true ? 'Corte Activo' : cutOff === false ? 'Normal' : '--'}
+                                            {cutOff === true ? 'Corte' : cutOff === false ? 'Normal' : '--'}
                                         </span>
                                     </div>
 
                                     {/* 2. Switch */}
                                     <div className={`telemetry-cell ${ignition && cutOff ? 'highlight-rose' : ''}`}>
                                         <div className="telemetry-cell-top">
-                                            <span className="telemetry-cell-label">Switch</span>
                                             <KeyRound size={13} color={ignition ? (cutOff ? '#e11d48' : '#d97706') : '#94a3b8'} />
                                         </div>
                                         <span className={`telemetry-cell-value font-mono ${ignition && cutOff ? 'text-rose' : ignition ? 'text-amber' : ''}`}>
-                                            {ignition === true ? (cutOff ? 'ON (Fuga)' : 'ON') : ignition === false ? 'OFF' : '--'}
+                                            {ignition === true ? (cutOff ? 'ON' : 'ON') : ignition === false ? 'OFF' : '--'}
                                         </span>
                                     </div>
 
                                     {/* 3. Velocidad */}
                                     <div className={`telemetry-cell ${speed > 0 ? 'highlight-rose' : ''}`}>
                                         <div className="telemetry-cell-top">
-                                            <span className="telemetry-cell-label">Velocidad</span>
                                             <Gauge size={13} color={speed > 0 ? '#e11d48' : '#94a3b8'} />
                                         </div>
                                         <span className={`telemetry-cell-value font-mono ${speed > 0 ? 'text-rose' : ''}`}>
@@ -603,7 +580,6 @@ const Alerts = () => {
                                     {/* 4. Batería */}
                                     <div className={`telemetry-cell ${isPowerCut || (batteryLevel !== null && batteryLevel <= 25) ? 'highlight-rose' : ''}`}>
                                         <div className="telemetry-cell-top">
-                                            <span className="telemetry-cell-label">Batería</span>
                                             {isPowerCut ? (
                                                 <ZapOff size={13} color="#e11d48" className="animate-pulse" />
                                             ) : batteryLevel > 70 ? (
@@ -624,15 +600,7 @@ const Alerts = () => {
                                 <div className="incident-footer">
                                     <div className="incident-status-left">
                                         <span className={`status-ping-dot ${!isResolved ? 'animate' : ''}`} style={{ background: isResolved ? '#059669' : isAcknowledged ? '#d97706' : '#e11d48' }} />
-                                        <span>
-                                            {isResolved ? (
-                                                <>Resuelta {alert.resolvedBy?.name && `por ${alert.resolvedBy.name}`}</>
-                                            ) : isAcknowledged ? (
-                                                <>En seguimiento</>
-                                            ) : (
-                                                <>Pendiente despacho</>
-                                            )}
-                                        </span>
+
                                     </div>
 
                                     <div className="incident-actions-right">
