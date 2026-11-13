@@ -87,6 +87,25 @@ const DeviceManagement = () => {
                     });
                     return matchFound ? next : prevDevices;
                 });
+
+                // Clear pending commands for updated devices
+                setPendingCommands(prev => {
+                    let changed = false;
+                    const next = { ...prev };
+                    updates.forEach(u => {
+                        const gpsKey = u.gpsId ? String(u.gpsId) : null;
+                        const devKey = u._id ? String(u._id) : (u.id ? String(u.id) : null);
+                        if (gpsKey && next[gpsKey]) {
+                            delete next[gpsKey];
+                            changed = true;
+                        }
+                        if (devKey && next[devKey]) {
+                            delete next[devKey];
+                            changed = true;
+                        }
+                    });
+                    return changed ? next : prev;
+                });
             } catch (err) {
                 console.error('Error in DeviceSelector SSE listener:', err);
             }
@@ -168,11 +187,9 @@ const DeviceManagement = () => {
         const vehicleId = device._id || device.id || device.gpsId;
         const gpsId = device.gpsId;
         const command = device.cutOff ? ENGINERESUME : ENGINESTOP;
-        console.log(command);
         setPendingCommands(prev => ({ ...prev, [gpsId]: true, [vehicleId]: true }));
         try {
             const data = await controlEngine(vehicleId, command);
-            console.log(data);
             if (data.success) {
                 setDevices((prevDevices) => {
                     const next = { ...prevDevices };
@@ -180,14 +197,30 @@ const DeviceManagement = () => {
                     if (targetId && next[targetId]) {
                         next[targetId] = {
                             ...next[targetId],
-                            ...data
+                            queued: true,
+                            ...(data.device || {})
                         };
                     }
+                    return next;
+                });
+            } else {
+                showToast(data.error || 'No se pudo enviar el comando', 'error');
+                setPendingCommands(prev => {
+                    const next = { ...prev };
+                    delete next[gpsId];
+                    delete next[vehicleId];
                     return next;
                 });
             }
         } catch (err) {
             console.error('Engine control error:', err);
+            showToast('Error de conexión al enviar comando', 'error');
+            setPendingCommands(prev => {
+                const next = { ...prev };
+                delete next[gpsId];
+                delete next[vehicleId];
+                return next;
+            });
         }
     };
 
