@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pago a {{COMPANY_NAME}}</title>
   <link rel="preload" as="image" href="{{COMPANY_LOGO}}" fetchpriority="high">
-  <link rel="modulepreload" href="/assets/payment-app-tLQhh_fh.js?v=4">
+  <link rel="modulepreload" href="/assets/payment-app-ixKVyKIN.js?v=4">
 
   <style>
     :root {
@@ -673,23 +673,31 @@
 
     /* Toggle Schedule / History Accordion Button */
     #toggle-schedule-btn {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 0 12px;
-      height: 38px;
+      justify-content: space-between;
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      text-align: left;
+      padding: 0 14px;
+      height: 40px;
       box-sizing: border-box;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: var(--radius-md, 12px);
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
       -webkit-tap-highlight-color: transparent;
       font-family: inherit;
       outline: none;
-      flex-shrink: 0;
       white-space: nowrap;
+      overflow: hidden;
+    }
+
+    #toggle-schedule-btn.is-expanded {
+      padding: 0 10px;
     }
 
     #toggle-schedule-btn:hover {
@@ -698,7 +706,7 @@
     }
 
     #toggle-schedule-btn:active {
-      transform: scale(0.98);
+      transform: scale(0.99);
     }
 
     #toggle-schedule-btn .text-slate-700 {
@@ -767,11 +775,18 @@
       background: #3b82f6;
     }
 
-    /* ── Month Selector ─────────────────────────────────── */
+    /* ── Month Selector & More Options Flex Transition ── */
     .more-options-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      width: 100%;
+      margin: var(--spacing-sm) 0;
+      gap: 0;
+      overflow: hidden;
+      transition: gap 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .more-options-row.is-expanded {
       gap: 8px;
     }
 
@@ -787,15 +802,32 @@
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       padding: 0 4px;
-      height: 38px;
+      height: 40px;
       box-sizing: border-box;
-      flex: 1;
       justify-content: space-between;
       min-width: 0;
+      width: 180px;
+      max-width: 180px;
+      flex: 0 0 180px;
+      overflow: hidden;
+      transform-origin: right center;
+      transform: scaleX(1);
+      opacity: 1;
+      pointer-events: auto;
+      white-space: nowrap;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .month-selector-hidden {
-      display: none !important;
+    .month-selector.month-selector-hidden {
+      width: 0 !important;
+      max-width: 0 !important;
+      flex: 0 0 0px !important;
+      padding: 0 !important;
+      border-width: 0 !important;
+      margin: 0 !important;
+      opacity: 0 !important;
+      transform: scaleX(0) !important;
+      pointer-events: none !important;
     }
 
     .month-label {
@@ -959,7 +991,7 @@
   </style>
   <!-- Scripts -->
 
-  <script type="module" crossorigin src="/assets/payment-B0QdNAEx.js"></script>
+  <script type="module" crossorigin src="/assets/payment-CbArTBi5.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="stylesheet" crossorigin href="/assets/payment-Ci0zoWqn.css">
 </head>
