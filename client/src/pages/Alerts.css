@@ -118,51 +118,61 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-/* ── SSE Compact Triple-Toggle Control (Desktop & Mobile) ── */
-.alerts-sse-compact-bar {
-    background: #ffffff;
-    border: 1px solid rgba(226, 232, 240, 0.85);
-    border-radius: 12px;
-    padding: 0.35rem 0.65rem;
-    display: flex;
+/* ── SSE Cyclic Icon Button (Desktop & Mobile) ───────────── */
+.sse-cyclic-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    justify-content: center;
+    border-radius: 10px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    user-select: none;
 }
 
-.sse-compact-left {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: 0;
+.sse-cyclic-btn:active {
+    transform: scale(0.92);
+}
+
+.sse-cyclic-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--brand-teal);
 }
 
 .sse-banner-icon-wrap {
     position: relative;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     transition: all 0.2s ease;
+    border: 1px solid transparent;
 }
 
 .sse-banner-icon-wrap.active {
     background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.12);
     color: var(--brand-teal);
+    border-color: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.25);
+    box-shadow: 0 1px 3px rgba(var(--brand-teal-rgb, 3, 201, 215), 0.15);
 }
 
 .sse-banner-icon-wrap.paused {
     background: #fffbeb;
     color: #d97706;
+    border-color: #fde68a;
+    box-shadow: 0 1px 3px rgba(217, 119, 6, 0.15);
 }
 
 .sse-banner-icon-wrap.reconnecting {
     background: #eff6ff;
     color: #2563eb;
+    border-color: #bfdbfe;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.15);
 }
 
 .sse-ping-badge {
@@ -194,86 +204,6 @@
 .sse-ping-dot.reconnecting {
     background: #2563eb;
     animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-.sse-banner-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.sse-banner-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.sse-banner-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1.2;
-}
-
-.sse-banner-ws-badge {
-    font-size: 0.62rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    background: #f1f5f9;
-    color: #475569;
-    padding: 0.05rem 0.35rem;
-    border-radius: 4px;
-}
-
-/* Triple Toggle Segmented Control */
-.sse-triple-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    background: #f1f5f9;
-    padding: 2px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-}
-
-.sse-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    background: transparent;
-    border: none;
-    color: #64748b;
-    padding: 0.25rem 0.55rem;
-    border-radius: 6px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-}
-
-.sse-toggle-btn:hover {
-    color: #0f172a;
-    background: rgba(255, 255, 255, 0.6);
-}
-
-.sse-toggle-btn.active-live {
-    background: var(--brand-teal);
-    color: #ffffff;
-    box-shadow: 0 1px 2px rgba(var(--brand-teal-rgb, 3, 201, 215), 0.3);
-}
-
-.sse-toggle-btn.active-paused {
-    background: #d97706;
-    color: #ffffff;
-    box-shadow: 0 1px 2px rgba(217, 119, 6, 0.3);
-}
-
-.sse-toggle-btn.active-reconnect {
-    background: #2563eb;
-    color: #ffffff;
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3);
 }
 
 /* ── KPI Dashboard Grid ─────────────────────────────────── */
