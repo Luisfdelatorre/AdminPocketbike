@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     ShieldAlert,
     Zap,
@@ -8,52 +8,66 @@ import {
     WifiOff,
     CheckCircle2,
     Clock,
-    ExternalLink,
     LoaderCircle,
     ChevronLeft,
     ChevronRight,
     RefreshCw,
     Eye,
-    Radio
+    Radio,
+    BatteryFull,
+    BatteryMedium,
+    BatteryLow,
+    ZapOff,
+    Gauge,
+    Activity,
+    Pause,
+    Map,
+    Check
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
+import MotorIcon from '../components/MotorIcon';
 import { useSSE } from '../context/SSEContext';
 import { getAlertsHistory, getAlertsStats, updateAlertStatus } from '../services/api';
 import './Alerts.css';
-import './Invoices.css'; // Reutilizar estilos de mobile-select y actions
+import './Invoices.css';
 
 const ALERT_TYPE_META = {
     POWER_CUT: {
         label: 'Corte Batería',
+        shortLabel: 'Corte',
         icon: Zap,
-        className: 'power-cut',
-        color: '#dc2626'
+        themeClass: 'critical',
+        color: '#e11d48'
     },
     UNAUTHORIZED_MOVEMENT: {
-        label: 'Movimiento No Aut.',
+        label: 'Movimiento No Autorizado',
+        shortLabel: 'Mov',
         icon: AlertTriangle,
-        className: 'movement',
-        color: '#ea580c'
+        themeClass: 'critical',
+        color: '#e11d48'
     },
     UNAUTHORIZED_IGNITION: {
         label: 'Ignición en Corte',
+        shortLabel: 'Ignición',
         icon: KeyRound,
-        className: 'ignition',
-        color: '#d97706'
+        themeClass: 'critical',
+        color: '#e11d48'
     },
     GEOFENCE_EXIT: {
-        label: 'Salida Geocerca',
+        label: 'Salida de Geocerca',
+        shortLabel: 'Geocerca',
         icon: MapPin,
-        className: 'geofence',
-        color: '#7c3aed'
+        themeClass: 'warning',
+        color: '#d97706'
     },
     EXTENDED_OFFLINE: {
         label: 'Offline Prolongado',
+        shortLabel: 'Offline',
         icon: WifiOff,
-        className: 'offline',
+        themeClass: 'neutral',
         color: '#64748b'
     }
 };
@@ -156,7 +170,6 @@ const Alerts = () => {
                 return [incomingAlert, ...prev];
             });
 
-            // Increment stats in real time
             setStats((prev) => ({
                 ...prev,
                 total: prev.total + 1,
@@ -249,14 +262,13 @@ const Alerts = () => {
         const now = new Date();
         const diffMs = now - d;
         const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins < 1) return 'Hace un momento';
+        if (diffMins < 1) return 'Hace 1 min';
         if (diffMins < 60) return `Hace ${diffMins} min`;
         const diffHours = Math.floor(diffMins / 60);
         if (diffHours < 24) return `Hace ${diffHours} h`;
-        return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
     };
 
-    // Filter Options
     const filterOptions = [
         { value: 'ALL', label: 'Todas', badge: stats.total || 0 },
         { value: 'POWER_CUT', label: '⚡ Corte Batería', badge: stats.counts?.powerCut || 0, badgeType: 'red' },
@@ -310,22 +322,22 @@ const Alerts = () => {
             showFilters={showFilters}
             leadingActions={
                 pagination.totalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginRight: '4px' }}>
                         <button
                             type="button"
                             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                             disabled={currentPage <= 1}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#9ca3af' : '#1f2937' }}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#94a3b8' : '#1e293b' }}
                             aria-label="Página anterior"
                         >
                             <ChevronLeft size={14} />
                         </button>
-                        <span>{currentPage}/{pagination.totalPages}</span>
+                        <span className="font-mono">{currentPage}/{pagination.totalPages}</span>
                         <button
                             type="button"
                             onClick={() => setCurrentPage((p) => p + 1)}
                             disabled={currentPage >= pagination.totalPages}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= pagination.totalPages ? '#9ca3af' : '#1f2937' }}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= pagination.totalPages ? '#94a3b8' : '#1e293b' }}
                             aria-label="Página siguiente"
                         >
                             <ChevronRight size={14} />
@@ -346,7 +358,7 @@ const Alerts = () => {
                     <SearchAndFilterBar
                         searchQuery={searchQuery}
                         setSearchQuery={handleSearchChange}
-                        searchPlaceholder="Buscar por placa (ej. DQY62I)..."
+                        searchPlaceholder="Buscar por placa (ej. FPZ45I)..."
                         filter={filter}
                         setFilter={handleFilterChange}
                         filterOptions={filterOptions}
@@ -383,11 +395,11 @@ const Alerts = () => {
             </div>
 
             {/* Desktop Filters */}
-            <div className="hidden md:block" style={{ marginBottom: '0.5rem' }}>
+            <div className="hidden md:block" style={{ marginBottom: '0.25rem' }}>
                 <SearchAndFilterBar
                     searchQuery={searchQuery}
                     setSearchQuery={handleSearchChange}
-                    searchPlaceholder="Buscar por placa (ej. DQY62I) o título..."
+                    searchPlaceholder="Buscar por placa (ej. FPZ45I) o motivo..."
                     filter={filter}
                     setFilter={handleFilterChange}
                     filterOptions={filterOptions}
@@ -395,233 +407,288 @@ const Alerts = () => {
                 />
             </div>
 
-            {/* Telemetry Metric Cards */}
-            <div className="alerts-metrics-grid">
-                <div className="alert-metric-card critical">
-                    <span className="metric-card-label">Críticas</span>
+            {/* ── BEGIN: KPI Dashboard ─────────────────────────────────── */}
+            <section aria-label="Resumen telemétrico" className="alerts-metrics-grid">
+                {/* Críticas */}
+                <div className="alert-metric-card">
+                    <div className="alert-metric-header">
+                        <span className="metric-card-label">Críticas</span>
+                        <div className="metric-card-icon-wrap rose" title="Alerta crítica: Corte / Movimiento">
+                            <AlertTriangle size={16} className="animate-pulse" />
+                        </div>
+                    </div>
                     <div className="metric-card-value-row">
-                        <span className="metric-card-value" style={{ color: '#dc2626' }}>{stats.critical}</span>
-                        {stats.critical > 0 && <span className="metric-card-badge error">Prioridad</span>}
+                        <span className="metric-card-value rose">{stats.critical}</span>
+                        <span className="metric-card-sub">corte / fuga</span>
                     </div>
-                    <span className="metric-card-sub">Corte / Movimiento</span>
+                    <div className="metric-card-pill rose">
+                        <Zap size={12} />
+                        <span>Prioridad máx.</span>
+                    </div>
                 </div>
 
-                <div className="alert-metric-card active-card">
-                    <span className="metric-card-label">Activas</span>
+                {/* Activas */}
+                <div className="alert-metric-card">
+                    <div className="alert-metric-header">
+                        <span className="metric-card-label">Activas</span>
+                        <div className="metric-card-icon-wrap amber" title="Pendientes de gestión">
+                            <Clock size={16} />
+                        </div>
+                    </div>
                     <div className="metric-card-value-row">
-                        <span className="metric-card-value" style={{ color: '#d97706' }}>{stats.active}</span>
+                        <span className="metric-card-value amber">{stats.active}</span>
+                        <span className="metric-card-sub">pendientes</span>
                     </div>
-                    <span className="metric-card-sub">Pendientes de gestión</span>
+                    <div className="metric-card-pill amber">
+                        <Clock size={12} />
+                        <span>Sin despachar</span>
+                    </div>
                 </div>
 
-                <div className="alert-metric-card resolved-card">
-                    <span className="metric-card-label">Resueltas</span>
+                {/* Resueltas */}
+                <div className="alert-metric-card">
+                    <div className="alert-metric-header">
+                        <span className="metric-card-label">Resueltas</span>
+                        <div className="metric-card-icon-wrap emerald" title="Atendidas por equipo">
+                            <CheckCircle2 size={16} />
+                        </div>
+                    </div>
                     <div className="metric-card-value-row">
-                        <span className="metric-card-value" style={{ color: '#059669' }}>{stats.resolved}</span>
+                        <span className="metric-card-value slate">{stats.resolved}</span>
+                        <span className="metric-card-sub">cerradas</span>
                     </div>
-                    <span className="metric-card-sub">Atendidas por equipo</span>
+                    <div className="metric-card-pill slate">
+                        <Check size={12} color="#059669" />
+                        <span>Por equipo</span>
+                    </div>
                 </div>
 
-                <div className="alert-metric-card total-card">
-                    <span className="metric-card-label">Total Mes</span>
+                {/* Total Mes */}
+                <div className="alert-metric-card">
+                    <div className="alert-metric-header">
+                        <span className="metric-card-label">Total Mes</span>
+                        <div className="metric-card-icon-wrap slate" title="Total incidentes detectados">
+                            <Activity size={16} />
+                        </div>
+                    </div>
                     <div className="metric-card-value-row">
-                        <span className="metric-card-value">{stats.total}</span>
+                        <span className="metric-card-value slate">{stats.total}</span>
+                        <span className="metric-card-sub">globales</span>
                     </div>
-                    <span className="metric-card-sub">Incidentes detectados</span>
-                </div>
-            </div>
-
-            {/* Live Gateway Indicator */}
-            <div className="alerts-live-banner">
-                <div className="alerts-live-left">
-                    <div className="alerts-live-icon">
-                        <Radio size={18} />
-                    </div>
-                    <div>
-                        <h4 className="alerts-live-title">Stream Telemétrico Conectado (SSE)</h4>
-                        <p className="alerts-live-sub">Escuchando eventos de Traccar WebSocket y telemetría de corte en tiempo real</p>
+                    <div className="metric-card-pill slate">
+                        <Activity size={12} color="#64748b" />
+                        <span>Incidentes</span>
                     </div>
                 </div>
-                <div className="iot-pulse-dot" title="Stream activo" />
-            </div>
+            </section>
+            {/* ── END: KPI Dashboard ───────────────────────────────────── */}
 
-            {/* Alerts List */}
+            {/* ── BEGIN: Stream Status Banner ─────────────────────────── */}
+            <section aria-label="Estado de conexión en tiempo real" className="alerts-live-banner">
+                <div className="alerts-live-icon-box">
+                    <Radio size={20} />
+                    <span className="alerts-live-dot" />
+                </div>
+                <div className="alerts-live-texts">
+                    <h2 className="alerts-live-title">Stream Telemétrico Conectado (SSE)</h2>
+                    <p className="alerts-live-sub">
+                        Escuchando eventos de Traccar WebSocket y telemetría de corte en tiempo real.
+                    </p>
+                </div>
+            </section>
+            {/* ── END: Stream Status Banner ───────────────────────────── */}
+
+            {/* ── BEGIN: Incidents Cards List ─────────────────────────── */}
             {loading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem', gap: '8px', color: '#64748b' }}>
                     <LoaderCircle size={22} className="animate-spin" />
-                    <span>Cargando registro de alertas...</span>
+                    <span>Cargando incidentes de telemetría...</span>
                 </div>
             ) : alerts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', color: '#64748b' }}>
-                    <ShieldAlert size={34} style={{ margin: '0 auto 8px', color: '#10b981', opacity: 0.8 }} />
-                    <p style={{ fontWeight: 600, margin: 0, color: '#1e293b' }}>Sin alertas registradas</p>
-                    <span style={{ fontSize: '0.85rem' }}>No se han detectado anomalías telemétricas para los filtros seleccionados. Flota segura.</span>
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#64748b' }}>
+                    <ShieldAlert size={36} style={{ margin: '0 auto 8px', color: '#10b981', opacity: 0.8 }} />
+                    <p style={{ fontWeight: 600, margin: 0, color: '#0f172a' }}>Sin alertas registradas</p>
+                    <span style={{ fontSize: '0.82rem' }}>No se han detectado anomalías telemétricas para los filtros seleccionados. Flota segura.</span>
                 </div>
             ) : (
                 <div className="alerts-list">
                     {alerts.map((alert) => {
                         const meta = ALERT_TYPE_META[alert.alertType] || {
                             label: alert.alertType,
+                            shortLabel: 'Alerta',
                             icon: AlertTriangle,
-                            className: 'power-cut',
-                            color: '#dc2626'
+                            themeClass: 'critical',
+                            color: '#e11d48'
                         };
                         const IconComponent = meta.icon;
-                        const isCritical = alert.severity === 'CRITICAL';
                         const isResolved = alert.status === 'RESOLVED';
                         const isAcknowledged = alert.status === 'ACKNOWLEDGED';
+                        const cutOff = alert.metadata?.cutOff;
+                        const ignition = alert.metadata?.ignition;
+                        const speed = alert.location?.speed ?? 0;
+                        const batteryLevel = alert.metadata?.batteryLevel;
+                        const isPowerCut = alert.alertType === 'POWER_CUT' || alert.metadata?.powerCut;
 
                         return (
-                            <div
+                            <article
                                 key={alert._id || alert.timestamp}
-                                className={`alert-card severity-${alert.severity?.toLowerCase()} status-${alert.status?.toLowerCase()}`}
+                                className={`incident-card ${isResolved ? 'status-resolved' : ''}`}
                             >
-                                <div className="alert-card-top">
-                                    <div className="alert-device-group">
-                                        <span className="alert-device-badge">{alert.deviceIdName}</span>
-                                        <span className={`alert-type-pill ${meta.className}`}>
-                                            <IconComponent size={13} />
-                                            {meta.label}
-                                        </span>
-                                        {alert.occurrenceCount > 1 && (
-                                            <span className="alert-occurrence-badge" title="Eventos continuos agrupados">
-                                                x{alert.occurrenceCount}
+                                {/* Card Header */}
+                                <div className="incident-header">
+                                    <div className="incident-header-left">
+                                        <div className="incident-badges-row">
+                                            <span className="incident-plate-badge">{alert.deviceIdName}</span>
+                                            <span className={`incident-type-tag ${meta.themeClass}`}>
+                                                <IconComponent size={12} className={meta.themeClass === 'critical' ? 'animate-pulse' : ''} />
+                                                <span>{meta.label}</span>
                                             </span>
-                                        )}
+                                            {alert.occurrenceCount > 1 && (
+                                                <span className="incident-events-badge">
+                                                    x{alert.occurrenceCount} eventos
+                                                </span>
+                                            )}
+                                        </div>
                                         {alert.companyName && (
-                                            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                                • {alert.companyName}
-                                            </span>
+                                            <div className="incident-company-info">
+                                                <span className="incident-company-dot" />
+                                                <span className="incident-company-name">{alert.companyName}</span>
+                                            </div>
                                         )}
                                     </div>
 
-                                    {/* Status Pill */}
-                                    {isResolved ? (
-                                        <span className="alert-status-tag resolved">
-                                            <CheckCircle2 size={12} />
-                                            Resuelta
-                                        </span>
-                                    ) : isAcknowledged ? (
-                                        <span className="alert-status-tag acknowledged">
-                                            <Eye size={12} />
-                                            En Gestión
-                                        </span>
-                                    ) : (
-                                        <span className="alert-status-tag active">
-                                            <span className="pulse-dot" />
-                                            Activa
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="alert-card-body">
-                                    <h4 className="alert-title">{alert.title}</h4>
-                                    {alert.message && <p className="alert-message">{alert.message}</p>}
-
-                                    {/* Telemetry Chips */}
-                                    <div className="alert-chips-row">
-                                        {alert.metadata?.cutOff !== null && alert.metadata?.cutOff !== undefined && (
-                                            <span className={`alert-chip ${alert.metadata.cutOff ? 'highlight-red' : 'highlight-green'}`}>
-                                                Motor: {alert.metadata.cutOff ? 'BLOQUEADO' : 'NORMAL'}
-                                            </span>
-                                        )}
-                                        {alert.metadata?.ignition !== null && alert.metadata?.ignition !== undefined && (
-                                            <span className={`alert-chip ${alert.metadata.ignition ? 'highlight-red' : ''}`}>
-                                                Switch: {alert.metadata.ignition ? 'ENCENDIDO' : 'APAGADO'}
-                                            </span>
-                                        )}
-                                        {alert.metadata?.motion !== null && alert.metadata?.motion !== undefined && (
-                                            <span className="alert-chip">
-                                                Movimiento: {alert.metadata.motion ? 'SÍ' : 'NO'}
-                                            </span>
-                                        )}
-                                        {alert.location?.speed > 0 && (
-                                            <span className="alert-chip highlight-red">
-                                                Velocidad: {Math.round(alert.location.speed)} km/h
-                                            </span>
-                                        )}
-                                        {alert.metadata?.batteryLevel !== null && alert.metadata?.batteryLevel !== undefined && (
-                                            <span className="alert-chip">
-                                                Batería: {alert.metadata.batteryLevel}%
-                                            </span>
-                                        )}
-                                        {alert.metadata?.hoursOffline && (
-                                            <span className="alert-chip highlight-red">
-                                                Offline: ~{alert.metadata.hoursOffline}h
-                                            </span>
-                                        )}
+                                    <div className="incident-header-right">
+                                        <div className="incident-time">
+                                            <Clock size={12} />
+                                            <span>{formatTimeAgo(alert.timestamp)}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="alert-card-bottom">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                            <Clock size={12} color="#94a3b8" />
-                                            {formatTimeAgo(alert.timestamp)}
+                                {/* ── Structured 4-Column Telemetry Grid ── */}
+                                <div className="incident-telemetry-grid">
+                                    {/* 1. Motor */}
+                                    <div className={`telemetry-cell ${cutOff ? 'highlight-rose' : ''}`}>
+                                        <div className="telemetry-cell-top">
+                                            <span className="telemetry-cell-label">Motor</span>
+                                            <MotorIcon size={14} color={cutOff ? '#e11d48' : '#059669'} />
+                                        </div>
+                                        <span className={`telemetry-cell-value ${cutOff ? 'text-rose' : 'text-emerald'}`}>
+                                            {cutOff === true ? 'Corte Activo' : cutOff === false ? 'Normal' : '--'}
                                         </span>
-
-                                        {isResolved && alert.resolvedBy?.name && (
-                                            <span className="alert-resolved-info">
-                                                <CheckCircle2 size={12} />
-                                                Resuelta por <strong>{alert.resolvedBy.name}</strong>
-                                                {alert.resolutionNotes && ` ("${alert.resolutionNotes}")`}
-                                            </span>
-                                        )}
                                     </div>
 
-                                    <div className="alert-actions-group">
-                                        {/* Google Maps Shortcut */}
+                                    {/* 2. Switch */}
+                                    <div className={`telemetry-cell ${ignition && cutOff ? 'highlight-rose' : ''}`}>
+                                        <div className="telemetry-cell-top">
+                                            <span className="telemetry-cell-label">Switch</span>
+                                            <KeyRound size={13} color={ignition ? (cutOff ? '#e11d48' : '#d97706') : '#94a3b8'} />
+                                        </div>
+                                        <span className={`telemetry-cell-value font-mono ${ignition && cutOff ? 'text-rose' : ignition ? 'text-amber' : ''}`}>
+                                            {ignition === true ? (cutOff ? 'ON (Fuga)' : 'ON') : ignition === false ? 'OFF' : '--'}
+                                        </span>
+                                    </div>
+
+                                    {/* 3. Velocidad */}
+                                    <div className={`telemetry-cell ${speed > 0 ? 'highlight-rose' : ''}`}>
+                                        <div className="telemetry-cell-top">
+                                            <span className="telemetry-cell-label">Velocidad</span>
+                                            <Gauge size={13} color={speed > 0 ? '#e11d48' : '#94a3b8'} />
+                                        </div>
+                                        <span className={`telemetry-cell-value font-mono ${speed > 0 ? 'text-rose' : ''}`}>
+                                            {Math.round(speed)} km/h
+                                        </span>
+                                    </div>
+
+                                    {/* 4. Batería */}
+                                    <div className={`telemetry-cell ${isPowerCut || (batteryLevel !== null && batteryLevel <= 25) ? 'highlight-rose' : ''}`}>
+                                        <div className="telemetry-cell-top">
+                                            <span className="telemetry-cell-label">Batería</span>
+                                            {isPowerCut ? (
+                                                <ZapOff size={13} color="#e11d48" className="animate-pulse" />
+                                            ) : batteryLevel > 70 ? (
+                                                <BatteryFull size={14} color="#059669" />
+                                            ) : batteryLevel > 25 ? (
+                                                <BatteryMedium size={14} color="#d97706" />
+                                            ) : (
+                                                <BatteryLow size={14} color="#e11d48" className="animate-pulse" />
+                                            )}
+                                        </div>
+                                        <span className={`telemetry-cell-value font-mono ${isPowerCut || (batteryLevel !== null && batteryLevel <= 25) ? 'text-rose' : ''}`}>
+                                            {isPowerCut ? 'Corte' : batteryLevel !== null && batteryLevel !== undefined ? `${batteryLevel}%` : '--'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Card Footer: Unified Action Bar */}
+                                <div className="incident-footer">
+                                    <div className="incident-status-left">
+                                        <span className={`status-ping-dot ${!isResolved ? 'animate' : ''}`} style={{ background: isResolved ? '#059669' : isAcknowledged ? '#d97706' : '#e11d48' }} />
+                                        <span>
+                                            {isResolved ? (
+                                                <>Resuelta {alert.resolvedBy?.name && `por ${alert.resolvedBy.name}`}</>
+                                            ) : isAcknowledged ? (
+                                                <>En seguimiento</>
+                                            ) : (
+                                                <>Pendiente despacho</>
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    <div className="incident-actions-right">
+                                        {/* Ver Mapa */}
                                         {alert.location?.latitude && alert.location?.longitude && (
                                             <a
                                                 href={`https://www.google.com/maps?q=${alert.location.latitude},${alert.location.longitude}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="alert-action-btn btn-map"
-                                                title="Ver ubicación satelital en Google Maps"
+                                                className="btn-incident-secondary"
+                                                title="Ver ubicación en Google Maps"
                                             >
-                                                <ExternalLink size={12} />
-                                                Ver Mapa
+                                                <Map size={13} color="#64748b" />
+                                                <span>Ver Mapa</span>
                                             </a>
                                         )}
 
-                                        {/* Acknowledge Button */}
+                                        {/* Atender */}
                                         {!isResolved && !isAcknowledged && (
                                             <button
                                                 type="button"
-                                                className="alert-action-btn btn-acknowledge"
+                                                className="btn-incident-secondary"
                                                 disabled={actionLoadingId === alert._id}
                                                 onClick={() => handleAcknowledge(alert)}
-                                                title="Marcar como atendida / en seguimiento"
+                                                title="Marcar como atendida / en despacho"
                                             >
                                                 {actionLoadingId === alert._id ? (
-                                                    <LoaderCircle size={12} className="animate-spin" />
+                                                    <LoaderCircle size={13} className="animate-spin" />
                                                 ) : (
-                                                    <Eye size={12} />
+                                                    <Eye size={13} color="#64748b" />
                                                 )}
-                                                Atender
+                                                <span>Atender</span>
                                             </button>
                                         )}
 
-                                        {/* Resolve Button */}
+                                        {/* Resolver */}
                                         {!isResolved && (
                                             <button
                                                 type="button"
-                                                className="alert-action-btn btn-resolve"
+                                                className="btn-incident-primary"
                                                 disabled={actionLoadingId === alert._id}
                                                 onClick={() => handleOpenResolveModal(alert)}
                                                 title="Cerrar y marcar como resuelta"
                                             >
-                                                <CheckCircle2 size={12} />
-                                                Resolver
+                                                <CheckCircle2 size={13} />
+                                                <span>Resolver</span>
                                             </button>
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                            </article>
                         );
                     })}
                 </div>
             )}
+            {/* ── END: Incidents Cards List ───────────────────────────── */}
 
             {/* Pagination Controls */}
             {pagination.totalPages > 1 && (
@@ -681,8 +748,8 @@ const Alerts = () => {
                             </button>
                             <button
                                 type="button"
-                                className="modal-button modal-button-primary"
-                                style={{ background: '#059669', borderColor: '#059669' }}
+                                className="btn-incident-primary"
+                                style={{ padding: '0.55rem 1rem' }}
                                 disabled={actionLoadingId === resolvingAlert._id}
                                 onClick={handleConfirmResolve}
                             >
