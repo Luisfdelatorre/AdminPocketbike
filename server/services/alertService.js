@@ -537,6 +537,10 @@ export const processTraccarEvents = async (events = []) => {
                 alertType = ALERT_TYPE.POWER_CUT;
                 severity = ALERT_SEVERITY.CRITICAL;
                 message = 'Alerta de desconexión de energía reportada por Traccar.';
+            } else if (alarm.includes('lowbattery') || alarm.includes('low_battery')) {
+                alertType = ALERT_TYPE.POWER_CUT;
+                severity = ALERT_SEVERITY.WARNING;
+                message = 'Alerta de batería baja del rastreador GPS reportada por Traccar.';
             } else if (alarm.includes('tow') || alarm.includes('vibration') || alarm.includes('movement')) {
                 alertType = ALERT_TYPE.UNAUTHORIZED_MOVEMENT;
                 severity = ALERT_SEVERITY.CRITICAL;

@@ -190,6 +190,50 @@ const companyController = {
                 error: error.message || 'Error al validar credenciales de Traccar'
             });
         }
+    },
+
+    // Get company Traccar notification rules & permissions
+    getTraccarNotifications: async (req, res) => {
+        try {
+            const paramId = req.params.id;
+            const targetCompanyId = (!paramId || paramId === 'me' || paramId === 'current')
+                ? req.auth.companyId
+                : paramId;
+
+            const result = await companyService.getTraccarNotificationSettings(targetCompanyId);
+            res.json({
+                success: true,
+                ...result
+            });
+        } catch (error) {
+            console.error('Error getting Traccar notification settings:', error);
+            res.status(error.statusCode || 500).json({
+                success: false,
+                error: error.message || 'Error al obtener notificaciones de Traccar'
+            });
+        }
+    },
+
+    // Update company Traccar notification rules & permissions
+    updateTraccarNotifications: async (req, res) => {
+        try {
+            const paramId = req.params.id;
+            const targetCompanyId = (!paramId || paramId === 'me' || paramId === 'current')
+                ? req.auth.companyId
+                : paramId;
+
+            const result = await companyService.updateTraccarNotificationSettings(targetCompanyId, req.body);
+            res.json({
+                success: true,
+                ...result
+            });
+        } catch (error) {
+            console.error('Error updating Traccar notification settings:', error);
+            res.status(error.statusCode || 400).json({
+                success: false,
+                error: error.message || 'Error al actualizar notificaciones de Traccar'
+            });
+        }
     }
 };
 

@@ -3,6 +3,7 @@ import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
 import MegaRastreo from '../adapters/megaRastreo/megaRastreoAdapter.js';
 import logger from '../config/logger.js';
 import { GPS_SERVICES } from '../config/components/constants.js';
+import { Url, Login } from '../config/config.js';
 import GpsService from './gpsServices.js';
 import dayjs from '../config/dayjs.js';
 import { triggerCronReload } from '../utils/cronClient.js';
@@ -539,6 +540,161 @@ class CompanyService {
 
     async getGpsAdapterByCompanyId(companyId) {
         return this.getGpsAdapter(companyId);
+    }
+
+    async getTraccarNotificationSettings(companyId) {
+        const company = await companyRepository.findById(companyId);
+        if (!company) {
+            const err = new Error('Empresa no encontrada');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const host = company.gpsConfig?.host || Url.Traccar;
+        const user = company.gpsConfig?.user;
+        const password = company.gpsConfig?.password;
+
+        if (!host || !user || !password) {
+            return {
+                configured: false,
+                settings: {
+                    batteryAlerts: false,
+                    geofenceAlerts: false,
+                    vibrationAlerts: false
+                }
+            };
+        }
+
+        const TraccarApi = (await import('../adapters/traccar/traccarApi.js')).default;
+        const traccarApi = new TraccarApi({ host, user, password });
+
+        try {
+            const sessionRes = await traccarApi.createSession();
+            const trUser = sessionRes?.data || {};
+            const userId = trUser.id;
+
+            if (!userId) {
+                throw new Error('No se pudo resolver el ID de usuario en Traccar');
+            }
+
+            const notifRes = await traccarApi.axiosInstance.get(`api/notifications?userId=${userId}`);
+            const userNotifs = Array.isArray(notifRes.data) ? notifRes.data : [];
+            const activeIds = new Set(userNotifs.map(n => n.id));
+
+            const settings = {
+                batteryAlerts: activeIds.has(1),
+                geofenceAlerts: activeIds.has(4),
+                vibrationAlerts: activeIds.has(5)
+            };
+
+            return {
+                configured: true,
+                traccarUserId: userId,
+                settings
+            };
+        } catch (err) {
+            logger.warn(`[CompanyService] Error getting Traccar notification settings for company ${companyId}:`, err.message);
+            const fallback = company.gpsConfig?.traccarNotifications || {
+                batteryAlerts: false,
+                geofenceAlerts: false,
+                vibrationAlerts: false
+            };
+            return {
+                configured: true,
+                error: err.message,
+                settings: {
+                    batteryAlerts: Boolean(fallback.batteryAlerts),
+                    geofenceAlerts: Boolean(fallback.geofenceAlerts),
+                    vibrationAlerts: Boolean(fallback.vibrationAlerts)
+                }
+            };
+        }
+    }
+
+    async updateTraccarNotificationSettings(companyId, newSettings = {}) {
+        const company = await companyRepository.findById(companyId);
+        if (!company) {
+            const err = new Error('Empresa no encontrada');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const host = company.gpsConfig?.host || Url.Traccar;
+        const user = company.gpsConfig?.user;
+        const password = company.gpsConfig?.password;
+
+        if (!host || !user || !password) {
+            const err = new Error('Credenciales de Traccar no configuradas para esta empresa');
+            err.statusCode = 400;
+            throw err;
+        }
+
+        const TraccarApi = (await import('../adapters/traccar/traccarApi.js')).default;
+
+        // 1. Resolve company user's Traccar ID
+        const companyApi = new TraccarApi({ host, user, password });
+        const sessionRes = await companyApi.createSession();
+        const userId = sessionRes?.data?.id;
+
+        if (!userId) {
+            throw new Error('No se pudo identificar el usuario en Traccar');
+        }
+
+        // 2. Use Admin credentials to grant or revoke permissions
+        const adminApi = new TraccarApi({
+            host,
+            user: Login.Traccar.user,
+            password: Login.Traccar.password
+        });
+        await adminApi.ensureSession();
+
+        const currentNotifsRes = await adminApi.axiosInstance.get(`api/notifications?userId=${userId}`);
+        const currentIds = new Set((currentNotifsRes.data || []).map(n => n.id));
+
+        const targetMap = {
+            1: Boolean(newSettings.batteryAlerts),
+            4: Boolean(newSettings.geofenceAlerts),
+            5: Boolean(newSettings.vibrationAlerts)
+        };
+
+        for (const [notifIdStr, shouldHave] of Object.entries(targetMap)) {
+            const notifId = Number(notifIdStr);
+            const currentlyHas = currentIds.has(notifId);
+
+            if (shouldHave && !currentlyHas) {
+                await adminApi.axiosInstance.post('api/permissions', {
+                    userId,
+                    notificationId: notifId
+                });
+            } else if (!shouldHave && currentlyHas) {
+                await adminApi.axiosInstance.delete('api/permissions', {
+                    data: {
+                        userId,
+                        notificationId: notifId
+                    }
+                });
+            }
+        }
+
+        // 3. Persist to MongoDB
+        if (!company.gpsConfig) company.gpsConfig = {};
+        company.gpsConfig.traccarNotifications = {
+            batteryAlerts: Boolean(newSettings.batteryAlerts),
+            geofenceAlerts: Boolean(newSettings.geofenceAlerts),
+            vibrationAlerts: Boolean(newSettings.vibrationAlerts),
+            updatedAt: new Date()
+        };
+        await companyRepository.save(company);
+        this.clearCache(companyId);
+
+        return {
+            success: true,
+            settings: {
+                batteryAlerts: Boolean(newSettings.batteryAlerts),
+                geofenceAlerts: Boolean(newSettings.geofenceAlerts),
+                vibrationAlerts: Boolean(newSettings.vibrationAlerts)
+            }
+        };
     }
 }
 

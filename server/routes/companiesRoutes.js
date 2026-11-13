@@ -15,6 +15,8 @@ router.post('/', companyController.createCompany);
 router.post('/validate-traccar', companyController.validateTraccar);
 router.get('/settings', companyController.getSettings);
 router.put('/settings', companyController.updateSettings);
+router.get('/:id/traccar-notifications', companyController.getTraccarNotifications);
+router.put('/:id/traccar-notifications', companyController.updateTraccarNotifications);
 router.put('/branding/update', companyController.updateBranding); // Specific route first
 router.put('/:id', companyController.updateCompany); // Param route last
 router.get('/', companyController.getAllCompanies);
