@@ -51,6 +51,13 @@ import './Alerts.css';
 import './Invoices.css';
 
 const ALERT_TYPE_META = {
+    UNAUTHORIZED_DRIVING: {
+        label: 'Sabotaje: Conducción en Corte',
+        shortLabel: 'Sabotaje',
+        icon: ShieldAlert,
+        themeClass: 'critical',
+        color: '#dc2626'
+    },
     POWER_CUT: {
         label: 'Corte Batería',
         shortLabel: 'Corte',
@@ -112,7 +119,7 @@ const Alerts = () => {
         resolved: 0,
         critical: 0,
         warning: 0,
-        counts: { powerCut: 0, movement: 0, ignition: 0, geofence: 0, offline: 0 }
+        counts: { unauthorizedDriving: 0, powerCut: 0, movement: 0, ignition: 0, geofence: 0, offline: 0 }
     });
 
     const [loading, setLoading] = useState(false);
@@ -405,6 +412,7 @@ const Alerts = () => {
 
     const filterOptions = [
         { value: 'ALL', label: 'Todas', badge: stats.total || 0 },
+        { value: 'UNAUTHORIZED_DRIVING', label: 'Sabotaje', badge: stats.counts?.unauthorizedDriving || 0, badgeType: 'red' },
         { value: 'POWER_CUT', label: 'Batería', badge: stats.counts?.powerCut || 0, badgeType: 'red' },
         { value: 'UNAUTHORIZED_MOVEMENT', label: 'Movimie.', badge: stats.counts?.movement || 0, badgeType: 'red' },
         { value: 'UNAUTHORIZED_IGNITION', label: 'Ignición', badge: stats.counts?.ignition || 0, badgeType: 'red' },
@@ -689,9 +697,24 @@ const Alerts = () => {
                         <span className="pill-counter">{stats.total || 0}</span>
                     </button>
 
+                    {(stats.counts?.unauthorizedDriving || 0) > 0 && (
+                        <button
+                            type="button"
+                            className={`alerts-filter-pill sabotage ${filter === 'UNAUTHORIZED_DRIVING' ? 'active' : ''}`}
+                            onClick={() => {
+                                setFilter(filter === 'UNAUTHORIZED_DRIVING' ? 'ALL' : 'UNAUTHORIZED_DRIVING');
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <span className="pill-dot red animate-pulse" />
+                            <span>🚨 Sabotajes</span>
+                            <span className="pill-counter">{stats.counts.unauthorizedDriving}</span>
+                        </button>
+                    )}
+
                     <button
                         type="button"
-                        className={`alerts-filter-pill critical ${filter === 'UNAUTHORIZED_MOVEMENT' || filter === 'POWER_CUT' ? 'active' : ''}`}
+                        className={`alerts-filter-pill critical ${filter === 'UNAUTHORIZED_MOVEMENT' || filter === 'POWER_CUT' || filter === 'UNAUTHORIZED_DRIVING' || filter === 'UNAUTHORIZED_IGNITION' ? 'active' : ''}`}
                         onClick={() => {
                             setFilter(filter === 'UNAUTHORIZED_MOVEMENT' ? 'ALL' : 'UNAUTHORIZED_MOVEMENT');
                             setCurrentPage(1);
@@ -781,6 +804,11 @@ const Alerts = () => {
                                                         <IconComponent size={12} className={meta.themeClass === 'critical' ? 'animate-pulse' : ''} />
                                                         <span>{meta.shortLabel}</span>
                                                     </span>
+                                                    {(alert.alertType === 'UNAUTHORIZED_DRIVING' || alert.metadata?.bypassSuspected) && (
+                                                        <span className="incident-sabotage-badge">
+                                                            Relé Puenteado
+                                                        </span>
+                                                    )}
                                                     {alert.occurrenceCount > 1 && (
                                                         <span className="incident-events-badge">
                                                             x{alert.occurrenceCount} eventos
@@ -1030,6 +1058,21 @@ const Alerts = () => {
                                         {contractInfo?.contractId ? `Contrato #${contractInfo.contractId}` : 'Sin contrato'}
                                     </span>
                                 </div>
+
+                                {/* Sabotage Alert Callout if relay bypass suspected */}
+                                {(selectedAlert.alertType === 'UNAUTHORIZED_DRIVING' || selectedAlert.metadata?.bypassSuspected) && (
+                                    <div className="inspector-sabotage-card">
+                                        <div className="inspector-sabotage-header">
+                                            <ShieldAlert size={16} className="text-rose-600 animate-pulse" />
+                                            <span className="inspector-sabotage-title">
+                                                🚨 Sabotaje Confirmado de Relé de Corte
+                                            </span>
+                                        </div>
+                                        <p className="inspector-sabotage-desc">
+                                            La motocicleta registra velocidad activa ({Math.round(selectedAlert.location?.speed || selectedAlert.metadata?.speed || 0)} km/h) con switch ON mientras la orden del sistema está en CORTE. El relé de inmovilización ha sido puenteado o desconectado y el cliente sigue trabajando.
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* Fast IoT Actuation */}
                                 <div className="inspector-iot-section">
