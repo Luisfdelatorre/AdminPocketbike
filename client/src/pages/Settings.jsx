@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, Zap, MapPin, Bell, ShieldCheck } from 'lucide-react';
+import { 
+    Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, 
+    Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, 
+    Zap, MapPin, Bell, ShieldCheck, Server, Globe, User, Key, Eye, EyeOff, 
+    Smartphone, QrCode, CheckCircle, Check, Radio 
+} from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import { getSettings, updateSettings, syncDevices, validateTraccarConnection, getTraccarNotifications, updateTraccarNotifications } from '../services/api';
@@ -82,6 +87,8 @@ const Settings = () => {
     });
     const [isLoadingTraccarNotifs, setIsLoadingTraccarNotifs] = useState(false);
     const [isUpdatingTraccarNotif, setIsUpdatingTraccarNotif] = useState(false);
+    const [showTraccarPassword, setShowTraccarPassword] = useState(false);
+    const [showWompiSecret, setShowWompiSecret] = useState(false);
 
     const loadTraccarNotifications = async () => {
         if (!settings.gpsConfig?.user) return;
@@ -1181,232 +1188,313 @@ const Settings = () => {
 
                 {/* ── INTEGRATIONS TAB ── */}
                 {activeTab === 'integrations' && (
-                    <div className="settings-section">
-                        <div className="setting-item">
-                            <label htmlFor="gpsService">{t('settings.integrations.selectProvider')}</label>
-                            <select
-                                id="gpsService"
-                                value={settings.gpsService}
-                                onChange={(e) => handleChange('gpsService', e.target.value)}
-                            >
-                                {(availableGpsServices.length
-                                    ? availableGpsServices
-                                    : ['megarastreo', 'traccar']
-                                ).map(svc => {
-                                    const GPS_LABELS = {
-                                        megarastreo: 'MegaRastreo',
-                                        traccar: 'Traccar'
-                                    };
-                                    return (
-                                        <option key={svc} value={svc}>
-                                            {GPS_LABELS[svc] ?? svc}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                        </div>
-
-                        {settings.gpsService === 'megarastreo' && (
-                            <div className="integration-fields">
-                                <div className="setting-item">
-                                    <label htmlFor="mrUser">{t('settings.integrations.megarastreoUsername')}</label>
-                                    <input
-                                        id="mrUser"
-                                        type="text"
-                                        value={settings.gpsConfig.user}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
-                                        placeholder="Enter username"
-                                    />
+                    <div className="integrations-container">
+                        {/* ── SECCIÓN 1: Conexión al Servidor Traccar ── */}
+                        <div className="integrations-card">
+                            <div className="integrations-section-header">
+                                <div className="integrations-section-title-group">
+                                    <div className="integrations-section-icon">
+                                        <Server size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="integrations-section-title">Servidor</h3>
+                                    </div>
                                 </div>
-                                <div className="setting-item">
-                                    <label htmlFor="mrPass">{t('settings.integrations.megarastreoPassword')}</label>
+                            </div>
+
+                            {/* Selector de Proveedor */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">
+                                    Proveedor de Telemetría <span style={{ color: '#0051d5' }}>*</span>
+                                </label>
+                                <div className="integrations-provider-box">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', minWidth: 0 }}>
+                                        <Radio size={20} style={{ color: '#006194', flexShrink: 0 }} />
+                                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0b1c30' }}>
+                                            Traccar GPS Enterprise Engine
+                                        </span>
+                                    </div>
+                                    <span className="badge-oficial">OFICIAL</span>
+                                </div>
+                            </div>
+
+                            {/* Host Traccar */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">Host Traccar</label>
+                                <div className="integrations-input-box">
+                                    <Globe size={18} style={{ color: '#707881', flexShrink: 0 }} />
                                     <input
-                                        id="mrPass"
-                                        type="password"
-                                        value={settings.gpsConfig.password}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
-                                        placeholder="Enter password"
+                                        className="integrations-input"
+                                        id="input-host"
+                                        type="text"
+                                        value={settings.gpsConfig?.host || ''}
+                                        onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
+                                        placeholder="ej. pocketbike.app"
                                     />
                                 </div>
                             </div>
-                        )}
 
-                        {settings.gpsService === 'traccar' && (
-                            <div className="integration-fields">
-                                <div className="setting-item">
-                                    <label htmlFor="trHost">{t('settings.integrations.traccarHost')}</label>
-                                    <input
-                                        id="trHost"
-                                        type="text"
-                                        value={settings.gpsConfig.host}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
-                                        placeholder="e.g. 198.74.54.252"
-                                    />
+                            {/* Usuario y Contraseña Grid */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* Usuario */}
+                                <div className="integrations-field-group">
+                                    <label className="integrations-field-label">Usuario / Operador</label>
+                                    <div className="integrations-input-box">
+                                        <User size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                        <input
+                                            className="integrations-input"
+                                            id="input-user"
+                                            type="text"
+                                            value={settings.gpsConfig?.user || ''}
+                                            onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                            placeholder="Usuario administrador"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="setting-item">
-                                    <label htmlFor="trUser">{t('settings.integrations.traccarUser')}</label>
-                                    <input
-                                        id="trUser"
-                                        type="text"
-                                        value={settings.gpsConfig.user}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
-                                    />
-                                </div>
-                                <div className="setting-item">
-                                    <label htmlFor="trPass">{t('settings.integrations.traccarPass')}</label>
-                                    <input
-                                        id="trPass"
-                                        type="password"
-                                        value={settings.gpsConfig.password}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
-                                    />
-                                </div>
-                                <div style={{ gridColumn: '1 / -1', marginTop: '0.25rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+
+                                {/* Contraseña */}
+                                <div className="integrations-field-group">
+                                    <label className="integrations-field-label">Contraseña de Telemetría</label>
+                                    <div className="integrations-input-box">
+                                        <Key size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                        <input
+                                            className="integrations-input"
+                                            id="input-password"
+                                            type={showTraccarPassword ? 'text' : 'password'}
+                                            value={settings.gpsConfig?.password || ''}
+                                            onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                            placeholder="Contraseña"
+                                            style={{ letterSpacing: showTraccarPassword ? 'normal' : '0.15em' }}
+                                        />
                                         <button
                                             type="button"
-                                            className="btn-secondary"
-                                            onClick={handleValidateTraccar}
-                                            disabled={isValidatingTraccar || !settings.gpsConfig?.user}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                                            onClick={() => setShowTraccarPassword(!showTraccarPassword)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                            aria-label="Alternar visibilidad de contraseña"
                                         >
-                                            <RefreshCw size={14} className={isValidatingTraccar ? 'spinning' : ''} />
-                                            {isValidatingTraccar ? 'Validando...' : 'Validar Conexión Traccar'}
+                                            {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                         </button>
-                                        {settings.gpsConfig?.groupId && (
-                                            <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                                ✓ Grupo vinculado: ID {settings.gpsConfig.groupId}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Botón de Test y Latencia Card */}
+                            <div style={{ paddingTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <button
+                                    type="button"
+                                    className="btn-validate-traccar"
+                                    id="btn-validate-connection"
+                                    onClick={handleValidateTraccar}
+                                    disabled={isValidatingTraccar || !settings.gpsConfig?.user}
+                                >
+                                    <RefreshCw size={18} className={isValidatingTraccar ? 'spinning' : ''} />
+                                    <span>{isValidatingTraccar ? 'Validando conexión...' : 'Validar Conexión Traccar'}</span>
+                                </button>
+
+                                {traccarValidationResult && (
+                                    <div className="traccar-status-pill" id="connection-status-pill">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span
+                                                className="status-dot-pulse"
+                                                style={{ backgroundColor: traccarValidationResult.success ? '#16a34a' : '#ba1a1a' }}
+                                            />
+                                            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
+                                                {traccarValidationResult.message}
+                                            </span>
+                                        </div>
+                                        {traccarValidationResult.success && (
+                                            <span style={{ fontSize: '0.75rem', color: '#006194', fontWeight: 700 }}>
+                                                Traccar HTTP 200
                                             </span>
                                         )}
                                     </div>
-                                    {traccarValidationResult && (
-                                        <div style={{
-                                            marginTop: '0.6rem',
-                                            padding: '0.6rem 0.85rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.85rem',
-                                            backgroundColor: traccarValidationResult.success ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                            color: traccarValidationResult.success ? '#15803d' : '#b91c1c',
-                                            border: `1px solid ${traccarValidationResult.success ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
-                                        }}>
-                                            {traccarValidationResult.message}
-                                        </div>
-                                    )}
+                                )}
+                            </div>
+                        </div>
 
-                                    {/* ── Reglas Traccar Compactas (Icono + Nombre + Toggle) ── */}
-                                    {settings.gpsConfig?.user && (
-                                        <div className="traccar-compact-rules">
-                                            <div className="traccar-compact-item" title="Alertas de batería (Corte de energía / Batería baja)">
-                                                <Zap size={15} className={`traccar-compact-icon ${traccarNotifs.batteryAlerts ? 'active-zap' : ''}`} />
-                                                <span className="traccar-compact-label">Batería</span>
-                                                <label className="switch-ios-mini">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Boolean(traccarNotifs.batteryAlerts)}
-                                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
-                                                        onChange={(e) => handleToggleTraccarNotif('batteryAlerts', e.target.checked)}
-                                                    />
-                                                    <span className="slider-ios-mini"></span>
-                                                </label>
-                                            </div>
-
-                                            <div className="traccar-compact-item" title="Regla de Geocerca (Salida con corte de motor)">
-                                                <MapPin size={15} className={`traccar-compact-icon ${traccarNotifs.geofenceAlerts ? 'active-pin' : ''}`} />
-                                                <span className="traccar-compact-label">Geocerca</span>
-                                                <label className="switch-ios-mini">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Boolean(traccarNotifs.geofenceAlerts)}
-                                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
-                                                        onChange={(e) => handleToggleTraccarNotif('geofenceAlerts', e.target.checked)}
-                                                    />
-                                                    <span className="slider-ios-mini"></span>
-                                                </label>
-                                            </div>
-
-                                            <div className="traccar-compact-item" title="Alarma de Vibración / Golpe en parqueo">
-                                                <Bell size={15} className={`traccar-compact-icon ${traccarNotifs.vibrationAlerts ? 'active-bell' : ''}`} />
-                                                <span className="traccar-compact-label">Vibración</span>
-                                                <label className="switch-ios-mini">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Boolean(traccarNotifs.vibrationAlerts)}
-                                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
-                                                        onChange={(e) => handleToggleTraccarNotif('vibrationAlerts', e.target.checked)}
-                                                    />
-                                                    <span className="slider-ios-mini"></span>
-                                                </label>
-                                            </div>
-
-                                            {isLoadingTraccarNotifs && (
-                                                <RefreshCw size={13} className="spinning text-muted" style={{ marginLeft: 4 }} />
-                                            )}
-                                        </div>
-                                    )}
+                        {/* ── SECCIÓN 2: Estado de Vinculación y Eventos Telemétricos ── */}
+                        <div className="integrations-card">
+                            <div className="integrations-section-header">
+                                <div className="integrations-section-title-group">
+                                    <div className="integrations-section-icon">
+                                        <ShieldCheck size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="integrations-section-title">Eventos Telemétricos</h3>
+                                        <p className="integrations-section-subtitle">Reglas de eventos y hardware IoT</p>
+                                    </div>
                                 </div>
                             </div>
-                        )}
 
-                        {/* Wompi */}
-                        <div className="setting-item">
-                            <label htmlFor="wPubKey">{t('settings.integrations.publicKey')}</label>
-                            <input
-                                id="wPubKey"
-                                type="text"
-                                value={settings.wompiConfig.publicKey}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
-                                placeholder="pub_test_..."
-                                autoComplete="off"
-                            />
+                            {/* Linked Group Badge Banner */}
+                            <div className="linked-group-banner">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                                    <div className="group-badge-icon">
+                                        <Check size={14} />
+                                    </div>
+                                    <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
+                                        {settings.gpsConfig?.groupId ? `Grupo vinculado: ID ${settings.gpsConfig.groupId}` : 'Sin grupo vinculado'}
+                                    </p>
+                                </div>
+                                <span style={{ padding: '0.125rem 0.5rem', borderRadius: '9999px', background: '#e5eeff', color: '#0b1c30', fontSize: '0.6875rem', fontWeight: 600 }}>
+                                    Canales {[traccarNotifs.batteryAlerts, traccarNotifs.geofenceAlerts, traccarNotifs.vibrationAlerts].filter(Boolean).length}/3
+                                </span>
+                            </div>
+
+                            {/* Canales de Alerta Activos (Switches táctiles modernos) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {/* Canal 1: Batería */}
+                                <div className="telemetry-channel-item">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                        <div className="channel-icon-box channel-icon-amber">
+                                            <Zap size={20} />
+                                        </div>
+                                        <p className="channel-title truncate">Alerta Batería Baja / Desconexión</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={Boolean(traccarNotifs.batteryAlerts)}
+                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                        onClick={() => handleToggleTraccarNotif('batteryAlerts', !traccarNotifs.batteryAlerts)}
+                                        className={`switch-control-btn ${traccarNotifs.batteryAlerts ? 'checked' : 'unchecked'}`}
+                                    >
+                                        <span className="switch-knob" />
+                                    </button>
+                                </div>
+
+                                {/* Canal 2: Geocerca */}
+                                <div className="telemetry-channel-item">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                        <div className="channel-icon-box channel-icon-sky">
+                                            <MapPin size={20} />
+                                        </div>
+                                        <p className="channel-title truncate">Control de Geocercas</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={Boolean(traccarNotifs.geofenceAlerts)}
+                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                        onClick={() => handleToggleTraccarNotif('geofenceAlerts', !traccarNotifs.geofenceAlerts)}
+                                        className={`switch-control-btn ${traccarNotifs.geofenceAlerts ? 'checked' : 'unchecked'}`}
+                                    >
+                                        <span className="switch-knob" />
+                                    </button>
+                                </div>
+
+                                {/* Canal 3: Vibración / Sabotaje */}
+                                <div className="telemetry-channel-item">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                        <div className="channel-icon-box channel-icon-purple">
+                                            <Bell size={20} />
+                                        </div>
+                                        <p className="channel-title truncate">Sensor Vibración / Movimiento</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={Boolean(traccarNotifs.vibrationAlerts)}
+                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                        onClick={() => handleToggleTraccarNotif('vibrationAlerts', !traccarNotifs.vibrationAlerts)}
+                                        className={`switch-control-btn ${traccarNotifs.vibrationAlerts ? 'checked' : 'unchecked'}`}
+                                    >
+                                        <span className="switch-knob" />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="setting-item">
-                            <label htmlFor="wPrivKey">{t('settings.integrations.privateKey')}</label>
-                            <input
-                                id="wPrivKey"
-                                type="password"
-                                value={settings.wompiConfig.privateKey}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
-                                placeholder="prv_test_..."
-                                autoComplete="new-password"
-                            />
+                        {/* ── SECCIÓN 3: Claves de API & Seguridad (Wompi) ── */}
+                        <div className="integrations-card">
+                            <div className="integrations-section-header">
+                                <div className="integrations-section-title-group">
+                                    <div className="integrations-section-icon">
+                                        <Key size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="integrations-section-title">Credenciales API &amp; Webhooks</h3>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Llave Pública (API Token) */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">Llave Pública (API Token)</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="public-token"
+                                        type="text"
+                                        value={settings.wompiConfig?.publicKey || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
+                                        placeholder="pub_prod_..."
+                                        onClick={(e) => e.target.select()}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Llave Privada (Webhook Secret) */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">Llave Privada (Webhook Secret)</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="private-secret"
+                                        type={showWompiSecret ? 'text' : 'password'}
+                                        value={settings.wompiConfig?.privateKey || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
+                                        placeholder="sec_live_..."
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWompiSecret(!showWompiSecret)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                        aria-label="Revelar Llave Privada"
+                                    >
+                                        {showWompiSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Método de Pago Wompi Toggle Pill */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e5eeff' }}>
+                                <label className="integrations-field-label">Método de Pago Wompi</label>
+                                <div className="wompi-toggle-pill" role="radiogroup" aria-label="Método de Pago Wompi">
+                                    <button
+                                        type="button"
+                                        id="btn-pay-nequi"
+                                        onClick={() => handleNestedChange('wompiConfig', 'paymentMethod', 'NEQUI_PUSH')}
+                                        className={`wompi-toggle-btn ${(settings.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH') === 'NEQUI_PUSH' ? 'active' : 'inactive'}`}
+                                    >
+                                        <Smartphone size={16} />
+                                        <span>Nequi Push</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="btn-pay-bancolombia"
+                                        onClick={() => handleNestedChange('wompiConfig', 'paymentMethod', 'BANCOLOMBIA_QR')}
+                                        className={`wompi-toggle-btn ${settings.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR' ? 'active' : 'inactive'}`}
+                                    >
+                                        <QrCode size={16} />
+                                        <span>Bancolombia QR</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="setting-item">
-                            <label htmlFor="wInteg">{t('settings.integrations.integritySecret')}</label>
-                            <input
-                                id="wInteg"
-                                type="password"
-                                value={settings.wompiConfig.integritySecret}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'integritySecret', e.target.value)}
-                                placeholder="test_integrity_..."
-                                autoComplete="new-password"
-                            />
-                        </div>
-
-                        <div className="setting-item">
-                            <label htmlFor="wEvents">{t('settings.integrations.eventsSecret')}</label>
-                            <input
-                                id="wEvents"
-                                type="password"
-                                value={settings.wompiConfig.eventsSecret}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'eventsSecret', e.target.value)}
-                                placeholder="test_events_..."
-                                autoComplete="new-password"
-                            />
-                        </div>
-
-                        <div className="setting-item">
-                            <label htmlFor="wPayMethod">Método de Pago</label>
-                            <select
-                                id="wPayMethod"
-                                value={settings.wompiConfig.paymentMethod ?? 'NEQUI_PUSH'}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'paymentMethod', e.target.value)}
-                                className="setting-select"
+                        {/* ACCIÓN PRINCIPAL INFERIOR */}
+                        <div style={{ width: '100%', paddingTop: '0.25rem' }}>
+                            <button
+                                type="button"
+                                className="btn-main-save-integrations"
+                                id="btn-main-save"
+                                onClick={handleSave}
+                                disabled={saving}
                             >
-                                <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
-                                <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
-                            </select>
+                                <CheckCircle size={20} />
+                                <span>{saving ? 'Guardando cambios...' : 'Guardar y Aplicar Cambios'}</span>
+                            </button>
                         </div>
                     </div>
                 )}

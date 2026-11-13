@@ -1142,117 +1142,359 @@
 
 }
 
-/* Traccar Compact Rules (Icon + Label + Toggle) */
-.traccar-compact-rules {
+/* ── Integrations Redesign (Prototype layout) ── */
+.integrations-container {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.65rem;
-    margin-top: 0.85rem;
-    padding: 0.5rem 0.75rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
 }
 
-.traccar-compact-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.35rem 0.65rem;
+.integrations-card {
+    width: 100%;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border: 1px solid #e5eeff;
+}
+
+.integrations-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.25rem;
+}
+
+.integrations-section-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.integrations-section-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    background: #dce9ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #006194;
+    flex-shrink: 0;
+}
+
+.integrations-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0b1c30;
+    margin: 0;
+}
+
+.integrations-section-subtitle {
+    font-size: 0.75rem;
+    color: #3f4850;
+    margin: 0;
+}
+
+.integrations-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.integrations-field-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #3f4850;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.integrations-input-box {
+    height: 3rem;
+    padding: 0 0.875rem;
+    background: #eff4ff;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    border: 1px solid transparent;
     transition: all 0.2s ease;
 }
 
-.traccar-compact-item:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+.integrations-input-box:focus-within {
+    background: #e5eeff;
+    border-color: #006194;
 }
 
-.traccar-compact-icon {
-    color: #94a3b8;
-    transition: color 0.2s ease;
+.integrations-input {
+    background: transparent;
+    border: 0;
+    outline: none;
+    width: 100%;
+    font-size: 0.875rem;
+    color: #0b1c30;
+}
+
+.integrations-input::placeholder {
+    color: #707881;
+}
+
+/* Proveedor Selector Static Card */
+.integrations-provider-box {
+    width: 100%;
+    height: 3rem;
+    padding: 0 0.875rem;
+    background: #eff4ff;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.badge-oficial {
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    background: #006194;
+    color: #ffffff;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+/* Validar Conexión Button & Pill */
+.btn-validate-traccar {
+    width: 100%;
+    height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 0.5rem;
+    background: #e5eeff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #006194;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-validate-traccar:hover:not(:disabled) {
+    background: #dce9ff;
+}
+
+.btn-validate-traccar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.traccar-status-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.5rem;
+    background: #eff4ff;
+    margin-top: 0.5rem;
+}
+
+.status-dot-pulse {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    background: #0051d5;
+    animation: pulse-dot 1.8s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.15); }
+}
+
+/* Linked Group Banner */
+.linked-group-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: #eff4ff;
+}
+
+.group-badge-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: #006194;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
     flex-shrink: 0;
 }
 
-.traccar-compact-icon.active-zap {
-    color: #eab308;
+/* Channel Items (Switches táctiles) */
+.telemetry-channel-item {
+    padding: 0.875rem;
+    border-radius: 0.5rem;
+    background: #eff4ff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
 }
 
-.traccar-compact-icon.active-pin {
+.telemetry-channel-item:hover {
+    background: #e5eeff;
+}
+
+.channel-icon-box {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.channel-icon-amber {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+}
+
+.channel-icon-sky {
+    background: rgba(14, 165, 233, 0.1);
     color: #0284c7;
 }
 
-.traccar-compact-icon.active-bell {
-    color: #a855f7;
+.channel-icon-purple {
+    background: rgba(168, 85, 247, 0.1);
+    color: #9333ea;
 }
 
-.traccar-compact-label {
-    font-size: 0.8125rem;
+.channel-title {
+    font-size: 0.9375rem;
     font-weight: 600;
-    color: #334155;
-    user-select: none;
-    white-space: nowrap;
+    color: #0b1c30;
+    margin: 0;
 }
 
-/* Switch iOS Mini Style */
-.switch-ios-mini {
+/* Big Switch Táctil (w-12 h-7) */
+.switch-control-btn {
     position: relative;
-    display: inline-block;
-    width: 32px;
-    height: 18px;
-    flex-shrink: 0;
-    margin-left: 2px;
-}
-
-.switch-ios-mini input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider-ios-mini {
-    position: absolute;
+    width: 3rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    border: none;
+    padding: 0.125rem;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #cbd5e1;
-    transition: 0.2s ease;
-    border-radius: 18px;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
 }
 
-.slider-ios-mini:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: 0.2s ease;
-    border-radius: 50%;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.switch-control-btn.checked {
+    background-color: #0051d5;
 }
 
-.switch-ios-mini input:checked + .slider-ios-mini {
-    background-color: #0284c7;
+.switch-control-btn.unchecked {
+    background-color: #bfc7d2;
 }
 
-.switch-ios-mini input:focus + .slider-ios-mini {
-    box-shadow: 0 0 1px #0284c7;
+.switch-knob {
+    display: block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
 }
 
-.switch-ios-mini input:checked + .slider-ios-mini:before {
-    transform: translateX(14px);
+.switch-control-btn.checked .switch-knob {
+    transform: translateX(1.25rem);
 }
 
-.switch-ios-mini input:disabled + .slider-ios-mini {
+.switch-control-btn.unchecked .switch-knob {
+    transform: translateX(0);
+}
+
+.switch-control-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Wompi Method Toggle Pill */
+.wompi-toggle-pill {
+    width: 100%;
+    display: flex;
+    padding: 0.25rem;
+    background: #eff4ff;
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 97, 148, 0.25);
+    position: relative;
+}
+
+.wompi-toggle-btn {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    border: none;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wompi-toggle-btn.active {
+    background: #0051d5;
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.wompi-toggle-btn.inactive {
+    background: transparent;
+    color: #0051d5;
+    font-weight: 500;
+}
+
+/* Main Save Button */
+.btn-main-save-integrations {
+    width: 100%;
+    height: 3.25rem;
+    padding: 0.875rem;
+    border-radius: 0.75rem;
+    background: #006194;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0, 97, 148, 0.25);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-main-save-integrations:hover {
+    background: #007bb9;
+}
+
+.btn-main-save-integrations:active {
+    transform: scale(0.99);
 }
 
