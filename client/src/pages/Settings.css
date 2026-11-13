@@ -1257,6 +1257,24 @@
     justify-content: space-between;
 }
 
+.integrations-provider-select {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0b1c30;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.integrations-provider-select option {
+    background: #ffffff;
+    color: #0b1c30;
+    font-weight: 500;
+}
+
 .badge-oficial {
     padding: 0.125rem 0.5rem;
     border-radius: 0.25rem;

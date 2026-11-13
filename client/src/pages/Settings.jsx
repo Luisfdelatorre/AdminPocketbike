@@ -88,7 +88,9 @@ const Settings = () => {
     const [isLoadingTraccarNotifs, setIsLoadingTraccarNotifs] = useState(false);
     const [isUpdatingTraccarNotif, setIsUpdatingTraccarNotif] = useState(false);
     const [showTraccarPassword, setShowTraccarPassword] = useState(false);
-    const [showWompiSecret, setShowWompiSecret] = useState(false);
+    const [showWompiPrivKey, setShowWompiPrivKey] = useState(false);
+    const [showWompiIntegrity, setShowWompiIntegrity] = useState(false);
+    const [showWompiEvents, setShowWompiEvents] = useState(false);
 
     const loadTraccarNotifications = async () => {
         if (!settings.gpsConfig?.user) return;
@@ -1189,7 +1191,7 @@ const Settings = () => {
                 {/* ── INTEGRATIONS TAB ── */}
                 {activeTab === 'integrations' && (
                     <div className="integrations-container">
-                        {/* ── SECCIÓN 1: Conexión al Servidor Traccar ── */}
+                        {/* ── SECCIÓN 1: Conexión al Servidor GPS ── */}
                         <div className="integrations-card">
                             <div className="integrations-section-header">
                                 <div className="integrations-section-title-group">
@@ -1208,202 +1210,260 @@ const Settings = () => {
                                     Proveedor de Telemetría <span style={{ color: '#0051d5' }}>*</span>
                                 </label>
                                 <div className="integrations-provider-box">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, minWidth: 0 }}>
                                         <Radio size={20} style={{ color: '#006194', flexShrink: 0 }} />
-                                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0b1c30' }}>
-                                            Traccar GPS Enterprise Engine
-                                        </span>
+                                        <select
+                                            id="gpsService"
+                                            value={settings.gpsService || 'traccar'}
+                                            onChange={(e) => handleChange('gpsService', e.target.value)}
+                                            className="integrations-provider-select"
+                                        >
+                                            <option value="traccar">Traccar GPS Enterprise Engine</option>
+                                            <option value="megarastreo">MegaRastreo GPS Engine</option>
+                                        </select>
                                     </div>
-                                    <span className="badge-oficial">OFICIAL</span>
+                                    {settings.gpsService === 'traccar' && (
+                                        <span className="badge-oficial">OFICIAL</span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Host Traccar */}
-                            <div className="integrations-field-group">
-                                <label className="integrations-field-label">Host Traccar</label>
-                                <div className="integrations-input-box">
-                                    <Globe size={18} style={{ color: '#707881', flexShrink: 0 }} />
-                                    <input
-                                        className="integrations-input"
-                                        id="input-host"
-                                        type="text"
-                                        value={settings.gpsConfig?.host || ''}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
-                                        placeholder="ej. pocketbike.app"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Usuario y Contraseña Grid */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {/* Usuario */}
-                                <div className="integrations-field-group">
-                                    <label className="integrations-field-label">Usuario / Operador</label>
-                                    <div className="integrations-input-box">
-                                        <User size={18} style={{ color: '#707881', flexShrink: 0 }} />
-                                        <input
-                                            className="integrations-input"
-                                            id="input-user"
-                                            type="text"
-                                            value={settings.gpsConfig?.user || ''}
-                                            onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
-                                            placeholder="Usuario administrador"
-                                        />
+                            {/* MegaRastreo Fields */}
+                            {settings.gpsService === 'megarastreo' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div className="integrations-field-group">
+                                        <label className="integrations-field-label">{t('settings.integrations.megarastreoUsername')}</label>
+                                        <div className="integrations-input-box">
+                                            <User size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                            <input
+                                                className="integrations-input"
+                                                id="mrUser"
+                                                type="text"
+                                                value={settings.gpsConfig?.user || ''}
+                                                onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                                placeholder="Usuario MegaRastreo"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="integrations-field-group">
+                                        <label className="integrations-field-label">{t('settings.integrations.megarastreoPassword')}</label>
+                                        <div className="integrations-input-box">
+                                            <Key size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                            <input
+                                                className="integrations-input"
+                                                id="mrPass"
+                                                type={showTraccarPassword ? 'text' : 'password'}
+                                                value={settings.gpsConfig?.password || ''}
+                                                onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                                placeholder="Contraseña MegaRastreo"
+                                                style={{ letterSpacing: showTraccarPassword ? 'normal' : '0.15em' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTraccarPassword(!showTraccarPassword)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                                aria-label="Alternar visibilidad de contraseña"
+                                            >
+                                                {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Contraseña */}
-                                <div className="integrations-field-group">
-                                    <label className="integrations-field-label">Contraseña de Telemetría</label>
-                                    <div className="integrations-input-box">
-                                        <Key size={18} style={{ color: '#707881', flexShrink: 0 }} />
-                                        <input
-                                            className="integrations-input"
-                                            id="input-password"
-                                            type={showTraccarPassword ? 'text' : 'password'}
-                                            value={settings.gpsConfig?.password || ''}
-                                            onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
-                                            placeholder="Contraseña"
-                                            style={{ letterSpacing: showTraccarPassword ? 'normal' : '0.15em' }}
-                                        />
+                            {/* Traccar Fields */}
+                            {settings.gpsService === 'traccar' && (
+                                <>
+                                    {/* Host Traccar */}
+                                    <div className="integrations-field-group">
+                                        <label className="integrations-field-label">Host Traccar</label>
+                                        <div className="integrations-input-box">
+                                            <Globe size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                            <input
+                                                className="integrations-input"
+                                                id="input-host"
+                                                type="text"
+                                                value={settings.gpsConfig?.host || ''}
+                                                onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
+                                                placeholder="ej. pocketbike.app"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Usuario y Contraseña Grid */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {/* Usuario */}
+                                        <div className="integrations-field-group">
+                                            <label className="integrations-field-label">Usuario / Operador</label>
+                                            <div className="integrations-input-box">
+                                                <User size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                                <input
+                                                    className="integrations-input"
+                                                    id="input-user"
+                                                    type="text"
+                                                    value={settings.gpsConfig?.user || ''}
+                                                    onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                                    placeholder="Usuario administrador"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Contraseña */}
+                                        <div className="integrations-field-group">
+                                            <label className="integrations-field-label">Contraseña de Telemetría</label>
+                                            <div className="integrations-input-box">
+                                                <Key size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                                <input
+                                                    className="integrations-input"
+                                                    id="input-password"
+                                                    type={showTraccarPassword ? 'text' : 'password'}
+                                                    value={settings.gpsConfig?.password || ''}
+                                                    onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                                    placeholder="Contraseña"
+                                                    style={{ letterSpacing: showTraccarPassword ? 'normal' : '0.15em' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowTraccarPassword(!showTraccarPassword)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                                    aria-label="Alternar visibilidad de contraseña"
+                                                >
+                                                    {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Botón de Test y Latencia Card */}
+                                    <div style={{ paddingTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         <button
                                             type="button"
-                                            onClick={() => setShowTraccarPassword(!showTraccarPassword)}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
-                                            aria-label="Alternar visibilidad de contraseña"
+                                            className="btn-validate-traccar"
+                                            id="btn-validate-connection"
+                                            onClick={handleValidateTraccar}
+                                            disabled={isValidatingTraccar || !settings.gpsConfig?.user}
                                         >
-                                            {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            <RefreshCw size={18} className={isValidatingTraccar ? 'spinning' : ''} />
+                                            <span>{isValidatingTraccar ? 'Validando conexión...' : 'Validar Conexión Traccar'}</span>
+                                        </button>
+
+                                        {traccarValidationResult && (
+                                            <div className="traccar-status-pill" id="connection-status-pill">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span
+                                                        className="status-dot-pulse"
+                                                        style={{ backgroundColor: traccarValidationResult.success ? '#16a34a' : '#ba1a1a' }}
+                                                    />
+                                                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
+                                                        {traccarValidationResult.message}
+                                                    </span>
+                                                </div>
+                                                {traccarValidationResult.success && (
+                                                    <span style={{ fontSize: '0.75rem', color: '#006194', fontWeight: 700 }}>
+                                                        Traccar HTTP 200
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* ── SECCIÓN 2: Estado de Vinculación y Eventos Telemétricos (Traccar) ── */}
+                        {settings.gpsService === 'traccar' && (
+                            <div className="integrations-card">
+                                <div className="integrations-section-header">
+                                    <div className="integrations-section-title-group">
+                                        <div className="integrations-section-icon">
+                                            <ShieldCheck size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="integrations-section-title">Eventos Telemétricos</h3>
+                                            <p className="integrations-section-subtitle">Reglas de eventos y hardware IoT</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Linked Group Badge Banner */}
+                                <div className="linked-group-banner">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                                        <div className="group-badge-icon">
+                                            <Check size={14} />
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
+                                            {settings.gpsConfig?.groupId ? `Grupo vinculado: ID ${settings.gpsConfig.groupId}` : 'Sin grupo vinculado'}
+                                        </p>
+                                    </div>
+                                    <span style={{ padding: '0.125rem 0.5rem', borderRadius: '9999px', background: '#e5eeff', color: '#0b1c30', fontSize: '0.6875rem', fontWeight: 600 }}>
+                                        Canales {[traccarNotifs.batteryAlerts, traccarNotifs.geofenceAlerts, traccarNotifs.vibrationAlerts].filter(Boolean).length}/3
+                                    </span>
+                                </div>
+
+                                {/* Canales de Alerta Activos (Switches táctiles modernos) */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {/* Canal 1: Batería */}
+                                    <div className="telemetry-channel-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                            <div className="channel-icon-box channel-icon-amber">
+                                                <Zap size={20} />
+                                            </div>
+                                            <p className="channel-title truncate">Alerta Batería Baja / Desconexión</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(traccarNotifs.batteryAlerts)}
+                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                            onClick={() => handleToggleTraccarNotif('batteryAlerts', !traccarNotifs.batteryAlerts)}
+                                            className={`switch-control-btn ${traccarNotifs.batteryAlerts ? 'checked' : 'unchecked'}`}
+                                        >
+                                            <span className="switch-knob" />
+                                        </button>
+                                    </div>
+
+                                    {/* Canal 2: Geocerca */}
+                                    <div className="telemetry-channel-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                            <div className="channel-icon-box channel-icon-sky">
+                                                <MapPin size={20} />
+                                            </div>
+                                            <p className="channel-title truncate">Control de Geocercas</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(traccarNotifs.geofenceAlerts)}
+                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                            onClick={() => handleToggleTraccarNotif('geofenceAlerts', !traccarNotifs.geofenceAlerts)}
+                                            className={`switch-control-btn ${traccarNotifs.geofenceAlerts ? 'checked' : 'unchecked'}`}
+                                        >
+                                            <span className="switch-knob" />
+                                        </button>
+                                    </div>
+
+                                    {/* Canal 3: Vibración / Sabotaje */}
+                                    <div className="telemetry-channel-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                            <div className="channel-icon-box channel-icon-purple">
+                                                <Bell size={20} />
+                                            </div>
+                                            <p className="channel-title truncate">Sensor Vibración / Movimiento</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(traccarNotifs.vibrationAlerts)}
+                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                            onClick={() => handleToggleTraccarNotif('vibrationAlerts', !traccarNotifs.vibrationAlerts)}
+                                            className={`switch-control-btn ${traccarNotifs.vibrationAlerts ? 'checked' : 'unchecked'}`}
+                                        >
+                                            <span className="switch-knob" />
                                         </button>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Botón de Test y Latencia Card */}
-                            <div style={{ paddingTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <button
-                                    type="button"
-                                    className="btn-validate-traccar"
-                                    id="btn-validate-connection"
-                                    onClick={handleValidateTraccar}
-                                    disabled={isValidatingTraccar || !settings.gpsConfig?.user}
-                                >
-                                    <RefreshCw size={18} className={isValidatingTraccar ? 'spinning' : ''} />
-                                    <span>{isValidatingTraccar ? 'Validando conexión...' : 'Validar Conexión Traccar'}</span>
-                                </button>
-
-                                {traccarValidationResult && (
-                                    <div className="traccar-status-pill" id="connection-status-pill">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span
-                                                className="status-dot-pulse"
-                                                style={{ backgroundColor: traccarValidationResult.success ? '#16a34a' : '#ba1a1a' }}
-                                            />
-                                            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
-                                                {traccarValidationResult.message}
-                                            </span>
-                                        </div>
-                                        {traccarValidationResult.success && (
-                                            <span style={{ fontSize: '0.75rem', color: '#006194', fontWeight: 700 }}>
-                                                Traccar HTTP 200
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* ── SECCIÓN 2: Estado de Vinculación y Eventos Telemétricos ── */}
-                        <div className="integrations-card">
-                            <div className="integrations-section-header">
-                                <div className="integrations-section-title-group">
-                                    <div className="integrations-section-icon">
-                                        <ShieldCheck size={20} />
-                                    </div>
-                                    <div>
-                                        <h3 className="integrations-section-title">Eventos Telemétricos</h3>
-                                        <p className="integrations-section-subtitle">Reglas de eventos y hardware IoT</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Linked Group Badge Banner */}
-                            <div className="linked-group-banner">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                                    <div className="group-badge-icon">
-                                        <Check size={14} />
-                                    </div>
-                                    <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
-                                        {settings.gpsConfig?.groupId ? `Grupo vinculado: ID ${settings.gpsConfig.groupId}` : 'Sin grupo vinculado'}
-                                    </p>
-                                </div>
-                                <span style={{ padding: '0.125rem 0.5rem', borderRadius: '9999px', background: '#e5eeff', color: '#0b1c30', fontSize: '0.6875rem', fontWeight: 600 }}>
-                                    Canales {[traccarNotifs.batteryAlerts, traccarNotifs.geofenceAlerts, traccarNotifs.vibrationAlerts].filter(Boolean).length}/3
-                                </span>
-                            </div>
-
-                            {/* Canales de Alerta Activos (Switches táctiles modernos) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                {/* Canal 1: Batería */}
-                                <div className="telemetry-channel-item">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                                        <div className="channel-icon-box channel-icon-amber">
-                                            <Zap size={20} />
-                                        </div>
-                                        <p className="channel-title truncate">Alerta Batería Baja / Desconexión</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={Boolean(traccarNotifs.batteryAlerts)}
-                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
-                                        onClick={() => handleToggleTraccarNotif('batteryAlerts', !traccarNotifs.batteryAlerts)}
-                                        className={`switch-control-btn ${traccarNotifs.batteryAlerts ? 'checked' : 'unchecked'}`}
-                                    >
-                                        <span className="switch-knob" />
-                                    </button>
-                                </div>
-
-                                {/* Canal 2: Geocerca */}
-                                <div className="telemetry-channel-item">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                                        <div className="channel-icon-box channel-icon-sky">
-                                            <MapPin size={20} />
-                                        </div>
-                                        <p className="channel-title truncate">Control de Geocercas</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={Boolean(traccarNotifs.geofenceAlerts)}
-                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
-                                        onClick={() => handleToggleTraccarNotif('geofenceAlerts', !traccarNotifs.geofenceAlerts)}
-                                        className={`switch-control-btn ${traccarNotifs.geofenceAlerts ? 'checked' : 'unchecked'}`}
-                                    >
-                                        <span className="switch-knob" />
-                                    </button>
-                                </div>
-
-                                {/* Canal 3: Vibración / Sabotaje */}
-                                <div className="telemetry-channel-item">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                                        <div className="channel-icon-box channel-icon-purple">
-                                            <Bell size={20} />
-                                        </div>
-                                        <p className="channel-title truncate">Sensor Vibración / Movimiento</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={Boolean(traccarNotifs.vibrationAlerts)}
-                                        disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
-                                        onClick={() => handleToggleTraccarNotif('vibrationAlerts', !traccarNotifs.vibrationAlerts)}
-                                        className={`switch-control-btn ${traccarNotifs.vibrationAlerts ? 'checked' : 'unchecked'}`}
-                                    >
-                                        <span className="switch-knob" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        )}
 
                         {/* ── SECCIÓN 3: Claves de API & Seguridad (Wompi) ── */}
                         <div className="integrations-card">
@@ -1413,14 +1473,14 @@ const Settings = () => {
                                         <Key size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="integrations-section-title">Credenciales API &amp; Webhooks</h3>
+                                        <h3 className="integrations-section-title">Credenciales API &amp; Webhooks (Wompi)</h3>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Llave Pública (API Token) */}
+                            {/* 1. Llave Pública (API Token) */}
                             <div className="integrations-field-group">
-                                <label className="integrations-field-label">Llave Pública (API Token)</label>
+                                <label className="integrations-field-label">{t('settings.integrations.publicKey')}</label>
                                 <div className="integrations-input-box">
                                     <input
                                         className="integrations-input"
@@ -1428,31 +1488,80 @@ const Settings = () => {
                                         type="text"
                                         value={settings.wompiConfig?.publicKey || ''}
                                         onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
-                                        placeholder="pub_prod_..."
+                                        placeholder="pub_prod_... o pub_test_..."
                                         onClick={(e) => e.target.select()}
                                     />
                                 </div>
                             </div>
 
-                            {/* Llave Privada (Webhook Secret) */}
+                            {/* 2. Llave Privada (Webhook Secret) */}
                             <div className="integrations-field-group">
-                                <label className="integrations-field-label">Llave Privada (Webhook Secret)</label>
+                                <label className="integrations-field-label">{t('settings.integrations.privateKey')}</label>
                                 <div className="integrations-input-box">
                                     <input
                                         className="integrations-input"
                                         id="private-secret"
-                                        type={showWompiSecret ? 'text' : 'password'}
+                                        type={showWompiPrivKey ? 'text' : 'password'}
                                         value={settings.wompiConfig?.privateKey || ''}
                                         onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
-                                        placeholder="sec_live_..."
+                                        placeholder="prv_prod_... o prv_test_..."
+                                        style={{ letterSpacing: showWompiPrivKey ? 'normal' : '0.15em' }}
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setShowWompiSecret(!showWompiSecret)}
+                                        onClick={() => setShowWompiPrivKey(!showWompiPrivKey)}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
                                         aria-label="Revelar Llave Privada"
                                     >
-                                        {showWompiSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        {showWompiPrivKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 3. Secreto de Integridad */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">{t('settings.integrations.integritySecret')}</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="integrity-secret"
+                                        type={showWompiIntegrity ? 'text' : 'password'}
+                                        value={settings.wompiConfig?.integritySecret || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'integritySecret', e.target.value)}
+                                        placeholder="prod_integrity_... o test_integrity_..."
+                                        style={{ letterSpacing: showWompiIntegrity ? 'normal' : '0.15em' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWompiIntegrity(!showWompiIntegrity)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                        aria-label="Revelar Secreto de Integridad"
+                                    >
+                                        {showWompiIntegrity ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 4. Secreto de Eventos */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">{t('settings.integrations.eventsSecret')}</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="events-secret"
+                                        type={showWompiEvents ? 'text' : 'password'}
+                                        value={settings.wompiConfig?.eventsSecret || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'eventsSecret', e.target.value)}
+                                        placeholder="prod_events_... o test_events_..."
+                                        style={{ letterSpacing: showWompiEvents ? 'normal' : '0.15em' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWompiEvents(!showWompiEvents)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                        aria-label="Revelar Secreto de Eventos"
+                                    >
+                                        {showWompiEvents ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </button>
                                 </div>
                             </div>
@@ -1490,10 +1599,10 @@ const Settings = () => {
                                 className="btn-main-save-integrations"
                                 id="btn-main-save"
                                 onClick={handleSave}
-                                disabled={saving}
+                                disabled={Boolean(savingSections['all'])}
                             >
                                 <CheckCircle size={20} />
-                                <span>{saving ? 'Guardando cambios...' : 'Guardar y Aplicar Cambios'}</span>
+                                <span>{savingSections['all'] ? 'Guardando cambios...' : 'Guardar y Aplicar Cambios'}</span>
                             </button>
                         </div>
                     </div>
