@@ -103,19 +103,23 @@ const Alerts = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [streamMode, setStreamMode] = useState('active'); // 'active' | 'paused' | 'reconnecting'
 
-    const handlePauseStream = () => setStreamMode('paused');
-    const handleActivateStream = () => setStreamMode('active');
-    const handleReconnectStream = async () => {
-        setStreamMode('reconnecting');
-        try {
-            await Promise.all([
-                fetchStats(),
-                fetchHistory(currentPage)
-            ]);
-        } finally {
-            setTimeout(() => {
-                setStreamMode('active');
-            }, 600);
+    const handleCycleStreamMode = async () => {
+        if (streamMode === 'active') {
+            setStreamMode('paused');
+        } else if (streamMode === 'paused') {
+            setStreamMode('reconnecting');
+            try {
+                await Promise.all([
+                    fetchStats(),
+                    fetchHistory(currentPage)
+                ]);
+            } finally {
+                setTimeout(() => {
+                    setStreamMode('active');
+                }, 600);
+            }
+        } else {
+            setStreamMode('active');
         }
     };
 
@@ -430,6 +434,41 @@ const Alerts = () => {
         { value: 'EXTENDED_OFFLINE', label: 'Offline', badge: stats.counts?.offline || 0 }
     ];
 
+    const renderSSECyclicButton = (isCompact = false) => {
+        const isAct = streamMode === 'active';
+        const isPau = streamMode === 'paused';
+        const isRec = streamMode === 'reconnecting';
+
+        const titleTooltip = isAct
+            ? 'Stream Activo en vivo (Clic para pausar)'
+            : isPau
+            ? 'Stream Pausado (Clic para reconectar)'
+            : 'Reconectando y sincronizando telemetría...';
+
+        return (
+            <button
+                type="button"
+                className={`sse-cyclic-btn ${streamMode} ${isCompact ? 'compact' : ''}`}
+                onClick={handleCycleStreamMode}
+                title={titleTooltip}
+                aria-label={titleTooltip}
+            >
+                <div className={`sse-banner-icon-wrap ${streamMode}`}>
+                    {isRec ? (
+                        <RefreshCw size={15} className="animate-spin" />
+                    ) : isPau ? (
+                        <Pause size={15} />
+                    ) : (
+                        <Radio size={15} />
+                    )}
+                    <span className="sse-ping-badge">
+                        <span className={`sse-ping-dot ${streamMode}`} />
+                    </span>
+                </div>
+            </button>
+        );
+    };
+
     const desktopHeader = (
         <div className="alerts-desktop-header">
             <div className="alerts-desktop-header-left">
@@ -481,6 +520,7 @@ const Alerts = () => {
                 >
                     <RefreshCw size={16} className={loading || statsLoading ? 'animate-spin' : ''} />
                 </button>
+                {renderSSECyclicButton()}
             </div>
         </div>
     );
@@ -494,6 +534,7 @@ const Alerts = () => {
             loading={loading || statsLoading}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
+            actions={renderSSECyclicButton(true)}
             leadingActions={
                 pagination.totalPages > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginRight: '4px' }}>
@@ -565,62 +606,10 @@ const Alerts = () => {
                         >
                             <RefreshCw size={15} />
                         </button>
+                        {renderSSECyclicButton(true)}
                     </div>
                 </div>
             </div>
-
-            {/* ── BEGIN: SSE Compact Triple-Toggle Control (Desktop & Mobile) ── */}
-            <div className="alerts-sse-compact-bar">
-                <div className="sse-banner-left">
-                    <div className={`sse-banner-icon-wrap ${streamMode}`}>
-                        <Radio size={18} className={streamMode === 'reconnecting' ? 'animate-spin' : ''} />
-                        <span className="sse-ping-badge">
-                            <span className={`sse-ping-dot ${streamMode}`} />
-                        </span>
-                    </div>
-                    <div className="sse-banner-text">
-                        <div className="sse-banner-title-row">
-                            <span className="sse-banner-title">
-                                {streamMode === 'active' ? 'Stream Activo' : streamMode === 'paused' ? 'Stream Pausado' : 'Reconectando...'}
-                            </span>
-                            <span className="sse-banner-ws-badge">Traccar WS</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="sse-triple-toggle">
-                    <button
-                        type="button"
-                        className={`sse-toggle-btn ${streamMode === 'paused' ? 'active-paused' : ''}`}
-                        onClick={handlePauseStream}
-                        title="Pausar stream"
-                    >
-                        <Pause size={12} />
-                        <span>Pausa</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        className={`sse-toggle-btn ${streamMode === 'active' ? 'active-live' : ''}`}
-                        onClick={handleActivateStream}
-                        title="Stream en vivo activo"
-                    >
-                        <Play size={12} />
-                        <span>Activo</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        className={`sse-toggle-btn ${streamMode === 'reconnecting' ? 'active-reconnect' : ''}`}
-                        onClick={handleReconnectStream}
-                        title="Forzar reconexión y sincronización de datos"
-                    >
-                        <RefreshCw size={12} className={streamMode === 'reconnecting' ? 'animate-spin' : ''} />
-                        <span>Reconectar</span>
-                    </button>
-                </div>
-            </div>
-            {/* ── END: SSE Compact Triple-Toggle Control ────────────────── */}
 
             {/* ── BEGIN: KPI Dashboard ─────────────────────────────────── */}
             <section aria-label="Resumen telemétrico" className="alerts-metrics-grid">
