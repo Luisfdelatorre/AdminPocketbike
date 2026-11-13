@@ -7,6 +7,7 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pago a {{COMPANY_NAME}}</title>
   <link rel="preload" href="../css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" as="image" href="{{COMPANY_LOGO}}" fetchpriority="high">
   <link rel="modulepreload" href="/js/payment-app.js?v=4">
 
   <style>
@@ -866,7 +867,7 @@
       <h2 class="app-title" id="loginTitle">Pago a {{COMPANY_NAME}}</h2>
       <div class="login-form">
         <div class="deviceIdGroup" id="deviceIdGroup">
-          <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" fetchpriority="high" decoding="async"
+          <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" width="60" height="60" fetchpriority="high" decoding="async"
             style="background: #f3f4f6; width: 60px; height: 60px; display: block;">
           <input type="text" id="deviceId" placeholder="Placa" class="name-input hidden" value="{{DEVICE_ID}}" disabled
             style="display: none;" required>
@@ -936,7 +937,7 @@
         </button>
         <div class="device-header">
           <div class="device-logo-container">
-            <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo">
+            <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo" width="60" height="60" decoding="async">
             <div class="status-ring" id="deviceStatusRing"></div>
             <div class="status-icons-container">
               <div class="status-icon ">
