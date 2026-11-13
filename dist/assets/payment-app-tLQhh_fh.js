@@ -1514,7 +1514,7 @@ class EventHandler {
         }
 
         const btn = this.dom.get('buttons.morePayment');
-        if (btn && !accordionLabel) {
+        if (btn && btn.id === 'morePaymentOptions') {
             btn.textContent = isExpanded ? messagesService.get('BUTTONS.MORE_OPTIONS') + ' ▲' : messagesService.get('BUTTONS.MORE_OPTIONS') + ' ▼';
         }
 
