@@ -450,8 +450,8 @@ const Alerts = () => {
         const titleTooltip = isAct
             ? 'Stream Activo en vivo (Clic para pausar)'
             : isPau
-            ? 'Stream Pausado (Clic para reconectar)'
-            : 'Reconectando y sincronizando telemetría...';
+                ? 'Stream Pausado (Clic para reconectar)'
+                : 'Reconectando y sincronizando telemetría...';
 
         return (
             <button
@@ -622,7 +622,7 @@ const Alerts = () => {
             {/* ── BEGIN: KPI Dashboard ─────────────────────────────────── */}
             <section aria-label="Resumen telemétrico" className="alerts-metrics-grid">
                 {/* Críticas */}
-                <div className="alert-metric-card border-rose-accent">
+                <div className="alert-metric-card ">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Críticas</span>
                         <div className="metric-card-pill rose">
@@ -637,7 +637,7 @@ const Alerts = () => {
                 </div>
 
                 {/* Activas */}
-                <div className="alert-metric-card border-amber-accent">
+                <div className="alert-metric-card ">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Activas</span>
                         <div className="metric-card-pill amber">
@@ -652,7 +652,7 @@ const Alerts = () => {
                 </div>
 
                 {/* Resueltas */}
-                <div className="alert-metric-card border-emerald-accent">
+                <div className="alert-metric-card ">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Resueltas</span>
                         <div className="metric-card-pill slate">
@@ -667,7 +667,7 @@ const Alerts = () => {
                 </div>
 
                 {/* Total Mes */}
-                <div className="alert-metric-card border-teal-accent">
+                <div className="alert-metric-card ">
                     <div className="alert-metric-header">
                         <span className="metric-card-label">Total Mes</span>
                         <div className="metric-card-pill slate">
@@ -683,88 +683,90 @@ const Alerts = () => {
             </section>
             {/* ── END: KPI Dashboard ───────────────────────────────────── */}
 
-            {/* ── BEGIN: Quick Status Pills Toolbar ────────────────────── */}
-            <div className="alerts-toolbar">
-                <div className="alerts-search-wrap">
-                    <Search size={15} className="alerts-search-icon" />
-                    <input
-                        type="text"
-                        className="alerts-search-input"
-                        placeholder="Filtrar placa (ej: FPZ45I), ID o chofer..."
-                        value={searchQuery}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                    />
-                </div>
+            {/* ── BEGIN: Quick Status Pills Toolbar (Desktop Only) ───── */}
+            {!isMobile && (
+                <div className="alerts-toolbar">
+                    <div className="alerts-search-wrap">
+                        <Search size={15} className="alerts-search-icon" />
+                        <input
+                            type="text"
+                            className="alerts-search-input"
+                            placeholder="Filtrar placa (ej: FPZ45I), ID o chofer..."
+                            value={searchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                        />
+                    </div>
 
-                <div className="alerts-pills-row">
-                    <button
-                        type="button"
-                        className={`alerts-filter-pill ${statusFilter === 'ALL' && filter === 'ALL' ? 'active' : ''}`}
-                        onClick={() => {
-                            setStatusFilter('ALL');
-                            setFilter('ALL');
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <span>Todos</span>
-                        <span className="pill-counter">{stats.total || 0}</span>
-                    </button>
-
-                    {(stats.counts?.unauthorizedDriving || 0) > 0 && (
+                    <div className="alerts-pills-row">
                         <button
                             type="button"
-                            className={`alerts-filter-pill sabotage ${filter === 'UNAUTHORIZED_DRIVING' ? 'active' : ''}`}
+                            className={`alerts-filter-pill ${statusFilter === 'ALL' && filter === 'ALL' ? 'active' : ''}`}
                             onClick={() => {
-                                setFilter(filter === 'UNAUTHORIZED_DRIVING' ? 'ALL' : 'UNAUTHORIZED_DRIVING');
+                                setStatusFilter('ALL');
+                                setFilter('ALL');
                                 setCurrentPage(1);
                             }}
                         >
-                            <span className="pill-dot red animate-pulse" />
-                            <span>🚨 Sabotajes</span>
-                            <span className="pill-counter">{stats.counts.unauthorizedDriving}</span>
+                            <span>Todos</span>
+                            <span className="pill-counter">{stats.total || 0}</span>
                         </button>
-                    )}
 
-                    <button
-                        type="button"
-                        className={`alerts-filter-pill critical ${filter === 'UNAUTHORIZED_MOVEMENT' || filter === 'POWER_CUT' || filter === 'UNAUTHORIZED_DRIVING' || filter === 'UNAUTHORIZED_IGNITION' ? 'active' : ''}`}
-                        onClick={() => {
-                            setFilter(filter === 'UNAUTHORIZED_MOVEMENT' ? 'ALL' : 'UNAUTHORIZED_MOVEMENT');
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <span className="pill-dot red" />
-                        <span>Críticas</span>
-                        <span className="pill-counter">{stats.critical || 0}</span>
-                    </button>
+                        {(stats.counts?.unauthorizedDriving || 0) > 0 && (
+                            <button
+                                type="button"
+                                className={`alerts-filter-pill sabotage ${filter === 'UNAUTHORIZED_DRIVING' ? 'active' : ''}`}
+                                onClick={() => {
+                                    setFilter(filter === 'UNAUTHORIZED_DRIVING' ? 'ALL' : 'UNAUTHORIZED_DRIVING');
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <span className="pill-dot red animate-pulse" />
+                                <span>🚨 Sabotajes</span>
+                                <span className="pill-counter">{stats.counts.unauthorizedDriving}</span>
+                            </button>
+                        )}
 
-                    <button
-                        type="button"
-                        className={`alerts-filter-pill pending ${statusFilter === 'ACTIVE' ? 'active' : ''}`}
-                        onClick={() => {
-                            setStatusFilter(statusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE');
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <span className="pill-dot amber" />
-                        <span>Pendientes</span>
-                        <span className="pill-counter">{stats.active || 0}</span>
-                    </button>
+                        <button
+                            type="button"
+                            className={`alerts-filter-pill critical ${filter === 'UNAUTHORIZED_MOVEMENT' || filter === 'POWER_CUT' || filter === 'UNAUTHORIZED_DRIVING' || filter === 'UNAUTHORIZED_IGNITION' ? 'active' : ''}`}
+                            onClick={() => {
+                                setFilter(filter === 'UNAUTHORIZED_MOVEMENT' ? 'ALL' : 'UNAUTHORIZED_MOVEMENT');
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <span className="pill-dot red" />
+                            <span>Críticas</span>
+                            <span className="pill-counter">{stats.critical || 0}</span>
+                        </button>
 
-                    <button
-                        type="button"
-                        className={`alerts-filter-pill resolved ${statusFilter === 'RESOLVED' ? 'active' : ''}`}
-                        onClick={() => {
-                            setStatusFilter(statusFilter === 'RESOLVED' ? 'ALL' : 'RESOLVED');
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <span className="pill-dot green" />
-                        <span>Resueltas</span>
-                        <span className="pill-counter">{stats.resolved || 0}</span>
-                    </button>
+                        <button
+                            type="button"
+                            className={`alerts-filter-pill pending ${statusFilter === 'ACTIVE' ? 'active' : ''}`}
+                            onClick={() => {
+                                setStatusFilter(statusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE');
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <span className="pill-dot amber" />
+                            <span>Pendientes</span>
+                            <span className="pill-counter">{stats.active || 0}</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`alerts-filter-pill resolved ${statusFilter === 'RESOLVED' ? 'active' : ''}`}
+                            onClick={() => {
+                                setStatusFilter(statusFilter === 'RESOLVED' ? 'ALL' : 'RESOLVED');
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <span className="pill-dot green" />
+                            <span>Resueltas</span>
+                            <span className="pill-counter">{stats.resolved || 0}</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
             {/* ── END: Quick Status Pills Toolbar ──────────────────────── */}
 
             {/* ── BEGIN: 2-Column Split Workspace (Feed + Desktop Inspector) ── */}
