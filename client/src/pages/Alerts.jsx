@@ -101,7 +101,23 @@ const Alerts = () => {
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
-    const [isStreamPaused, setIsStreamPaused] = useState(false);
+    const [streamMode, setStreamMode] = useState('active'); // 'active' | 'paused' | 'reconnecting'
+
+    const handlePauseStream = () => setStreamMode('paused');
+    const handleActivateStream = () => setStreamMode('active');
+    const handleReconnectStream = async () => {
+        setStreamMode('reconnecting');
+        try {
+            await Promise.all([
+                fetchStats(),
+                fetchHistory(currentPage)
+            ]);
+        } finally {
+            setTimeout(() => {
+                setStreamMode('active');
+            }, 600);
+        }
+    };
 
     const [alerts, setAlerts] = useState([]);
     const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
@@ -230,9 +246,10 @@ const Alerts = () => {
 
     // Real-time SSE listener
     useEffect(() => {
-        if (isStreamPaused) return;
+        if (streamMode === 'paused') return;
 
         const unsubscribeNew = subscribe('new_alert', (event) => {
+            if (streamMode === 'paused') return;
             const incomingAlert = event.parsedData;
             if (!incomingAlert) return;
 
@@ -254,6 +271,7 @@ const Alerts = () => {
         });
 
         const unsubscribeUpdated = subscribe('alert_updated', (event) => {
+            if (streamMode === 'paused') return;
             const updatedAlert = event.parsedData;
             if (!updatedAlert) return;
 
@@ -267,7 +285,7 @@ const Alerts = () => {
             unsubscribeNew();
             unsubscribeUpdated();
         };
-    }, [subscribe, fetchStats, isStreamPaused]);
+    }, [subscribe, fetchStats, streamMode]);
 
     const handleAcknowledge = async (alert) => {
         setActionLoadingId(alert._id);
@@ -551,52 +569,58 @@ const Alerts = () => {
                 </div>
             </div>
 
-            {/* ── BEGIN: SSE Connection Status Banner ──────────────────── */}
-            <div className="alerts-sse-banner">
+            {/* ── BEGIN: SSE Compact Triple-Toggle Control (Desktop & Mobile) ── */}
+            <div className="alerts-sse-compact-bar">
                 <div className="sse-banner-left">
-                    <div className="sse-banner-icon-wrap">
-                        <Radio size={20} />
+                    <div className={`sse-banner-icon-wrap ${streamMode}`}>
+                        <Radio size={18} className={streamMode === 'reconnecting' ? 'animate-spin' : ''} />
                         <span className="sse-ping-badge">
-                            <span className="sse-ping-dot" />
+                            <span className={`sse-ping-dot ${streamMode}`} />
                         </span>
                     </div>
                     <div className="sse-banner-text">
                         <div className="sse-banner-title-row">
-                            <span className="sse-banner-title">Stream Telemétrico Conectado (SSE)</span>
-                            <span className="sse-banner-ws-badge">Traccar WS :8082</span>
+                            <span className="sse-banner-title">
+                                {streamMode === 'active' ? 'Stream Activo' : streamMode === 'paused' ? 'Stream Pausado' : 'Reconectando...'}
+                            </span>
+                            <span className="sse-banner-ws-badge">Traccar WS</span>
                         </div>
-                        <p className="sse-banner-desc">
-                            Escuchando eventos de inmovilizadores, aperturas de switch clandestinas y fluctuaciones de batería principal en tiempo real.
-                        </p>
                     </div>
                 </div>
-                <div className="sse-banner-right">
-                    <div className="sse-latency-badge">
-                        <span className="text-slate-500">Latencia:</span>
-                        <span className="font-semibold text-teal font-mono">34ms</span>
-                    </div>
+
+                <div className="sse-triple-toggle">
                     <button
                         type="button"
-                        className="sse-action-btn"
-                        onClick={() => setIsStreamPaused(!isStreamPaused)}
+                        className={`sse-toggle-btn ${streamMode === 'paused' ? 'active-paused' : ''}`}
+                        onClick={handlePauseStream}
+                        title="Pausar stream"
                     >
-                        {isStreamPaused ? <Play size={14} /> : <Pause size={14} />}
-                        <span>{isStreamPaused ? 'Reanudar Stream' : 'Pausar Stream'}</span>
+                        <Pause size={12} />
+                        <span>Pausa</span>
                     </button>
+
                     <button
                         type="button"
-                        className="sse-action-btn reconnect"
-                        onClick={() => {
-                            fetchStats();
-                            fetchHistory(currentPage);
-                        }}
+                        className={`sse-toggle-btn ${streamMode === 'active' ? 'active-live' : ''}`}
+                        onClick={handleActivateStream}
+                        title="Stream en vivo activo"
                     >
-                        <RefreshCw size={14} className={loading || statsLoading ? 'animate-spin' : ''} />
+                        <Play size={12} />
+                        <span>Activo</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        className={`sse-toggle-btn ${streamMode === 'reconnecting' ? 'active-reconnect' : ''}`}
+                        onClick={handleReconnectStream}
+                        title="Forzar reconexión y sincronización de datos"
+                    >
+                        <RefreshCw size={12} className={streamMode === 'reconnecting' ? 'animate-spin' : ''} />
                         <span>Reconectar</span>
                     </button>
                 </div>
             </div>
-            {/* ── END: SSE Connection Status Banner ────────────────────── */}
+            {/* ── END: SSE Compact Triple-Toggle Control ────────────────── */}
 
             {/* ── BEGIN: KPI Dashboard ─────────────────────────────────── */}
             <section aria-label="Resumen telemétrico" className="alerts-metrics-grid">
