@@ -65,7 +65,9 @@ export const SSEProvider = ({ children }) => {
             'payment_update',
             'reconciliation_update',
             'invoice_update',
-            'summary_update'
+            'summary_update',
+            'new_alert',
+            'alert_updated'
         ];
         
         knownEvents.forEach(evt => {

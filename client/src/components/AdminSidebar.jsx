@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
     Home, Users, CreditCard, DollarSign, FileText,
-    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, Terminal
+    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, Terminal, Bell
 } from 'lucide-react';
 import { switchCompany } from '../services/api';
 import './AdminSidebar.css';
@@ -189,6 +189,17 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                             >
                                 <Terminal size={20} />
                                 <span>Comandos</span>
+                            </button>
+                        )}
+
+                        {user?.role !== 'viewer' && (
+                            <button
+                                className={`nav-item ${isActive('/alerts') || isActive('/alertas') ? 'active' : ''}`}
+                                onClick={() => handleNavigation('/alerts')}
+                                title="Centro de Alertas"
+                            >
+                                <Bell size={20} />
+                                <span>Alertas</span>
                             </button>
                         )}
                     </div>

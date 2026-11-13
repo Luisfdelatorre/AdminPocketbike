@@ -42,6 +42,11 @@ export const getCommandHistory = (params) => api.get('/commands', { params });
 export const getCommandStats = (params) => api.get('/commands/stats', { params });
 export const sendCommand = (data) => api.post('/commands/send', data);
 
+// --- Telemetry Alerts ---
+export const getAlertsHistory = (params) => api.get('/alerts', { params });
+export const getAlertsStats = (params) => api.get('/alerts/stats', { params });
+export const updateAlertStatus = (id, data) => api.patch(`/alerts/${id}/status`, data);
+
 // --- Dashboard ---
 export const getDashboardStats = (params) => api.get('/dashboard/stats', { params });
 
