@@ -7,6 +7,8 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pago a {{COMPANY_NAME}}</title>
   <link rel="preload" href="../css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" as="image" href="{{COMPANY_LOGO}}" fetchpriority="high">
+  <link rel="modulepreload" href="/js/payment-app.js?v=4">
 
   <style>
     :root {
@@ -664,6 +666,99 @@
       cursor: pointer;
     }
 
+    /* Toggle Schedule / History Accordion Button */
+    #toggle-schedule-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      text-align: left;
+      padding: 0 14px;
+      height: 40px;
+      box-sizing: border-box;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md, 12px);
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      -webkit-tap-highlight-color: transparent;
+      font-family: inherit;
+      outline: none;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    #toggle-schedule-btn.is-expanded {
+      padding: 0 10px;
+    }
+
+    #toggle-schedule-btn:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    #toggle-schedule-btn:active {
+      transform: scale(0.99);
+    }
+
+    #toggle-schedule-btn .text-slate-700 {
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #toggle-schedule-btn svg.text-slate-500 {
+      color: #64748b;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    #accordion-chevron {
+      color: #94a3b8;
+      width: 14px;
+      height: 14px;
+      transition: transform 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    #toggle-schedule-btn.is-expanded #accordion-chevron {
+      transform: rotate(180deg);
+    }
+
+    .schedule-btn-sublabel {
+      font-size: 11px;
+      font-weight: 500;
+      color: #94a3b8;
+      letter-spacing: -0.1px;
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 120px;
+      opacity: 1;
+      transform: translateX(0);
+      transition: max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 0.25s ease,
+                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  margin 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-block;
+      vertical-align: middle;
+      pointer-events: none;
+    }
+
+    #toggle-schedule-btn.is-expanded .schedule-btn-sublabel {
+      max-width: 0 !important;
+      opacity: 0 !important;
+      transform: translateX(8px) !important;
+      margin: 0 !important;
+      pointer-events: none !important;
+    }
+
     /* Toast Notifications */
     .toast-notification {
       position: fixed;
@@ -680,7 +775,7 @@
       opacity: 0;
       transition: opacity 0.25s ease, transform 0.25s ease;
       max-width: 320px;
-      max-height: 100px;
+      max-height: 50px;
       text-align: center;
       pointer-events: none;
     }
@@ -702,11 +797,18 @@
       background: #3b82f6;
     }
 
-    /* ── Month Selector ─────────────────────────────────── */
+    /* ── Month Selector & More Options Flex Transition ── */
     .more-options-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      width: 100%;
+      margin: var(--spacing-sm) 0;
+      gap: 0;
+      overflow: hidden;
+      transition: gap 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .more-options-row.is-expanded {
       gap: 8px;
     }
 
@@ -721,14 +823,33 @@
       background: var(--color-bg-light);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      padding: 3px 4px;
-      flex: 1;
+      padding: 0 4px;
+      height: 40px;
+      box-sizing: border-box;
       justify-content: space-between;
       min-width: 0;
+      width: 180px;
+      max-width: 180px;
+      flex: 0 0 180px;
+      overflow: hidden;
+      transform-origin: right center;
+      transform: scaleX(1);
+      opacity: 1;
+      pointer-events: auto;
+      white-space: nowrap;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .month-selector-hidden {
-      display: none !important;
+    .month-selector.month-selector-hidden {
+      width: 0 !important;
+      max-width: 0 !important;
+      flex: 0 0 0px !important;
+      padding: 0 !important;
+      border-width: 0 !important;
+      margin: 0 !important;
+      opacity: 0 !important;
+      transform: scaleX(0) !important;
+      pointer-events: none !important;
     }
 
     .month-label {
@@ -784,15 +905,111 @@
       animation: shimmer 1.2s infinite;
     }
 
+    /* Shimmer Skeleton System for Loading States */
+    .skeleton-shimmer {
+      display: inline-block;
+      vertical-align: middle;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+    }
+
+    .skeleton-amount {
+      width: 130px;
+      height: 36px;
+      border-radius: 8px;
+    }
+
+    .skeleton-date {
+      width: 80px;
+      height: 14px;
+    }
+
+    .skeleton-cuotas {
+      width: 100px;
+      height: 15px;
+    }
+
+    .skeleton-btn-text {
+      width: 150px;
+      height: 16px;
+    }
+
+    .skeleton-reminder {
+      width: 180px;
+      height: 14px;
+    }
+
     @keyframes shimmer {
       0% {
         background-position: 200% 0;
       }
-
       100% {
         background-position: -200% 0;
       }
     }
+
+    /* History table classes */
+      .history-empty {
+        text-align: center;
+        padding: 16px;
+        color: #9ca3af;
+      }
+
+      .history-date {
+        font-weight: 400;
+        color: #374151;
+      }
+
+      .history-amount {
+        font-weight: 400;
+        color: #111827;
+        text-align: right;
+      }
+
+      .history-time-col {
+        text-align: center;
+      }
+
+      .history-time-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.2;
+      }
+
+      .history-time-date {
+        font-size: 11px;
+        font-weight: 400;
+        color: #1f2937;
+      }
+
+      .history-time-hour {
+        font-size: 10px;
+        color: #6b7280;
+      }
+
+      .history-time-empty {
+        color: #9ca3af;
+        font-size: 13px;
+      }
+
+      .history-status-col {
+        text-align: right;
+        padding-right: 8px;
+      }
+
+      .badge-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 10px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
   </style>
   <!-- Scripts -->
 
@@ -805,7 +1022,7 @@
       <h2 class="app-title" id="loginTitle">Pago a {{COMPANY_NAME}}</h2>
       <div class="login-form">
         <div class="deviceIdGroup" id="deviceIdGroup">
-          <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" fetchpriority="high" decoding="async"
+          <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" width="60" height="60" fetchpriority="high" decoding="async"
             style="background: #f3f4f6; width: 60px; height: 60px; display: block;">
           <input type="text" id="deviceId" placeholder="Placa" class="name-input hidden" value="{{DEVICE_ID}}" disabled
             style="display: none;" required>
@@ -826,22 +1043,22 @@
 
         <div class="numeric-keypad" id="numericKeypad">
           <div class="keypad-row">
-            <button class="keypad-btn" data-val="1" disabled>1</button>
-            <button class="keypad-btn" data-val="2" disabled>2</button>
-            <button class="keypad-btn" data-val="3" disabled>3</button>
+            <button class="keypad-btn" data-val="1">1</button>
+            <button class="keypad-btn" data-val="2">2</button>
+            <button class="keypad-btn" data-val="3">3</button>
           </div>
           <div class="keypad-row">
-            <button class="keypad-btn" data-val="4" disabled>4</button>
-            <button class="keypad-btn" data-val="5" disabled>5</button>
-            <button class="keypad-btn" data-val="6" disabled>6</button>
+            <button class="keypad-btn" data-val="4">4</button>
+            <button class="keypad-btn" data-val="5">5</button>
+            <button class="keypad-btn" data-val="6">6</button>
           </div>
           <div class="keypad-row">
-            <button class="keypad-btn" data-val="7" disabled>7</button>
-            <button class="keypad-btn" data-val="8" disabled>8</button>
-            <button class="keypad-btn" data-val="9" disabled>9</button>
+            <button class="keypad-btn" data-val="7">7</button>
+            <button class="keypad-btn" data-val="8">8</button>
+            <button class="keypad-btn" data-val="9">9</button>
           </div>
           <div class="keypad-row">
-            <button class="keypad-btn backspace-btn" id="keypadClear" disabled>
+            <button class="keypad-btn backspace-btn" id="keypadClear">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -849,8 +1066,8 @@
                 </path>
               </svg>
             </button>
-            <button class="keypad-btn" data-val="0" disabled>0</button>
-            <button class="keypad-btn backspace-btn" id="keypadBackspace" disabled>⌫</button>
+            <button class="keypad-btn" data-val="0">0</button>
+            <button class="keypad-btn backspace-btn" id="keypadBackspace">⌫</button>
           </div>
         </div>
         <div id="loginError" class="error-message"></div>
@@ -859,7 +1076,9 @@
 
   </div>
   <!-- Toast Notification Container -->
-  <div id="toastContainer"></div>
+  <div id="toastContainer">
+    <div id="toastNotification" class="toast-notification"></div>
+  </div>
   <div id="paymentScreen" class="screen ">
     <div class="container">
       <div id="paymentSection" class="payment-section">
@@ -873,7 +1092,7 @@
         </button>
         <div class="device-header">
           <div class="device-logo-container">
-            <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo">
+            <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo" width="60" height="60" decoding="async">
             <div class="status-ring" id="deviceStatusRing"></div>
             <div class="status-icons-container">
               <div class="status-icon ">
@@ -895,34 +1114,52 @@
 
             </div>
           </div>
-          <div class="device-details-column" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
-            <span class="device-id" id="deviceDisplay" style="display: block; padding: 0; margin: 0; line-height: 1.1;">{{DEVICE_ID}}</span>
-            <span id="paymentDueDate" class="text-muted payment-date-style" style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;">- ---</span>
+          <div class="device-details-column"
+            style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-left: 10px;">
+            <span class="device-id" id="deviceDisplay"
+              style="display: block; padding: 0; margin: 0; line-height: 1.1;">{{DEVICE_ID}}</span>
+            <span id="paymentDueDate" class="text-muted payment-date-style"
+              style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;"><span class="skeleton-shimmer skeleton-date"></span></span>
           </div>
         </div>
 
-        <div class="payment-amount">
-          <span class="currency">$</span><span id="paymentAmount">35.000</span><span class="currency-code">COP</span>
+        <div class="payment-amount" id="amountContainer">
+          <span class="currency" id="currencySymbol" style="display: none;">$</span><span id="paymentAmount"><span class="skeleton-shimmer skeleton-amount"></span></span><span class="currency-code" id="currencyCode" style="display: none;">COP</span>
         </div>
-        <div class="cuotas-pill-badge" style="display: flex; justify-content: center; margin: -2px 0 14px 0;">
-          <span style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px;">
-            Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">500</span>
+        <div class="cuotas-pill-badge" id="cuotasPillBadge" style="display: flex; justify-content: center; margin: -2px 0 14px 0;">
+          <span id="cuotasBadgeWrapper"
+            style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px; display: inline-flex; align-items: center; min-height: 25px;">
+            <span id="cuotasLoadingSkeleton" class="skeleton-shimmer skeleton-cuotas"></span>
+            <span id="cuotasText" style="display: none;">Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">0</span></span>
           </span>
         </div>
-        <div class="phone-input-group">
+        <div class="phone-input-group" id="phoneInputGroup">
           <div class="country-code">Nequi<br>+57</div>
           <input type="tel" id="phoneNumber" class="phone-input" placeholder="300 756 0069" inputmode="numeric">
         </div>
         <button id="nequiPayBtn" class="nequi-payment-card">
           <div class="nequi-icon-box">
-            <img src="/nequi.png" alt="Nequi" class="img-sm" decoding="async">
+            <img id="paymentBtnIcon" src="/nequi.png" alt="Nequi" class="img-sm" decoding="async">
           </div>
           <div class="nequi-divider"></div>
-          <div class="nequi-text">Pagar con tu cuenta Nequi</div>
+          <div class="nequi-text" id="paymentBtnText"><span class="skeleton-shimmer skeleton-btn-text"></span></div>
         </button>
       </div>
       <div class="more-options more-options-row">
-        <a href="#" id="morePaymentOptions">Lista de pagos ▼</a>
+        <button class="flex items-center gap-2 text-left hover:bg-slate-50 transition tap-highlight-transparent" id="toggle-schedule-btn" type="button">
+          <div class="flex items-center space-x-2 text-slate-700 font-semibold text-sm">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span>Lista de pagos</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+            <span class="schedule-btn-sublabel" id="accordion-label">Más información</span>
+            <svg class="w-3.5 h-3.5 transform transition-transform" id="accordion-chevron" fill="currentColor" viewBox="0 0 20 20">
+              <path clip-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" fill-rule="evenodd"></path>
+            </svg>
+          </div>
+        </button>
         <div class="month-selector month-selector-hidden" id="monthSelector">
           <button class="month-nav-btn" id="monthPrevBtn" title="Mes anterior"
             aria-label="Mes anterior">&#8249;</button>
@@ -935,9 +1172,8 @@
       <div class="important-reminder" id="normalReminder">
         <div class="reminder-icon">🔔</div>
         <div class="reminder-content">
-          <div class="reminder-title">Cómo pagar</div>
-          <div class="reminder-text">Después de hacer clic en "Pagar", completa tu transacción en el centro de
-            notificaciones de Nequi.</div>
+          <div class="reminder-title" id="normalTitle">Cómo pagar</div>
+          <div class="reminder-text" id="normalText"><span class="skeleton-shimmer skeleton-reminder"></span></div>
         </div>
       </div>
 
@@ -953,11 +1189,51 @@
   <script>
     (function () {
       try {
-        const token = localStorage.getItem('paymentAuthToken');
+        function decodeTokenDevice(tok) {
+          try {
+            if (!tok) return null;
+            const parts = tok.split('.');
+            if (parts.length < 2) return null;
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return payload.deviceIdName || null;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        const targetPlate = window.__INITIAL_DATA__?.deviceId || (function () {
+          const parts = window.location.pathname.split('/').filter(Boolean);
+          return parts.length >= 2 && parts[0] === 'p' ? parts[1] : null;
+        })();
+
+        let token = localStorage.getItem('paymentAuthToken');
+        if (token && targetPlate) {
+          const tokenDevice = decodeTokenDevice(token) || localStorage.getItem('paymentDeviceId');
+          if (tokenDevice && tokenDevice.toUpperCase() !== targetPlate.toUpperCase()) {
+            localStorage.removeItem('paymentAuthToken');
+            localStorage.removeItem('paymentDeviceId');
+            token = null;
+          }
+        }
+
         const paymentScreen = document.getElementById('paymentScreen');
         const loginScreen = document.getElementById('loginScreen');
         const paymentTitle = document.getElementById('paymentTitle');
         const paymentLogo = document.getElementById('paymentLogo');
+
+        // Apply server-injected branding synchronously at millisecond 0
+        const injectedBranding = window.__INITIAL_DATA__?.branding;
+        if (injectedBranding) {
+          if (paymentTitle) paymentTitle.textContent = `Pago a ${injectedBranding.displayName}`;
+          if (paymentLogo && injectedBranding.logo) paymentLogo.src = injectedBranding.logo;
+          localStorage.setItem('displayName', injectedBranding.displayName);
+          localStorage.setItem('companyLogo', injectedBranding.logo);
+        } else {
+          const cachedName = localStorage.getItem('displayName');
+          const cachedLogo = localStorage.getItem('companyLogo');
+          if (cachedName && paymentTitle) paymentTitle.textContent = `Pago a ${cachedName}`;
+          if (cachedLogo && paymentLogo) paymentLogo.src = cachedLogo;
+        }
 
         if (token) {
           if (paymentScreen) {
@@ -968,40 +1244,53 @@
             loginScreen.classList.remove('active');
             loginScreen.style.display = 'none';
           }
-        } else {
-          (async function () {
-            try {
-              const response = await fetch('/apinode/companies/branding');
-              const data = await response.json();
-              if (data.success) {
-                const paymentTitle = document.getElementById('paymentTitle');
-                const paymentLogo = document.getElementById('paymentLogo');
-                if (paymentTitle) paymentTitle.textContent = `Pago a ${data.data.displayName}`;
-                if (paymentLogo) paymentLogo.src = data.data.logo;
+
+          // Optional: Instant rehydration from last known payment summary if cached
+          try {
+            const rawCached = localStorage.getItem('cachedSummary_' + (targetPlate || '').toUpperCase());
+            if (rawCached) {
+              const cached = JSON.parse(rawCached);
+              if (cached && cached.amountStr) {
+                const amt = document.getElementById('paymentAmount');
+                const sym = document.getElementById('currencySymbol');
+                const code = document.getElementById('currencyCode');
+                const due = document.getElementById('paymentDueDate');
+                const cSkel = document.getElementById('cuotasLoadingSkeleton');
+                const cText = document.getElementById('cuotasText');
+                const cPag = document.getElementById('cuotasPagadas');
+                const cTot = document.getElementById('totalCuotas');
+                const btn = document.getElementById('paymentBtnText');
+                if (amt) {
+                  amt.textContent = cached.amountStr;
+                  if (sym) sym.style.display = 'inline';
+                  if (code) code.style.display = 'inline';
+                }
+                if (due && cached.dateStr) due.textContent = cached.dateStr;
+                if (cSkel) cSkel.style.display = 'none';
+                if (cText) cText.style.display = 'inline';
+                if (cPag) cPag.textContent = cached.cuotasPagadas || 0;
+                if (cTot) cTot.textContent = cached.cuotasTotal || 0;
+                if (btn && cached.btnText) btn.textContent = cached.btnText;
               }
-            } catch (error) {
-              console.error('Error loading branding:', error);
-              const companyLogo = localStorage.getItem('companyLogo');
-              const displayName = localStorage.getItem('displayName');
-              const paymentTitle = document.getElementById('paymentTitle');
-              const paymentLogo = document.getElementById('paymentLogo');
-              if (displayName && paymentTitle) paymentTitle.textContent = `Pago a ${displayName}`;
-              if (companyLogo && paymentLogo) paymentLogo.src = companyLogo;
             }
-          })();
+          } catch (e) {}
+        } else {
+          if (paymentScreen) {
+            paymentScreen.classList.remove('active');
+            paymentScreen.style.display = 'none';
+          }
+          if (loginScreen) {
+            loginScreen.classList.add('active');
+            loginScreen.style.display = 'block';
+          }
         }
       } catch (err) {
         console.error('Error initializing payment page:', err);
       }
-
-      setTimeout(() => {
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = '/js/payment-app.js';
-        document.body.appendChild(script);
-      }, 0);
     })();
   </script>
+
+  <script type="module" src="/js/payment-app.js?v=4"></script>
 
 
 

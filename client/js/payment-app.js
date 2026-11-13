@@ -1,15 +1,13 @@
-import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getDeviceStatus } from './api.js';
+import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getAdjustmentTypes } from './api.js';
 import messagesService from './messages-service.js';
 import { Templates } from './templates.js';
-
-
-
+import { STATUS_CLASS_MAP as DEFAULT_STATUS_MAP } from './status-map.js';
 // ============================================================================
 // Constants & Configuration
 // ============================================================================
 let CONFIG = {
     TIMEZONE: 'America/Bogota',
-    MAX_TIMEOUT: 45 * 60 * 1000,
+    MAX_TIMEOUT: 15 * 60 * 1000, // 15 minutos
     PIN_LENGTH: 4,
     PHONE_LENGTH: 10,
     PROGRESS_WARNING: 75,
@@ -17,22 +15,8 @@ let CONFIG = {
     DRAG_THRESHOLD: 100,
     TRANSITION_DURATION: 500
 };
-
-const STATUS_CLASS_MAP = {
-    'PAID': 'status-paid',
-    'FREE': 'status-free',
-    'FREEPASS': 'status-free',
-    'ADJUSTMENT': 'status-free',
-    'VERIFYING': 'status-verifying',
-    'CONFIRMING': 'status-verifying',
-    'PENDING': 'status-pending',
-    'DEBT': 'status-pending',
-    'LOAN': 'status-loan',
-    'DECLINED': 'status-rejected',
-    'ERROR': 'status-rejected',
-    'VOIDED': 'status-rejected'
-};
-
+// Status catalog for invoice history badges
+const STATUS_CLASS_MAP = window.__INITIAL_DATA__?.statusMap || DEFAULT_STATUS_MAP;
 // ============================================================================
 // State Management
 // ============================================================================
@@ -44,6 +28,7 @@ const STATE = {
     eventSource: null,
     historyMonth: null,   // null = current month
     historyYear: null,    // null = current year
+    historyLoaded: false,
     urlDeviceId: null
 };
 
@@ -80,7 +65,7 @@ class DOMManager {
             freeDay: document.getElementById('useFreeDayBtn'),
             loan: document.getElementById('loanBtn'),
             logout: document.getElementById('logoutBtn'),
-            morePayment: document.getElementById('morePaymentOptions'),
+            morePayment: document.getElementById('toggle-schedule-btn') || document.getElementById('morePaymentOptions'),
             confirm: document.getElementById('confirmPaymentBtn'),
             cancel: document.getElementById('cancelPaymentBtn'),
             done: document.getElementById('doneBtn')
@@ -97,11 +82,30 @@ class DOMManager {
             totalCuotas: document.getElementById('totalCuotas')
         };
 
+        this.elements.toast = {
+            container: document.getElementById('toastContainer'),
+            element: document.getElementById('toastNotification')
+        };
+
+        this.elements.deviceStatus = {
+            ring: document.getElementById('deviceStatusRing'),
+            batterySvg: document.getElementById('batteryStatusSvg'),
+            motorSvg: document.getElementById('motorStatusSvg')
+        };
+
         this.elements.loading = {
             message: document.getElementById('loadingMessage'),
             amount: document.getElementById('loadingAmount'),
             statusLabel: document.getElementById('paymentStatusLabelLoading'),
-            progressBar: document.querySelector('#loadingScreen .progress-bar-animated')
+            progressBar: document.querySelector('#loadingScreen .progress-bar-animated'),
+            nequiGuide: document.getElementById('nequiGuide'),
+            qrGuide: document.getElementById('qrGuide'),
+            qrImageDisplay: document.getElementById('qrImageDisplay'),
+            date: document.getElementById('loadingDate'),
+            cuota: document.getElementById('loadingCuota'),
+            metaSeparator: document.getElementById('loadingMetaSeparator'),
+            timerVal: document.getElementById('loadingTimerVal'),
+            logoContainer: document.getElementById('companyLogoContainer')
         };
 
         this.elements.pendingPayment = {
@@ -119,8 +123,12 @@ class DOMManager {
             payment: document.getElementById('paymentSection')
         };
 
-        this.elements.tables = {
-            historyBody: document.getElementById('historyTableBody')
+        this.elements.history = {
+            body: document.getElementById('historyTableBody'),
+            prevBtn: document.getElementById('monthPrevBtn'),
+            nextBtn: document.getElementById('monthNextBtn'),
+            label: document.getElementById('monthLabel'),
+            selector: document.getElementById('monthSelector')
         };
 
         this.elements.modal = {
@@ -130,11 +138,21 @@ class DOMManager {
         };
 
         this.elements.keypad = {
-            buttons: document.querySelectorAll('.keypad-btn:not(.empty)'),
+            buttons: document.querySelectorAll('.keypad-btn[data-val]'),
             pinBoxes: document.querySelectorAll('.pin-box'),
+            pinDisplay: document.getElementById('pinDisplay'),
             clear: document.getElementById('keypadClear'),
             backspace: document.getElementById('keypadBackspace'),
             logo: document.querySelector('.device-header img')
+        };
+
+        this.elements.paymentSection = {
+            phoneGroup: document.getElementById('phoneInputGroup') || document.querySelector('.phone-input-group'),
+            nequiBtnText: document.getElementById('paymentBtnText'),
+            normalReminder: document.getElementById('normalReminder'),
+            normalTitle: document.querySelector('#normalReminder .reminder-title'),
+            normalText: document.querySelector('#normalReminder .reminder-text'),
+            cuotasBadge: document.querySelector('.cuotas-pill-badge')
         };
 
         this.elements.success = {
@@ -145,11 +163,16 @@ class DOMManager {
             invoice: document.getElementById('successInvoice')
         };
 
-        // Setup initial plate from SSR
+        // Setup initial plate from SSR or __INITIAL_DATA__
         const deviceIdInput = this.elements.inputs.deviceId;
-        const initialValue = deviceIdInput ? deviceIdInput.value : '';
+        const initialValue = (window.__INITIAL_DATA__?.deviceId) || (deviceIdInput ? deviceIdInput.value : '');
         if (initialValue && !initialValue.includes('{{') && !initialValue.includes('DEVICE_ID')) {
             STATE.urlDeviceId = initialValue;
+            if (deviceIdInput) deviceIdInput.value = initialValue;
+            const deviceIdDisplay = this.elements.displays.deviceId;
+            if (deviceIdDisplay) deviceIdDisplay.textContent = initialValue;
+            const deviceDisplay = this.elements.displays.device;
+            if (deviceDisplay) deviceDisplay.textContent = initialValue;
         } else {
             STATE.urlDeviceId = null;
             // Ensure input is visible if no SSR plate was provided
@@ -230,23 +253,51 @@ class DOMManager {
 // ============================================================================
 // UI Utilities
 // ============================================================================
+// Reusable Intl formatters (cached once to prevent ICU memory allocations in loops)
+const MONEY_FORMATTER = new Intl.NumberFormat('es-CO', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+});
+
+const DATE_UTC_FORMATTER = new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'numeric'
+});
+
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+    timeZone: CONFIG.TIMEZONE,
+    day: 'numeric',
+    month: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+});
+
+const SHORT_MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
 class UIUtils {
-    static showToast(message, type = 'error') {
-        const existing = document.querySelector('.toast-notification');
-        if (existing) existing.remove();
+    static init(dom) {
+        this.dom = dom;
+        this.toastTimeout = null;
+    }
 
-        const toast = document.createElement('div');
-        toast.className = `toast-notification ${type}`;
+    static showToast(message, type = 'error', duration = 5000) {
+        const toast = this.dom?.get('toast.element');
+        if (!toast) return;
+
+        if (this.toastTimeout) {
+            clearTimeout(this.toastTimeout);
+            this.toastTimeout = null;
+        }
+
+        toast.className = `toast-notification ${type} show`;
         toast.textContent = message;
-        document.body.appendChild(toast);
 
-        toast.offsetHeight;
-        toast.classList.add('show');
-
-        setTimeout(() => {
+        this.toastTimeout = setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, 5000);
+            this.toastTimeout = null;
+        }, duration);
     }
 
     static showError(message) {
@@ -255,10 +306,7 @@ class UIUtils {
 
     static formatMoney(amount) {
         if (!amount) return '0';
-        return new Intl.NumberFormat('es-CO', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(amount);
+        return MONEY_FORMATTER.format(amount);
     }
 
     static formatPhone(phone) {
@@ -272,30 +320,15 @@ class UIUtils {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '---';
 
-        const parts = new Intl.DateTimeFormat('es-CO', {
-            timeZone: 'UTC',
-            day: 'numeric',
-            month: 'numeric'
-        }).formatToParts(date);
-
+        const parts = DATE_UTC_FORMATTER.formatToParts(date);
         const day = parts.find(p => p.type === 'day').value;
         const monthVal = parts.find(p => p.type === 'month').value;
-        const monthIndex = parseInt(monthVal) - 1;
-
-        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        return `${day} ${months[monthIndex]}`;
+        return `${day} ${SHORT_MONTHS[parseInt(monthVal, 10) - 1]}`;
     }
 
     static formatDateTime(dateString, plainText = false) {
         const date = new Date(dateString);
-        const parts = new Intl.DateTimeFormat('en-US', {
-            timeZone: CONFIG.TIMEZONE,
-            day: 'numeric',
-            month: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true
-        }).formatToParts(date);
+        const parts = DATE_TIME_FORMATTER.formatToParts(date);
 
         const day = parts.find(p => p.type === 'day').value;
         const monthVal = parts.find(p => p.type === 'month').value;
@@ -303,10 +336,7 @@ class UIUtils {
         const minutes = parts.find(p => p.type === 'minute').value;
         const ampm = parts.find(p => p.type === 'dayPeriod').value.toLowerCase();
 
-        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const monthName = months[parseInt(monthVal) - 1];
-
-        const dateStr = `${day} ${monthName}`;
+        const dateStr = `${day} ${SHORT_MONTHS[parseInt(monthVal, 10) - 1]}`;
         const timeStr = `${hours}:${minutes}${ampm}`;
 
         if (plainText) {
@@ -315,25 +345,27 @@ class UIUtils {
 
         return `<div class="fecha-pago"><div class="fecha">${dateStr}</div><div class="hora">${timeStr}</div></div>`;
     }
-    static updateDeviceStatusUI(statusData) {
-        const statusRing = document.getElementById('deviceStatusRing');
-        const batterySvg = document.getElementById('batteryStatusSvg');
-        const motorSvg = document.getElementById('motorStatusSvg');
-        if (statusRing) {
-            // Reset classes
-            statusRing.classList.remove('online', 'offline');
 
-            // Add new status class
+    static updateDeviceStatusUI(statusData) {
+        const deviceData = statusData?.data || statusData;
+        const loadingMsg = this.dom?.get('loading.message');
+        if (loadingMsg && deviceData?.name) {
+            loadingMsg.textContent = deviceData.name;
+        }
+
+        const statusRing = this.dom?.get('deviceStatus.ring');
+        const batterySvg = this.dom?.get('deviceStatus.batterySvg');
+        const motorSvg = this.dom?.get('deviceStatus.motorSvg');
+        if (statusRing) {
+            statusRing.classList.remove('online', 'offline');
             if (statusData.online) {
                 statusRing.classList.add('online');
             } else {
                 statusRing.classList.add('offline');
-                batterySvg.classList.remove('high', 'medium', 'low');
-                motorSvg.classList.remove('red', 'green');
-
+                batterySvg?.classList.remove('high', 'medium', 'low');
+                motorSvg?.classList.remove('red', 'green');
             }
         }
-
 
         if (motorSvg) {
             motorSvg.classList.remove('red', 'green');
@@ -341,15 +373,11 @@ class UIUtils {
                 motorSvg.classList.add('red');
             } else if (statusData.ignition) {
                 motorSvg.classList.add('green');
-            } else {
-                motorSvg.classList.remove('red', 'green');
             }
         }
 
-
         if (batterySvg && statusData.batteryLevel !== undefined) {
             const level = statusData.batteryLevel;
-
             batterySvg.classList.remove('high', 'medium', 'low');
             if (level > 60) {
                 batterySvg.classList.add('high');
@@ -358,7 +386,6 @@ class UIUtils {
             } else {
                 batterySvg.classList.add('low');
             }
-            // Optional: Tooltip on container or handle separately
         }
     }
 }
@@ -376,22 +403,7 @@ class PINManager {
         if (!pinBoxes) return;
 
         const len = STATE.currentPin.length;
-
-        pinBoxes.forEach((box, index) => {
-            if (index < len) {
-                box.value = '';
-                box.classList.add('filled');
-            } else {
-                box.value = '';
-                box.classList.remove('filled');
-            }
-
-            if (index === len) {
-                box.classList.add('active');
-            } else {
-                box.classList.remove('active');
-            }
-        });
+        pinBoxes.forEach((box, index) => box.classList.toggle('filled', index < len));
     }
 
     addDigit(digit) {
@@ -460,11 +472,10 @@ class ScreenManager {
         fromScreen.style.transform = 'translateX(0)';
         toScreen.style.transform = `translateX(${enterStart})`;
 
-        void fromScreen.offsetHeight;
-        void toScreen.offsetHeight;
-
-        fromScreen.style.transform = `translateX(${exitEnd})`;
-        toScreen.style.transform = 'translateX(0)';
+        requestAnimationFrame(() => {
+            fromScreen.style.transform = `translateX(${exitEnd})`;
+            toScreen.style.transform = 'translateX(0)';
+        });
 
         setTimeout(() => {
             fromScreen.classList.remove('active');
@@ -618,51 +629,124 @@ class PaymentManager {
                 const response = await getPaymentStatus();
                 STATE.paymentData = response.data;
             }
-            console.log("Loading data", STATE.paymentData);
-
-
             const dom = this.dom;
+
+            // Update device status UI immediately from flat telemetry payload
+            if (STATE.paymentData) {
+                UIUtils.updateDeviceStatusUI(STATE.paymentData.telemetry || STATE.paymentData);
+            }
 
             // Update UI
             const deviceIdName = dom.get('displays.device');
-            deviceIdName.textContent = STATE.paymentData.deviceIdName;
-            deviceIdName.classList.remove('text-muted');
-            deviceIdName.classList.add('text-primary');
+            if (deviceIdName) {
+                deviceIdName.textContent = STATE.paymentData.deviceIdName;
+                deviceIdName.classList.remove('text-muted');
+                deviceIdName.classList.add('text-primary');
+            }
+            const loadingMsg = dom.get('loading.message');
+            if (loadingMsg && STATE.paymentData.deviceIdName) {
+                loadingMsg.textContent = STATE.paymentData.deviceIdName;
+            }
+
+            // Update loading screen metadata (Date, Time, Cuota Number)
+            const loadingDateEl = dom.get('loading.date');
+            const loadingCuotaEl = dom.get('loading.cuota');
+            const metaSeparatorEl = dom.get('loading.metaSeparator');
+
+            if (loadingDateEl) {
+                const invoiceDate = STATE.paymentData.pendingInvoiceDate || new Date();
+                const invoiceDateStr = UIUtils.formatDate(invoiceDate);
+                const timeOnlyStr = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+                loadingDateEl.textContent = `📅 ${invoiceDateStr} (${timeOnlyStr})`;
+            }
+
+            if (loadingCuotaEl) {
+                const pagadas = STATE.paymentData.cuotasPagadas !== undefined ? STATE.paymentData.cuotasPagadas : null;
+                const total = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 500;
+                if (pagadas !== null) {
+                    loadingCuotaEl.textContent = `🏷️ Cuota ${pagadas + 1} de ${total}`;
+                    if (metaSeparatorEl) metaSeparatorEl.style.display = 'inline';
+                }
+            }
             const dueDate = dom.get('displays.paymentDueDate');
-            dueDate.classList.add('text-muted');
-            dueDate.textContent = "   ";
+            if (dueDate) {
+                dueDate.classList.add('text-muted');
+                dueDate.textContent = "   ";
 
-            // Handle Due Date
-            if (STATE.paymentData.pendingInvoiceDate) {
-                dueDate.textContent = UIUtils.formatDate(STATE.paymentData.pendingInvoiceDate);
+                // Handle Due Date
+                if (STATE.paymentData.pendingInvoiceDate) {
+                    dueDate.textContent = UIUtils.formatDate(STATE.paymentData.pendingInvoiceDate);
 
-                if (STATE.paymentData.isOverdue) {
-                    dueDate.classList.remove('text-muted');
-                    dueDate.classList.add('text-danger');
-                    if (dom.get('displays.paymentAmount')?.parentElement) {
-                        dom.get('displays.paymentAmount').parentElement.classList.add('text-danger');
-                    }
-                } else {
-                    dueDate.classList.remove('text-danger');
-                    if (dom.get('displays.paymentAmount')?.parentElement) {
-                        dom.get('displays.paymentAmount').parentElement.classList.remove('text-danger');
+                    if (STATE.paymentData.isOverdue) {
+                        dueDate.classList.remove('text-muted');
+                        dueDate.classList.add('text-danger');
+                        if (dom.get('displays.paymentAmount')?.parentElement) {
+                            dom.get('displays.paymentAmount').parentElement.classList.add('text-danger');
+                        }
+                    } else {
+                        dueDate.classList.remove('text-danger');
+                        if (dom.get('displays.paymentAmount')?.parentElement) {
+                            dom.get('displays.paymentAmount').parentElement.classList.remove('text-danger');
+                        }
                     }
                 }
             }
-            console.log(STATE.paymentData);
-            // Update Amounts & Phone
-            dom.get('displays.paymentAmount').textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
-            dom.get('inputs.phone').value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
 
-            const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas') || document.getElementById('cuotasPagadas');
-            const totalCuotasDisplay = dom.get('displays.totalCuotas') || document.getElementById('totalCuotas');
+            // Update Amounts & Phone
+            const amountDisplay = dom.get('displays.paymentAmount');
+            if (amountDisplay) {
+                amountDisplay.textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
+                const currSym = document.getElementById('currencySymbol');
+                const currCode = document.getElementById('currencyCode');
+                if (currSym) currSym.style.display = 'inline';
+                if (currCode) currCode.style.display = 'inline';
+            }
+            const phoneInput = dom.get('inputs.phone');
+            if (phoneInput) {
+                phoneInput.value = UIUtils.formatPhone(STATE.paymentData.customerPhone);
+            }
+
+            // Adapt UI for BANCOLOMBIA_QR vs NEQUI_PUSH
+            const phoneGroup = dom.get('paymentSection.phoneGroup');
+            const nequiBtnText = dom.get('paymentSection.nequiBtnText');
+            const normalTitle = dom.get('paymentSection.normalTitle');
+            const normalText = dom.get('paymentSection.normalText');
+            const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
+            const methodKey = isQrMode ? 'QR' : 'NEQUI';
+
+            if (phoneGroup) phoneGroup.classList.toggle('hidden', isQrMode);
+            if (nequiBtnText) nequiBtnText.textContent = messagesService.get(`PAYMENT_METHODS.${methodKey}.BUTTON`);
+            if (normalTitle) normalTitle.textContent = messagesService.get(`PAYMENT_METHODS.${methodKey}.TITLE`);
+            if (normalText) normalText.textContent = messagesService.get(`PAYMENT_METHODS.${methodKey}.INSTRUCTIONS`);
+
+            const cuotasSkeleton = document.getElementById('cuotasLoadingSkeleton');
+            const cuotasText = document.getElementById('cuotasText');
+            if (cuotasSkeleton) cuotasSkeleton.style.display = 'none';
+            if (cuotasText) cuotasText.style.display = 'inline';
+
+            const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas');
+            const totalCuotasDisplay = dom.get('displays.totalCuotas');
 
             if (cuotasPagadasDisplay && STATE.paymentData.cuotasPagadas !== undefined) {
                 cuotasPagadasDisplay.textContent = STATE.paymentData.cuotasPagadas;
             }
             if (totalCuotasDisplay) {
-                totalCuotasDisplay.textContent = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 500;
+                totalCuotasDisplay.textContent = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 0;
             }
+
+            // Persist summary for millisecond-0 cache
+            try {
+                const plate = (STATE.urlDeviceId || '').toUpperCase();
+                if (plate) {
+                    localStorage.setItem('cachedSummary_' + plate, JSON.stringify({
+                        amountStr: amountDisplay?.textContent || '',
+                        dateStr: dueDate?.textContent || '',
+                        cuotasPagadas: STATE.paymentData.cuotasPagadas || 0,
+                        cuotasTotal: STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 0,
+                        btnText: nequiBtnText?.textContent || ''
+                    }));
+                }
+            } catch (e) {}
 
             const freeDaysCount = STATE.paymentData.freeDaysAvailable || 0;
             const badge = dom.get('displays.freeDaysCount');
@@ -696,11 +780,17 @@ class PaymentManager {
                 const normal = dom.get('pendingPayment.normal');
 
                 if (pending && normal) {
-                    dom.get('pendingPayment.reference').textContent = STATE.paymentData.pendingPayment.reference;
-                    dom.get('pendingPayment.amount').textContent = UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount);
-                    dom.get('pendingPayment.time').textContent = UIUtils.formatDateTime(STATE.paymentData.pendingPayment.createdAt, true);
+                    const pendingRefEl = dom.get('pendingPayment.reference');
+                    const pendingAmtEl = dom.get('pendingPayment.amount');
+                    const pendingTimeEl = dom.get('pendingPayment.time');
 
-                    this._updatePendingProgress(STATE.paymentData.pendingPayment.createdAt);
+                    if (pendingRefEl) pendingRefEl.textContent = STATE.paymentData.pendingPayment.reference || '';
+                    if (pendingAmtEl) pendingAmtEl.textContent = UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount || 0);
+                    if (pendingTimeEl) pendingTimeEl.textContent = UIUtils.formatDateTime(STATE.paymentData.pendingPayment.createdAt || new Date(), true);
+
+                    if (typeof this._updatePendingProgress === 'function') {
+                        this._updatePendingProgress(STATE.paymentData.pendingPayment.createdAt);
+                    }
 
                     pending.dataset.shouldShow = 'true';
                     normal.dataset.shouldShow = 'false';
@@ -709,12 +799,21 @@ class PaymentManager {
                     normal.style.display = 'none';
                 }
 
+                const isQrMode = STATE.paymentData.paymentMethod === 'BANCOLOMBIA_QR';
+                if (isQrMode) {
+                    this.screen.switchScreen(this.dom.elements.screens.loading);
+                    if (STATE.paymentData.pendingPayment.qrImage) {
+                        this._displayQrCode(STATE.paymentData.pendingPayment.qrImage);
+                    }
+                }
+
                 // Update loading screen amount just in case
                 const loadingAmount = dom.get('loading.amount');
                 if (loadingAmount) {
                     loadingAmount.textContent = `$${UIUtils.formatMoney(STATE.paymentData.pendingPayment.amount)} COP`;
                 }
 
+                this._startCountdownTimer(STATE.paymentData.pendingPayment.createdAt);
                 this.monitorStatus(STATE.paymentData.pendingPayment.transactionId);
             } else {
                 // No pending payment
@@ -732,21 +831,8 @@ class PaymentManager {
                     normal.style.display = isExpanded ? 'none' : 'flex';
                 }
             }
-            // Check device online status
-            try {
-                // then in background:
-                setTimeout(() => this.loadHistory(STATE.historyMonth, STATE.historyYear), 0);
 
-                // device status can also be background:
-                setTimeout(async () => {
-                    try {
-                        const statusRes = await getDeviceStatus();
-                        UIUtils.updateDeviceStatusUI(statusRes.data);
-                    } catch { }
-                }, 0);
-            } catch (err) {
-                console.warn('Failed to load device status', err);
-            }
+
 
 
 
@@ -758,9 +844,9 @@ class PaymentManager {
     }
 
     async loadHistory(month = null, year = null) {
-        const historyBody = this.dom.get('tables.historyBody');
-        const prevBtn = document.getElementById('monthPrevBtn');
-        const nextBtn = document.getElementById('monthNextBtn');
+        const historyBody = this.dom.get('history.body');
+        const prevBtn = this.dom.get('history.prevBtn');
+        const nextBtn = this.dom.get('history.nextBtn');
 
         // ── Guard: disable nav while loading to prevent rapid-click flooding ──
         if (prevBtn) prevBtn.disabled = true;
@@ -784,7 +870,7 @@ class PaymentManager {
         } catch (error) {
             console.error('Load history error:', error);
             if (historyBody) {
-                historyBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Error al cargar historial</td></tr>';
+                historyBody.innerHTML = '<tr><td colspan="4" class="history-empty text-danger">Error al cargar historial</td></tr>';
             }
         } finally {
             // Always re-enable prevBtn; _updateMonthSelector controls nextBtn
@@ -794,8 +880,8 @@ class PaymentManager {
 
     /** Update the month selector label and enable/disable the forward button */
     _updateMonthSelector(month, year) {
-        const label = document.getElementById('monthLabel');
-        const nextBtn = document.getElementById('monthNextBtn');
+        const label = this.dom.get('history.label');
+        const nextBtn = this.dom.get('history.nextBtn');
         if (!label) return;
 
         const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
@@ -812,22 +898,45 @@ class PaymentManager {
     }
 
     renderHistory(history) {
-        const historyBody = this.dom.get('tables.historyBody');
+        const historyBody = this.dom.get('history.body');
         if (!historyBody) return;
 
         if (!history || history.length === 0) {
-            historyBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 16px; color: #9ca3af;">Sin pagos en este mes</td></tr>';
+            historyBody.innerHTML = '<tr><td colspan="4" class="history-empty">Sin pagos en este mes</td></tr>';
             return;
         }
 
         historyBody.innerHTML = history.map(item => {
-            const statusClass = STATUS_CLASS_MAP[item.dayType] || 'status-pending';
+            const config = STATUS_CLASS_MAP[item.statusKey] || { badgeLabel: item.statusKey, color: '#6b7280', bg: 'transparent' };
+            const color = config.color || '#6b7280';
+            const bg = config.bg || 'transparent';
+            const badgeLabel = config.badgeLabel || config.label || item.statusKey;
+
+            let paymentTimeHtml = '<span class="history-time-empty">---</span>';
+
+            if (item.paymentDate) {
+                const pDate = new Date(item.paymentDate);
+                const pDateStr = UIUtils.formatDate(pDate);
+                const pTimeStr = pDate.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+                paymentTimeHtml = `
+                    <div class="history-time-box">
+                        <span class="history-time-date">${pDateStr}</span>
+                        <span class="history-time-hour">${pTimeStr}</span>
+                    </div>
+                `;
+            }
+
+            const rowStyle = bg ? `style="background-color: ${bg};"` : '';
+            const badgeStyle = color && bg ? `style="color: ${color}; background-color: ${bg};"` : '';
+
             return `
-            <tr>
-                <td>${UIUtils.formatDate(item.date)}</td>
-                <td>$${UIUtils.formatMoney(item.paidAmount)}</td>
-                <td class="no-padding">${item.paymentDate ? UIUtils.formatDateTime(item.paymentDate) : '---'}</td>
-                <td class="${statusClass} no-padding">${item.status}</td>
+            <tr class="${config.rowClass || ''}" ${rowStyle}>
+                <td class="history-date">${UIUtils.formatDate(item.date)}</td>
+                <td class="history-amount">$${UIUtils.formatMoney(item.paidAmount)}</td>
+                <td class="history-time-col">${paymentTimeHtml}</td>
+                <td class="history-status-col">
+                    <span class="badge-status ${config.badgeClass || 'badge-pending'}" ${badgeStyle}>${badgeLabel}</span>
+                </td>
             </tr>
             `;
         }).join('');
@@ -836,7 +945,9 @@ class PaymentManager {
     logout() {
         STATE.authToken = null;
         STATE.paymentData = null;
+        STATE.historyLoaded = false;
         localStorage.removeItem('paymentAuthToken');
+        localStorage.removeItem('paymentDeviceId');
 
         // Reset inputs
         const deviceIdInput = this.dom.get('inputs.deviceId');
@@ -883,11 +994,13 @@ class PaymentManager {
     // --- Actions ---
 
     async processNequi() {
-        const phone = this.dom.get('inputs.phone').value.replace(/\D/g, '');
+        const isQrMode = STATE.paymentData?.paymentMethod === 'BANCOLOMBIA_QR';
+        const phoneInput = this.dom.get('inputs.phone')?.value || '';
+        const phone = phoneInput.replace(/\D/g, '');
         const amountStr = this.dom.get('displays.paymentAmount').textContent.replace(/\D/g, '');
         const amount = parseInt(amountStr, 10);
 
-        if (!phone || phone.length !== CONFIG.PHONE_LENGTH) {
+        if (!isQrMode && (!phone || phone.length !== CONFIG.PHONE_LENGTH)) {
             UIUtils.showError(messagesService.get('ERRORS.INVALID_PHONE'));
             return;
         }
@@ -901,17 +1014,28 @@ class PaymentManager {
         this.screen.switchScreen(this.dom.elements.screens.loading);
 
         const statusLabel = this.dom.get('loading.statusLabel');
-        if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.REQUESTING_PAYMENT');
+        if (statusLabel) {
+            statusLabel.textContent = isQrMode
+                ? messagesService.get('PAYMENT_METHODS.QR.GENERATING')
+                : messagesService.get('STATUS.REQUESTING_PAYMENT');
+        }
 
         try {
             const response = await createNequiPayment({ phone });
             const data = response.data;
 
-            if (statusLabel) statusLabel.textContent = messagesService.get('STATUS.WAITING_NEQUI');
-            // Wait 10s simulation
-            // await new Promise(resolve => setTimeout(resolve, 5000));
+            if (statusLabel) {
+                statusLabel.textContent = isQrMode
+                    ? messagesService.get('PAYMENT_METHODS.QR.GENERATING')
+                    : messagesService.get('STATUS.WAITING_NEQUI');
+            }
 
-            if (data.paymentData.id) {
+            if (data.paymentData?.qrImage) {
+                this._displayQrCode(data.paymentData.qrImage);
+            }
+
+            if (data.paymentData?.id) {
+                this._startCountdownTimer(new Date());
                 this.monitorStatus(data.paymentData.id);
             } else {
                 this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
@@ -920,6 +1044,26 @@ class PaymentManager {
             const msg = error.response?.data?.error || error.response?.data?.message || messagesService.get('ERRORS.PAYMENT_INIT_ERROR');
             UIUtils.showError(msg);
             this.screen.switchScreen(this.dom.elements.screens.payment, 'back');
+        }
+    }
+
+    _displayQrCode(qrImage) {
+        if (!qrImage) return;
+        const qrGuide = this.dom.get('loading.qrGuide');
+        const nequiGuide = this.dom.get('loading.nequiGuide');
+        const logoContainer = this.dom.get('loading.logoContainer');
+        const qrImg = this.dom.get('loading.qrImageDisplay');
+        const statusLabel = this.dom.get('loading.statusLabel');
+
+        if (nequiGuide) nequiGuide.classList.add('hidden');
+        if (logoContainer) logoContainer.classList.add('hidden');
+        if (qrGuide) qrGuide.classList.remove('hidden');
+        if (statusLabel) statusLabel.textContent = messagesService.get('PAYMENT_METHODS.QR.SCAN_HINT');
+
+        if (qrImg) {
+            qrImg.src = qrImage.startsWith('data:')
+                ? qrImage
+                : `data:image/svg+xml;base64,${qrImage}`;
         }
     }
 
@@ -1008,6 +1152,17 @@ class PaymentManager {
                 if (pendingLabel) pendingLabel.textContent = data.message;
             }
 
+            // ── DIAGNOSTIC ──────────────────────────────────────────────────
+            console.log('[SSE]', data.status, data.message || '');
+            if (data.qrImage) {
+                console.log('[SSE-QR] qrImage prefix (80 chars):', String(data.qrImage).substring(0, 80));
+            }
+            // ────────────────────────────────────────────────────────────────
+
+            if (data.status === 'QR_READY' && data.qrImage) {
+                this._displayQrCode(data.qrImage);
+            }
+
             if (data.status === 'COMPLETED') {
                 await this._handlePaymentSuccess(data);
             } else if (['DECLINED', 'ERROR', 'VOIDED'].includes(data.status)) {
@@ -1040,7 +1195,50 @@ class PaymentManager {
         }
     }
 
+    _startCountdownTimer(createdAt) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
+
+        const startTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+        const durationMs = CONFIG.MAX_TIMEOUT; // 15 minutos = 900,000 ms
+
+        const updateTimer = () => {
+            const now = Date.now();
+            const elapsedMs = now - startTime;
+            const remainingMs = Math.max(0, durationMs - elapsedMs);
+            const remainingSeconds = Math.floor(remainingMs / 1000);
+
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            const timerValEl = this.dom.get('loading.timerVal');
+            if (timerValEl) {
+                timerValEl.textContent = formattedTime;
+            }
+
+            if (remainingSeconds <= 0) {
+                if (STATE.countdownInterval) {
+                    clearInterval(STATE.countdownInterval);
+                    STATE.countdownInterval = null;
+                }
+                if (timerValEl) {
+                    timerValEl.textContent = 'Expirado';
+                }
+            }
+        };
+
+        updateTimer();
+        STATE.countdownInterval = setInterval(updateTimer, 1000);
+    }
+
     async _handlePaymentSuccess(data) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1066,6 +1264,10 @@ class PaymentManager {
     }
 
     async _handlePaymentFailure(data) {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1075,6 +1277,10 @@ class PaymentManager {
     }
 
     async _handlePaymentTimeout() {
+        if (STATE.countdownInterval) {
+            clearInterval(STATE.countdownInterval);
+            STATE.countdownInterval = null;
+        }
         STATE.eventSource.close();
         STATE.eventSource = null;
 
@@ -1108,27 +1314,32 @@ class EventHandler {
         const buttons = this.dom.get('keypad.buttons');
         if (buttons) {
             buttons.forEach(btn => {
-                btn.removeAttribute('disabled'); // Enable button
-                btn.addEventListener('click', () => {
+                const handleDigit = (e) => {
+                    if (e.cancelable) e.preventDefault();
                     const val = btn.dataset.val;
                     const isReady = this.pinManager.addDigit(val);
                     if (isReady) {
                         this._handleLogin();
                     }
-                });
+                };
+                btn.addEventListener('pointerdown', handleDigit);
             });
         }
 
         const clearBtn = this.dom.get('keypad.clear');
         if (clearBtn) {
-            clearBtn.removeAttribute('disabled'); // Enable button
-            clearBtn.addEventListener('click', () => this.pinManager.clear());
+            clearBtn.addEventListener('pointerdown', (e) => {
+                if (e.cancelable) e.preventDefault();
+                this.pinManager.clear();
+            });
         }
 
         const backspaceBtn = this.dom.get('keypad.backspace');
         if (backspaceBtn) {
-            backspaceBtn.removeAttribute('disabled'); // Enable button
-            backspaceBtn.addEventListener('click', () => this.pinManager.clear());
+            backspaceBtn.addEventListener('pointerdown', (e) => {
+                if (e.cancelable) e.preventDefault();
+                this.pinManager.removeDigit();
+            });
         }
 
         const pin = this.dom.get('inputs.pin');
@@ -1169,9 +1380,9 @@ class EventHandler {
             this._toggleMoreOptions();
         });
 
-        // Month navigation — buttons are in the static HTML so use direct listeners
-        const prevBtn = document.getElementById('monthPrevBtn');
-        const nextBtn = document.getElementById('monthNextBtn');
+        // Month navigation
+        const prevBtn = this.dom.get('history.prevBtn');
+        const nextBtn = this.dom.get('history.nextBtn');
 
         const navigateMonth = (delta) => {
             const now = new Date();
@@ -1182,6 +1393,7 @@ class EventHandler {
             if (m > 12) { m = 1; y++; }
             STATE.historyMonth = m;
             STATE.historyYear = y;
+            STATE.historyLoaded = true;
             this.payment.loadHistory(m, y);
         };
 
@@ -1202,7 +1414,7 @@ class EventHandler {
             if (!loginScreen?.classList.contains('active')) return;
 
             if (/\d/.test(e.key)) {
-                const btn = document.querySelector(`.keypad-btn[data-val="${e.key}"]`);
+                const btn = Array.from(this.dom.get('keypad.buttons') || []).find(b => b.dataset.val === e.key);
                 if (btn) btn.click();
             }
             if (e.key === 'Backspace') {
@@ -1233,6 +1445,7 @@ class EventHandler {
 
             STATE.authToken = data.token;
             localStorage.setItem('paymentAuthToken', STATE.authToken);
+            localStorage.setItem('paymentDeviceId', deviceId);
             STATE.fromLogin = true;
             this.screen.switchScreen(this.dom.get('screens.payment'));
 
@@ -1275,7 +1488,7 @@ class EventHandler {
         const moreSection = this.dom.get('sections.moreOptions');
         const paymentSection = this.dom.get('sections.payment');
         const container = paymentSection?.closest('.container');
-        const monthSelector = document.getElementById('monthSelector');
+        const monthSelector = this.dom.get('history.selector');
 
         moreSection?.classList.toggle('expanded');
         paymentSection?.classList.toggle('compact');
@@ -1290,16 +1503,37 @@ class EventHandler {
 
         this._updateReminderVisibility(isExpanded);
 
+        const toggleBtn = document.getElementById('toggle-schedule-btn');
+        if (toggleBtn) {
+            toggleBtn.classList.toggle('is-expanded', isExpanded);
+        }
+
+        const moreRow = document.querySelector('.more-options-row');
+        if (moreRow) {
+            moreRow.classList.toggle('is-expanded', isExpanded);
+        }
+
+        const accordionLabel = document.getElementById('accordion-label');
+        if (accordionLabel && !isExpanded) {
+            accordionLabel.textContent = 'Más información';
+        }
+
         const btn = this.dom.get('buttons.morePayment');
-        if (btn) {
+        if (btn && btn.id === 'morePaymentOptions') {
             btn.textContent = isExpanded ? messagesService.get('BUTTONS.MORE_OPTIONS') + ' ▲' : messagesService.get('BUTTONS.MORE_OPTIONS') + ' ▼';
+        }
+
+        // Lazy load history on demand when user opens the list
+        if (isExpanded && !STATE.historyLoaded) {
+            STATE.historyLoaded = true;
+            this.payment.loadHistory(STATE.historyMonth, STATE.historyYear);
         }
     }
 
     _updateReminderVisibility(isExpanded) {
         const pending = this.dom.get('pendingPayment.container');
         const normal = this.dom.get('pendingPayment.normal');
-        const cuotasBadge = document.querySelector('.cuotas-pill-badge');
+        const cuotasBadge = this.dom.get('paymentSection.cuotasBadge');
 
         if (pending) {
             pending.style.display = isExpanded ? 'none' : (pending.dataset.shouldShow === 'true' ? 'flex' : 'none');
@@ -1325,7 +1559,7 @@ class EventHandler {
     }
 
     _shakeAndVibrate() {
-        const display = document.getElementById('pinDisplay');
+        const display = this.dom.get('keypad.pinDisplay');
         if (display) {
             display.classList.remove('shake');
             void display.offsetWidth;
@@ -1350,7 +1584,7 @@ class EventHandler {
 async function initPaymentApp() {
     const dom = new DOMManager();
     dom.initialize();
-
+    UIUtils.init(dom);
 
     const pinManager = new PINManager(dom);
     const screen = new ScreenManager(dom);
@@ -1358,10 +1592,40 @@ async function initPaymentApp() {
     const payment = new PaymentManager(dom, screen, modal);
     const events = new EventHandler(dom, pinManager, screen, modal, payment);
 
-    // Show screen ASAP
+    // Show screen ASAP with plate matching verification
+    const targetPlate = window.__INITIAL_DATA__?.deviceId || STATE.urlDeviceId || (function () {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        return parts.length >= 2 && parts[0] === 'p' ? parts[1] : null;
+    })();
+
     const savedToken = localStorage.getItem('paymentAuthToken');
+    let validSession = false;
+
     if (savedToken) {
-        STATE.authToken = savedToken;
+        let tokenDevice = null;
+        try {
+            const parts = savedToken.split('.');
+            if (parts.length >= 2) {
+                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                tokenDevice = payload.deviceIdName;
+            }
+        } catch (e) {
+            console.warn('Failed to parse token device', e);
+        }
+
+        if (targetPlate && tokenDevice && targetPlate.toUpperCase() !== tokenDevice.toUpperCase()) {
+            console.log(`Plate changed from ${tokenDevice} to ${targetPlate}. Clearing session.`);
+            localStorage.removeItem('paymentAuthToken');
+            localStorage.removeItem('paymentDeviceId');
+            STATE.authToken = null;
+            validSession = false;
+        } else {
+            validSession = true;
+            STATE.authToken = savedToken;
+        }
+    }
+
+    if (validSession) {
         screen.switchScreen(dom.get('screens.payment'));
         payment.loadData(true).catch(() => payment.logout());
     } else {
