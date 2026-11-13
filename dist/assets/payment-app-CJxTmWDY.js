@@ -1,6 +1,7 @@
 import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getAdjustmentTypes } from './api.js';
 import messagesService from './messages-service.js';
 import { Templates } from './templates.js';
+import { STATUS_CLASS_MAP as DEFAULT_STATUS_MAP } from './status-map.js';
 // ============================================================================
 // Constants & Configuration
 // ============================================================================
@@ -14,8 +15,8 @@ let CONFIG = {
     DRAG_THRESHOLD: 100,
     TRANSITION_DURATION: 500
 };
-// Server-injected status map (injected in HTML head via brandingService at millisecond 0)
-const STATUS_CLASS_MAP = window.__INITIAL_DATA__?.statusMap || {};
+// Status catalog for invoice history badges
+const STATUS_CLASS_MAP = window.__INITIAL_DATA__?.statusMap || DEFAULT_STATUS_MAP;
 // ============================================================================
 // State Management
 // ============================================================================
