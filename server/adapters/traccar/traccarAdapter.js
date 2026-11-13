@@ -313,11 +313,9 @@ class MyTraccar {
                 this.updatePositions(data.positions);
             }
             if (data.events) {
-                console.log('Events:', data.events);
-                //  if (!features.disableEvents) {
-                // dispatch(eventsActions.add(data.events));
-                // }
-                //setEvents(data.events);
+                import('../../services/alertService.js').then(({ default: alertService }) => {
+                    alertService.processTraccarEvents(data.events);
+                }).catch(err => logger.error('[Traccar] Error processing events in alertService:', err));
             }
             if (data.logs) {
                 //  dispatch(sessionActions.updateLogs(data.logs));

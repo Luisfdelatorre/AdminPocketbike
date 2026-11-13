@@ -7,6 +7,7 @@ import { Company } from '../models/Company.js';
 import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES, GPS_THROTTLE } from '../config/config.js';
 import GpsService from '../services/gpsServices.js';
 import companyService from './companyService.js';
+import alertService from './alertService.js';
 
 import helper from '../utils/helpers.js';
 import logger from '../utils/logger.js';
@@ -123,6 +124,17 @@ const initializeGpsUpdates = async () => {
                         const payload = typeof mem.toSsePayload === 'function' ? mem.toSsePayload() : mem;
                         _pendingSseByCompany.get(cid).set(mem.gpsId, payload);
                     }
+                }
+
+                // Security telemetry alert detection (Power cut, unauthorized ignition, towing/motion in cutoff, etc.)
+                if (update.powerCut || (mem.cutOff && (update.motion || update.ignition || (update.speed && update.speed > 5))) || update.rawAlarm) {
+                    alertService.processTelemetryAlert(mem, update, {
+                        latitude: update.latitude,
+                        longitude: update.longitude,
+                        speed: update.speed,
+                        address: update.address,
+                        attributes: { alarm: update.rawAlarm }
+                    }).catch(err => logger.error('[DeviceServices] Error in alert processing:', err));
                 }
             }
         }

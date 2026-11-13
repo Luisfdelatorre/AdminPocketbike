@@ -26,6 +26,7 @@ import companyBillingRouter from './routes/companyBillingRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
 import systemJobsRoutes from './routes/systemJobsRoutes.js';
 import commandsRouter from './routes/commandsRoutes.js';
+import alertsRouter from './routes/alertsRoutes.js';
 import cron from "./cron-server/cron.js";
 import jobRegistry from "./cron-server/jobRegistry.js";
 import syncDailyKm, { syncYesterdayKm } from './cron-server/jobs/syncDailyKm.js';
@@ -80,6 +81,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
     app.use(`${prefix}/system-jobs`, systemJobsRoutes);
     app.use(`${prefix}/settings`, settingsRoutes);
     app.use(`${prefix}/commands`, commandsRouter);
+    app.use(`${prefix}/alerts`, alertsRouter);
 });
 
 // Serve uploaded documents

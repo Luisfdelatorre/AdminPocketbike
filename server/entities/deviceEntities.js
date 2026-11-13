@@ -52,6 +52,12 @@ export class DeviceUpdate {
         if (p.attributes?.motion !== undefined) {
             this.motion = Boolean(p.attributes.motion);
         }
+
+        this.latitude = p.latitude ?? null;
+        this.longitude = p.longitude ?? null;
+        this.speed = p.speed ?? 0;
+        this.address = p.address ?? null;
+        this.rawAlarm = p.attributes?.alarm ?? null;
     }
 }
 
