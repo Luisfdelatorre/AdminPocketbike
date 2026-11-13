@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent } from 'lucide-react';
+import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, Zap, MapPin, Bell, ShieldCheck } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
-import { getSettings, updateSettings, syncDevices, validateTraccarConnection } from '../services/api';
+import { getSettings, updateSettings, syncDevices, validateTraccarConnection, getTraccarNotifications, updateTraccarNotifications } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import './Settings.css';
@@ -75,6 +75,51 @@ const Settings = () => {
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
     const [isValidatingTraccar, setIsValidatingTraccar] = useState(false);
     const [traccarValidationResult, setTraccarValidationResult] = useState(null);
+    const [traccarNotifs, setTraccarNotifs] = useState({
+        batteryAlerts: false,
+        geofenceAlerts: false,
+        vibrationAlerts: false
+    });
+    const [isLoadingTraccarNotifs, setIsLoadingTraccarNotifs] = useState(false);
+    const [isUpdatingTraccarNotif, setIsUpdatingTraccarNotif] = useState(false);
+
+    const loadTraccarNotifications = async () => {
+        if (!settings.gpsConfig?.user) return;
+        setIsLoadingTraccarNotifs(true);
+        try {
+            const res = await getTraccarNotifications('me');
+            if (res?.success && res.settings) {
+                setTraccarNotifs(res.settings);
+            }
+        } catch (err) {
+            console.warn('[Settings] Error fetching Traccar notifications:', err.message);
+        } finally {
+            setIsLoadingTraccarNotifs(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'integrations' && settings.gpsConfig?.user) {
+            loadTraccarNotifications();
+        }
+    }, [activeTab, settings.gpsConfig?.user]);
+
+    const handleToggleTraccarNotif = async (key, val) => {
+        const nextState = { ...traccarNotifs, [key]: val };
+        setTraccarNotifs(nextState);
+        setIsUpdatingTraccarNotif(true);
+        try {
+            const res = await updateTraccarNotifications('me', nextState);
+            if (res?.success && res.settings) {
+                setTraccarNotifs(res.settings);
+            }
+        } catch (err) {
+            console.error('Error updating Traccar notification:', err);
+            setTraccarNotifs(prev => ({ ...prev, [key]: !val }));
+        } finally {
+            setIsUpdatingTraccarNotif(false);
+        }
+    };
 
 
     const handleSyncDevices = async () => {
@@ -112,6 +157,7 @@ const Settings = () => {
                 if (data.selectedGroup?.id) {
                     handleNestedChange('gpsConfig', 'groupId', data.selectedGroup.id);
                 }
+                loadTraccarNotifications();
             } else {
                 setTraccarValidationResult({
                     success: false,
@@ -1244,6 +1290,90 @@ const Settings = () => {
                                             border: `1px solid ${traccarValidationResult.success ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
                                         }}>
                                             {traccarValidationResult.message}
+                                        </div>
+                                    )}
+
+                                    {/* ── Reglas y Notificaciones Traccar por Compañía ── */}
+                                    {settings.gpsConfig?.user && (
+                                        <div className="traccar-rules-card">
+                                            <div className="traccar-rules-header">
+                                                <div className="traccar-rules-header-title">
+                                                    <ShieldCheck size={16} style={{ color: '#0284c7' }} />
+                                                    <span>Reglas y Notificaciones Traccar</span>
+                                                    {isLoadingTraccarNotifs && <RefreshCw size={13} className="spinning text-muted" />}
+                                                </div>
+                                                <span className="traccar-rules-header-sub">
+                                                    Configura las alarmas y políticas que el servidor GPS despacha en tiempo real para esta empresa
+                                                </span>
+                                            </div>
+
+                                            <div className="traccar-rules-list">
+                                                {/* 1. Alertas de Batería y Energía */}
+                                                <div className="traccar-rule-row">
+                                                    <div className="traccar-rule-info">
+                                                        <div className="traccar-rule-title-row">
+                                                            <Zap size={15} style={{ color: '#eab308' }} />
+                                                            <span className="traccar-rule-name">Alertas de Batería y Energía</span>
+                                                        </div>
+                                                        <span className="traccar-rule-desc">
+                                                            Corte de batería externa (Power Cut) y batería baja del GPS (Low Battery)
+                                                        </span>
+                                                    </div>
+                                                    <label className="switch-ios">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={Boolean(traccarNotifs.batteryAlerts)}
+                                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                                            onChange={(e) => handleToggleTraccarNotif('batteryAlerts', e.target.checked)}
+                                                        />
+                                                        <span className="slider-ios"></span>
+                                                    </label>
+                                                </div>
+
+                                                {/* 2. Salida de Geocerca */}
+                                                <div className="traccar-rule-row">
+                                                    <div className="traccar-rule-info">
+                                                        <div className="traccar-rule-title-row">
+                                                            <MapPin size={15} style={{ color: '#0284c7' }} />
+                                                            <span className="traccar-rule-name">Regla de Salida de Geocerca</span>
+                                                        </div>
+                                                        <span className="traccar-rule-desc">
+                                                            Detección de salida de perímetro autorizado con corte de motor automático
+                                                        </span>
+                                                    </div>
+                                                    <label className="switch-ios">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={Boolean(traccarNotifs.geofenceAlerts)}
+                                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                                            onChange={(e) => handleToggleTraccarNotif('geofenceAlerts', e.target.checked)}
+                                                        />
+                                                        <span className="slider-ios"></span>
+                                                    </label>
+                                                </div>
+
+                                                {/* 3. Vibración y Golpes */}
+                                                <div className="traccar-rule-row">
+                                                    <div className="traccar-rule-info">
+                                                        <div className="traccar-rule-title-row">
+                                                            <Bell size={15} style={{ color: '#a855f7' }} />
+                                                            <span className="traccar-rule-name">Alarma de Vibración / Golpe</span>
+                                                        </div>
+                                                        <span className="traccar-rule-desc">
+                                                            Reporta manipulación, vibración o golpes cuando el vehículo está estacionado
+                                                        </span>
+                                                    </div>
+                                                    <label className="switch-ios">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={Boolean(traccarNotifs.vibrationAlerts)}
+                                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                                            onChange={(e) => handleToggleTraccarNotif('vibrationAlerts', e.target.checked)}
+                                                        />
+                                                        <span className="slider-ios"></span>
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

@@ -219,6 +219,8 @@ export const exportPaymentsCSV = async (month, year, companyId = '') => {
 export const getSettings = () => api.get('/companies/settings');
 export const updateSettings = (data) => api.put('/companies/settings', data);
 export const validateTraccarConnection = (data) => api.post('/companies/validate-traccar', data);
+export const getTraccarNotifications = (companyId = 'me') => api.get(`/companies/${companyId}/traccar-notifications`);
+export const updateTraccarNotifications = (companyId = 'me', data) => api.put(`/companies/${companyId}/traccar-notifications`, data);
 export const getAdjustmentTypes = () => api.get('/settings/adjustment-types');
 export const updateAdjustmentTypes = (data) => api.put('/settings/adjustment-types', data);
 export const getPaymentStatuses = () => api.get('/settings/payment-status');
