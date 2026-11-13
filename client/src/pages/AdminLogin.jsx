@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -11,17 +11,36 @@ const AdminLogin = () => {
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(true);
     const [loading, setLoading] = useState(false);
-    const { loginAdmin } = useAuth();
+    const { loginAdmin, isAuthenticated, authType, loading: authLoading } = useAuth();
     const { t } = useTranslation();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!authLoading && isAuthenticated() && authType === 'admin') {
+            navigate('/', { replace: true });
+            return;
+        }
+
+        const rememberedEmail = localStorage.getItem('remembered_admin_email');
+        if (rememberedEmail) {
+            setEmail(rememberedEmail);
+            setRememberMe(true);
+        }
+    }, [authLoading, isAuthenticated, authType, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
-        const result = await loginAdmin(email, password, rememberMe);
+        const trimmedEmail = email.trim();
+        const result = await loginAdmin(trimmedEmail, password, rememberMe);
 
         if (result.success) {
+            if (rememberMe) {
+                localStorage.setItem('remembered_admin_email', trimmedEmail);
+            } else {
+                localStorage.removeItem('remembered_admin_email');
+            }
             showToast('success', t('login.welcome'), t('login.loginSuccess'));
             navigate('/');
         } else {

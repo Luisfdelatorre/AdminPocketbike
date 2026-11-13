@@ -36,17 +36,30 @@ export const AuthProvider = ({ children }) => {
     // Admin login
     const loginAdmin = async (email, password, rememberMe = true) => {
         try {
-            const result = await login({ email, password });
+            const result = await login({ email, password, rememberMe });
 
             if (result.success) {
                 setToken(result.data.token);
                 setUser(result.data.user);
                 setAuthType('admin');
 
-                const storage = rememberMe ? localStorage : sessionStorage;
-                storage.setItem('auth_token', result.data.token);
-                storage.setItem('auth_type', 'admin');
-                storage.setItem('auth_user', JSON.stringify(result.data.user));
+                if (rememberMe) {
+                    sessionStorage.removeItem('auth_token');
+                    sessionStorage.removeItem('auth_type');
+                    sessionStorage.removeItem('auth_user');
+
+                    localStorage.setItem('auth_token', result.data.token);
+                    localStorage.setItem('auth_type', 'admin');
+                    localStorage.setItem('auth_user', JSON.stringify(result.data.user));
+                } else {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('auth_type');
+                    localStorage.removeItem('auth_user');
+
+                    sessionStorage.setItem('auth_token', result.data.token);
+                    sessionStorage.setItem('auth_type', 'admin');
+                    sessionStorage.setItem('auth_user', JSON.stringify(result.data.user));
+                }
 
                 return { success: true };
             } else {
