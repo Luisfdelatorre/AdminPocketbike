@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
 import fs from 'fs/promises';
+import { saveLogoToFile } from '../utils/logoStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +37,11 @@ export async function getCompanyBranding(deviceName) {
 
             if (company) {
                 displayName = company.displayName || 'PocketBike';
-                logo = company.logo || '/pocketbike_60x60.jpg';
+                let rawLogo = company.logo || '/pocketbike_60x60.jpg';
+                if (typeof rawLogo === 'string' && rawLogo.startsWith('data:image/')) {
+                    rawLogo = await saveLogoToFile(company._id.toString(), rawLogo);
+                }
+                logo = rawLogo;
             }
         }
 
@@ -52,8 +57,6 @@ export async function getCompanyBranding(deviceName) {
         };
     }
 }
-
-import settingRepository from '../repositories/settingRepository.js';
 
 let cachedTemplate = null;
 
@@ -76,29 +79,9 @@ export async function injectBrandingIntoHTML(htmlPath, branding, deviceName = ''
         // Replace all instances of company logo placeholder
         html = html.replace(/{{COMPANY_LOGO}}/g, logo);
 
-        // Build status catalog for pre-injection (zero extra HTTP requests)
-        let statusMap = {};
-        try {
-            const allConfigs = await settingRepository.getAllStatusConfigs();
-            Object.entries(allConfigs).forEach(([k, cfg]) => {
-                const item = {
-                    badgeLabel: cfg.badgeLabel || cfg.label || k,
-                    color: cfg.color || '#6b7280',
-                    bg: cfg.bg || 'transparent'
-                };
-                statusMap[k] = item;
-                if (cfg.badgeLabel && cfg.badgeLabel.toUpperCase() !== k.toUpperCase()) {
-                    statusMap[cfg.badgeLabel.toUpperCase()] = item;
-                }
-            });
-        } catch (err) {
-            console.error('Error getting status configs for HTML injection:', err);
-        }
-
         const initialData = {
             deviceId: deviceName,
-            branding: { displayName, logo },
-            statusMap
+            branding: { displayName, logo }
         };
 
         const injectedScript = `<script id="pb-injected-data">window.__INITIAL_DATA__ = ${JSON.stringify(initialData)};</script>`;

@@ -6,6 +6,7 @@ import { GPS_SERVICES } from '../config/components/constants.js';
 import GpsService from './gpsServices.js';
 import dayjs from '../config/dayjs.js';
 import { triggerCronReload } from '../utils/cronClient.js';
+import { saveLogoToFile } from '../utils/logoStorage.js';
 
 class CompanyService {
     constructor() {
@@ -360,7 +361,9 @@ class CompanyService {
 
         const { displayName, logo, automaticCutOff, cutOffStrategy } = data;
         if (displayName !== undefined) company.displayName = displayName;
-        if (logo !== undefined) company.logo = logo;
+        if (logo !== undefined) {
+            company.logo = await saveLogoToFile(companyId, logo);
+        }
         if (automaticCutOff !== undefined) company.automaticCutOff = automaticCutOff;
         if (cutOffStrategy !== undefined) company.cutOffStrategy = Boolean(automaticCutOff) ? cutOffStrategy : 3;
 
