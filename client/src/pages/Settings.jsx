@@ -1591,20 +1591,6 @@ const Settings = () => {
                                 </div>
                             </div>
                         </div>
-
-                        {/* ACCIÓN PRINCIPAL INFERIOR */}
-                        <div style={{ width: '100%', paddingTop: '0.25rem' }}>
-                            <button
-                                type="button"
-                                className="btn-main-save-integrations"
-                                id="btn-main-save"
-                                onClick={handleSave}
-                                disabled={Boolean(savingSections['all'])}
-                            >
-                                <CheckCircle size={20} />
-                                <span>{savingSections['all'] ? 'Guardando cambios...' : 'Guardar y Aplicar Cambios'}</span>
-                            </button>
-                        </div>
                     </div>
                 )}
 
