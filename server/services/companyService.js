@@ -238,14 +238,9 @@ class CompanyService {
             };
         }
 
-        if (company.gpsService === 'traccar' && company.gpsConfig) {
-            const autoGroupId = await this.autoFetchTraccarGroupId(company.gpsConfig);
-            if (autoGroupId) {
-                company.gpsConfig.groupId = autoGroupId;
-                company.traccarGroupId = autoGroupId;
-            } else if (company.gpsConfig.groupId) {
-                company.traccarGroupId = company.gpsConfig.groupId;
-            }
+        // Synchronize traccarGroupId from validated gpsConfig without making blocking external HTTP calls
+        if (company.gpsConfig?.groupId) {
+            company.traccarGroupId = company.gpsConfig.groupId;
         }
 
         await companyRepository.save(company);

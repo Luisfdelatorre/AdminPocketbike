@@ -80,6 +80,7 @@ const Settings = () => {
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
     const [isValidatingTraccar, setIsValidatingTraccar] = useState(false);
     const [traccarValidationResult, setTraccarValidationResult] = useState(null);
+    const [isTraccarValidated, setIsTraccarValidated] = useState(true);
     const [traccarNotifs, setTraccarNotifs] = useState({
         batteryAlerts: false,
         geofenceAlerts: false,
@@ -163,17 +164,20 @@ const Settings = () => {
                     success: true,
                     message: `Conexión exitosa. Usuario: ${data.user?.name || data.user?.email || 'OK'} | Grupo: ${groupName}${timingStr}`
                 });
+                setIsTraccarValidated(true);
                 if (data.selectedGroup?.id) {
                     handleNestedChange('gpsConfig', 'groupId', data.selectedGroup.id);
                 }
                 loadTraccarNotifications();
             } else {
+                setIsTraccarValidated(false);
                 setTraccarValidationResult({
                     success: false,
                     message: res?.error || res?.data?.error || 'Error al validar credenciales de Traccar'
                 });
             }
         } catch (err) {
+            setIsTraccarValidated(false);
             setTraccarValidationResult({
                 success: false,
                 message: err.response?.data?.error || err.message || 'Error de conexión con Traccar'
@@ -192,6 +196,10 @@ const Settings = () => {
             ...prev,
             [field]: value
         }));
+        if (field === 'gpsService') {
+            setIsTraccarValidated(false);
+            setTraccarValidationResult(null);
+        }
         setSaved(false);
     };
 
@@ -222,6 +230,7 @@ const Settings = () => {
                             companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
                         };
                         initialSettingsRef.current = JSON.parse(JSON.stringify(loaded));
+                        setIsTraccarValidated(Boolean(loaded.gpsConfig?.groupId));
                         return loaded;
                     });
                 }
@@ -421,6 +430,16 @@ const Settings = () => {
             // Compute dirty diff against initial loaded snapshot
             const allDirty = getChangedSettings(settings, initialSettingsRef.current);
 
+            // Validation check: if telemetry provider or credentials were changed, enforce Traccar connection validation
+            const isGpsDirty = Boolean(allDirty.gpsService !== undefined || allDirty.gpsConfig !== undefined);
+            if (((section === 'all' && isGpsDirty) || section === 'gps') && settings.gpsService === 'traccar') {
+                if (!isTraccarValidated) {
+                    alert('Debes validar la conexión de Traccar antes de guardar los cambios de proveedor o credenciales de telemetría.');
+                    setSavingSections(prev => ({ ...prev, [section]: false }));
+                    return;
+                }
+            }
+
             // Filter dirty fields if saving a specific section
             let payload = {};
             if (section === 'all') {
@@ -469,6 +488,7 @@ const Settings = () => {
 
                 // Update baseline snapshot so subsequent saves know these are persisted
                 initialSettingsRef.current = JSON.parse(JSON.stringify(settings));
+                setIsTraccarValidated(true);
 
                 // Mark section as saved
                 setSavedSections(prev => ({ ...prev, [section]: true }));
@@ -611,6 +631,10 @@ const Settings = () => {
                 [field]: value
             }
         }));
+        if (category === 'gpsConfig' && field !== 'groupId') {
+            setIsTraccarValidated(false);
+            setTraccarValidationResult(null);
+        }
         setSaved(false);
     };
 
@@ -1459,6 +1483,24 @@ const Settings = () => {
 
                                     {/* Botón de Test y Latencia Card */}
                                     <div style={{ paddingTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {!isTraccarValidated && (
+                                            <div className="telemetry-validation-alert" style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.625rem',
+                                                padding: '0.75rem 1rem',
+                                                borderRadius: '0.75rem',
+                                                background: 'rgba(245, 158, 11, 0.08)',
+                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                color: '#b45309',
+                                                fontSize: '0.8125rem',
+                                                fontWeight: 500,
+                                                marginBottom: '0.25rem'
+                                            }}>
+                                                <ShieldAlert size={18} color="#d97706" style={{ flexShrink: 0 }} />
+                                                <span>Has modificado el proveedor o credenciales de telemetría. Debes validar la conexión para descubrir el grupo y habilitar el guardado.</span>
+                                            </div>
+                                        )}
                                         <button
                                             type="button"
                                             className="btn-validate-traccar"
