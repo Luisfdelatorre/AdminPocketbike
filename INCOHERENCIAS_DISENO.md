@@ -560,6 +560,32 @@ La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba diverge
    * Eliminación total de estilos inline con colores fijos en `Settings.jsx`.
    * Reorganización modular de `Settings.css` en 13 secciones limpias, reduciendo su tamaño de 1,918 líneas a ~740 líneas (~61% de reducción de código).
 
+---
+
+## 24. Rediseño Transaccional Móvil de Facturas e Infinite Scroll
+
+### El Problema
+En la versión móvil de la vista de Facturas (`/invoices`), la interfaz presentaba fricciones de usabilidad heredadas de la vista de escritorio:
+- Cuatro tarjetas de estadísticas rectangulares (`StatCard`) apiladas que ocupaban gran altura vertical antes de llegar al contenido.
+- Filas de facturas en tabla condensada con columnas rígidas propensas a corte de texto en pantallas pequeñas.
+- Paginación tradicional numérica (`1 / 15` con botones de flechas) poco ergonómica para navegación táctil con una sola mano.
+- Falta de acceso rápido para registrar pagos o ajustes sin tener que abrir menús secundarios.
+
+### Solución Implementada
+1. **Header Móvil y Filtros Semánticos**:
+   * Selector de fecha en píldora compacta (`[📅 Nov 2026 ▾]`) con picker nativo integrado.
+   * Barra de búsqueda redondeada `rounded-full` y píldoras horizontales con conteos dinámicos (`Todas`, `Pagadas`, `Pendientes`, `Gratis`).
+2. **Tarjeta de Métricas Consolidada**:
+   * Una sola tarjeta con barra de progreso bicromática (verde cobrado vs rojo en mora) y tres columnas (`Cobrado`, `En mora`, `Emitidas`) optimizando ~120px verticales.
+3. **Layout de Factura Transaccional & Swipe-to-Action**:
+   * Formato tipo Apple Wallet / lista nativa con avatares semánticos circulares según estado (`PAGADO`, `PENDIENTE`, `GRATIS`).
+   * Deslizamiento táctil (*swipe left*) en facturas pendientes para revelar botones de acción rápida: **Editar** y **Pagar**.
+4. **Infinite Scroll (Swipe Up)**:
+   * Eliminación completa de la paginación clásica en móvil, sustituida por carga continua automática (`IntersectionObserver`) concatenando lotes progresivos con indicador de estado y spinner.
+5. **Barra de Navegación Inferior Flotante**:
+   * Cápsula flotante redondeada con desenfoque de fondo (`backdrop-filter: blur(20px)`), elevación suave y barra táctil inferior iOS.
+
+
 
 
 
