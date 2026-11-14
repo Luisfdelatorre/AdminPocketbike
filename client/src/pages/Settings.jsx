@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { 
     Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, 
     Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, 
-    Zap, MapPin, Bell, ShieldCheck, Server, Globe, User, Key, Eye, EyeOff, 
+    Zap, MapPin, Bell, BellRing, ShieldCheck, Server, Globe, User, Key, Eye, EyeOff, 
     Smartphone, QrCode, CheckCircle, Check, Radio, Info, Mail
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
@@ -1656,7 +1656,7 @@ const Settings = () => {
                                         onClick={() => handleNestedChange('wompiConfig', 'paymentMethod', 'NEQUI_PUSH')}
                                         className={`wompi-toggle-btn ${(settings.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH') === 'NEQUI_PUSH' ? 'active' : 'inactive'}`}
                                     >
-                                        <Smartphone size={16} />
+                                        <BellRing size={18} />
                                         <span>Nequi Push</span>
                                     </button>
                                     <button
@@ -1665,7 +1665,7 @@ const Settings = () => {
                                         onClick={() => handleNestedChange('wompiConfig', 'paymentMethod', 'BANCOLOMBIA_QR')}
                                         className={`wompi-toggle-btn ${settings.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR' ? 'active' : 'inactive'}`}
                                     >
-                                        <QrCode size={16} />
+                                        <QrCode size={18} />
                                         <span>Bancolombia QR</span>
                                     </button>
                                 </div>
