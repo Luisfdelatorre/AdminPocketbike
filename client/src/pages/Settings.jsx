@@ -1649,7 +1649,12 @@ const Settings = () => {
                             {/* Método de Pago Wompi Toggle Pill */}
                             <div className="wompi-method-section">
                                 <label className="integrations-field-label">Método de Pago Wompi</label>
-                                <div className="wompi-toggle-pill" role="radiogroup" aria-label="Método de Pago Wompi">
+                                <div 
+                                    className={`wompi-toggle-pill ${settings.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR' ? 'is-qr' : 'is-nequi'}`} 
+                                    role="radiogroup" 
+                                    aria-label="Método de Pago Wompi"
+                                >
+                                    <div className="wompi-toggle-indicator" aria-hidden="true" />
                                     <button
                                         type="button"
                                         id="btn-pay-nequi"

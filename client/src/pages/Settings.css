@@ -1000,7 +1000,7 @@
     margin: 0;
 }
 
-/* Wompi Method Toggle Pill (Stadium Capsule Style) */
+/* Wompi Method Toggle Pill (Stadium Capsule Style with Slide Animation) */
 .wompi-method-section {
     display: flex;
     flex-direction: column;
@@ -1010,56 +1010,87 @@
 }
 
 .wompi-toggle-pill {
+    position: relative;
     display: flex;
     background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.08);
     border: 1px solid rgba(var(--brand-teal-rgb, 3, 201, 215), 0.25);
     padding: 0.25rem;
     border-radius: 9999px;
-    gap: 0.375rem;
     width: 100%;
     height: 3.25rem;
     box-sizing: border-box;
     align-items: center;
+    overflow: hidden;
+}
+
+.wompi-toggle-indicator {
+    position: absolute;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    left: 0.25rem;
+    width: calc(50% - 0.25rem);
+    background: var(--brand-teal);
+    border-radius: 9999px;
+    box-shadow: 0 2px 8px rgba(var(--brand-teal-rgb, 3, 201, 215), 0.35);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.wompi-toggle-pill.is-qr .wompi-toggle-indicator {
+    transform: translateX(100%);
+}
+
+.wompi-toggle-pill.is-nequi .wompi-toggle-indicator {
+    transform: translateX(0);
 }
 
 .wompi-toggle-btn {
+    position: relative;
+    z-index: 2;
     flex: 1;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0 1.25rem;
+    padding: 0 0.875rem;
     border-radius: 9999px;
     font-size: 0.875rem;
     font-weight: 600;
     border: none;
+    background: transparent;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
+    text-align: center;
+}
+
+.wompi-toggle-btn span {
+    line-height: 1.2;
+    text-align: center;
 }
 
 .wompi-toggle-btn.active {
-    background: var(--brand-teal);
     color: #FFFFFF;
-    box-shadow: 0 2px 8px rgba(var(--brand-teal-rgb, 3, 201, 215), 0.35);
 }
 
 .wompi-toggle-btn.active svg {
     color: #FFFFFF;
+    transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wompi-toggle-btn.inactive {
-    background: transparent;
     color: var(--brand-teal-dark, #0394A3);
 }
 
 .wompi-toggle-btn.inactive svg {
     color: var(--brand-teal-dark, #0394A3);
+    transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wompi-toggle-btn.inactive:hover {
-    background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.12);
+    opacity: 0.85;
 }
 
 /* ── 10. Sticky Save Footer Bar ── */
