@@ -278,7 +278,7 @@ const Settings = () => {
         ctx.restore();
 
         // Draw square border
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = '#03C9D7';
         ctx.lineWidth = 3;
         ctx.strokeRect(centerX - halfSize, centerY - halfSize, cropSize, cropSize);
     };
@@ -806,7 +806,7 @@ const Settings = () => {
                                             </button>
                                         </div>
                                         <p className="company-logo-hint">
-                                            Recomendado: <strong style={{ color: '#475569', fontWeight: 600 }}>60×60 px</strong>, formatos PNG o JPG, máx 2 MB.
+                                            Recomendado: <strong>60×60 px</strong>, formatos PNG o JPG, máx 2 MB.
                                         </p>
                                     </div>
 
@@ -849,8 +849,8 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Clock size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                    <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Corte Automático</h2>
+                                    <Clock size={20} className="card-icon" />
+                                    <h2 className="card-title-text">Corte Automático</h2>
                                 </div>
                                 <input
                                     id="automaticCutOff"
@@ -900,8 +900,8 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Clock size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                    <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Apagado Nocturno</h2>
+                                    <Clock size={20} className="card-icon" />
+                                    <h2 className="card-title-text">Apagado Nocturno</h2>
                                 </div>
                                 <input
                                     id="curfewEnabled"
@@ -915,7 +915,7 @@ const Settings = () => {
                             {settings.curfew?.enabled && (
                                 <div className="settings-card-content curfew-grid">
                                     <div className="curfew-col">
-                                        <label htmlFor="curfewStartTime" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#64748b' }}>
+                                        <label htmlFor="curfewStartTime" className="curfew-label">
                                             <Clock size={14} /> Apagado
                                         </label>
                                         <div className="settings-card-input-wrapper">
@@ -930,7 +930,7 @@ const Settings = () => {
                                         </div>
                                     </div>
                                     <div className="curfew-col">
-                                        <label htmlFor="curfewEndTime" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#64748b' }}>
+                                        <label htmlFor="curfewEndTime" className="curfew-label">
                                             <Clock size={14} /> Encendido
                                         </label>
                                         <div className="settings-card-input-wrapper">
@@ -952,8 +952,8 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Database size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Ajustes Generales</h2>
+                                    <Database size={20} className="card-icon" />
+                                    <h2 className="card-title-text">Ajustes Generales</h2>
                                 </div>
                             </div>
 
@@ -1091,15 +1091,15 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <DollarSign size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <DollarSign size={20} className="card-icon" />
                                     <div>
-                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Costos Fijos del Contrato</h2>
-                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                        <h2 className="card-title-text">Costos Fijos del Contrato</h2>
+                                        <p className="card-subheading">
                                             Valores base y gastos fijos asociados a la configuración de contratos
                                         </p>
                                     </div>
                                 </div>
-                                <div className="contract-accordion-badge" style={{ background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <div className="contract-accordion-badge">
                                     Total: {formatCurrency(
                                         (Number(settings.contractDefaults?.fixedCosts?.gps) || 0) +
                                         (Number(settings.contractDefaults?.fixedCosts?.soatPosterior) || 0) +
@@ -1180,12 +1180,12 @@ const Settings = () => {
                         <div className="settings-card-section" style={{ marginTop: '1.5rem' }}>
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Percent size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <Percent size={20} className="card-icon" />
                                     <div>
-                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                                        <h2 className="card-title-text">
                                             Parámetros Financieros del Contrato
                                         </h2>
-                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                        <p className="card-subheading">
                                             Tasas, impuestos y proporciones utilizadas en el cálculo matemático y financiero del contrato
                                         </p>
                                     </div>
@@ -1288,11 +1288,11 @@ const Settings = () => {
                             {/* Selector de Proveedor */}
                             <div className="integrations-field-group">
                                 <label className="integrations-field-label">
-                                    Proveedor de Telemetría <span style={{ color: '#0051d5' }}>*</span>
+                                    Proveedor de Telemetría <span className="required-star">*</span>
                                 </label>
                                 <div className="integrations-provider-box">
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, minWidth: 0 }}>
-                                        <Radio size={20} style={{ color: '#006194', flexShrink: 0 }} />
+                                        <Radio size={20} className="provider-radio-icon" />
                                         <select
                                             id="gpsService"
                                             value={settings.gpsService || 'traccar'}
@@ -1315,7 +1315,7 @@ const Settings = () => {
                                     <div className="integrations-field-group">
                                         <label className="integrations-field-label">{t('settings.integrations.megarastreoUsername')}</label>
                                         <div className="integrations-input-box">
-                                            <User size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                            <User size={18} className="field-prefix-icon" />
                                             <input
                                                 className="integrations-input"
                                                 id="mrUser"
@@ -1329,7 +1329,7 @@ const Settings = () => {
                                     <div className="integrations-field-group">
                                         <label className="integrations-field-label">{t('settings.integrations.megarastreoPassword')}</label>
                                         <div className="integrations-input-box">
-                                            <Key size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                            <Key size={18} className="field-prefix-icon" />
                                             <input
                                                 className="integrations-input"
                                                 id="mrPass"
@@ -1342,7 +1342,7 @@ const Settings = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setShowTraccarPassword(!showTraccarPassword)}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                                className="btn-input-eye-toggle"
                                                 aria-label="Alternar visibilidad de contraseña"
                                             >
                                                 {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1359,7 +1359,7 @@ const Settings = () => {
                                     <div className="integrations-field-group">
                                         <label className="integrations-field-label">Host Traccar</label>
                                         <div className="integrations-input-box">
-                                            <Globe size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                            <Globe size={18} className="field-prefix-icon" />
                                             <input
                                                 className="integrations-input"
                                                 id="input-host"
@@ -1377,7 +1377,7 @@ const Settings = () => {
                                         <div className="integrations-field-group">
                                             <label className="integrations-field-label">Usuario / Operador</label>
                                             <div className="integrations-input-box">
-                                                <User size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                                <User size={18} className="field-prefix-icon" />
                                                 <input
                                                     className="integrations-input"
                                                     id="input-user"
@@ -1393,7 +1393,7 @@ const Settings = () => {
                                         <div className="integrations-field-group">
                                             <label className="integrations-field-label">Contraseña de Telemetría</label>
                                             <div className="integrations-input-box">
-                                                <Key size={18} style={{ color: '#707881', flexShrink: 0 }} />
+                                                <Key size={18} className="field-prefix-icon" />
                                                 <input
                                                     className="integrations-input"
                                                     id="input-password"
@@ -1406,7 +1406,7 @@ const Settings = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowTraccarPassword(!showTraccarPassword)}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                                    className="btn-input-eye-toggle"
                                                     aria-label="Alternar visibilidad de contraseña"
                                                 >
                                                     {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1432,15 +1432,14 @@ const Settings = () => {
                                             <div className="traccar-status-pill" id="connection-status-pill">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <span
-                                                        className="status-dot-pulse"
-                                                        style={{ backgroundColor: traccarValidationResult.success ? '#16a34a' : '#ba1a1a' }}
+                                                        className={`status-dot-pulse ${traccarValidationResult.success ? 'status-dot-success' : 'status-dot-error'}`}
                                                     />
-                                                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
+                                                    <span className="connection-status-label">
                                                         {traccarValidationResult.message}
                                                     </span>
                                                 </div>
                                                 {traccarValidationResult.success && (
-                                                    <span style={{ fontSize: '0.75rem', color: '#006194', fontWeight: 700 }}>
+                                                    <span className="connection-status-badge">
                                                         Traccar HTTP 200
                                                     </span>
                                                 )}
@@ -1472,11 +1471,11 @@ const Settings = () => {
                                         <div className="group-badge-icon">
                                             <Check size={14} />
                                         </div>
-                                        <p style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600, color: '#0b1c30' }}>
+                                        <p className="group-badge-title">
                                             {settings.gpsConfig?.groupId ? `Grupo vinculado: ID ${settings.gpsConfig.groupId}` : 'Sin grupo vinculado'}
                                         </p>
                                     </div>
-                                    <span style={{ padding: '0.125rem 0.5rem', borderRadius: '9999px', background: '#e5eeff', color: '#0b1c30', fontSize: '0.6875rem', fontWeight: 600 }}>
+                                    <span className="group-badge-counter">
                                         Canales {[traccarNotifs.batteryAlerts, traccarNotifs.geofenceAlerts, traccarNotifs.vibrationAlerts].filter(Boolean).length}/3
                                     </span>
                                 </div>
@@ -1591,7 +1590,7 @@ const Settings = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowWompiPrivKey(!showWompiPrivKey)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                        className="btn-input-eye-toggle"
                                         aria-label="Revelar Llave Privada"
                                     >
                                         {showWompiPrivKey ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1615,7 +1614,7 @@ const Settings = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowWompiIntegrity(!showWompiIntegrity)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                        className="btn-input-eye-toggle"
                                         aria-label="Revelar Secreto de Integridad"
                                     >
                                         {showWompiIntegrity ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1639,7 +1638,7 @@ const Settings = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowWompiEvents(!showWompiEvents)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#707881', display: 'flex', alignItems: 'center' }}
+                                        className="btn-input-eye-toggle"
                                         aria-label="Revelar Secreto de Eventos"
                                     >
                                         {showWompiEvents ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1648,7 +1647,7 @@ const Settings = () => {
                             </div>
 
                             {/* Método de Pago Wompi Toggle Pill */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e5eeff' }}>
+                            <div className="wompi-method-section">
                                 <label className="integrations-field-label">Método de Pago Wompi</label>
                                 <div className="wompi-toggle-pill" role="radiogroup" aria-label="Método de Pago Wompi">
                                     <button
@@ -1698,7 +1697,7 @@ const Settings = () => {
                         </div>
 
                         {/* Sync Devices */}
-                        <div className="setting-item sync-devices-row" style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #E5E7EB', display: 'block' }}>
+                        <div className="setting-item sync-devices-row">
                             <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>{t('settings.system.discoveryTitle')}</h3>
                             <p className="setting-description" style={{ marginBottom: '1.25rem' }}>
                                 {t('settings.system.discoveryDesc')}
@@ -1709,18 +1708,17 @@ const Settings = () => {
                                     onClick={handleSyncDevices}
                                     disabled={syncState.loading}
                                     title="Fetch devices from GPS provider"
-                                    style={{ padding: '0.75rem 1.5rem', background: 'var(--brand-teal)', color: 'white', border: 'none', borderRadius: '0.5rem' }}
                                 >
                                     <RefreshCw size={15} className={syncState.loading ? 'spin' : ''} />
                                     {syncState.loading ? t('settings.system.syncing') : t('settings.system.syncNow')}
                                 </button>
                                 {syncState.result && (
-                                    <span className="sync-result success" style={{ marginLeft: '1rem' }}>
+                                    <span className="sync-result success">
                                         ✓ {syncState.result.message}
                                     </span>
                                 )}
                                 {syncState.error && (
-                                    <span className="sync-result error" style={{ marginLeft: '1rem' }}>✗ {syncState.error}</span>
+                                    <span className="sync-result error">✗ {syncState.error}</span>
                                 )}
                             </div>
                         </div>
