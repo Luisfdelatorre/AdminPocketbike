@@ -82,7 +82,7 @@ const AdminLayout = () => {
             <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
             <main ref={contentRef} className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                <Outlet context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
+                <Outlet key={user?.companyId || 'default'} context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
             </main>
 
             <MobileBottomNav
