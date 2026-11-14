@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Menu } from 'lucide-react';
+import { ArrowLeft, Menu, ChevronDown } from 'lucide-react';
+import { switchCompany } from '../services/api';
 
 const MobileHeader = ({ sidebarOpen, setSidebarOpen }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { t } = useTranslation();
-    const { user } = useAuth();
+    const { user, switchActiveCompany } = useAuth();
     const [customTitle, setCustomTitle] = useState(null);
 
     const path = location.pathname;
@@ -29,6 +30,45 @@ const MobileHeader = ({ sidebarOpen, setSidebarOpen }) => {
     const isSubPage = path.startsWith('/settings') ||
         path.startsWith('/companies') ||
         path.startsWith('/company-invoices');
+
+    const hasMultipleCompanies = Boolean(user?.accessibleCompanies && user.accessibleCompanies.length > 1);
+    const activeCompany = user?.accessibleCompanies?.find(c => c._id === user.companyId);
+    const currentCompanyName = activeCompany?.name || user?.companyName || 'PocketBike';
+
+    const handleCompanySwitch = async (e) => {
+        const targetCompanyId = e.target.value;
+        if (!targetCompanyId || targetCompanyId === user?.companyId) return;
+
+        try {
+            if (switchActiveCompany) {
+                const res = await switchActiveCompany(targetCompanyId);
+                if (!res?.success) {
+                    alert(res?.error || 'Failed to switch company. Please try again.');
+                }
+                return;
+            }
+
+            const res = await switchCompany(targetCompanyId);
+            if (res.success && res.data.token) {
+                localStorage.setItem('adminToken', res.data.token);
+                localStorage.setItem('auth_token', res.data.token);
+
+                const storage = localStorage.getItem('auth_user') ? localStorage : sessionStorage;
+                const authUserStr = storage.getItem('auth_user');
+                if (authUserStr) {
+                    const authUser = JSON.parse(authUserStr);
+                    authUser.companyId = res.data.companyId;
+                    authUser.companyName = res.data.companyName;
+                    storage.setItem('auth_user', JSON.stringify(authUser));
+                }
+
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error('Failed to switch company', error);
+            alert('Failed to switch company. Please try again.');
+        }
+    };
 
     const getPageTitle = () => {
         if (customTitle) return customTitle;
@@ -61,7 +101,30 @@ const MobileHeader = ({ sidebarOpen, setSidebarOpen }) => {
                 </button>
             )}
             <div className="logo-container">
-                <h2>{getPageTitle()}</h2>
+                {hasMultipleCompanies && path === '/' ? (
+                    <div className="mobile-header-company-switcher">
+                        <div className="company-switcher-title-pill">
+                            <span className="company-switcher-title-text">
+                                {currentCompanyName}
+                            </span>
+                            <ChevronDown size={16} className="company-switcher-chevron" />
+                        </div>
+                        <select
+                            value={user?.companyId || ''}
+                            onChange={handleCompanySwitch}
+                            className="company-switcher-title-select"
+                            aria-label="Seleccionar empresa"
+                        >
+                            {user.accessibleCompanies.map(c => (
+                                <option key={c._id} value={c._id}>
+                                    {c.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                ) : (
+                    <h2>{getPageTitle()}</h2>
+                )}
             </div>
             <div id="mobile-header-actions" className="mobile-header-actions" />
         </header>

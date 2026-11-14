@@ -1,7 +1,8 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-    Home, Users, FileText, CreditCard, DollarSign,
+    Home, Users, FileText, CreditCard, DollarSign, Calendar,
     Image as ImageIcon, Settings as SettingsIcon, Database,
     RefreshCw, ArrowLeft, Building, Sliders
 } from 'lucide-react';
@@ -9,6 +10,7 @@ import {
 const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useTranslation();
 
     const isSettingsPage = location.pathname.startsWith('/settings');
     const isCompaniesPage = location.pathname.startsWith('/companies');
@@ -107,43 +109,46 @@ const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompani
     }
 
     return (
-        <nav className="mobile-bottom-nav" aria-label="Navegación principal">
-            <button
-                onClick={() => navigate('/')}
-                className={`nav-btn ${isTabActive('/') ? 'active' : ''}`}
-            >
-                <Home size={20} />
-                <span>Inicio</span>
-            </button>
-            <button
-                onClick={() => navigate('/devices')}
-                className={`nav-btn ${isTabActive('/devices') ? 'active' : ''}`}
-            >
-                <Users size={20} />
-                <span>Equipos</span>
-            </button>
-            <button
-                onClick={() => navigate('/contracts')}
-                className={`nav-btn ${isTabActive('/contracts') ? 'active' : ''}`}
-            >
-                <FileText size={20} />
-                <span>Contratos</span>
-            </button>
-            <button
-                onClick={() => navigate('/payments')}
-                className={`nav-btn ${isTabActive('/payments') ? 'active' : ''}`}
-            >
-                <CreditCard size={20} />
-                <span>Pagos</span>
-            </button>
-            <button
-                onClick={() => navigate('/invoices')}
-                className={`nav-btn ${isTabActive('/invoices') ? 'active' : ''}`}
-            >
-                <DollarSign size={20} />
-                <span>Facturas</span>
-            </button>
-        </nav>
+        <div className="mobile-bottom-nav-wrapper">
+            <nav className="mobile-bottom-nav" aria-label="Navegación principal">
+                <button
+                    onClick={() => navigate('/')}
+                    className={`nav-btn ${isTabActive('/') ? 'active' : ''}`}
+                >
+                    <Home size={20} />
+                    <span>Inicio</span>
+                </button>
+                <button
+                    onClick={() => navigate('/summary')}
+                    className={`nav-btn ${isTabActive('/summary') ? 'active' : ''}`}
+                >
+                    <Calendar size={20} />
+                    <span>{t('sidebar.summary', 'Resumen')}</span>
+                </button>
+                <button
+                    onClick={() => navigate('/contracts')}
+                    className={`nav-btn ${isTabActive('/contracts') ? 'active' : ''}`}
+                >
+                    <FileText size={20} />
+                    <span>Contratos</span>
+                </button>
+                <button
+                    onClick={() => navigate('/payments')}
+                    className={`nav-btn ${isTabActive('/payments') ? 'active' : ''}`}
+                >
+                    <CreditCard size={20} />
+                    <span>Pagos</span>
+                </button>
+                <button
+                    onClick={() => navigate('/invoices')}
+                    className={`nav-btn ${isTabActive('/invoices') ? 'active' : ''}`}
+                >
+                    <DollarSign size={20} />
+                    <span>Facturas</span>
+                </button>
+            </nav>
+            <div className="mobile-home-indicator" />
+        </div>
     );
 };
 
