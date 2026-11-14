@@ -1516,3 +1516,403 @@
     transform: scale(0.99);
 }
 
+/* ── Company Profile Redesign (Prototype layout) ── */
+.company-profile-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+}
+
+.company-profile-card {
+    width: 100%;
+    background: #ffffff;
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    box-sizing: border-box;
+}
+
+.company-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.company-header-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.company-header-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    background: #ecfeff;
+    color: #0891b2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    flex-shrink: 0;
+}
+
+.company-header-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.25;
+}
+
+.company-header-subtitle {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.25;
+}
+
+.company-header-info-btn {
+    color: #94a3b8;
+    background: transparent;
+    border: none;
+    padding: 0.25rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease;
+}
+
+.company-header-info-btn:hover {
+    color: #475569;
+}
+
+.company-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.company-field-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.company-field-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+}
+
+.company-field-badge-required {
+    font-size: 0.75rem;
+    color: #0891b2;
+    font-weight: 500;
+}
+
+.company-input-relative {
+    position: relative;
+    width: 100%;
+}
+
+.company-text-input {
+    width: 100%;
+    height: 2.75rem;
+    padding: 0 2.5rem 0 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #0f172a;
+    background: rgba(248, 250, 252, 0.7);
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.company-text-input:focus {
+    background: #ffffff;
+    border-color: #06b6d4;
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+}
+
+.company-input-icon-right {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.company-email-domain-group {
+    display: flex;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: rgba(248, 250, 252, 0.7);
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.company-email-domain-group:focus-within {
+    background: #ffffff;
+    border-color: #06b6d4;
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+}
+
+.company-email-at-prefix {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.875rem;
+    background: #f1f5f9;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-right: 1px solid #e2e8f0;
+    user-select: none;
+}
+
+.company-email-domain-input {
+    flex: 1;
+    height: 2.75rem;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #0f172a;
+    background: transparent;
+    border: none;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.company-logo-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding-top: 0.25rem;
+}
+
+.company-logo-box {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(248, 250, 252, 0.8);
+    padding: 0.875rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+.company-logo-preview-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.company-logo-preview {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 1rem;
+    background: #ffffff;
+    padding: 0.375rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 2px solid rgba(226, 232, 240, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    box-sizing: border-box;
+}
+
+.company-logo-preview:hover {
+    border-color: #06b6d4;
+    transform: scale(1.02);
+}
+
+.company-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 0.75rem;
+}
+
+.company-logo-floating-edit {
+    position: absolute;
+    bottom: -0.25rem;
+    right: -0.25rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    background: #06b6d4;
+    color: #ffffff;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    border: 2px solid #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.company-logo-floating-edit:hover {
+    background: #0891b2;
+    transform: scale(1.05);
+}
+
+.company-logo-floating-edit:active {
+    transform: scale(0.95);
+}
+
+.company-logo-actions-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.company-logo-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.company-logo-btn-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.5rem;
+    background: #ecfeff;
+    color: #0e7490;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.company-logo-btn-change:hover {
+    background: #cffafe;
+}
+
+.company-logo-btn-delete {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #64748b;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.company-logo-btn-delete:hover {
+    color: #e11d48;
+    background: #fff1f2;
+}
+
+.company-logo-hint {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: #94a3b8;
+    margin: 0;
+}
+
+/* Tenant Status Card */
+.tenant-status-card {
+    background: rgba(6, 182, 212, 0.05);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    padding: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+.tenant-status-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.tenant-status-pulse-container {
+    position: relative;
+    display: flex;
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.tenant-status-pulse-ring {
+    animation: tenant-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    position: absolute;
+    display: inline-flex;
+    height: 100%;
+    width: 100%;
+    border-radius: 9999px;
+    background: #34d399;
+    opacity: 0.75;
+}
+
+.tenant-status-pulse-dot {
+    position: relative;
+    display: inline-flex;
+    border-radius: 9999px;
+    width: 0.625rem;
+    height: 0.625rem;
+    background: #10b981;
+}
+
+.tenant-status-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.tenant-status-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.tenant-status-host {
+    font-size: 0.6875rem;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.tenant-status-badge {
+    font-size: 0.625rem;
+    font-weight: 600;
+    background: #d1fae5;
+    color: #065f46;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+@keyframes tenant-ping {
+    75%, 100% {
+        transform: scale(2.2);
+        opacity: 0;
+    }
+}
+
+

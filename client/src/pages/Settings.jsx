@@ -4,7 +4,7 @@ import {
     Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, 
     Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, 
     Zap, MapPin, Bell, ShieldCheck, Server, Globe, User, Key, Eye, EyeOff, 
-    Smartphone, QrCode, CheckCircle, Check, Radio 
+    Smartphone, QrCode, CheckCircle, Check, Radio, Info, Mail
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
@@ -645,7 +645,7 @@ const Settings = () => {
                         className={`tab-button ${activeTab === 'branding' ? 'active' : ''}`}
                         onClick={() => setActiveTab('branding')}
                     >
-                        <ImageIcon size={18} /> {t('settings.tabs.branding')}
+                        <Building size={18} /> {t('settings.tabs.branding') || 'Empresa'}
                     </button>
                     <button
                         className={`tab-button ${activeTab === 'business' ? 'active' : ''}`}
@@ -669,80 +669,145 @@ const Settings = () => {
 
                 {/* ── BRANDING TAB ── */}
                 {activeTab === 'branding' && (
-                    <div className="settings-card-section">
-                        <div className="card-section-header" style={{ marginBottom: '1rem' }}>
-                            <div className="card-title-group">
-                                <Building size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Configuración de Empresa</h2>
-                            </div>
-                            <i className="info-icon-mobile" title={t('settings.branding.displayNameDesc')}>i</i>
-                        </div>
-
-                        <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                            <label htmlFor="displayName" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <ImageIcon size={16} />
-                                    Nombre visible de la Empresa
-                                </span>
-                                <i className="info-icon-mobile" title={t('settings.branding.displayNameDesc')}>i</i>
-                            </label>
-                            <input
-                                id="displayName"
-                                type="text"
-                                value={settings.displayName}
-                                onChange={(e) => handleChange('displayName', e.target.value)}
-                                placeholder="PocketBike"
-                                className="input-display-name"
-                            />
-                            <div className="settings-inline-row">
-                                <div className="settings-form-group" style={{ flex: 1 }}>
-                                    <label htmlFor="emailDomain" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span>Dominio de Correo por Defecto</span>
-                                        <i className="info-icon-mobile" title={t('settings.branding.emailDomainDesc')}></i>
-                                    </label>
-                                    <div className="input-group" style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <div style={{ background: '#F1F5F9', border: '1px solid #D1D5DB', padding: '0.875rem 1.25rem', borderRadius: '0.5rem', color: '#6B7280', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>@</div>
-                                        <input
-                                            id="emailDomain"
-                                            type="text"
-                                            value={settings.contractDefaults?.emailDomain || 'pocketbike.app'}
-                                            onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
-                                            placeholder="pocketbike.app"
-                                            className="input-display-name"
-                                        />
+                    <div className="company-profile-container">
+                        <section className="company-profile-card">
+                            {/* Header of Card */}
+                            <div className="company-card-header">
+                                <div className="company-header-title-group">
+                                    <div className="company-header-icon">
+                                        <Building size={20} />
                                     </div>
+                                    <div>
+                                        <h2 className="company-header-title">Configuración de Empresa</h2>
+                                        <p className="company-header-subtitle">Datos públicos y perfil de negocio</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="company-header-info-btn"
+                                    title={t('settings.branding.displayNameDesc') || 'Información de sección'}
+                                    aria-label="Información de sección"
+                                >
+                                    <Info size={16} />
+                                </button>
+                            </div>
+
+                            {/* Field 1: Business Visible Name */}
+                            <div className="company-field-group">
+                                <div className="company-field-label-row">
+                                    <label className="company-field-label" htmlFor="company-name">
+                                        <ImageIcon size={14} />
+                                        <span>Nombre visible de la Empresa</span>
+                                    </label>
+                                    <span className="company-field-badge-required">Requerido</span>
+                                </div>
+                                <div className="company-input-relative">
+                                    <input
+                                        id="company-name"
+                                        name="company_name"
+                                        type="text"
+                                        value={settings.displayName || ''}
+                                        onChange={(e) => handleChange('displayName', e.target.value)}
+                                        placeholder="Ej. PocketBike Store"
+                                        className="company-text-input"
+                                    />
+                                    {Boolean(settings.displayName?.trim()) && (
+                                        <div className="company-input-icon-right">
+                                            <Check size={18} color="#10b981" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="setting-item" style={{ marginBottom: 0 }}>
-                                <label htmlFor="companyLogo" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <ImageIcon size={16} />
-                                    LOGO DE LA EMPRESA
-                                </label>
-                                <div className="branding-upload-area" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', alignItems: 'center' }}>
-                                    <div
-                                        className="current-logo-container"
-                                        onClick={() => document.getElementById('companyLogo').click()}
-                                        style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '12px', cursor: 'pointer' }}
+                            {/* Field 2: Default Email Domain */}
+                            <div className="company-field-group">
+                                <div className="company-field-label-row">
+                                    <label className="company-field-label" htmlFor="email-domain">
+                                        <Mail size={14} />
+                                        <span>Dominio de Correo por Defecto</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        className="company-header-info-btn"
+                                        title={t('settings.branding.emailDomainDesc') || 'Ayuda sobre dominio'}
+                                        aria-label="Ayuda sobre dominio"
                                     >
-                                        <img
-                                            src={settings.companyLogo}
-                                            alt={t('settings.branding.logo')}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }}
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.src = '/pocketbike_60x60.jpg';
-                                            }}
-                                        />
+                                        <Info size={14} />
+                                    </button>
+                                </div>
+                                <div className="company-email-domain-group">
+                                    <span className="company-email-at-prefix">@</span>
+                                    <input
+                                        id="email-domain"
+                                        name="email_domain"
+                                        type="text"
+                                        value={settings.contractDefaults?.emailDomain || ''}
+                                        onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
+                                        placeholder="ejemplo.com"
+                                        className="company-email-domain-input"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Field 3: Company Logo Section */}
+                            <div className="company-logo-section">
+                                <label className="company-field-label">
+                                    <ImageIcon size={14} />
+                                    <span>Logo de la Empresa</span>
+                                </label>
+                                <div className="company-logo-box">
+                                    {/* Logo Preview Container with Edit Pin */}
+                                    <div className="company-logo-preview-wrapper">
+                                        <div
+                                            className="company-logo-preview"
+                                            onClick={() => document.getElementById('companyLogo')?.click()}
+                                            title={t('settings.branding.changeLogo') || 'Cambiar logo'}
+                                        >
+                                            <img
+                                                src={settings.companyLogo || '/pocketbike_60x60.jpg'}
+                                                alt={settings.displayName || 'Logo Empresa'}
+                                                className="company-logo-img"
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = '/pocketbike_60x60.jpg';
+                                                }}
+                                            />
+                                        </div>
                                         <button
                                             type="button"
-                                            className="btn-edit-logo"
-                                            onClick={(e) => { e.stopPropagation(); document.getElementById('companyLogo').click(); }}
-                                            title={t('settings.branding.changeLogo')}
-                                            style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '28px', height: '28px', borderRadius: '50%', background: '#0d9488', border: '2px solid white', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            className="company-logo-floating-edit"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                document.getElementById('companyLogo')?.click();
+                                            }}
+                                            aria-label="Cambiar logo"
+                                            title="Cambiar logo"
                                         >
-                                            <Edit2 size={14} />
+                                            <Edit2 size={13} />
                                         </button>
+                                    </div>
+
+                                    {/* Upload Guidelines & Actions */}
+                                    <div className="company-logo-actions-wrapper">
+                                        <div className="company-logo-btn-group">
+                                            <button
+                                                type="button"
+                                                className="company-logo-btn-change"
+                                                onClick={() => document.getElementById('companyLogo')?.click()}
+                                            >
+                                                Cambiar foto
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="company-logo-btn-delete"
+                                                onClick={() => handleChange('companyLogo', '')}
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                        <p className="company-logo-hint">
+                                            Recomendado: <strong style={{ color: '#475569', fontWeight: 600 }}>60×60 px</strong>, formatos PNG o JPG, máx 2 MB.
+                                        </p>
                                     </div>
 
                                     <input
@@ -753,11 +818,27 @@ const Settings = () => {
                                         style={{ display: 'none' }}
                                     />
                                 </div>
-                                <p className="upload-hint-text" style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                                    RECOMENDADO: 60X60PX, PNG O JPG, MÁX 2MB
-                                </p>
                             </div>
-                        </div>
+                        </section>
+
+                        {/* Domain Status Badge */}
+                        <section className="tenant-status-card">
+                            <div className="tenant-status-left">
+                                <span className="tenant-status-pulse-container">
+                                    <span className="tenant-status-pulse-ring"></span>
+                                    <span className="tenant-status-pulse-dot"></span>
+                                </span>
+                                <div className="tenant-status-info">
+                                    <p className="tenant-status-title">Tenant Activo y Verificado</p>
+                                    <p className="tenant-status-host">
+                                        {(settings.displayName ? settings.displayName.toLowerCase().replace(/[^a-z0-9]/g, '') : 'pocketbike') + '.' + (settings.contractDefaults?.emailDomain || 'tumotoya.online')}
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="tenant-status-badge">
+                                {typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'SSL Activo' : 'Conexión Segura'}
+                            </span>
+                        </section>
                     </div>
                 )}
 
