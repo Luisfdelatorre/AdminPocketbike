@@ -82,6 +82,65 @@
         text-overflow: ellipsis;
     }
 
+    .mobile-header-company-switcher {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        max-width: 100%;
+        margin: 0 auto;
+        vertical-align: middle;
+    }
+
+    .company-switcher-title-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        max-width: 100%;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: background-color 0.15s ease;
+    }
+
+    .mobile-header-company-switcher:active .company-switcher-title-pill {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .company-switcher-title-text {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #1F2937;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        letter-spacing: -0.01em;
+        line-height: 1.25;
+    }
+
+    .company-switcher-chevron {
+        flex-shrink: 0;
+        color: #4B5563;
+        transition: transform 0.2s ease;
+    }
+
+    .company-switcher-title-select {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        font-size: 16px;
+        border: none;
+        margin: 0;
+        padding: 0;
+        z-index: 2;
+    }
+
     .admin-content {
         flex: 1 1 auto;
         min-height: 0;
