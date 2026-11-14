@@ -30,12 +30,39 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     const today = new Date();
-    const [selectedMonth, setSelectedMonth] = useState(''); // '' = all year
+    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // Mes en curso por defecto
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => {
-        fetchDashboardData();
+        let isMounted = true;
+        setLoading(true);
+
+        const params = { year: selectedYear };
+        if (selectedMonth) params.month = selectedMonth;
+
+        getDashboardStats(params)
+            .then(result => {
+                if (!isMounted) return;
+                if (result.success) {
+                    setStats(result.data.stats);
+                    setRevenueData(result.data.revenueData || []);
+                    setDeviceData(result.data.deviceData || []);
+                    setRecentPayments(result.data.recentPayments || []);
+                } else {
+                    console.error('Failed to fetch dashboard data:', result.error);
+                }
+            })
+            .catch(error => {
+                if (isMounted) console.error('Error fetching dashboard data:', error);
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, [selectedMonth, selectedYear]);
 
     const fetchDashboardData = async () => {
@@ -47,9 +74,9 @@ const AdminDashboard = () => {
 
             if (result.success) {
                 setStats(result.data.stats);
-                setRevenueData(result.data.revenueData);
-                setDeviceData(result.data.deviceData);
-                setRecentPayments(result.data.recentPayments);
+                setRevenueData(result.data.revenueData || []);
+                setDeviceData(result.data.deviceData || []);
+                setRecentPayments(result.data.recentPayments || []);
             } else {
                 console.error('Failed to fetch dashboard data:', result.error);
             }
@@ -117,7 +144,7 @@ const AdminDashboard = () => {
         csvRows.push(['Ingresos Totales', stats.totalRevenue || 0]);
         csvRows.push(['Dispositivos Activos', stats.activeDevices || 0]);
         csvRows.push(['Pagos Pendientes', stats.pendingPayments || 0]);
-        csvRows.push(['Facturado (ano)', stats.totalInvoiced || 0]);
+        csvRows.push([selectedMonth ? 'Facturado (mes)' : 'Facturado (ano)', stats.totalInvoiced || 0]);
         csvRows.push(['Cartera Pendiente', stats.collectionGap || 0]);
         csvRows.push(['']);
 
@@ -253,7 +280,7 @@ const AdminDashboard = () => {
             {/* Top 2 Primary Stat Cards */}
             <div className="stats-grid-top-2">
                 <StatCard
-                    title="Facturado (año)"
+                    title={selectedMonth ? "Facturado (mes)" : "Facturado (año)"}
                     value={formatCompact(stats.totalInvoiced || 0)}
                 />
                 <StatCard
