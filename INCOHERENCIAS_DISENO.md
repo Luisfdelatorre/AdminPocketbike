@@ -44,6 +44,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **20** | Visibilidad Permanente de Filtros y Estadísticas en Versión Desktop | ✅ Completado | En pantallas de escritorio (`min-width: 769px`), los contenedores `.expandable-metrics-container`, tarjetas de métricas (`StatCard`s) y barras de filtros/búsqueda se mantienen siempre visibles y expandidos mediante `@media (min-width: 769px)` en `index.css` y `!isMobile || showFilters` en React (`DeviceSelector`, `Contracts`, `AdminDashboard`, `PaymentSummary`), reservando el colapso al botón móvil. |
 | **21** | Iconografía Telemétrica en Tarjetas del Centro de Alertas | ✅ Completado | Sustitución de etiquetas de texto plano en las tarjetas de alerta por iconografía telemétrica compacta (`MotorIcon`, `KeyRound`, `Gauge`, `Activity`, `BatteryFull/Medium/Low`, `ZapOff`) con micro-cápsulas y tooltips descriptivos. |
 | **22** | Consola Desktop Split (Feed 65% + Inspector Telemétrico 35%) en Centro de Alertas | 🧪 En validación | Maquetación responsive para pantallas de escritorio ($\ge 1200\text{px}$) con workspace de doble columna: feed interactivo de incidentes con selección activa, mapa de rastreo GPS en vivo con HUD, ficha de conductor/contrato, comandos IoT inmediatos de corte/reanudación y bitácora de despacho rápido. |
+| **23** | Unificación de Colores, Tokens y Estandarización de Clases en Settings | ✅ Completado | Consolidación integral de la interfaz de Configuración bajo los tokens globales (--brand-teal, --brand-teal-dark, --card-border, --card-radius); eliminación de 50+ inline styles con colores fijos y reducción de ~1,200 líneas CSS redundantes. |
 
 ---
 
@@ -536,6 +537,29 @@ En monitores de escritorio o consolas de despacho ($\ge 1200\text{px}$), el feed
    * **Comandos IoT Inmediatos**: Botón de "Corte Inmediato de Motor (Relé 1)" / "Reanudar Motor" conectado directamente al endpoint `POST /commands/send` con diálogo de confirmación y feedback visual.
    * **Bitácora de Despacho**: Área de texto para registro de notas de auditoría y guardado inmediato en el historial de la alerta.
    * **Mini-Timeline de Eventos**: Registro cronológico de disparos, eventos acumulados y estado de atención del incidente.
+
+---
+
+## 23. Unificación de Colores, Tokens y Estandarización de Clases en Settings
+
+### El Problema
+La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba divergencias de estilo derivadas de prototipos independientes:
+- Presencia de paletas externas ajenas al sistema (azules Tailwind Material-3 `#006194`, `#007bb9`, `#0051d5`, `#eff4ff`, `#e5eeff` y cyans `#06b6d4`, `#0891b2`, `#ecfeff`).
+- Más de 50 ocurrencias de estilos inline (`style={{ color: '#0d9488' }}`, etc.) sobrecargando el componente React.
+- Redundancia y sobreespecificidad en `Settings.css` (superando 1,900 líneas con duplicaciones de tarjetas, encabezados, inputs y switches).
+
+### Solución Implementada
+1. **Adopción de Tokens Globales de AdminPocketbike**:
+   * Color de marca centralizado: `var(--brand-teal, #03C9D7)`, `var(--brand-teal-dark, #0394A3)`, y `rgba(var(--brand-teal-rgb), 0.1)`.
+   * Tarjetas homologadas: bordes `var(--card-border, #E5E7EB)`, radio `var(--card-radius, 0.75rem)` y sombras suaves.
+   * Estados y validaciones unificados: verde esmeralda `#10B981` para estados activos/conectados y rojo `#EF4444` para desconexiones o errores.
+2. **Estandarización de Controles**:
+   * Pestañas superiores (`.tab-button`), botones de acción (`.btn-save`, `.btn-validate-traccar`, `.btn-sync-devices`) y switches táctiles integrados con los tokens oficiales.
+   * Inputs, selects e input groups estilizados con foco en `var(--brand-teal)` y anillos de foco translúcidos.
+3. **Limpieza y Desduplicación**:
+   * Eliminación total de estilos inline con colores fijos en `Settings.jsx`.
+   * Reorganización modular de `Settings.css` en 13 secciones limpias, reduciendo su tamaño de 1,918 líneas a ~740 líneas (~61% de reducción de código).
+
 
 
 
