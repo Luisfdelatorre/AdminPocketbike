@@ -1,7 +1,8 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-    Home, Users, FileText, CreditCard, DollarSign,
+    Home, Users, FileText, CreditCard, DollarSign, Calendar,
     Image as ImageIcon, Settings as SettingsIcon, Database,
     RefreshCw, ArrowLeft, Building, Sliders
 } from 'lucide-react';
@@ -9,6 +10,7 @@ import {
 const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useTranslation();
 
     const isSettingsPage = location.pathname.startsWith('/settings');
     const isCompaniesPage = location.pathname.startsWith('/companies');
@@ -116,11 +118,11 @@ const MobileBottomNav = ({ settingsTab, setSettingsTab, companiesTab, setCompani
                 <span>Inicio</span>
             </button>
             <button
-                onClick={() => navigate('/devices')}
-                className={`nav-btn ${isTabActive('/devices') ? 'active' : ''}`}
+                onClick={() => navigate('/summary')}
+                className={`nav-btn ${isTabActive('/summary') ? 'active' : ''}`}
             >
-                <Users size={20} />
-                <span>Equipos</span>
+                <Calendar size={20} />
+                <span>{t('sidebar.summary', 'Resumen')}</span>
             </button>
             <button
                 onClick={() => navigate('/contracts')}
