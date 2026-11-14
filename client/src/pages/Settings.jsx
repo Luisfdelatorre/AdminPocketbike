@@ -328,6 +328,31 @@ const Settings = () => {
         setIsDragging(false);
     };
 
+    const getNestedDiff = (currentObj = {}, initialObj = {}) => {
+        const diff = {};
+        const allKeys = new Set([...Object.keys(currentObj || {}), ...Object.keys(initialObj || {})]);
+
+        for (const key of allKeys) {
+            const currentVal = currentObj?.[key];
+            const initialVal = initialObj?.[key];
+
+            // Never treat masked placeholder passwords or secrets as a real change
+            if (currentVal === '********') {
+                continue;
+            }
+
+            if (currentVal !== undefined && typeof currentVal === 'object' && currentVal !== null && !Array.isArray(currentVal)) {
+                const subDiff = getNestedDiff(currentVal, initialVal);
+                if (Object.keys(subDiff).length > 0) {
+                    diff[key] = subDiff;
+                }
+            } else if (currentVal !== undefined && currentVal !== initialVal) {
+                diff[key] = currentVal;
+            }
+        }
+        return diff;
+    };
+
     const getChangedSettings = (current, initial) => {
         if (!initial) return { ...current, logo: current.companyLogo };
         const diff = {};
@@ -349,24 +374,38 @@ const Settings = () => {
             diff.logo = current.companyLogo;
         }
 
-        // Object: curfew
+        // Object: curfew (atomic update if changed)
         if (current.curfew !== undefined && JSON.stringify(current.curfew) !== JSON.stringify(initial.curfew)) {
             diff.curfew = current.curfew;
         }
 
-        // Object: contractDefaults
-        if (current.contractDefaults !== undefined && JSON.stringify(current.contractDefaults) !== JSON.stringify(initial.contractDefaults)) {
-            diff.contractDefaults = current.contractDefaults;
+        // Granular Nested Objects: contractDefaults, gpsConfig, wompiConfig, billingConfig
+        if (current.contractDefaults) {
+            const contractDiff = getNestedDiff(current.contractDefaults, initial.contractDefaults);
+            if (Object.keys(contractDiff).length > 0) {
+                diff.contractDefaults = contractDiff;
+            }
         }
 
-        // Object: gpsConfig
-        if (current.gpsConfig !== undefined && JSON.stringify(current.gpsConfig) !== JSON.stringify(initial.gpsConfig)) {
-            diff.gpsConfig = current.gpsConfig;
+        if (current.gpsConfig) {
+            const gpsDiff = getNestedDiff(current.gpsConfig, initial.gpsConfig);
+            if (Object.keys(gpsDiff).length > 0) {
+                diff.gpsConfig = gpsDiff;
+            }
         }
 
-        // Object: wompiConfig
-        if (current.wompiConfig !== undefined && JSON.stringify(current.wompiConfig) !== JSON.stringify(initial.wompiConfig)) {
-            diff.wompiConfig = current.wompiConfig;
+        if (current.wompiConfig) {
+            const wompiDiff = getNestedDiff(current.wompiConfig, initial.wompiConfig);
+            if (Object.keys(wompiDiff).length > 0) {
+                diff.wompiConfig = wompiDiff;
+            }
+        }
+
+        if (current.billingConfig) {
+            const billingDiff = getNestedDiff(current.billingConfig, initial.billingConfig);
+            if (Object.keys(billingDiff).length > 0) {
+                diff.billingConfig = billingDiff;
+            }
         }
 
         return diff;
@@ -389,6 +428,9 @@ const Settings = () => {
             } else if (section === 'branding') {
                 if (allDirty.displayName !== undefined) payload.displayName = allDirty.displayName;
                 if (allDirty.logo !== undefined) payload.logo = allDirty.logo;
+                if (allDirty.contractDefaults?.emailDomain !== undefined) {
+                    payload.contractDefaults = { emailDomain: allDirty.contractDefaults.emailDomain };
+                }
             } else if (section === 'gps') {
                 if (allDirty.gpsService !== undefined) payload.gpsService = allDirty.gpsService;
                 if (allDirty.gpsConfig !== undefined) payload.gpsConfig = allDirty.gpsConfig;
