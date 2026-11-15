@@ -43,19 +43,46 @@ const InvoiceMobileRow = ({ invoice, isPayable, openManualPayModal }) => {
     const mainId = invoice.deviceIdName || invoice.deviceId || invoice.invoiceId || 'N/A';
     const amount = isPaid ? (invoice.paidAmount || invoice.amount || 0) : (invoice.amount || 0);
 
-    const rawDate = invoice.paymentDate || invoice.createdAt;
-    const dateObj = rawDate ? new Date(rawDate) : null;
-    const dateDayMonth = dateObj
-        ? `${dateObj.getDate()} ${dateObj.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}`
-        : '--';
+    // Fecha de la factura (fecha a la que corresponde la factura)
+    const formatInvoiceDate = (dateVal, invoiceId, invoiceIdSub) => {
+        if (dateVal) {
+            const d = new Date(dateVal);
+            if (!isNaN(d.getTime())) {
+                const day = d.getUTCDate();
+                const month = d.toLocaleDateString('es-ES', { month: 'short', timeZone: 'UTC' }).replace('.', '');
+                return `${day} ${month}`;
+            }
+        }
+        if (invoiceId) {
+            const parts = String(invoiceId).split('-');
+            if (parts.length >= 4) {
+                const day = parseInt(parts[3], 10);
+                const monthNum = parseInt(parts[2], 10);
+                const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+                const month = (monthNum >= 1 && monthNum <= 12) ? monthNames[monthNum - 1] : parts[2];
+                if (!isNaN(day)) return `${day} ${month}`;
+            }
+        }
+        if (invoiceIdSub) return invoiceIdSub;
+        return '--';
+    };
 
-    let timeStr = '';
-    if (dateObj) {
-        let hours = dateObj.getHours();
-        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-        const ampm = hours >= 12 ? 'pm' : 'am';
-        hours = hours % 12 || 12;
-        timeStr = `${dateObj.getDate()} ${dateObj.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}, ${hours}:${minutes} ${ampm}`;
+    const invoiceDateStr = formatInvoiceDate(invoice.date, invoice.invoiceId, invoice.invoiceIdSub);
+
+    // Fecha y hora del pago o transacción
+    const paymentRawDate = invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt;
+    let paymentTimeStr = '';
+    if (paymentRawDate) {
+        const pDate = new Date(paymentRawDate);
+        if (!isNaN(pDate.getTime())) {
+            let hours = pDate.getHours();
+            const minutes = String(pDate.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12 || 12;
+            const day = pDate.getDate();
+            const month = pDate.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+            paymentTimeStr = `${day} ${month}, ${hours}:${minutes} ${ampm}`;
+        }
     }
 
     const handleTouchStart = (e) => {
@@ -134,10 +161,10 @@ const InvoiceMobileRow = ({ invoice, isPayable, openManualPayModal }) => {
                 <div className="invoice-mobile-center-content">
                     <div className="invoice-mobile-title-row">
                         <span className="invoice-mobile-id">{mainId}</span>
-                        <span className="invoice-mobile-cut-date">{dateDayMonth}</span>
+                        <span className="invoice-mobile-cut-date">{invoiceDateStr}</span>
                     </div>
                     <p className="invoice-mobile-subtitle">
-                        {isPaid ? timeStr : isFree ? 'Ajuste / Gratuito' : 'Pendiente de pago'}
+                        {isPaid ? (paymentTimeStr || 'Pagado') : isFree ? 'Ajuste / Gratuito' : 'Pendiente de pago'}
                     </p>
                 </div>
 
