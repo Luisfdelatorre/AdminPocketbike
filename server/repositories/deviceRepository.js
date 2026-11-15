@@ -138,6 +138,19 @@ class DeviceRepository {
             throw error;
         }
     }
+    async getDeviceStatsByCompany(companyId) {
+        try {
+            const filter = companyId ? { companyId } : {};
+            const [totalDevices, activeDevices] = await Promise.all([
+                Device.countDocuments(filter),
+                Device.countDocuments({ ...filter, hasActiveContract: true })
+            ]);
+            return { totalDevices, activeDevices };
+        } catch (error) {
+            logger.error(`Error getting device stats for company ${companyId}:`, error);
+            throw error;
+        }
+    }
     async getDeviceById(id) {
         try {
             return await Device.findById(id);
