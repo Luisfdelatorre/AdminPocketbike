@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { 
-    ArrowLeft, Bike, ChevronRight, ChevronDown, Check, X, Camera, FileUp, 
-    Sparkles, Loader2, DollarSign, Calendar, Sliders, RefreshCw, User, Search 
+import {
+    ArrowLeft, Bike, ChevronRight, ChevronDown, Check, X, Camera, FileUp,
+    Sparkles, Loader2, DollarSign, Calendar, Sliders, RefreshCw, User, Search
 } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatPhoneNumber, formatCompactCOP } from '../utils/helpers';
@@ -30,7 +30,7 @@ const ContractEditor = ({
     // Local UI states exclusive to the Contract Editor
     const [openSections, setOpenSections] = useState({
         device: false,
-        customer: false,
+        customer: true,
         financial: true,
         advanced: false
     });
@@ -578,7 +578,7 @@ const ContractEditor = ({
     const stUrl = typeof st === 'string' ? st : (st?.url || st?.fileUrl || null);
 
     return createPortal(
-        <div 
+        <div
             className={`contract-editor-view ${isClosing ? 'contract-editor-view--closing' : 'contract-editor-view--opening'} contract-editor-immersive-overlay`}
             onClick={(e) => e.stopPropagation()}
         >
@@ -1084,19 +1084,19 @@ const ContractEditor = ({
                                                 <div className="flex justify-between text-slate-500 font-medium">
                                                     <span>Precio Base Moto:</span>
                                                     <span className="font-mono text-slate-700 font-bold">
-                                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.precioMoto)}
+                                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.precioAntesIVA || 0)}
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between text-slate-500 font-medium">
                                                     <span>Gastos Fijos Total:</span>
                                                     <span className="font-mono text-slate-700">
-                                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.gastos)}
+                                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.gastos || 0)}
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between text-indigo-600 font-semibold border-t border-slate-200/60 pt-1">
                                                     <span>Valor a Financiar:</span>
                                                     <span className="font-mono font-bold">
-                                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.valorFinanciar)}
+                                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.saldoFinanciable || 0)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1105,133 +1105,6 @@ const ContractEditor = ({
                                 )}
                             </div>
                         </div>
-
-                        {/* SECCIÓN 2: VEHÍCULO */}
-                        <div className="wa-profile-accordion-body mb-2">
-                            <div className="wa-profile-card">
-                                <button
-                                    type="button"
-                                    className="contract-accordion-header"
-                                    onClick={() => toggleSection('device')}
-                                >
-                                    <div className="contract-accordion-title-wrap">
-                                        <div className="contract-accordion-icon">
-                                            <Bike size={16} />
-                                        </div>
-                                        <div className="contract-accordion-titles">
-                                            <span className="contract-accordion-title">VEHÍCULO</span>
-                                            <span className="contract-accordion-subtitle">
-                                                {(() => {
-                                                    const d = availableDevices.find(dev => String(dev.deviceId) === String(formData.deviceId));
-                                                    const placaText = formData.vehicleInfo?.placa || d?.name || d?.deviceName;
-                                                    return placaText ? `Placa: ${placaText}` : 'Sin moto asignada';
-                                                })()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="contract-accordion-actions">
-                                        {formData.deviceId ? (
-                                            <span className="contract-accordion-badge" style={{ background: '#ECFDF5', color: '#047857', borderColor: '#A7F3D0' }}>
-                                                Asignada ✓
-                                            </span>
-                                        ) : (
-                                            <span className="contract-accordion-badge" style={{ background: '#FFFBEB', color: '#B45309', borderColor: '#FDE68A' }}>
-                                                Pendiente
-                                            </span>
-                                        )}
-                                        <ChevronDown size={18} className={`contract-accordion-chevron transition-transform duration-200 ${openSections.device ? 'rotate-180' : ''}`} />
-                                    </div>
-                                </button>
-                                {openSections.device && (
-                                    <>
-                                        {/* Botón Seleccionar Moto */}
-                                        <div className="wa-profile-row">
-                                            <span className="wa-profile-label">Motocicleta / GPS</span>
-                                            <div className="wa-profile-value-wrap">
-                                                <button
-                                                    type="button"
-                                                    className={`wa-profile-selector-btn ${editingContract ? 'cursor-not-allowed opacity-80' : ''}`}
-                                                    onClick={() => !editingContract && setIsDevicePickerOpen(true)}
-                                                >
-                                                    <span className="font-mono font-bold">
-                                                        {(() => {
-                                                            if (!formData.deviceId) return 'Seleccionar Moto';
-                                                            const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
-                                                            return dev?.name || dev?.deviceName || `ID: ${formData.deviceId}`;
-                                                        })()}
-                                                    </span>
-                                                    {!editingContract && <ChevronRight size={16} className="text-slate-400" />}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Placa */}
-                                        <div className="wa-profile-row">
-                                            <span className="wa-profile-label">Placa</span>
-                                            <div className="wa-profile-value-wrap">
-                                                <input
-                                                    type="text"
-                                                    className="wa-profile-input uppercase font-mono font-bold"
-                                                    value={formData.vehicleInfo?.placa || ''}
-                                                    onChange={(e) => setFormData(p => ({
-                                                        ...p,
-                                                        vehicleInfo: { ...p.vehicleInfo, placa: e.target.value.toUpperCase() }
-                                                    }))}
-                                                    placeholder="Ej: ABC12D"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Marca */}
-                                        <div className="wa-profile-row">
-                                            <span className="wa-profile-label">Marca</span>
-                                            <div className="wa-profile-value-wrap">
-                                                <input
-                                                    type="text"
-                                                    className="wa-profile-input uppercase"
-                                                    value={formData.vehicleInfo?.marca || ''}
-                                                    onChange={(e) => setFormData(p => ({
-                                                        ...p,
-                                                        vehicleInfo: { ...p.vehicleInfo, marca: e.target.value.toUpperCase() }
-                                                    }))}
-                                                    placeholder="Ej: BAJAJ, YAMAHA"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Modelo */}
-                                        <div className="wa-profile-row">
-                                            <span className="wa-profile-label">Modelo</span>
-                                            <div className="wa-profile-value-wrap">
-                                                <input
-                                                    type="text"
-                                                    className="wa-profile-input"
-                                                    value={formData.vehicleInfo?.modelo || ''}
-                                                    onChange={(e) => setFormData(p => ({
-                                                        ...p,
-                                                        vehicleInfo: { ...p.vehicleInfo, modelo: e.target.value }
-                                                    }))}
-                                                    placeholder="Ej: 2024"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Botón Ver Todos los Detalles Técnicos */}
-                                        <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
-                                            <button
-                                                type="button"
-                                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                                                onClick={() => setIsVehicleDetailsOpen(true)}
-                                            >
-                                                <span>Ver especificaciones completas (Chasis, Motor, SOAT)</span>
-                                                <ChevronRight size={14} />
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
                         {/* SECCIÓN 3: CLIENTE */}
                         <div className="wa-profile-accordion-body mb-2">
                             <div className="wa-profile-card">
@@ -1397,6 +1270,133 @@ const ContractEditor = ({
                                 )}
                             </div>
                         </div>
+                        {/* SECCIÓN 2: VEHÍCULO */}
+                        <div className="wa-profile-accordion-body mb-2">
+                            <div className="wa-profile-card">
+                                <button
+                                    type="button"
+                                    className="contract-accordion-header"
+                                    onClick={() => toggleSection('device')}
+                                >
+                                    <div className="contract-accordion-title-wrap">
+                                        <div className="contract-accordion-icon">
+                                            <Bike size={16} />
+                                        </div>
+                                        <div className="contract-accordion-titles">
+                                            <span className="contract-accordion-title">VEHÍCULO</span>
+                                            <span className="contract-accordion-subtitle">
+                                                {(() => {
+                                                    const d = availableDevices.find(dev => String(dev.deviceId) === String(formData.deviceId));
+                                                    const placaText = formData.vehicleInfo?.placa || d?.name || d?.deviceName;
+                                                    return placaText ? `Placa: ${placaText}` : 'Sin moto asignada';
+                                                })()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="contract-accordion-actions">
+                                        {formData.deviceId ? (
+                                            <span className="contract-accordion-badge" style={{ background: '#ECFDF5', color: '#047857', borderColor: '#A7F3D0' }}>
+                                                Asignada ✓
+                                            </span>
+                                        ) : (
+                                            <span className="contract-accordion-badge" style={{ background: '#FFFBEB', color: '#B45309', borderColor: '#FDE68A' }}>
+                                                Pendiente
+                                            </span>
+                                        )}
+                                        <ChevronDown size={18} className={`contract-accordion-chevron transition-transform duration-200 ${openSections.device ? 'rotate-180' : ''}`} />
+                                    </div>
+                                </button>
+                                {openSections.device && (
+                                    <>
+                                        {/* Botón Seleccionar Moto */}
+                                        <div className="wa-profile-row">
+                                            <span className="wa-profile-label">Motocicleta / GPS</span>
+                                            <div className="wa-profile-value-wrap">
+                                                <button
+                                                    type="button"
+                                                    className={`wa-profile-selector-btn ${editingContract ? 'cursor-not-allowed opacity-80' : ''}`}
+                                                    onClick={() => !editingContract && setIsDevicePickerOpen(true)}
+                                                >
+                                                    <span className="font-mono font-bold">
+                                                        {(() => {
+                                                            if (!formData.deviceId) return 'Seleccionar Moto';
+                                                            const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
+                                                            return dev?.name || dev?.deviceName || `ID: ${formData.deviceId}`;
+                                                        })()}
+                                                    </span>
+                                                    {!editingContract && <ChevronRight size={16} className="text-slate-400" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Placa */}
+                                        <div className="wa-profile-row">
+                                            <span className="wa-profile-label">Placa</span>
+                                            <div className="wa-profile-value-wrap">
+                                                <input
+                                                    type="text"
+                                                    className="wa-profile-input uppercase font-mono font-bold"
+                                                    value={formData.vehicleInfo?.placa || ''}
+                                                    onChange={(e) => setFormData(p => ({
+                                                        ...p,
+                                                        vehicleInfo: { ...p.vehicleInfo, placa: e.target.value.toUpperCase() }
+                                                    }))}
+                                                    placeholder="Ej: ABC12D"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Marca */}
+                                        <div className="wa-profile-row">
+                                            <span className="wa-profile-label">Marca</span>
+                                            <div className="wa-profile-value-wrap">
+                                                <input
+                                                    type="text"
+                                                    className="wa-profile-input uppercase"
+                                                    value={formData.vehicleInfo?.marca || ''}
+                                                    onChange={(e) => setFormData(p => ({
+                                                        ...p,
+                                                        vehicleInfo: { ...p.vehicleInfo, marca: e.target.value.toUpperCase() }
+                                                    }))}
+                                                    placeholder="Ej: BAJAJ, YAMAHA"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Modelo */}
+                                        <div className="wa-profile-row">
+                                            <span className="wa-profile-label">Modelo</span>
+                                            <div className="wa-profile-value-wrap">
+                                                <input
+                                                    type="text"
+                                                    className="wa-profile-input"
+                                                    value={formData.vehicleInfo?.modelo || ''}
+                                                    onChange={(e) => setFormData(p => ({
+                                                        ...p,
+                                                        vehicleInfo: { ...p.vehicleInfo, modelo: e.target.value }
+                                                    }))}
+                                                    placeholder="Ej: 2024"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Botón Ver Todos los Detalles Técnicos */}
+                                        <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                            <button
+                                                type="button"
+                                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                                onClick={() => setIsVehicleDetailsOpen(true)}
+                                            >
+                                                <span>Ver especificaciones completas (Chasis, Motor, SOAT)</span>
+                                                <ChevronRight size={14} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+
 
                         {/* SECCIÓN 4: PARÁMETROS AVANZADOS */}
                         <div className="wa-profile-accordion-body mb-2">

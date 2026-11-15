@@ -252,7 +252,7 @@ const Contracts = () => {
         loadAvailableDevices();
         loadCompanySettings();
         setFabPortalElement(document.body);
-    }, [filter]);
+    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -620,9 +620,10 @@ const Contracts = () => {
     const filterOptions = [
         { value: 'all', label: t('contracts.filters.all') },
         { value: 'active', label: t('contracts.filters.active') },
+        { value: 'weekly', label: t('contracts.filters.weekly', 'Semanal+') },
         { value: 'completed', label: t('contracts.filters.completed') },
-        { value: 'cancelled', label: t('contracts.filters.cancelled') },
-        { value: 'weekly', label: t('contracts.filters.weekly', 'Semanal+') }
+        { value: 'cancelled', label: t('contracts.filters.cancelled') }
+
     ];
 
     const desktopHeader = (
