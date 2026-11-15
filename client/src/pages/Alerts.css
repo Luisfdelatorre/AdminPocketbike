@@ -451,9 +451,17 @@
     border-radius: 50%;
 }
 
-.pill-dot.red { background: #e11d48; }
-.pill-dot.amber { background: #d97706; }
-.pill-dot.green { background: #059669; }
+.pill-dot.red {
+    background: #e11d48;
+}
+
+.pill-dot.amber {
+    background: #d97706;
+}
+
+.pill-dot.green {
+    background: #059669;
+}
 
 .pill-counter {
     background: rgba(0, 0, 0, 0.08);
@@ -614,9 +622,12 @@
 }
 
 @keyframes sabotagePulse {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
     }
+
     50% {
         box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
     }
@@ -659,7 +670,7 @@
 }
 
 .telemetry-cell.highlight-rose {
-    background: #fff1f2;
+    /*background: #fff1f2;*/
     border-color: #ffe4e6;
 }
 
@@ -676,7 +687,7 @@
 }
 
 .telemetry-cell-value.text-rose {
-    color: #e11d48;
+    /*color: #e11d48;*/
 }
 
 .telemetry-cell-value.text-amber {
@@ -1206,9 +1217,17 @@
     box-shadow: 0 0 0 2px #ffffff;
 }
 
-.timeline-dot.red { background: #e11d48; }
-.timeline-dot.amber { background: #d97706; }
-.timeline-dot.teal { background: var(--brand-teal); }
+.timeline-dot.red {
+    background: #e11d48;
+}
+
+.timeline-dot.amber {
+    background: #d97706;
+}
+
+.timeline-dot.teal {
+    background: var(--brand-teal);
+}
 
 .timeline-content {
     display: flex;

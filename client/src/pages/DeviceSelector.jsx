@@ -344,15 +344,15 @@ const DeviceManagement = () => {
                     setFilter={setFilter}
                     filterOptions={[
                         { value: 'all', label: t('devices.filterAll') },
+                        {
+                            value: 'offline', label: 'Desconexión',
+                            badge: offlineDevicesCount,
+                            badgeType: 'cutoff'
+                        },
                         { value: 'active', label: t('devices.filterActive') },
                         { value: 'on', label: t('devices.filterOn') },
                         { value: 'off', label: t('devices.filterOff') },
-                        {
-                            value: 'offline',
-                            label: 'Mayor Desconexión',
-                            badge: offlineDevicesCount,
-                            badgeType: 'cutoff'
-                        }
+
                     ]}
                 />
             </div>

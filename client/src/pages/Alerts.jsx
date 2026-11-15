@@ -721,7 +721,7 @@ const Alerts = () => {
                                 }}
                             >
                                 <span className="pill-dot red animate-pulse" />
-                                <span>🚨 Sabotajes</span>
+                                <span>Sabotajes</span>
                                 <span className="pill-counter">{stats.counts.unauthorizedDriving}</span>
                             </button>
                         )}

@@ -6,11 +6,10 @@ import {
     Home, Users, CreditCard, DollarSign, FileText,
     Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, Terminal, Bell
 } from 'lucide-react';
-import { switchCompany } from '../services/api';
 import './AdminSidebar.css';
 
 const AdminSidebar = ({ isOpen, onToggle }) => {
-    const { user, logout, isAdmin } = useAuth();
+    const { user, logout, isAdmin, switchActiveCompany } = useAuth();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
@@ -25,22 +24,9 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
         if (!targetCompanyId || targetCompanyId === user.companyId) return;
 
         try {
-            const res = await switchCompany(targetCompanyId);
-            if (res.success && res.data.token) {
-                localStorage.setItem('adminToken', res.data.token);
-                localStorage.setItem('auth_token', res.data.token);
-                
-                // Update auth_user in storage to reflect the new company before reload
-                const storage = localStorage.getItem('auth_user') ? localStorage : sessionStorage;
-                const authUserStr = storage.getItem('auth_user');
-                if (authUserStr) {
-                    const authUser = JSON.parse(authUserStr);
-                    authUser.companyId = res.data.companyId;
-                    authUser.companyName = res.data.companyName;
-                    storage.setItem('auth_user', JSON.stringify(authUser));
-                }
-
-                window.location.reload(); // Full reload to ensure clean state
+            const res = await switchActiveCompany(targetCompanyId);
+            if (!res.success) {
+                alert(res.error || 'Failed to switch company. Please try again.');
             }
         } catch (error) {
             console.error('Failed to switch company', error);

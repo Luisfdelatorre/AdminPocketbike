@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { login, verifyDevicePin } from '../services/api';
+import { login, verifyDevicePin, switchCompany as apiSwitchCompany } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -80,6 +80,42 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Switch active company without full page reload
+    const switchActiveCompany = async (targetCompanyId) => {
+        try {
+            const res = await apiSwitchCompany(targetCompanyId);
+            if (res.success && res.data.token) {
+                const newToken = res.data.token;
+                setToken(newToken);
+
+                const storage = localStorage.getItem('auth_user') ? localStorage : sessionStorage;
+
+                setUser(prev => {
+                    const updated = {
+                        ...prev,
+                        companyId: res.data.companyId,
+                        companyName: res.data.companyName
+                    };
+                    storage.setItem('auth_user', JSON.stringify(updated));
+                    return updated;
+                });
+
+                if (localStorage.getItem('auth_token')) {
+                    localStorage.setItem('auth_token', newToken);
+                }
+                if (sessionStorage.getItem('auth_token')) {
+                    sessionStorage.setItem('auth_token', newToken);
+                }
+                localStorage.setItem('adminToken', newToken);
+
+                return { success: true, data: res.data };
+            }
+            return { success: false, error: res.error || 'Failed to switch company' };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
     // Logout
     const logout = () => {
         setToken(null);
@@ -120,6 +156,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         loginAdmin,
         loginDevice,
+        switchActiveCompany,
         logout,
         isAuthenticated,
         isAdmin,
