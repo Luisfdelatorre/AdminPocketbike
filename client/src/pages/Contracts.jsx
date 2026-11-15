@@ -391,7 +391,7 @@ const Contracts = () => {
             contractDays: defaults.contractDays || 500,
             startDate: new Date().toISOString().split('T')[0],
             notes: '',
-            devicePin: Math.floor(1000 + Math.random() * 9000).toString(),
+            devicePin: '',
             freeDaysLimit: defaults.freeDaysLimit || 4,
             freeDayPolicy: defaults.freeDayPolicy || 'FLEXIBLE',
             fixedFreeDayOfWeek: defaults.fixedFreeDayOfWeek ?? 0,

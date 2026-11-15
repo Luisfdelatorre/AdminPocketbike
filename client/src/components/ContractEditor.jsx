@@ -93,6 +93,20 @@ const ContractEditor = ({
         });
     }, [formData.dailyRate, formData.contractDays, formData.initialFee, totalGastosFijos, companySettings]);
 
+    // Auto-sync vehicle devicePin with the last 4 digits of customerPhone
+    useEffect(() => {
+        const digits = String(formData.customerPhone || '').replace(/\D/g, '');
+        if (digits.length >= 4) {
+            const last4 = digits.slice(-4);
+            if (formData.devicePin !== last4) {
+                setFormData(prev => ({
+                    ...prev,
+                    devicePin: last4
+                }));
+            }
+        }
+    }, [formData.customerPhone]);
+
     const toggleSection = (sectionKey) => {
         setOpenSections(prev => ({
             ...prev,
@@ -587,7 +601,7 @@ const ContractEditor = ({
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <div>
                         <button
                             type="button"
                             className={`contract-header-device-selector ${formData.deviceId ? 'has-device' : 'no-device'} ${editingContract ? 'is-disabled' : ''}`}
@@ -611,16 +625,6 @@ const ContractEditor = ({
                             ) : (
                                 <ChevronRight size={14} className="contract-header-device-arrow" />
                             )}
-                        </button>
-
-                        <button
-                            type="button"
-                            className="modal-close"
-                            onClick={onClose}
-                            aria-label="Cerrar editor"
-                            title="Cerrar"
-                        >
-                            <X size={18} />
                         </button>
                     </div>
                 </header>
@@ -1312,7 +1316,16 @@ const ContractEditor = ({
                                                     type="tel"
                                                     className="wa-profile-input font-mono"
                                                     value={formData.customerPhone}
-                                                    onChange={(e) => setFormData({ ...formData, customerPhone: formatPhoneNumber(e.target.value) })}
+                                                    onChange={(e) => {
+                                                        const formatted = formatPhoneNumber(e.target.value);
+                                                        const digits = formatted.replace(/\D/g, '');
+                                                        const autoPin = digits.length >= 4 ? digits.slice(-4) : (digits || '');
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            customerPhone: formatted,
+                                                            ...(autoPin ? { devicePin: autoPin } : {})
+                                                        }));
+                                                    }}
                                                     placeholder="300 123 4567"
                                                 />
                                             </div>
@@ -1417,9 +1430,9 @@ const ContractEditor = ({
                                                 <input
                                                     type="text"
                                                     className="wa-profile-input font-mono font-bold"
-                                                    value={formData.devicePin}
+                                                    value={formData.devicePin || ''}
                                                     onChange={(e) => setFormData({ ...formData, devicePin: e.target.value })}
-                                                    placeholder="4 dígitos"
+                                                    placeholder="Últimos 4 del cel"
                                                     maxLength={6}
                                                 />
                                             </div>
