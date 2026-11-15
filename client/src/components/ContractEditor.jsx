@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { 
     ArrowLeft, Bike, ChevronRight, ChevronDown, Check, X, Camera, FileUp, 
-    Sparkles, Loader2, DollarSign, Calendar, Sliders, RefreshCw, User 
+    Sparkles, Loader2, DollarSign, Calendar, Sliders, RefreshCw, User, Search 
 } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatPhoneNumber, formatCompactCOP } from '../utils/helpers';
@@ -1536,7 +1536,8 @@ const ContractEditor = ({
                             </div>
                         </div>
 
-                        <div className="wa-picker-search-box">
+                        <div className="wa-picker-search-wrap">
+                            <Search size={16} className="wa-picker-search-icon" />
                             <input
                                 type="text"
                                 className="wa-picker-search-input"
@@ -1545,6 +1546,16 @@ const ContractEditor = ({
                                 onChange={(e) => setDeviceSearchQuery(e.target.value)}
                                 autoFocus
                             />
+                            {deviceSearchQuery && (
+                                <button
+                                    type="button"
+                                    className="wa-picker-search-clear"
+                                    onClick={() => setDeviceSearchQuery('')}
+                                    aria-label="Limpiar búsqueda"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
                         </div>
 
                         <div className="wa-picker-list">
@@ -1566,7 +1577,7 @@ const ContractEditor = ({
                                         <button
                                             key={d.deviceId}
                                             type="button"
-                                            className={`wa-picker-item ${isSelected ? 'wa-picker-item--selected' : ''}`}
+                                            className={`wa-picker-item ${isSelected ? 'is-selected' : ''}`}
                                             onClick={() => {
                                                 setFormData(prev => ({
                                                     ...prev,
@@ -1580,11 +1591,11 @@ const ContractEditor = ({
                                                 setDeviceSearchQuery('');
                                             }}
                                         >
-                                            <div className="wa-picker-item-avatar">
+                                            <div className="wa-picker-item-icon">
                                                 <Bike size={18} />
                                             </div>
                                             <div className="wa-picker-item-info">
-                                                <span className="wa-picker-item-title font-mono font-bold">{displayName}</span>
+                                                <span className="wa-picker-item-name font-mono font-bold">{displayName}</span>
                                                 <span className="wa-picker-item-sub">ID: {d.deviceId} • {d.uniqueId || 'Sin IMEI'}</span>
                                             </div>
                                             {isSelected && (
