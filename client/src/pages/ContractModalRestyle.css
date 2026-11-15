@@ -1485,30 +1485,30 @@
     min-width: 0;
 }
 
-.contract-editor-back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.45rem 0.75rem;
+.contract-back-btn {
+    width: 38px;
+    height: 38px;
     border-radius: 0.625rem;
-    border: 1px solid #E2E8F0;
-    background: #FFFFFF;
+    border: 1px solid #e2e8f0;
+    background: white;
     color: #475569;
-    font-size: 0.8125rem;
-    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     transition: all 0.15s ease;
     flex-shrink: 0;
 }
 
-.contract-editor-back-btn:hover {
-    background: #F1F5F9;
-    color: #0F172A;
-    border-color: #CBD5E1;
+.contract-back-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+    transform: translateX(-1px);
 }
 
-.contract-editor-back-btn:active {
-    transform: scale(0.97);
+.contract-back-btn:active {
+    transform: scale(0.96);
 }
 
 .contract-editor-header-title {

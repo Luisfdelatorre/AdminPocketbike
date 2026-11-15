@@ -574,13 +574,12 @@ const ContractEditor = ({
                     <div className="contract-editor-header-left">
                         <button
                             type="button"
-                            className="contract-editor-back-btn"
+                            className="contract-back-btn"
                             onClick={onClose}
-                            aria-label="Volver a Contratos"
-                            title="Volver a la lista de contratos"
+                            aria-label="Volver"
+                            title="Volver"
                         >
                             <ArrowLeft size={18} />
-                            <span>Volver</span>
                         </button>
                         <div className="contract-editor-header-title">
                             <span className="contract-status-dot" />
