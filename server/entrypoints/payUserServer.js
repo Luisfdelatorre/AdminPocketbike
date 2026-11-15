@@ -80,6 +80,7 @@ app.use('/js', express.static(path.join(__dirname, '../../client/js'), {
     }
 }));
 app.use('/css', express.static(path.join(__dirname, '../../client/css')));
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 app.use(express.static(path.join(__dirname, '../../dist')));
 
 // Custom Payment Route (/p/:plate)

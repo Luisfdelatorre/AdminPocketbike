@@ -20,8 +20,9 @@ import mongoose from 'mongoose';
 import dayjs from 'dayjs';
 import { Contract } from '../models/Contract.js';
 import { Invoice } from '../models/index.js';
+import { MongoDB } from '../config/config.js';
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27018/payments-wompi-pocketbike';
+const MONGO_URI = process.env.MONGO_URI || MongoDB.URI;
 
 async function run() {
     await mongoose.connect(MONGO_URI);

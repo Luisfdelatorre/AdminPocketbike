@@ -82,11 +82,70 @@
         text-overflow: ellipsis;
     }
 
+    .mobile-header-company-switcher {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        max-width: 100%;
+        margin: 0 auto;
+        vertical-align: middle;
+    }
+
+    .company-switcher-title-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        max-width: 100%;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: background-color 0.15s ease;
+    }
+
+    .mobile-header-company-switcher:active .company-switcher-title-pill {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .company-switcher-title-text {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #1F2937;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        letter-spacing: -0.01em;
+        line-height: 1.25;
+    }
+
+    .company-switcher-chevron {
+        flex-shrink: 0;
+        color: #4B5563;
+        transition: transform 0.2s ease;
+    }
+
+    .company-switcher-title-select {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        font-size: 16px;
+        border: none;
+        margin: 0;
+        padding: 0;
+        z-index: 2;
+    }
+
     .admin-content {
         flex: 1 1 auto;
         min-height: 0;
         margin-left: 0 !important;
-        padding: .2rem .5rem;
+        padding: .2rem .5rem 5.5rem;
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior-y: contain;
@@ -133,19 +192,33 @@
 }
 
 @media (max-width: 768px) {
-    .mobile-bottom-nav {
-        display: flex;
-        position: relative;
-        width: 100%;
-        height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
-        flex: 0 0 calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
-        background: white;
-        border-top: 1px solid #E5E7EB;
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    .mobile-bottom-nav-wrapper {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
         z-index: 1000;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+    }
+
+    .mobile-bottom-nav {
+        pointer-events: auto;
+        display: flex;
+        width: calc(100% - 1.5rem);
+        max-width: 440px;
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 9999px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(226, 232, 240, 0.85);
+        padding: 4px 6px;
         justify-content: space-around;
         align-items: center;
-        padding: 0 4px env(safe-area-inset-bottom, 0px);
         box-sizing: border-box;
     }
 
@@ -156,26 +229,44 @@
         justify-content: center;
         background: none;
         border: none;
-        color: #9CA3AF;
-        gap: 4px;
+        color: #64748B;
+        gap: 2px;
         cursor: pointer;
-        padding: 4px 8px;
+        padding: 5px 10px;
+        border-radius: 9999px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         flex: 1;
         min-width: 0;
-        transition: color 0.2s ease;
     }
 
     .mobile-bottom-nav .nav-btn span {
         font-size: 10px;
         font-weight: 500;
+        line-height: 1;
+        letter-spacing: -0.01em;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;
+        margin-top: 2px;
     }
 
     .mobile-bottom-nav .nav-btn.active {
-        color: var(--brand-teal);
+        background: rgba(226, 232, 240, 0.85);
+        color: #0F172A;
+    }
+
+    .mobile-bottom-nav .nav-btn.active span {
+        font-weight: 700;
+        color: #0F172A;
+    }
+
+    .mobile-home-indicator {
+        width: 136px;
+        height: 4px;
+        background-color: rgba(15, 23, 42, 0.25);
+        border-radius: 9999px;
+        margin-top: 6px;
     }
 }
 

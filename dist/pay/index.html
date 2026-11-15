@@ -6,7 +6,8 @@
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pago a {{COMPANY_NAME}}</title>
-  <link rel="modulepreload" href="/assets/payment-app-Bch7Dtvy.js?v=4">
+  <link rel="preload" as="image" href="{{COMPANY_LOGO}}" fetchpriority="high">
+  <link rel="modulepreload" href="/assets/payment-app-ixKVyKIN.js?v=4">
 
   <style>
     :root {
@@ -670,6 +671,72 @@
       cursor: pointer;
     }
 
+    /* Toggle Schedule / History Accordion Button */
+    #toggle-schedule-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      text-align: left;
+      padding: 0 14px;
+      height: 40px;
+      box-sizing: border-box;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md, 12px);
+      cursor: pointer;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      -webkit-tap-highlight-color: transparent;
+      font-family: inherit;
+      outline: none;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    #toggle-schedule-btn.is-expanded {
+      padding: 0 10px;
+    }
+
+    #toggle-schedule-btn:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    #toggle-schedule-btn:active {
+      transform: scale(0.99);
+    }
+
+    #toggle-schedule-btn .text-slate-700 {
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #toggle-schedule-btn svg.text-slate-500 {
+      color: #64748b;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    #accordion-chevron {
+      color: #94a3b8;
+      width: 14px;
+      height: 14px;
+      transition: transform 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    #toggle-schedule-btn.is-expanded #accordion-chevron {
+      transform: rotate(180deg);
+    }
+
     /* Toast Notifications */
     .toast-notification {
       position: fixed;
@@ -708,11 +775,18 @@
       background: #3b82f6;
     }
 
-    /* ── Month Selector ─────────────────────────────────── */
+    /* ── Month Selector & More Options Flex Transition ── */
     .more-options-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      width: 100%;
+      margin: var(--spacing-sm) 0;
+      gap: 0;
+      overflow: hidden;
+      transition: gap 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .more-options-row.is-expanded {
       gap: 8px;
     }
 
@@ -727,14 +801,33 @@
       background: var(--color-bg-light);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      padding: 3px 4px;
-      flex: 1;
+      padding: 0 4px;
+      height: 40px;
+      box-sizing: border-box;
       justify-content: space-between;
       min-width: 0;
+      width: 180px;
+      max-width: 180px;
+      flex: 0 0 180px;
+      overflow: hidden;
+      transform-origin: right center;
+      transform: scaleX(1);
+      opacity: 1;
+      pointer-events: auto;
+      white-space: nowrap;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .month-selector-hidden {
-      display: none !important;
+    .month-selector.month-selector-hidden {
+      width: 0 !important;
+      max-width: 0 !important;
+      flex: 0 0 0px !important;
+      padding: 0 !important;
+      border-width: 0 !important;
+      margin: 0 !important;
+      opacity: 0 !important;
+      transform: scaleX(0) !important;
+      pointer-events: none !important;
     }
 
     .month-label {
@@ -788,6 +881,42 @@
       background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
       background-size: 200% 100%;
       animation: shimmer 1.2s infinite;
+    }
+
+    /* Shimmer Skeleton System for Loading States */
+    .skeleton-shimmer {
+      display: inline-block;
+      vertical-align: middle;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+    }
+
+    .skeleton-amount {
+      width: 130px;
+      height: 36px;
+      border-radius: 8px;
+    }
+
+    .skeleton-date {
+      width: 80px;
+      height: 14px;
+    }
+
+    .skeleton-cuotas {
+      width: 100px;
+      height: 15px;
+    }
+
+    .skeleton-btn-text {
+      width: 150px;
+      height: 16px;
+    }
+
+    .skeleton-reminder {
+      width: 180px;
+      height: 14px;
     }
 
     @keyframes shimmer {
@@ -862,7 +991,7 @@
   </style>
   <!-- Scripts -->
 
-  <script type="module" crossorigin src="/assets/payment-B8PS9XD4.js"></script>
+  <script type="module" crossorigin src="/assets/payment-CbArTBi5.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="stylesheet" crossorigin href="/assets/payment-Ci0zoWqn.css">
 </head>
@@ -874,7 +1003,7 @@
       <h2 class="app-title" id="loginTitle">Pago a {{COMPANY_NAME}}</h2>
       <div class="login-form">
         <div class="deviceIdGroup" id="deviceIdGroup">
-          <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" fetchpriority="high" decoding="async"
+          <img alt="Logo" src="{{COMPANY_LOGO}}" id="loginLogo" width="60" height="60" fetchpriority="high" decoding="async"
             style="background: #f3f4f6; width: 60px; height: 60px; display: block;">
           <input type="text" id="deviceId" placeholder="Placa" class="name-input hidden" value="{{DEVICE_ID}}" disabled
             style="display: none;" required>
@@ -944,7 +1073,7 @@
         </button>
         <div class="device-header">
           <div class="device-logo-container">
-            <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo">
+            <img alt="Logo" src="{{COMPANY_LOGO}}" class="img-sm" id="paymentLogo" width="60" height="60" decoding="async">
             <div class="status-ring" id="deviceStatusRing"></div>
             <div class="status-icons-container">
               <div class="status-icon ">
@@ -971,18 +1100,18 @@
             <span class="device-id" id="deviceDisplay"
               style="display: block; padding: 0; margin: 0; line-height: 1.1;">{{DEVICE_ID}}</span>
             <span id="paymentDueDate" class="text-muted payment-date-style"
-              style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;">-
-              ---</span>
+              style="display: block; margin-top: 3px; line-height: 1.1; font-size: 14px; font-weight: 500; color: #4b5563;"><span class="skeleton-shimmer skeleton-date"></span></span>
           </div>
         </div>
 
-        <div class="payment-amount">
-          <span class="currency">$</span><span id="paymentAmount">35.000</span><span class="currency-code">COP</span>
+        <div class="payment-amount" id="amountContainer">
+          <span class="currency" id="currencySymbol" style="display: none;">$</span><span id="paymentAmount"><span class="skeleton-shimmer skeleton-amount"></span></span><span class="currency-code" id="currencyCode" style="display: none;">COP</span>
         </div>
-        <div class="cuotas-pill-badge" style="display: flex; justify-content: center; margin: -2px 0 14px 0;">
-          <span
-            style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px;">
-            Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">500</span>
+        <div class="cuotas-pill-badge" id="cuotasPillBadge" style="display: flex; justify-content: center; margin: -2px 0 14px 0;">
+          <span id="cuotasBadgeWrapper"
+            style="background: #f3f4f6; color: #374151; padding: 4px 14px; border-radius: 16px; font-size: 13px; font-weight: 500; letter-spacing: -0.2px; display: inline-flex; align-items: center; min-height: 25px;">
+            <span id="cuotasLoadingSkeleton" class="skeleton-shimmer skeleton-cuotas"></span>
+            <span id="cuotasText" style="display: none;">Cuota <span id="cuotasPagadas">0</span> de <span id="totalCuotas">0</span></span>
           </span>
         </div>
         <div class="phone-input-group" id="phoneInputGroup">
@@ -994,11 +1123,21 @@
             <img id="paymentBtnIcon" src="/nequi.png" alt="Nequi" class="img-sm" decoding="async">
           </div>
           <div class="nequi-divider"></div>
-          <div class="nequi-text" id="paymentBtnText">Cargando método de pago...</div>
+          <div class="nequi-text" id="paymentBtnText"><span class="skeleton-shimmer skeleton-btn-text"></span></div>
         </button>
       </div>
       <div class="more-options more-options-row">
-        <a href="#" id="morePaymentOptions">Lista de pagos ▼</a>
+        <button class="flex items-center gap-2 text-left hover:bg-slate-50 transition tap-highlight-transparent" id="toggle-schedule-btn" type="button">
+          <div class="flex items-center space-x-2 text-slate-700 font-semibold text-sm">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span>Lista de pagos</span>
+          </div>
+          <svg class="w-3.5 h-3.5 transform transition-transform" id="accordion-chevron" fill="currentColor" viewBox="0 0 20 20">
+            <path clip-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" fill-rule="evenodd"></path>
+          </svg>
+        </button>
         <div class="month-selector month-selector-hidden" id="monthSelector">
           <button class="month-nav-btn" id="monthPrevBtn" title="Mes anterior"
             aria-label="Mes anterior">&#8249;</button>
@@ -1011,8 +1150,8 @@
       <div class="important-reminder" id="normalReminder">
         <div class="reminder-icon">🔔</div>
         <div class="reminder-content">
-          <div class="reminder-title">Cómo pagar</div>
-          <div class="reminder-text">Cargando instrucciones...</div>
+          <div class="reminder-title" id="normalTitle">Cómo pagar</div>
+          <div class="reminder-text" id="normalText"><span class="skeleton-shimmer skeleton-reminder"></span></div>
         </div>
       </div>
 
@@ -1083,6 +1222,36 @@
             loginScreen.classList.remove('active');
             loginScreen.style.display = 'none';
           }
+
+          // Optional: Instant rehydration from last known payment summary if cached
+          try {
+            const rawCached = localStorage.getItem('cachedSummary_' + (targetPlate || '').toUpperCase());
+            if (rawCached) {
+              const cached = JSON.parse(rawCached);
+              if (cached && cached.amountStr) {
+                const amt = document.getElementById('paymentAmount');
+                const sym = document.getElementById('currencySymbol');
+                const code = document.getElementById('currencyCode');
+                const due = document.getElementById('paymentDueDate');
+                const cSkel = document.getElementById('cuotasLoadingSkeleton');
+                const cText = document.getElementById('cuotasText');
+                const cPag = document.getElementById('cuotasPagadas');
+                const cTot = document.getElementById('totalCuotas');
+                const btn = document.getElementById('paymentBtnText');
+                if (amt) {
+                  amt.textContent = cached.amountStr;
+                  if (sym) sym.style.display = 'inline';
+                  if (code) code.style.display = 'inline';
+                }
+                if (due && cached.dateStr) due.textContent = cached.dateStr;
+                if (cSkel) cSkel.style.display = 'none';
+                if (cText) cText.style.display = 'inline';
+                if (cPag) cPag.textContent = cached.cuotasPagadas || 0;
+                if (cTot) cTot.textContent = cached.cuotasTotal || 0;
+                if (btn && cached.btnText) btn.textContent = cached.btnText;
+              }
+            }
+          } catch (e) {}
         } else {
           if (paymentScreen) {
             paymentScreen.classList.remove('active');

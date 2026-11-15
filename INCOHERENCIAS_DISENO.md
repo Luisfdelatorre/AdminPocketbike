@@ -42,6 +42,9 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **18** | Arquitectura Desacoplada y Modular de Cabeceras (`PageHeader.Desktop` / `PageHeader.Mobile` y `useIsMobile`) | ✅ Completado | Desacoplamiento limpio de la lógica y maquetación de cabeceras de escritorio y móvil en toda la aplicación (11 páginas), eliminando renderizado redundante, hacks de CSS media queries y unificando props con `renderHeader = isMobile ? mobileHeader : desktopHeader`. |
 | **19** | Badges Flotantes (Globo iOS) en Pills de Filtro (`SearchAndFilterBar`) | ✅ Completado | Adición de badges tipo globo en la esquina superior derecha de cada pill para identificar conteos en tiempo real (Todos, Con Deuda, Al Día, Apagados) con adaptación cromática e inversión de contraste al estar activo. |
 | **20** | Visibilidad Permanente de Filtros y Estadísticas en Versión Desktop | ✅ Completado | En pantallas de escritorio (`min-width: 769px`), los contenedores `.expandable-metrics-container`, tarjetas de métricas (`StatCard`s) y barras de filtros/búsqueda se mantienen siempre visibles y expandidos mediante `@media (min-width: 769px)` en `index.css` y `!isMobile || showFilters` en React (`DeviceSelector`, `Contracts`, `AdminDashboard`, `PaymentSummary`), reservando el colapso al botón móvil. |
+| **21** | Iconografía Telemétrica en Tarjetas del Centro de Alertas | ✅ Completado | Sustitución de etiquetas de texto plano en las tarjetas de alerta por iconografía telemétrica compacta (`MotorIcon`, `KeyRound`, `Gauge`, `Activity`, `BatteryFull/Medium/Low`, `ZapOff`) con micro-cápsulas y tooltips descriptivos. |
+| **22** | Consola Desktop Split (Feed 65% + Inspector Telemétrico 35%) en Centro de Alertas | 🧪 En validación | Maquetación responsive para pantallas de escritorio ($\ge 1200\text{px}$) con workspace de doble columna: feed interactivo de incidentes con selección activa, mapa de rastreo GPS en vivo con HUD, ficha de conductor/contrato, comandos IoT inmediatos de corte/reanudación y bitácora de despacho rápido. |
+| **23** | Unificación de Colores, Tokens y Estandarización de Clases en Settings | ✅ Completado | Consolidación integral de la interfaz de Configuración bajo los tokens globales (--brand-teal, --brand-teal-dark, --card-border, --card-radius); eliminación de 50+ inline styles con colores fijos y reducción de ~1,200 líneas CSS redundantes. |
 
 ---
 
@@ -499,6 +502,65 @@ En vistas con filtros de estado densos (como `PaymentSummary.jsx`), no existía 
    * **Espaciado y Scroll Suave**: Ajuste de `gap: 0.65rem - 0.75rem` y `padding-top: 6px - 8px` en `.filter-pills-ios` para que los globos respiren y no se corten en el contenedor deslizable.
 3. **Cálculo Reactivo en `PaymentSummary.jsx`**:
    * Integración de `okCount` (motos con deuda cero) y `cutoffCount` (motos con `cutOff: true` obtenido vía `getDeviceStatus`) con `useMemo`, actualizándose reactivamente con los eventos SSE de telemetría y pagos.
+
+---
+
+## 21. Iconografía Telemétrica en Tarjetas del Centro de Alertas
+
+### El Problema
+Las tarjetas del feed telemétrico mostraban etiquetas de texto extensas (`Motor: BLOQUEADO`, `Switch: APAGADO`, `Velocidad: 30 km/h`, `Batería: 100%`) que generaban saturación visual, saltos de línea irregulares y desbordamiento en pantallas móviles.
+
+### Solución Implementada
+* Reemplazo de chips textuales por una cuadrícula estructurada de 4 celdas horizontales con iconografía semántica (`MotorIcon`, `KeyRound`, `Gauge`, `BatteryFull/Medium/Low/ZapOff`).
+* Resaltado contextual con fondos semánticos (`highlight-rose` para corte activo, switch ON con corte, velocidad > 0 km/h y batería baja).
+* Umbral de tiempo adaptativo: formato relativo (`Hace X min`) para $\le 30$ minutos y hora exacta (`11:45 a. m.`, `12 nov 03:15 p. m.`) para incidencias de más de 30 minutos.
+* Unificación del botón de acción principal `.btn-incident-primary` (*"Resolver"*) con los tokens de marca (`var(--brand-teal)` y hover `var(--brand-teal-dark)`).
+
+---
+
+## 22. Consola Desktop Split (Feed 65% + Inspector Telemétrico 35%) en Centro de Alertas
+
+### El Problema
+En monitores de escritorio o consolas de despacho ($\ge 1200\text{px}$), el feed de alertas se estiraba en una sola columna ancha con excesivo espacio negativo y obligaba al despachador a navegar fuera de la vista para inspeccionar la ubicación en mapa, verificar los datos del conductor o disparar comandos de corte de motor.
+
+### Solución Implementada
+1. **Layout Split Responsive (`.alerts-workspace-split`)**:
+   * En pantallas grandes ($\ge 1200\text{px}$), se despliega una consola de despacho de 2 columnas:
+     - **Columna izquierda (65%)**: Feed interactivo de tarjetas de incidente con selección activa y filtros rápidos.
+     - **Columna derecha (35%)**: Inspector telemétrico sticky (`top: 75px`).
+   * En pantallas móviles ($< 1200\text{px}$), el inspector lateral se oculta limpiamente y el feed mantiene la experiencia compacta optimizada.
+2. **Tarjeta de Rastreo GPS en Vivo con HUD**:
+   * Integración de canvas de mapa interactivo centrado en las coordenadas del vehículo (`latitude`, `longitude`).
+   * HUD flotante con dirección / referencia, chip de velocidad en tiempo real y enlace directo a Google Maps.
+3. **Ficha de Despacho Rápido & Comandos IoT**:
+   * Conexión con `getActiveContract` para cargar automáticamente nombre del conductor, cédula, teléfono con llamada rápida (`tel:...`) y número de contrato del vehículo seleccionado.
+   * **Comandos IoT Inmediatos**: Botón de "Corte Inmediato de Motor (Relé 1)" / "Reanudar Motor" conectado directamente al endpoint `POST /commands/send` con diálogo de confirmación y feedback visual.
+   * **Bitácora de Despacho**: Área de texto para registro de notas de auditoría y guardado inmediato en el historial de la alerta.
+   * **Mini-Timeline de Eventos**: Registro cronológico de disparos, eventos acumulados y estado de atención del incidente.
+
+---
+
+## 23. Unificación de Colores, Tokens y Estandarización de Clases en Settings
+
+### El Problema
+La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba divergencias de estilo derivadas de prototipos independientes:
+- Presencia de paletas externas ajenas al sistema (azules Tailwind Material-3 `#006194`, `#007bb9`, `#0051d5`, `#eff4ff`, `#e5eeff` y cyans `#06b6d4`, `#0891b2`, `#ecfeff`).
+- Más de 50 ocurrencias de estilos inline (`style={{ color: '#0d9488' }}`, etc.) sobrecargando el componente React.
+- Redundancia y sobreespecificidad en `Settings.css` (superando 1,900 líneas con duplicaciones de tarjetas, encabezados, inputs y switches).
+
+### Solución Implementada
+1. **Adopción de Tokens Globales de AdminPocketbike**:
+   * Color de marca centralizado: `var(--brand-teal, #03C9D7)`, `var(--brand-teal-dark, #0394A3)`, y `rgba(var(--brand-teal-rgb), 0.1)`.
+   * Tarjetas homologadas: bordes `var(--card-border, #E5E7EB)`, radio `var(--card-radius, 0.75rem)` y sombras suaves.
+   * Estados y validaciones unificados: verde esmeralda `#10B981` para estados activos/conectados y rojo `#EF4444` para desconexiones o errores.
+2. **Estandarización de Controles**:
+   * Pestañas superiores (`.tab-button`), botones de acción (`.btn-save`, `.btn-validate-traccar`, `.btn-sync-devices`) y switches táctiles integrados con los tokens oficiales.
+   * Inputs, selects e input groups estilizados con foco en `var(--brand-teal)` y anillos de foco translúcidos.
+3. **Limpieza y Desduplicación**:
+   * Eliminación total de estilos inline con colores fijos en `Settings.jsx`.
+   * Reorganización modular de `Settings.css` en 13 secciones limpias, reduciendo su tamaño de 1,918 líneas a ~740 líneas (~61% de reducción de código).
+
+
 
 
 

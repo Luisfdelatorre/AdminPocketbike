@@ -7,6 +7,7 @@ import { Company } from '../models/Company.js';
 import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES, GPS_THROTTLE } from '../config/config.js';
 import GpsService from '../services/gpsServices.js';
 import companyService from './companyService.js';
+import alertService from './alertService.js';
 
 import helper from '../utils/helpers.js';
 import logger from '../utils/logger.js';
@@ -35,7 +36,44 @@ const bulkWriteDevices = async (gpsDevices) => {
     return deviceRepository.insertDevicesBatch(gpsDevices);
 }
 
+// SSE Aggregation Buffer (companyId -> Map<gpsId, ssePayload>)
+const SSE_BATCH_WINDOW_MS = 2500; // 2.5s aggregation window for routine telemetry
+const SSE_URGENT_WINDOW_MS = 300; // 300ms near-instant flush for cutOff / powerCut
+const _pendingSseByCompany = new Map();
+let _sseFlushTimer = null;
+let _lastSseFlushTime = 0;
 
+const flushSseUpdates = () => {
+    if (_sseFlushTimer) {
+        clearTimeout(_sseFlushTimer);
+        _sseFlushTimer = null;
+    }
+    if (_pendingSseByCompany.size === 0) return;
+
+    _lastSseFlushTime = Date.now();
+    for (const [companyId, devicesMap] of _pendingSseByCompany.entries()) {
+        if (devicesMap.size > 0) {
+            const companyUpdates = Array.from(devicesMap.values());
+            sseService.broadcast('device_update', companyUpdates, { companyId });
+        }
+    }
+    _pendingSseByCompany.clear();
+};
+
+const scheduleSseFlush = (isUrgent) => {
+    const now = Date.now();
+    if (isUrgent) {
+        if (_sseFlushTimer) clearTimeout(_sseFlushTimer);
+        _sseFlushTimer = setTimeout(flushSseUpdates, SSE_URGENT_WINDOW_MS);
+        return;
+    }
+
+    if (!_sseFlushTimer) {
+        const timeSinceLast = now - _lastSseFlushTime;
+        const delay = Math.max(100, SSE_BATCH_WINDOW_MS - timeSinceLast);
+        _sseFlushTimer = setTimeout(flushSseUpdates, delay);
+    }
+};
 
 const initializeGpsUpdates = async () => {
     // 2. Pre-populate in-memory cache to avoid DB storm
@@ -53,45 +91,6 @@ const initializeGpsUpdates = async () => {
     let _lastGlobalDbWrite = 0;
     let _pendingUrgentFlush = false;
 
-    // SSE Aggregation Buffer (companyId -> Map<gpsId, ssePayload>)
-    const SSE_BATCH_WINDOW_MS = 2500; // 2.5s aggregation window for routine telemetry
-    const SSE_URGENT_WINDOW_MS = 300; // 300ms near-instant flush for cutOff / powerCut
-    const _pendingSseByCompany = new Map();
-    let _sseFlushTimer = null;
-    let _lastSseFlushTime = 0;
-
-    const flushSseUpdates = () => {
-        if (_sseFlushTimer) {
-            clearTimeout(_sseFlushTimer);
-            _sseFlushTimer = null;
-        }
-        if (_pendingSseByCompany.size === 0) return;
-
-        _lastSseFlushTime = Date.now();
-        for (const [companyId, devicesMap] of _pendingSseByCompany.entries()) {
-            if (devicesMap.size > 0) {
-                const companyUpdates = Array.from(devicesMap.values());
-                sseService.broadcast('device_update', companyUpdates, { companyId });
-            }
-        }
-        _pendingSseByCompany.clear();
-    };
-
-    const scheduleSseFlush = (isUrgent) => {
-        const now = Date.now();
-        if (isUrgent) {
-            if (_sseFlushTimer) clearTimeout(_sseFlushTimer);
-            _sseFlushTimer = setTimeout(flushSseUpdates, SSE_URGENT_WINDOW_MS);
-            return;
-        }
-
-        if (!_sseFlushTimer) {
-            const timeSinceLast = now - _lastSseFlushTime;
-            const delay = Math.max(100, SSE_BATCH_WINDOW_MS - timeSinceLast);
-            _sseFlushTimer = setTimeout(flushSseUpdates, delay);
-        }
-    };
-
     const onFlush = async (batch) => {
         if (!batch || batch.length === 0) return;
         const NOW = Date.now();
@@ -108,7 +107,22 @@ const initializeGpsUpdates = async () => {
                 deviceStateCache.get(Number(rawGpsId));
             if (!mem) continue;
 
+            // Resolve cutOff for H02 command ACK if not already determined by hardware status bitfield
+            if (update.cutOff === undefined && update.isH02Ack) {
+                if (mem.pendingCommand === 'engineResume') {
+                    update.cutOff = false;
+                } else if (mem.pendingCommand === 'engineStop') {
+                    update.cutOff = true;
+                } else {
+                    update.cutOff = !mem.cutOff;
+                }
+            }
+
             if (mem.applyUpdate(update)) {
+                if (update.isCommandResult) {
+                    deviceRepository.updateDeviceQueuedStatus(mem._id, false)
+                        .catch(err => logger.error(`[DeviceServices] Error clearing queued status for device ${mem._id}:`, err));
+                }
                 if (mem._urgent) {
                     _pendingUrgentFlush = true;
                     batchHasUrgent = true;
@@ -123,6 +137,17 @@ const initializeGpsUpdates = async () => {
                         const payload = typeof mem.toSsePayload === 'function' ? mem.toSsePayload() : mem;
                         _pendingSseByCompany.get(cid).set(mem.gpsId, payload);
                     }
+                }
+
+                // Security telemetry alert detection (Power cut, unauthorized ignition, towing/motion in cutoff, etc.)
+                if (update.powerCut || (mem.cutOff && (update.motion || update.ignition || (update.speed && update.speed > 5))) || update.rawAlarm) {
+                    alertService.processTelemetryAlert(mem, update, {
+                        latitude: update.latitude,
+                        longitude: update.longitude,
+                        speed: update.speed,
+                        address: update.address,
+                        attributes: { alarm: update.rawAlarm }
+                    }).catch(err => logger.error('[DeviceServices] Error in alert processing:', err));
                 }
             }
         }
@@ -239,6 +264,27 @@ const controlEngine = async (deviceIdentifier, command, companyId) => {
 
         // 3. Marcar encolado en el _id único del vehículo
         await deviceRepository.updateDeviceQueuedStatus(targetDevice._id, true);
+
+        // Actualizar en memoria para sincronización inmediata de SSE y reconocimiento de confirmaciones
+        const mem = deviceStateCache.get(actualGpsId) ||
+            deviceStateCache.get(String(actualGpsId)) ||
+            deviceStateCache.get(Number(actualGpsId));
+        if (mem) {
+            mem.queued = true;
+            mem.pendingCommand = command; // 'engineResume' | 'engineStop'
+            mem._dirty = true;
+            mem._urgent = true;
+            mem._sseChanged = true;
+            const cid = mem.companyId?.toString();
+            if (cid) {
+                if (!_pendingSseByCompany.has(cid)) {
+                    _pendingSseByCompany.set(cid, new Map());
+                }
+                const payload = typeof mem.toSsePayload === 'function' ? mem.toSsePayload() : mem;
+                _pendingSseByCompany.get(cid).set(mem.gpsId, payload);
+                scheduleSseFlush(true);
+            }
+        }
 
         return {
             success: true,

@@ -42,6 +42,11 @@ export const getCommandHistory = (params) => api.get('/commands', { params });
 export const getCommandStats = (params) => api.get('/commands/stats', { params });
 export const sendCommand = (data) => api.post('/commands/send', data);
 
+// --- Telemetry Alerts ---
+export const getAlertsHistory = (params) => api.get('/alerts', { params });
+export const getAlertsStats = (params) => api.get('/alerts/stats', { params });
+export const updateAlertStatus = (id, data) => api.patch(`/alerts/${id}/status`, data);
+
 // --- Dashboard ---
 export const getDashboardStats = (params) => api.get('/dashboard/stats', { params });
 
@@ -214,6 +219,8 @@ export const exportPaymentsCSV = async (month, year, companyId = '') => {
 export const getSettings = () => api.get('/companies/settings');
 export const updateSettings = (data) => api.put('/companies/settings', data);
 export const validateTraccarConnection = (data) => api.post('/companies/validate-traccar', data);
+export const getTraccarNotifications = (companyId = 'me') => api.get(`/companies/${companyId}/traccar-notifications`);
+export const updateTraccarNotifications = (companyId = 'me', data) => api.put(`/companies/${companyId}/traccar-notifications`, data);
 export const getAdjustmentTypes = () => api.get('/settings/adjustment-types');
 export const updateAdjustmentTypes = (data) => api.put('/settings/adjustment-types', data);
 export const getPaymentStatuses = () => api.get('/settings/payment-status');

@@ -427,16 +427,13 @@
     display: none !important;
 }
 
-span.desktop-only {
-    display: inline !important;
-}
-
 @media (max-width: 768px) {
     .mobile-only {
-        display: grid !important;
+        display: inline-block !important;
     }
 
-    .desktop-only {
+    .desktop-only,
+    span.desktop-only {
         display: none !important;
     }
 

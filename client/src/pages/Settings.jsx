@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent } from 'lucide-react';
+import { 
+    Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, 
+    Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, 
+    Zap, MapPin, Bell, BellRing, ShieldCheck, Server, Globe, User, Key, Eye, EyeOff, 
+    Smartphone, QrCode, CheckCircle, Check, Radio, Info, Mail
+} from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
-import { getSettings, updateSettings, syncDevices, validateTraccarConnection } from '../services/api';
+import { getSettings, updateSettings, syncDevices, validateTraccarConnection, getTraccarNotifications, updateTraccarNotifications } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import './Settings.css';
@@ -75,6 +80,56 @@ const Settings = () => {
     const [syncState, setSyncState] = useState({ loading: false, result: null, error: null });
     const [isValidatingTraccar, setIsValidatingTraccar] = useState(false);
     const [traccarValidationResult, setTraccarValidationResult] = useState(null);
+    const [isTraccarValidated, setIsTraccarValidated] = useState(true);
+    const [traccarNotifs, setTraccarNotifs] = useState({
+        batteryAlerts: false,
+        geofenceAlerts: false,
+        vibrationAlerts: false
+    });
+    const [isLoadingTraccarNotifs, setIsLoadingTraccarNotifs] = useState(false);
+    const [isUpdatingTraccarNotif, setIsUpdatingTraccarNotif] = useState(false);
+    const [showTraccarPassword, setShowTraccarPassword] = useState(false);
+    const [showWompiPrivKey, setShowWompiPrivKey] = useState(false);
+    const [showWompiIntegrity, setShowWompiIntegrity] = useState(false);
+    const [showWompiEvents, setShowWompiEvents] = useState(false);
+
+    const loadTraccarNotifications = async () => {
+        if (!settings.gpsConfig?.user) return;
+        setIsLoadingTraccarNotifs(true);
+        try {
+            const res = await getTraccarNotifications('me');
+            if (res?.success && res.settings) {
+                setTraccarNotifs(res.settings);
+            }
+        } catch (err) {
+            console.warn('[Settings] Error fetching Traccar notifications:', err.message);
+        } finally {
+            setIsLoadingTraccarNotifs(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'integrations' && settings.gpsConfig?.user) {
+            loadTraccarNotifications();
+        }
+    }, [activeTab, settings.gpsConfig?.user]);
+
+    const handleToggleTraccarNotif = async (key, val) => {
+        const nextState = { ...traccarNotifs, [key]: val };
+        setTraccarNotifs(nextState);
+        setIsUpdatingTraccarNotif(true);
+        try {
+            const res = await updateTraccarNotifications('me', nextState);
+            if (res?.success && res.settings) {
+                setTraccarNotifs(res.settings);
+            }
+        } catch (err) {
+            console.error('Error updating Traccar notification:', err);
+            setTraccarNotifs(prev => ({ ...prev, [key]: !val }));
+        } finally {
+            setIsUpdatingTraccarNotif(false);
+        }
+    };
 
 
     const handleSyncDevices = async () => {
@@ -109,16 +164,20 @@ const Settings = () => {
                     success: true,
                     message: `Conexión exitosa. Usuario: ${data.user?.name || data.user?.email || 'OK'} | Grupo: ${groupName}${timingStr}`
                 });
+                setIsTraccarValidated(true);
                 if (data.selectedGroup?.id) {
                     handleNestedChange('gpsConfig', 'groupId', data.selectedGroup.id);
                 }
+                loadTraccarNotifications();
             } else {
+                setIsTraccarValidated(false);
                 setTraccarValidationResult({
                     success: false,
                     message: res?.error || res?.data?.error || 'Error al validar credenciales de Traccar'
                 });
             }
         } catch (err) {
+            setIsTraccarValidated(false);
             setTraccarValidationResult({
                 success: false,
                 message: err.response?.data?.error || err.message || 'Error de conexión con Traccar'
@@ -137,6 +196,10 @@ const Settings = () => {
             ...prev,
             [field]: value
         }));
+        if (field === 'gpsService') {
+            setIsTraccarValidated(false);
+            setTraccarValidationResult(null);
+        }
         setSaved(false);
     };
 
@@ -167,6 +230,7 @@ const Settings = () => {
                             companyLogo: rest.logo || prev.companyLogo // Map logo to companyLogo for state
                         };
                         initialSettingsRef.current = JSON.parse(JSON.stringify(loaded));
+                        setIsTraccarValidated(Boolean(loaded.gpsConfig?.groupId));
                         return loaded;
                     });
                 }
@@ -223,7 +287,7 @@ const Settings = () => {
         ctx.restore();
 
         // Draw square border
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = '#03C9D7';
         ctx.lineWidth = 3;
         ctx.strokeRect(centerX - halfSize, centerY - halfSize, cropSize, cropSize);
     };
@@ -273,6 +337,31 @@ const Settings = () => {
         setIsDragging(false);
     };
 
+    const getNestedDiff = (currentObj = {}, initialObj = {}) => {
+        const diff = {};
+        const allKeys = new Set([...Object.keys(currentObj || {}), ...Object.keys(initialObj || {})]);
+
+        for (const key of allKeys) {
+            const currentVal = currentObj?.[key];
+            const initialVal = initialObj?.[key];
+
+            // Never treat masked placeholder passwords or secrets as a real change
+            if (currentVal === '********') {
+                continue;
+            }
+
+            if (currentVal !== undefined && typeof currentVal === 'object' && currentVal !== null && !Array.isArray(currentVal)) {
+                const subDiff = getNestedDiff(currentVal, initialVal);
+                if (Object.keys(subDiff).length > 0) {
+                    diff[key] = subDiff;
+                }
+            } else if (currentVal !== undefined && currentVal !== initialVal) {
+                diff[key] = currentVal;
+            }
+        }
+        return diff;
+    };
+
     const getChangedSettings = (current, initial) => {
         if (!initial) return { ...current, logo: current.companyLogo };
         const diff = {};
@@ -294,24 +383,38 @@ const Settings = () => {
             diff.logo = current.companyLogo;
         }
 
-        // Object: curfew
+        // Object: curfew (atomic update if changed)
         if (current.curfew !== undefined && JSON.stringify(current.curfew) !== JSON.stringify(initial.curfew)) {
             diff.curfew = current.curfew;
         }
 
-        // Object: contractDefaults
-        if (current.contractDefaults !== undefined && JSON.stringify(current.contractDefaults) !== JSON.stringify(initial.contractDefaults)) {
-            diff.contractDefaults = current.contractDefaults;
+        // Granular Nested Objects: contractDefaults, gpsConfig, wompiConfig, billingConfig
+        if (current.contractDefaults) {
+            const contractDiff = getNestedDiff(current.contractDefaults, initial.contractDefaults);
+            if (Object.keys(contractDiff).length > 0) {
+                diff.contractDefaults = contractDiff;
+            }
         }
 
-        // Object: gpsConfig
-        if (current.gpsConfig !== undefined && JSON.stringify(current.gpsConfig) !== JSON.stringify(initial.gpsConfig)) {
-            diff.gpsConfig = current.gpsConfig;
+        if (current.gpsConfig) {
+            const gpsDiff = getNestedDiff(current.gpsConfig, initial.gpsConfig);
+            if (Object.keys(gpsDiff).length > 0) {
+                diff.gpsConfig = gpsDiff;
+            }
         }
 
-        // Object: wompiConfig
-        if (current.wompiConfig !== undefined && JSON.stringify(current.wompiConfig) !== JSON.stringify(initial.wompiConfig)) {
-            diff.wompiConfig = current.wompiConfig;
+        if (current.wompiConfig) {
+            const wompiDiff = getNestedDiff(current.wompiConfig, initial.wompiConfig);
+            if (Object.keys(wompiDiff).length > 0) {
+                diff.wompiConfig = wompiDiff;
+            }
+        }
+
+        if (current.billingConfig) {
+            const billingDiff = getNestedDiff(current.billingConfig, initial.billingConfig);
+            if (Object.keys(billingDiff).length > 0) {
+                diff.billingConfig = billingDiff;
+            }
         }
 
         return diff;
@@ -327,6 +430,16 @@ const Settings = () => {
             // Compute dirty diff against initial loaded snapshot
             const allDirty = getChangedSettings(settings, initialSettingsRef.current);
 
+            // Validation check: if telemetry provider or credentials were changed, enforce Traccar connection validation
+            const isGpsDirty = Boolean(allDirty.gpsService !== undefined || allDirty.gpsConfig !== undefined);
+            if (((section === 'all' && isGpsDirty) || section === 'gps') && settings.gpsService === 'traccar') {
+                if (!isTraccarValidated) {
+                    alert('Debes validar la conexión de Traccar antes de guardar los cambios de proveedor o credenciales de telemetría.');
+                    setSavingSections(prev => ({ ...prev, [section]: false }));
+                    return;
+                }
+            }
+
             // Filter dirty fields if saving a specific section
             let payload = {};
             if (section === 'all') {
@@ -334,6 +447,9 @@ const Settings = () => {
             } else if (section === 'branding') {
                 if (allDirty.displayName !== undefined) payload.displayName = allDirty.displayName;
                 if (allDirty.logo !== undefined) payload.logo = allDirty.logo;
+                if (allDirty.contractDefaults?.emailDomain !== undefined) {
+                    payload.contractDefaults = { emailDomain: allDirty.contractDefaults.emailDomain };
+                }
             } else if (section === 'gps') {
                 if (allDirty.gpsService !== undefined) payload.gpsService = allDirty.gpsService;
                 if (allDirty.gpsConfig !== undefined) payload.gpsConfig = allDirty.gpsConfig;
@@ -372,6 +488,7 @@ const Settings = () => {
 
                 // Update baseline snapshot so subsequent saves know these are persisted
                 initialSettingsRef.current = JSON.parse(JSON.stringify(settings));
+                setIsTraccarValidated(true);
 
                 // Mark section as saved
                 setSavedSections(prev => ({ ...prev, [section]: true }));
@@ -514,6 +631,10 @@ const Settings = () => {
                 [field]: value
             }
         }));
+        if (category === 'gpsConfig' && field !== 'groupId') {
+            setIsTraccarValidated(false);
+            setTraccarValidationResult(null);
+        }
         setSaved(false);
     };
 
@@ -590,7 +711,7 @@ const Settings = () => {
                         className={`tab-button ${activeTab === 'branding' ? 'active' : ''}`}
                         onClick={() => setActiveTab('branding')}
                     >
-                        <ImageIcon size={18} /> {t('settings.tabs.branding')}
+                        <Building size={18} /> {t('settings.tabs.branding') || 'Empresa'}
                     </button>
                     <button
                         className={`tab-button ${activeTab === 'business' ? 'active' : ''}`}
@@ -614,80 +735,145 @@ const Settings = () => {
 
                 {/* ── BRANDING TAB ── */}
                 {activeTab === 'branding' && (
-                    <div className="settings-card-section">
-                        <div className="card-section-header" style={{ marginBottom: '1rem' }}>
-                            <div className="card-title-group">
-                                <Building size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Configuración de Empresa</h2>
-                            </div>
-                            <i className="info-icon-mobile" title={t('settings.branding.displayNameDesc')}>i</i>
-                        </div>
-
-                        <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                            <label htmlFor="displayName" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <ImageIcon size={16} />
-                                    Nombre visible de la Empresa
-                                </span>
-                                <i className="info-icon-mobile" title={t('settings.branding.displayNameDesc')}>i</i>
-                            </label>
-                            <input
-                                id="displayName"
-                                type="text"
-                                value={settings.displayName}
-                                onChange={(e) => handleChange('displayName', e.target.value)}
-                                placeholder="PocketBike"
-                                className="input-display-name"
-                            />
-                            <div className="settings-inline-row">
-                                <div className="settings-form-group" style={{ flex: 1 }}>
-                                    <label htmlFor="emailDomain" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span>Dominio de Correo por Defecto</span>
-                                        <i className="info-icon-mobile" title={t('settings.branding.emailDomainDesc')}></i>
-                                    </label>
-                                    <div className="input-group" style={{ display: 'flex', gap: '0.5rem' }}>
-                                        <div style={{ background: '#F1F5F9', border: '1px solid #D1D5DB', padding: '0.875rem 1.25rem', borderRadius: '0.5rem', color: '#6B7280', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>@</div>
-                                        <input
-                                            id="emailDomain"
-                                            type="text"
-                                            value={settings.contractDefaults?.emailDomain || 'pocketbike.app'}
-                                            onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
-                                            placeholder="pocketbike.app"
-                                            className="input-display-name"
-                                        />
+                    <div className="company-profile-container">
+                        <section className="company-profile-card">
+                            {/* Header of Card */}
+                            <div className="company-card-header">
+                                <div className="company-header-title-group">
+                                    <div className="company-header-icon">
+                                        <Building size={20} />
                                     </div>
+                                    <div>
+                                        <h2 className="company-header-title">Configuración de Empresa</h2>
+                                        <p className="company-header-subtitle">Datos públicos y perfil de negocio</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="company-header-info-btn"
+                                    title={t('settings.branding.displayNameDesc') || 'Información de sección'}
+                                    aria-label="Información de sección"
+                                >
+                                    <Info size={16} />
+                                </button>
+                            </div>
+
+                            {/* Field 1: Business Visible Name */}
+                            <div className="company-field-group">
+                                <div className="company-field-label-row">
+                                    <label className="company-field-label" htmlFor="company-name">
+                                        <ImageIcon size={14} />
+                                        <span>Nombre visible de la Empresa</span>
+                                    </label>
+                                    <span className="company-field-badge-required">Requerido</span>
+                                </div>
+                                <div className="company-input-relative">
+                                    <input
+                                        id="company-name"
+                                        name="company_name"
+                                        type="text"
+                                        value={settings.displayName || ''}
+                                        onChange={(e) => handleChange('displayName', e.target.value)}
+                                        placeholder="Ej. PocketBike Store"
+                                        className="company-text-input"
+                                    />
+                                    {Boolean(settings.displayName?.trim()) && (
+                                        <div className="company-input-icon-right">
+                                            <Check size={18} color="#10b981" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="setting-item" style={{ marginBottom: 0 }}>
-                                <label htmlFor="companyLogo" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <ImageIcon size={16} />
-                                    LOGO DE LA EMPRESA
-                                </label>
-                                <div className="branding-upload-area" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', alignItems: 'center' }}>
-                                    <div
-                                        className="current-logo-container"
-                                        onClick={() => document.getElementById('companyLogo').click()}
-                                        style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '12px', cursor: 'pointer' }}
+                            {/* Field 2: Default Email Domain */}
+                            <div className="company-field-group">
+                                <div className="company-field-label-row">
+                                    <label className="company-field-label" htmlFor="email-domain">
+                                        <Mail size={14} />
+                                        <span>Dominio de Correo por Defecto</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        className="company-header-info-btn"
+                                        title={t('settings.branding.emailDomainDesc') || 'Ayuda sobre dominio'}
+                                        aria-label="Ayuda sobre dominio"
                                     >
-                                        <img
-                                            src={settings.companyLogo}
-                                            alt={t('settings.branding.logo')}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }}
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.src = '/pocketbike_60x60.jpg';
-                                            }}
-                                        />
+                                        <Info size={14} />
+                                    </button>
+                                </div>
+                                <div className="company-email-domain-group">
+                                    <span className="company-email-at-prefix">@</span>
+                                    <input
+                                        id="email-domain"
+                                        name="email_domain"
+                                        type="text"
+                                        value={settings.contractDefaults?.emailDomain || ''}
+                                        onChange={(e) => handleNestedChange('contractDefaults', 'emailDomain', e.target.value)}
+                                        placeholder="ejemplo.com"
+                                        className="company-email-domain-input"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Field 3: Company Logo Section */}
+                            <div className="company-logo-section">
+                                <label className="company-field-label">
+                                    <ImageIcon size={14} />
+                                    <span>Logo de la Empresa</span>
+                                </label>
+                                <div className="company-logo-box">
+                                    {/* Logo Preview Container with Edit Pin */}
+                                    <div className="company-logo-preview-wrapper">
+                                        <div
+                                            className="company-logo-preview"
+                                            onClick={() => document.getElementById('companyLogo')?.click()}
+                                            title={t('settings.branding.changeLogo') || 'Cambiar logo'}
+                                        >
+                                            <img
+                                                src={settings.companyLogo || '/pocketbike_60x60.jpg'}
+                                                alt={settings.displayName || 'Logo Empresa'}
+                                                className="company-logo-img"
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = '/pocketbike_60x60.jpg';
+                                                }}
+                                            />
+                                        </div>
                                         <button
                                             type="button"
-                                            className="btn-edit-logo"
-                                            onClick={(e) => { e.stopPropagation(); document.getElementById('companyLogo').click(); }}
-                                            title={t('settings.branding.changeLogo')}
-                                            style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '28px', height: '28px', borderRadius: '50%', background: '#0d9488', border: '2px solid white', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            className="company-logo-floating-edit"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                document.getElementById('companyLogo')?.click();
+                                            }}
+                                            aria-label="Cambiar logo"
+                                            title="Cambiar logo"
                                         >
-                                            <Edit2 size={14} />
+                                            <Edit2 size={13} />
                                         </button>
+                                    </div>
+
+                                    {/* Upload Guidelines & Actions */}
+                                    <div className="company-logo-actions-wrapper">
+                                        <div className="company-logo-btn-group">
+                                            <button
+                                                type="button"
+                                                className="company-logo-btn-change"
+                                                onClick={() => document.getElementById('companyLogo')?.click()}
+                                            >
+                                                Cambiar foto
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="company-logo-btn-delete"
+                                                onClick={() => handleChange('companyLogo', '')}
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                        <p className="company-logo-hint">
+                                            Recomendado: <strong>60×60 px</strong>, formatos PNG o JPG, máx 2 MB.
+                                        </p>
                                     </div>
 
                                     <input
@@ -698,11 +884,27 @@ const Settings = () => {
                                         style={{ display: 'none' }}
                                     />
                                 </div>
-                                <p className="upload-hint-text" style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                                    RECOMENDADO: 60X60PX, PNG O JPG, MÁX 2MB
-                                </p>
                             </div>
-                        </div>
+                        </section>
+
+                        {/* Domain Status Badge */}
+                        <section className="tenant-status-card">
+                            <div className="tenant-status-left">
+                                <span className="tenant-status-pulse-container">
+                                    <span className="tenant-status-pulse-ring"></span>
+                                    <span className="tenant-status-pulse-dot"></span>
+                                </span>
+                                <div className="tenant-status-info">
+                                    <p className="tenant-status-title">Tenant Activo y Verificado</p>
+                                    <p className="tenant-status-host">
+                                        {(settings.displayName ? settings.displayName.toLowerCase().replace(/[^a-z0-9]/g, '') : 'pocketbike') + '.' + (settings.contractDefaults?.emailDomain || 'tumotoya.online')}
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="tenant-status-badge">
+                                {typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'SSL Activo' : 'Conexión Segura'}
+                            </span>
+                        </section>
                     </div>
                 )}
 
@@ -713,8 +915,8 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Clock size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                    <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Corte Automático</h2>
+                                    <Clock size={20} className="card-icon" />
+                                    <h2 className="card-title-text">Corte Automático</h2>
                                 </div>
                                 <input
                                     id="automaticCutOff"
@@ -764,8 +966,8 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Clock size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                    <h2 style={{ fontSize: '1rem', color: '#0f172a', margin: 0 }}>Apagado Nocturno</h2>
+                                    <Clock size={20} className="card-icon" />
+                                    <h2 className="card-title-text">Apagado Nocturno</h2>
                                 </div>
                                 <input
                                     id="curfewEnabled"
@@ -779,7 +981,7 @@ const Settings = () => {
                             {settings.curfew?.enabled && (
                                 <div className="settings-card-content curfew-grid">
                                     <div className="curfew-col">
-                                        <label htmlFor="curfewStartTime" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#64748b' }}>
+                                        <label htmlFor="curfewStartTime" className="curfew-label">
                                             <Clock size={14} /> Apagado
                                         </label>
                                         <div className="settings-card-input-wrapper">
@@ -794,7 +996,7 @@ const Settings = () => {
                                         </div>
                                     </div>
                                     <div className="curfew-col">
-                                        <label htmlFor="curfewEndTime" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#64748b' }}>
+                                        <label htmlFor="curfewEndTime" className="curfew-label">
                                             <Clock size={14} /> Encendido
                                         </label>
                                         <div className="settings-card-input-wrapper">
@@ -816,8 +1018,8 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Database size={20} className="card-icon" style={{ color: '#0d9488' }} />
-                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Ajustes Generales</h2>
+                                    <Database size={20} className="card-icon" />
+                                    <h2 className="card-title-text">Ajustes Generales</h2>
                                 </div>
                             </div>
 
@@ -955,15 +1157,15 @@ const Settings = () => {
                         <div className="settings-card-section">
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <DollarSign size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <DollarSign size={20} className="card-icon" />
                                     <div>
-                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Costos Fijos del Contrato</h2>
-                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                        <h2 className="card-title-text">Costos Fijos del Contrato</h2>
+                                        <p className="card-subheading">
                                             Valores base y gastos fijos asociados a la configuración de contratos
                                         </p>
                                     </div>
                                 </div>
-                                <div className="contract-accordion-badge" style={{ background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', padding: '4px 10px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <div className="contract-accordion-badge">
                                     Total: {formatCurrency(
                                         (Number(settings.contractDefaults?.fixedCosts?.gps) || 0) +
                                         (Number(settings.contractDefaults?.fixedCosts?.soatPosterior) || 0) +
@@ -1044,12 +1246,12 @@ const Settings = () => {
                         <div className="settings-card-section" style={{ marginTop: '1.5rem' }}>
                             <div className="card-section-header">
                                 <div className="card-title-group">
-                                    <Percent size={20} className="card-icon" style={{ color: '#0d9488' }} />
+                                    <Percent size={20} className="card-icon" />
                                     <div>
-                                        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                                        <h2 className="card-title-text">
                                             Parámetros Financieros del Contrato
                                         </h2>
-                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                        <p className="card-subheading">
                                             Tasas, impuestos y proporciones utilizadas en el cálculo matemático y financiero del contrato
                                         </p>
                                     </div>
@@ -1135,181 +1337,428 @@ const Settings = () => {
 
                 {/* ── INTEGRATIONS TAB ── */}
                 {activeTab === 'integrations' && (
-                    <div className="settings-section">
-                        <div className="setting-item">
-                            <label htmlFor="gpsService">{t('settings.integrations.selectProvider')}</label>
-                            <select
-                                id="gpsService"
-                                value={settings.gpsService}
-                                onChange={(e) => handleChange('gpsService', e.target.value)}
-                            >
-                                {(availableGpsServices.length
-                                    ? availableGpsServices
-                                    : ['megarastreo', 'traccar']
-                                ).map(svc => {
-                                    const GPS_LABELS = {
-                                        megarastreo: 'MegaRastreo',
-                                        traccar: 'Traccar'
-                                    };
-                                    return (
-                                        <option key={svc} value={svc}>
-                                            {GPS_LABELS[svc] ?? svc}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                        </div>
-
-                        {settings.gpsService === 'megarastreo' && (
-                            <div className="integration-fields">
-                                <div className="setting-item">
-                                    <label htmlFor="mrUser">{t('settings.integrations.megarastreoUsername')}</label>
-                                    <input
-                                        id="mrUser"
-                                        type="text"
-                                        value={settings.gpsConfig.user}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
-                                        placeholder="Enter username"
-                                    />
-                                </div>
-                                <div className="setting-item">
-                                    <label htmlFor="mrPass">{t('settings.integrations.megarastreoPassword')}</label>
-                                    <input
-                                        id="mrPass"
-                                        type="password"
-                                        value={settings.gpsConfig.password}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
-                                        placeholder="Enter password"
-                                    />
+                    <div className="integrations-container">
+                        {/* ── SECCIÓN 1: Conexión al Servidor GPS ── */}
+                        <div className="integrations-card">
+                            <div className="integrations-section-header">
+                                <div className="integrations-section-title-group">
+                                    <div className="integrations-section-icon">
+                                        <Server size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="integrations-section-title">Servidor</h3>
+                                    </div>
                                 </div>
                             </div>
-                        )}
 
-                        {settings.gpsService === 'traccar' && (
-                            <div className="integration-fields">
-                                <div className="setting-item">
-                                    <label htmlFor="trHost">{t('settings.integrations.traccarHost')}</label>
-                                    <input
-                                        id="trHost"
-                                        type="text"
-                                        value={settings.gpsConfig.host}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
-                                        placeholder="e.g. 198.74.54.252"
-                                    />
-                                </div>
-                                <div className="setting-item">
-                                    <label htmlFor="trUser">{t('settings.integrations.traccarUser')}</label>
-                                    <input
-                                        id="trUser"
-                                        type="text"
-                                        value={settings.gpsConfig.user}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
-                                    />
-                                </div>
-                                <div className="setting-item">
-                                    <label htmlFor="trPass">{t('settings.integrations.traccarPass')}</label>
-                                    <input
-                                        id="trPass"
-                                        type="password"
-                                        value={settings.gpsConfig.password}
-                                        onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
-                                    />
-                                </div>
-                                <div style={{ gridColumn: '1 / -1', marginTop: '0.25rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                        <button
-                                            type="button"
-                                            className="btn-secondary"
-                                            onClick={handleValidateTraccar}
-                                            disabled={isValidatingTraccar || !settings.gpsConfig?.user}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                            {/* Selector de Proveedor */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">
+                                    Proveedor de Telemetría <span className="required-star">*</span>
+                                </label>
+                                <div className="integrations-provider-box">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1, minWidth: 0 }}>
+                                        <Radio size={20} className="provider-radio-icon" />
+                                        <select
+                                            id="gpsService"
+                                            value={settings.gpsService || 'traccar'}
+                                            onChange={(e) => handleChange('gpsService', e.target.value)}
+                                            className="integrations-provider-select"
                                         >
-                                            <RefreshCw size={14} className={isValidatingTraccar ? 'spinning' : ''} />
-                                            {isValidatingTraccar ? 'Validando...' : 'Validar Conexión Traccar'}
-                                        </button>
-                                        {settings.gpsConfig?.groupId && (
-                                            <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                                ✓ Grupo vinculado: ID {settings.gpsConfig.groupId}
-                                            </span>
-                                        )}
+                                            <option value="traccar">Traccar GPS Enterprise Engine</option>
+                                            <option value="megarastreo">MegaRastreo GPS Engine</option>
+                                        </select>
                                     </div>
-                                    {traccarValidationResult && (
-                                        <div style={{
-                                            marginTop: '0.6rem',
-                                            padding: '0.6rem 0.85rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.85rem',
-                                            backgroundColor: traccarValidationResult.success ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                            color: traccarValidationResult.success ? '#15803d' : '#b91c1c',
-                                            border: `1px solid ${traccarValidationResult.success ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
-                                        }}>
-                                            {traccarValidationResult.message}
-                                        </div>
+                                    {settings.gpsService === 'traccar' && (
+                                        <span className="badge-oficial">OFICIAL</span>
                                     )}
                                 </div>
                             </div>
+
+                            {/* MegaRastreo Fields */}
+                            {settings.gpsService === 'megarastreo' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div className="integrations-field-group">
+                                        <label className="integrations-field-label">{t('settings.integrations.megarastreoUsername')}</label>
+                                        <div className="integrations-input-box">
+                                            <User size={18} className="field-prefix-icon" />
+                                            <input
+                                                className="integrations-input"
+                                                id="mrUser"
+                                                type="text"
+                                                value={settings.gpsConfig?.user || ''}
+                                                onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                                placeholder="Usuario MegaRastreo"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="integrations-field-group">
+                                        <label className="integrations-field-label">{t('settings.integrations.megarastreoPassword')}</label>
+                                        <div className="integrations-input-box">
+                                            <Key size={18} className="field-prefix-icon" />
+                                            <input
+                                                className="integrations-input"
+                                                id="mrPass"
+                                                type={showTraccarPassword ? 'text' : 'password'}
+                                                value={settings.gpsConfig?.password || ''}
+                                                onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                                placeholder="Contraseña MegaRastreo"
+                                                style={{ letterSpacing: showTraccarPassword ? 'normal' : '0.15em' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTraccarPassword(!showTraccarPassword)}
+                                                className="btn-input-eye-toggle"
+                                                aria-label="Alternar visibilidad de contraseña"
+                                            >
+                                                {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Traccar Fields */}
+                            {settings.gpsService === 'traccar' && (
+                                <>
+                                    {/* Host Traccar */}
+                                    <div className="integrations-field-group">
+                                        <label className="integrations-field-label">Host Traccar</label>
+                                        <div className="integrations-input-box">
+                                            <Globe size={18} className="field-prefix-icon" />
+                                            <input
+                                                className="integrations-input"
+                                                id="input-host"
+                                                type="text"
+                                                value={settings.gpsConfig?.host || ''}
+                                                onChange={(e) => handleNestedChange('gpsConfig', 'host', e.target.value)}
+                                                placeholder="ej. pocketbike.app"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Usuario y Contraseña Grid */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {/* Usuario */}
+                                        <div className="integrations-field-group">
+                                            <label className="integrations-field-label">Usuario / Operador</label>
+                                            <div className="integrations-input-box">
+                                                <User size={18} className="field-prefix-icon" />
+                                                <input
+                                                    className="integrations-input"
+                                                    id="input-user"
+                                                    type="text"
+                                                    value={settings.gpsConfig?.user || ''}
+                                                    onChange={(e) => handleNestedChange('gpsConfig', 'user', e.target.value)}
+                                                    placeholder="Usuario administrador"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Contraseña */}
+                                        <div className="integrations-field-group">
+                                            <label className="integrations-field-label">Contraseña de Telemetría</label>
+                                            <div className="integrations-input-box">
+                                                <Key size={18} className="field-prefix-icon" />
+                                                <input
+                                                    className="integrations-input"
+                                                    id="input-password"
+                                                    type={showTraccarPassword ? 'text' : 'password'}
+                                                    value={settings.gpsConfig?.password || ''}
+                                                    onChange={(e) => handleNestedChange('gpsConfig', 'password', e.target.value)}
+                                                    placeholder="Contraseña"
+                                                    style={{ letterSpacing: showTraccarPassword ? 'normal' : '0.15em' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowTraccarPassword(!showTraccarPassword)}
+                                                    className="btn-input-eye-toggle"
+                                                    aria-label="Alternar visibilidad de contraseña"
+                                                >
+                                                    {showTraccarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Botón de Test y Latencia Card */}
+                                    <div style={{ paddingTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {!isTraccarValidated && (
+                                            <div className="telemetry-validation-alert" style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.625rem',
+                                                padding: '0.75rem 1rem',
+                                                borderRadius: '0.75rem',
+                                                background: 'rgba(245, 158, 11, 0.08)',
+                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                color: '#b45309',
+                                                fontSize: '0.8125rem',
+                                                fontWeight: 500,
+                                                marginBottom: '0.25rem'
+                                            }}>
+                                                <ShieldAlert size={18} color="#d97706" style={{ flexShrink: 0 }} />
+                                                <span>Has modificado el proveedor o credenciales de telemetría. Debes validar la conexión para descubrir el grupo y habilitar el guardado.</span>
+                                            </div>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="btn-validate-traccar"
+                                            id="btn-validate-connection"
+                                            onClick={handleValidateTraccar}
+                                            disabled={isValidatingTraccar || !settings.gpsConfig?.user}
+                                        >
+                                            <RefreshCw size={18} className={isValidatingTraccar ? 'spinning' : ''} />
+                                            <span>{isValidatingTraccar ? 'Validando conexión...' : 'Validar Conexión Traccar'}</span>
+                                        </button>
+
+                                        {traccarValidationResult && (
+                                            <div className="traccar-status-pill" id="connection-status-pill">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span
+                                                        className={`status-dot-pulse ${traccarValidationResult.success ? 'status-dot-success' : 'status-dot-error'}`}
+                                                    />
+                                                    <span className="connection-status-label">
+                                                        {traccarValidationResult.message}
+                                                    </span>
+                                                </div>
+                                                {traccarValidationResult.success && (
+                                                    <span className="connection-status-badge">
+                                                        Traccar HTTP 200
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* ── SECCIÓN 2: Estado de Vinculación y Eventos Telemétricos (Traccar) ── */}
+                        {settings.gpsService === 'traccar' && (
+                            <div className="integrations-card">
+                                <div className="integrations-section-header">
+                                    <div className="integrations-section-title-group">
+                                        <div className="integrations-section-icon">
+                                            <ShieldCheck size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="integrations-section-title">Eventos Telemétricos</h3>
+                                            <p className="integrations-section-subtitle">Reglas de eventos y hardware IoT</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Linked Group Badge Banner */}
+                                <div className="linked-group-banner">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                                        <div className="group-badge-icon">
+                                            <Check size={14} />
+                                        </div>
+                                        <p className="group-badge-title">
+                                            {settings.gpsConfig?.groupId ? `Grupo vinculado: ID ${settings.gpsConfig.groupId}` : 'Sin grupo vinculado'}
+                                        </p>
+                                    </div>
+                                    <span className="group-badge-counter">
+                                        Canales {[traccarNotifs.batteryAlerts, traccarNotifs.geofenceAlerts, traccarNotifs.vibrationAlerts].filter(Boolean).length}/3
+                                    </span>
+                                </div>
+
+                                {/* Canales de Alerta Activos (Switches táctiles modernos) */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {/* Canal 1: Batería */}
+                                    <div className="telemetry-channel-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                            <div className="channel-icon-box channel-icon-amber">
+                                                <Zap size={20} />
+                                            </div>
+                                            <p className="channel-title truncate">Alerta Batería Baja / Desconexión</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(traccarNotifs.batteryAlerts)}
+                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                            onClick={() => handleToggleTraccarNotif('batteryAlerts', !traccarNotifs.batteryAlerts)}
+                                            className={`switch-control-btn ${traccarNotifs.batteryAlerts ? 'checked' : 'unchecked'}`}
+                                        >
+                                            <span className="switch-knob" />
+                                        </button>
+                                    </div>
+
+                                    {/* Canal 2: Geocerca */}
+                                    <div className="telemetry-channel-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                            <div className="channel-icon-box channel-icon-sky">
+                                                <MapPin size={20} />
+                                            </div>
+                                            <p className="channel-title truncate">Control de Geocercas</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(traccarNotifs.geofenceAlerts)}
+                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                            onClick={() => handleToggleTraccarNotif('geofenceAlerts', !traccarNotifs.geofenceAlerts)}
+                                            className={`switch-control-btn ${traccarNotifs.geofenceAlerts ? 'checked' : 'unchecked'}`}
+                                        >
+                                            <span className="switch-knob" />
+                                        </button>
+                                    </div>
+
+                                    {/* Canal 3: Vibración / Sabotaje */}
+                                    <div className="telemetry-channel-item">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                                            <div className="channel-icon-box channel-icon-purple">
+                                                <Bell size={20} />
+                                            </div>
+                                            <p className="channel-title truncate">Sensor Vibración / Movimiento</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(traccarNotifs.vibrationAlerts)}
+                                            disabled={isUpdatingTraccarNotif || isLoadingTraccarNotifs}
+                                            onClick={() => handleToggleTraccarNotif('vibrationAlerts', !traccarNotifs.vibrationAlerts)}
+                                            className={`switch-control-btn ${traccarNotifs.vibrationAlerts ? 'checked' : 'unchecked'}`}
+                                        >
+                                            <span className="switch-knob" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
-                        {/* Wompi */}
-                        <div className="setting-item">
-                            <label htmlFor="wPubKey">{t('settings.integrations.publicKey')}</label>
-                            <input
-                                id="wPubKey"
-                                type="text"
-                                value={settings.wompiConfig.publicKey}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
-                                placeholder="pub_test_..."
-                                autoComplete="off"
-                            />
-                        </div>
+                        {/* ── SECCIÓN 3: Claves de API & Seguridad (Wompi) ── */}
+                        <div className="integrations-card">
+                            <div className="integrations-section-header">
+                                <div className="integrations-section-title-group">
+                                    <div className="integrations-section-icon">
+                                        <Key size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="integrations-section-title">Credenciales API &amp; Webhooks (Wompi)</h3>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <div className="setting-item">
-                            <label htmlFor="wPrivKey">{t('settings.integrations.privateKey')}</label>
-                            <input
-                                id="wPrivKey"
-                                type="password"
-                                value={settings.wompiConfig.privateKey}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
-                                placeholder="prv_test_..."
-                                autoComplete="new-password"
-                            />
-                        </div>
+                            {/* 1. Llave Pública (API Token) */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">{t('settings.integrations.publicKey')}</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="public-token"
+                                        type="text"
+                                        value={settings.wompiConfig?.publicKey || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'publicKey', e.target.value)}
+                                        placeholder="pub_prod_... o pub_test_..."
+                                        onClick={(e) => e.target.select()}
+                                    />
+                                </div>
+                            </div>
 
-                        <div className="setting-item">
-                            <label htmlFor="wInteg">{t('settings.integrations.integritySecret')}</label>
-                            <input
-                                id="wInteg"
-                                type="password"
-                                value={settings.wompiConfig.integritySecret}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'integritySecret', e.target.value)}
-                                placeholder="test_integrity_..."
-                                autoComplete="new-password"
-                            />
-                        </div>
+                            {/* 2. Llave Privada (Webhook Secret) */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">{t('settings.integrations.privateKey')}</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="private-secret"
+                                        type={showWompiPrivKey ? 'text' : 'password'}
+                                        value={settings.wompiConfig?.privateKey || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'privateKey', e.target.value)}
+                                        placeholder="prv_prod_... o prv_test_..."
+                                        style={{ letterSpacing: showWompiPrivKey ? 'normal' : '0.15em' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWompiPrivKey(!showWompiPrivKey)}
+                                        className="btn-input-eye-toggle"
+                                        aria-label="Revelar Llave Privada"
+                                    >
+                                        {showWompiPrivKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
 
-                        <div className="setting-item">
-                            <label htmlFor="wEvents">{t('settings.integrations.eventsSecret')}</label>
-                            <input
-                                id="wEvents"
-                                type="password"
-                                value={settings.wompiConfig.eventsSecret}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'eventsSecret', e.target.value)}
-                                placeholder="test_events_..."
-                                autoComplete="new-password"
-                            />
-                        </div>
+                            {/* 3. Secreto de Integridad */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">{t('settings.integrations.integritySecret')}</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="integrity-secret"
+                                        type={showWompiIntegrity ? 'text' : 'password'}
+                                        value={settings.wompiConfig?.integritySecret || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'integritySecret', e.target.value)}
+                                        placeholder="prod_integrity_... o test_integrity_..."
+                                        style={{ letterSpacing: showWompiIntegrity ? 'normal' : '0.15em' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWompiIntegrity(!showWompiIntegrity)}
+                                        className="btn-input-eye-toggle"
+                                        aria-label="Revelar Secreto de Integridad"
+                                    >
+                                        {showWompiIntegrity ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
 
-                        <div className="setting-item">
-                            <label htmlFor="wPayMethod">Método de Pago</label>
-                            <select
-                                id="wPayMethod"
-                                value={settings.wompiConfig.paymentMethod ?? 'NEQUI_PUSH'}
-                                onChange={(e) => handleNestedChange('wompiConfig', 'paymentMethod', e.target.value)}
-                                className="setting-select"
-                            >
-                                <option value="NEQUI_PUSH">🔔 Notificación Push (Nequi)</option>
-                                <option value="BANCOLOMBIA_QR">📱 Código QR (Bancolombia / Nequi)</option>
-                            </select>
+                            {/* 4. Secreto de Eventos */}
+                            <div className="integrations-field-group">
+                                <label className="integrations-field-label">{t('settings.integrations.eventsSecret')}</label>
+                                <div className="integrations-input-box">
+                                    <input
+                                        className="integrations-input"
+                                        id="events-secret"
+                                        type={showWompiEvents ? 'text' : 'password'}
+                                        value={settings.wompiConfig?.eventsSecret || ''}
+                                        onChange={(e) => handleNestedChange('wompiConfig', 'eventsSecret', e.target.value)}
+                                        placeholder="prod_events_... o test_events_..."
+                                        style={{ letterSpacing: showWompiEvents ? 'normal' : '0.15em' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWompiEvents(!showWompiEvents)}
+                                        className="btn-input-eye-toggle"
+                                        aria-label="Revelar Secreto de Eventos"
+                                    >
+                                        {showWompiEvents ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Método de Pago Wompi Toggle Pill */}
+                            <div className="wompi-method-section">
+                                <label className="integrations-field-label">Método de Pago Wompi</label>
+                                <div 
+                                    className={`wompi-toggle-pill ${settings.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR' ? 'is-qr' : 'is-nequi'}`} 
+                                    role="radiogroup" 
+                                    aria-label="Método de Pago Wompi"
+                                >
+                                    <div className="wompi-toggle-indicator" aria-hidden="true" />
+                                    <button
+                                        type="button"
+                                        id="btn-pay-nequi"
+                                        onClick={() => handleNestedChange('wompiConfig', 'paymentMethod', 'NEQUI_PUSH')}
+                                        className={`wompi-toggle-btn ${(settings.wompiConfig?.paymentMethod ?? 'NEQUI_PUSH') === 'NEQUI_PUSH' ? 'active' : 'inactive'}`}
+                                    >
+                                        <BellRing size={18} />
+                                        <span>Nequi Push</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="btn-pay-bancolombia"
+                                        onClick={() => handleNestedChange('wompiConfig', 'paymentMethod', 'BANCOLOMBIA_QR')}
+                                        className={`wompi-toggle-btn ${settings.wompiConfig?.paymentMethod === 'BANCOLOMBIA_QR' ? 'active' : 'inactive'}`}
+                                    >
+                                        <QrCode size={18} />
+                                        <span>Bancolombia QR</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1337,7 +1786,7 @@ const Settings = () => {
                         </div>
 
                         {/* Sync Devices */}
-                        <div className="setting-item sync-devices-row" style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #E5E7EB', display: 'block' }}>
+                        <div className="setting-item sync-devices-row">
                             <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>{t('settings.system.discoveryTitle')}</h3>
                             <p className="setting-description" style={{ marginBottom: '1.25rem' }}>
                                 {t('settings.system.discoveryDesc')}
@@ -1348,18 +1797,17 @@ const Settings = () => {
                                     onClick={handleSyncDevices}
                                     disabled={syncState.loading}
                                     title="Fetch devices from GPS provider"
-                                    style={{ padding: '0.75rem 1.5rem', background: 'var(--brand-teal)', color: 'white', border: 'none', borderRadius: '0.5rem' }}
                                 >
                                     <RefreshCw size={15} className={syncState.loading ? 'spin' : ''} />
                                     {syncState.loading ? t('settings.system.syncing') : t('settings.system.syncNow')}
                                 </button>
                                 {syncState.result && (
-                                    <span className="sync-result success" style={{ marginLeft: '1rem' }}>
+                                    <span className="sync-result success">
                                         ✓ {syncState.result.message}
                                     </span>
                                 )}
                                 {syncState.error && (
-                                    <span className="sync-result error" style={{ marginLeft: '1rem' }}>✗ {syncState.error}</span>
+                                    <span className="sync-result error">✗ {syncState.error}</span>
                                 )}
                             </div>
                         </div>
