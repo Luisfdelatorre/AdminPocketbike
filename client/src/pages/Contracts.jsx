@@ -461,7 +461,6 @@ const Contracts = () => {
             if (cMatch && cMatch[1]) vInfo.numeroChasis = cMatch[1].toUpperCase();
         }
 
-        setShowVehicleDetails(Boolean(vInfo.placa || vInfo.marca || vInfo.numeroChasis || vInfo.numeroMotor));
         setFormData({
             deviceId: contract.deviceId,
             customerName: contract.customerName || '',

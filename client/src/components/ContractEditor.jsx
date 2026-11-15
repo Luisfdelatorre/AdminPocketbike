@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { 
     ArrowLeft, Bike, ChevronRight, ChevronDown, Check, X, Camera, FileUp, 
@@ -562,7 +563,7 @@ const ContractEditor = ({
     const st = formData.attachments?.soat;
     const stUrl = typeof st === 'string' ? st : (st?.url || st?.fileUrl || null);
 
-    return (
+    return createPortal(
         <div 
             className={`contract-editor-view ${isClosing ? 'contract-editor-view--closing' : 'contract-editor-view--opening'} contract-editor-immersive-overlay`}
             onClick={(e) => e.stopPropagation()}
@@ -1910,7 +1911,8 @@ const ContractEditor = ({
                     allowDocument={true}
                 />
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
