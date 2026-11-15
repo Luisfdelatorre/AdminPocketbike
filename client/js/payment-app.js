@@ -1,6 +1,7 @@
 import { login, getPaymentStatus, getInvoiceHistory, createNequiPayment, requestFreeDay, requestLoan, createPaymentStream, getAdjustmentTypes } from './api.js';
 import messagesService from './messages-service.js';
 import { Templates } from './templates.js';
+import { STATUS_CLASS_MAP as DEFAULT_STATUS_MAP } from './status-map.js';
 // ============================================================================
 // Constants & Configuration
 // ============================================================================
@@ -14,8 +15,8 @@ let CONFIG = {
     DRAG_THRESHOLD: 100,
     TRANSITION_DURATION: 500
 };
-// Server-injected status map (injected in HTML head via brandingService at millisecond 0)
-const STATUS_CLASS_MAP = window.__INITIAL_DATA__?.statusMap || {};
+// Status catalog for invoice history badges
+const STATUS_CLASS_MAP = window.__INITIAL_DATA__?.statusMap || DEFAULT_STATUS_MAP;
 // ============================================================================
 // State Management
 // ============================================================================
@@ -64,7 +65,7 @@ class DOMManager {
             freeDay: document.getElementById('useFreeDayBtn'),
             loan: document.getElementById('loanBtn'),
             logout: document.getElementById('logoutBtn'),
-            morePayment: document.getElementById('morePaymentOptions'),
+            morePayment: document.getElementById('toggle-schedule-btn') || document.getElementById('morePaymentOptions'),
             confirm: document.getElementById('confirmPaymentBtn'),
             cancel: document.getElementById('cancelPaymentBtn'),
             done: document.getElementById('doneBtn')
@@ -695,6 +696,10 @@ class PaymentManager {
             const amountDisplay = dom.get('displays.paymentAmount');
             if (amountDisplay) {
                 amountDisplay.textContent = UIUtils.formatMoney(STATE.paymentData.amount || STATE.paymentData.dailyRate);
+                const currSym = document.getElementById('currencySymbol');
+                const currCode = document.getElementById('currencyCode');
+                if (currSym) currSym.style.display = 'inline';
+                if (currCode) currCode.style.display = 'inline';
             }
             const phoneInput = dom.get('inputs.phone');
             if (phoneInput) {
@@ -714,6 +719,11 @@ class PaymentManager {
             if (normalTitle) normalTitle.textContent = messagesService.get(`PAYMENT_METHODS.${methodKey}.TITLE`);
             if (normalText) normalText.textContent = messagesService.get(`PAYMENT_METHODS.${methodKey}.INSTRUCTIONS`);
 
+            const cuotasSkeleton = document.getElementById('cuotasLoadingSkeleton');
+            const cuotasText = document.getElementById('cuotasText');
+            if (cuotasSkeleton) cuotasSkeleton.style.display = 'none';
+            if (cuotasText) cuotasText.style.display = 'inline';
+
             const cuotasPagadasDisplay = dom.get('displays.cuotasPagadas');
             const totalCuotasDisplay = dom.get('displays.totalCuotas');
 
@@ -721,8 +731,22 @@ class PaymentManager {
                 cuotasPagadasDisplay.textContent = STATE.paymentData.cuotasPagadas;
             }
             if (totalCuotasDisplay) {
-                totalCuotasDisplay.textContent = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 500;
+                totalCuotasDisplay.textContent = STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 0;
             }
+
+            // Persist summary for millisecond-0 cache
+            try {
+                const plate = (STATE.urlDeviceId || '').toUpperCase();
+                if (plate) {
+                    localStorage.setItem('cachedSummary_' + plate, JSON.stringify({
+                        amountStr: amountDisplay?.textContent || '',
+                        dateStr: dueDate?.textContent || '',
+                        cuotasPagadas: STATE.paymentData.cuotasPagadas || 0,
+                        cuotasTotal: STATE.paymentData.cuotasTotal || STATE.paymentData.contractDays || 0,
+                        btnText: nequiBtnText?.textContent || ''
+                    }));
+                }
+            } catch (e) {}
 
             const freeDaysCount = STATE.paymentData.freeDaysAvailable || 0;
             const badge = dom.get('displays.freeDaysCount');
@@ -1479,8 +1503,23 @@ class EventHandler {
 
         this._updateReminderVisibility(isExpanded);
 
+        const toggleBtn = document.getElementById('toggle-schedule-btn');
+        if (toggleBtn) {
+            toggleBtn.classList.toggle('is-expanded', isExpanded);
+        }
+
+        const moreRow = document.querySelector('.more-options-row');
+        if (moreRow) {
+            moreRow.classList.toggle('is-expanded', isExpanded);
+        }
+
+        const accordionLabel = document.getElementById('accordion-label');
+        if (accordionLabel && !isExpanded) {
+            accordionLabel.textContent = 'Más información';
+        }
+
         const btn = this.dom.get('buttons.morePayment');
-        if (btn) {
+        if (btn && btn.id === 'morePaymentOptions') {
             btn.textContent = isExpanded ? messagesService.get('BUTTONS.MORE_OPTIONS') + ' ▲' : messagesService.get('BUTTONS.MORE_OPTIONS') + ' ▼';
         }
 

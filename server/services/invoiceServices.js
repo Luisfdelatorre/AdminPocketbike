@@ -341,6 +341,7 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         const clean = {
             invoiceId: inv.invoiceId,
             invoiceIdSub: inv.invoiceIdSub,
+            date: inv.date,
             deviceIdName: inv.deviceIdName,
             amount: inv.amount,
             paidAmount: inv.paidAmount,

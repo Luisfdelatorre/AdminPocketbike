@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     FileText, Calendar, DollarSign, Check, X, Search, Filter,
     HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Plus, Download, RefreshCw, Building2,
-    ChevronLeft, ChevronRight, TrendingUp, TrendingDown
+    ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Clock, Gift, Pencil, CreditCard, ChevronDown, SlidersHorizontal
 } from 'lucide-react';
 import './Payments.css';
 import './Invoices.css';
@@ -29,6 +29,168 @@ const ADJUSTMENT_ICONS = {
     WORKSHOP: Building2,
     OFFICE: Building2,
     OFICINA: Building2,
+};
+
+const InvoiceMobileRow = ({ invoice, isPayable, openManualPayModal }) => {
+    const [swiped, setSwiped] = useState(false);
+    const touchStartX = useRef(0);
+    const touchEndX = useRef(0);
+
+    const isPaid = invoice.dayType === 'PAID' || (invoice.paidAmount > 0 && invoice.dayType !== 'PENDING');
+    const isFree = invoice.dayType === 'FREE' || invoice.isFree || Boolean(invoice.adjustmentType);
+    const isPending = !isPaid && !isFree;
+
+    const mainId = invoice.deviceIdName || invoice.deviceId || invoice.invoiceId || 'N/A';
+    const amount = isPaid ? (invoice.paidAmount || invoice.amount || 0) : (invoice.amount || 0);
+
+    // Fecha de la factura (fecha a la que corresponde la factura)
+    const formatInvoiceDate = (dateVal, invoiceId, invoiceIdSub) => {
+        if (dateVal) {
+            const d = new Date(dateVal);
+            if (!isNaN(d.getTime())) {
+                const day = d.getUTCDate();
+                const month = d.toLocaleDateString('es-ES', { month: 'short', timeZone: 'UTC' }).replace('.', '');
+                return `${day} ${month}`;
+            }
+        }
+        if (invoiceId) {
+            const parts = String(invoiceId).split('-');
+            if (parts.length >= 4) {
+                const day = parseInt(parts[3], 10);
+                const monthNum = parseInt(parts[2], 10);
+                const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+                const month = (monthNum >= 1 && monthNum <= 12) ? monthNames[monthNum - 1] : parts[2];
+                if (!isNaN(day)) return `${day} ${month}`;
+            }
+        }
+        if (invoiceIdSub) return invoiceIdSub;
+        return '--';
+    };
+
+    const invoiceDateStr = formatInvoiceDate(invoice.date, invoice.invoiceId, invoice.invoiceIdSub);
+
+    // Fecha y hora del pago o transacción
+    const paymentRawDate = invoice.paymentDate || invoice.transaction?.finalized_at || invoice.createdAt;
+    let paymentTimeStr = '';
+    if (paymentRawDate) {
+        const pDate = new Date(paymentRawDate);
+        if (!isNaN(pDate.getTime())) {
+            let hours = pDate.getHours();
+            const minutes = String(pDate.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12 || 12;
+            const day = pDate.getDate();
+            const month = pDate.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+            paymentTimeStr = `${day} ${month}, ${hours}:${minutes} ${ampm}`;
+        }
+    }
+
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchMove = (e) => {
+        touchEndX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+        if (!isPending) return;
+        const diff = touchStartX.current - touchEndX.current;
+        if (diff > 45) {
+            setSwiped(true);
+        } else if (diff < -45) {
+            setSwiped(false);
+        }
+    };
+
+    return (
+        <div className="invoice-mobile-row-wrapper select-none">
+            {isPending && (
+                <div className="invoice-mobile-actions-behind">
+                    <button
+                        type="button"
+                        aria-label={`Editar factura ${mainId}`}
+                        onClick={() => {
+                            setSwiped(false);
+                            openManualPayModal(invoice);
+                        }}
+                        className="invoice-swipe-btn invoice-swipe-edit"
+                    >
+                        <Pencil size={18} />
+                        <span>Editar</span>
+                    </button>
+                    <button
+                        type="button"
+                        aria-label={`Pagar factura ${mainId}`}
+                        onClick={() => {
+                            setSwiped(false);
+                            openManualPayModal(invoice);
+                        }}
+                        className="invoice-swipe-btn invoice-swipe-pay"
+                    >
+                        <CreditCard size={18} />
+                        <span>Pagar</span>
+                    </button>
+                </div>
+            )}
+
+            <article
+                className={`invoice-mobile-row-card ${swiped ? 'is-swiped' : ''}`}
+                style={{ transform: swiped ? 'translateX(-144px)' : 'translateX(0px)' }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onClick={() => {
+                    if (swiped) {
+                        setSwiped(false);
+                    } else if (isPayable) {
+                        openManualPayModal(invoice);
+                    }
+                }}
+            >
+                <div className={`invoice-avatar-circle ${isPaid ? 'avatar-paid' : isFree ? 'avatar-free' : 'avatar-pending'}`}>
+                    {isPaid ? (
+                        <Check size={20} strokeWidth={2.5} />
+                    ) : isFree ? (
+                        <Gift size={20} strokeWidth={2} />
+                    ) : (
+                        <Clock size={20} strokeWidth={2} />
+                    )}
+                </div>
+
+                <div className="invoice-mobile-center-content">
+                    <div className="invoice-mobile-title-row">
+                        <span className="invoice-mobile-id">{mainId}</span>
+                        <span className="invoice-mobile-cut-date">{invoiceDateStr}</span>
+                    </div>
+                    <p className="invoice-mobile-subtitle">
+                        {isPaid ? (paymentTimeStr || 'Pagado') : isFree ? 'Ajuste / Gratuito' : 'Pendiente de pago'}
+                    </p>
+                </div>
+
+                <div className="invoice-mobile-right-content">
+                    <span className="invoice-mobile-amount">
+                        ${amount.toLocaleString()}
+                    </span>
+                    <span className={`invoice-mobile-badge ${isPaid ? 'badge-paid' : isFree ? 'badge-free' : 'badge-pending'}`}>
+                        {isPaid ? (
+                            <>
+                                <Check size={12} strokeWidth={2.5} /> PAGADO
+                            </>
+                        ) : isFree ? (
+                            <>
+                                <Check size={12} strokeWidth={2.5} /> GRATIS
+                            </>
+                        ) : (
+                            <>
+                                <Clock size={12} strokeWidth={2} /> PENDIENTE
+                            </>
+                        )}
+                    </span>
+                </div>
+            </article>
+        </div>
+    );
 };
 
 const Invoices = () => {
@@ -119,13 +281,17 @@ const Invoices = () => {
         totalAmount: 0
     });
 
+    const [loadingMore, setLoadingMore] = useState(false);
+    const observerTarget = useRef(null);
+
     useEffect(() => {
         loadStats();
     }, [selectedMonth, selectedYear]);
 
     useEffect(() => {
-        loadInvoices(currentPage);
-    }, [currentPage, selectedMonth, selectedYear, searchQuery, filter]);
+        setCurrentPage(1);
+        loadInvoices(1, false);
+    }, [selectedMonth, selectedYear, searchQuery, filter]);
 
     const loadStats = async () => {
         try {
@@ -138,23 +304,32 @@ const Invoices = () => {
         }
     };
 
-    const loadInvoices = async (page = 1) => {
-        setLoading(true);
+    const loadInvoices = async (page = 1, append = false) => {
+        if (append) {
+            setLoadingMore(true);
+        } else {
+            setLoading(true);
+        }
         try {
             const params = {};
             if (page > 1) params.page = page;
             if (searchQuery) {
                 params.search = searchQuery.trim();
-                params.limit = 500;
+                params.limit = isMobile ? 30 : 500;
             } else {
                 if (selectedMonth) params.month = selectedMonth;
                 if (selectedYear) params.year = selectedYear;
+                if (isMobile) params.limit = 30;
             }
             if (filter && filter !== 'all') params.status = filter;
 
             const result = await getAllInvoices(params);
             if (result.success) {
-                setInvoices(result.invoices || []);
+                if (append) {
+                    setInvoices(prev => [...prev, ...(result.invoices || [])]);
+                } else {
+                    setInvoices(result.invoices || []);
+                }
                 setTotalPages(result.pagination?.totalPages || 1);
                 setTotalInvoices(result.pagination?.total || 0);
             } else {
@@ -164,8 +339,36 @@ const Invoices = () => {
             console.error('Error loading invoices:', error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     };
+
+    // Infinite scroll observer for mobile
+    useEffect(() => {
+        if (!isMobile) return;
+        if (loading || loadingMore) return;
+        if (currentPage >= totalPages) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && !loadingMore && currentPage < totalPages) {
+                    const nextPage = currentPage + 1;
+                    setCurrentPage(nextPage);
+                    loadInvoices(nextPage, true);
+                }
+            },
+            { threshold: 0.1, rootMargin: '120px' }
+        );
+
+        const currentTarget = observerTarget.current;
+        if (currentTarget) {
+            observer.observe(currentTarget);
+        }
+
+        return () => {
+            if (currentTarget) observer.unobserve(currentTarget);
+        };
+    }, [isMobile, loading, loadingMore, currentPage, totalPages]);
 
     const formatCurrency = (amount, isMobile = false) => {
         if (amount === undefined || amount === null) return isMobile ? '$0' : '$0 COP';
@@ -261,6 +464,9 @@ const Invoices = () => {
         />
     );
 
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const currentMonthLabel = selectedMonth ? `${monthNames[selectedMonth - 1]} ${selectedYear}` : `Todo ${selectedYear}`;
+
     const desktopHeader = (
         <PageHeader.Desktop
             title={t('invoices.title')}
@@ -292,34 +498,36 @@ const Invoices = () => {
 
     const mobileHeader = (
         <PageHeader.Mobile
-            onRefresh={() => loadInvoices(currentPage)}
+            onRefresh={() => {
+                setCurrentPage(1);
+                loadInvoices(1, false);
+                loadStats();
+            }}
             loading={loading}
-            onFilterToggle={() => setShowFilters(!showFilters)}
+            onFilterToggle={() => setShowFilters(prev => !prev)}
             showFilters={showFilters}
             leadingActions={
-                totalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage <= 1}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#9ca3af' : '#1f2937' }}
-                            aria-label="Página anterior"
-                        >
-                            <ChevronLeft size={14} />
-                        </button>
-                        <span>{currentPage}/{totalPages}</span>
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(p => p + 1)}
-                            disabled={currentPage >= totalPages}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= totalPages ? '#9ca3af' : '#1f2937' }}
-                            aria-label="Página siguiente"
-                        >
-                            <ChevronRight size={14} />
-                        </button>
-                    </div>
-                )
+                <div className="mobile-header-date-pill-wrapper">
+                    <button type="button" className="mobile-header-date-pill">
+                        <Calendar size={13} className="text-cyan-600" />
+                        <span>{currentMonthLabel}</span>
+                        <ChevronDown size={11} className="text-slate-400" />
+                    </button>
+                    <select
+                        value={selectedMonth || ''}
+                        onChange={(e) => {
+                            setSelectedMonth(e.target.value ? Number(e.target.value) : '');
+                            setCurrentPage(1);
+                        }}
+                        className="mobile-header-date-select-hidden"
+                        aria-label="Seleccionar mes"
+                    >
+                        <option value="">Todo el año {selectedYear}</option>
+                        {monthNames.map((m, idx) => (
+                            <option key={idx + 1} value={idx + 1}>{m} {selectedYear}</option>
+                        ))}
+                    </select>
+                </div>
             }
         />
     );
@@ -329,90 +537,144 @@ const Invoices = () => {
     return (
         <div className="payments-page">
             {renderHeader}
-
-            {/* Mobile Collapsible Filter Section (Mobile only) */}
-            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
-                <div className="pt-2 pb-1">
-                    <SearchAndFilterBar
-                        searchQuery={searchInput}
-                        setSearchQuery={(val) => {
-                            setSearchInput(val);
-                            setSearchQuery(val);
-                            setCurrentPage(1);
-                        }}
-                        searchPlaceholder={t('invoices.searchPlaceholder')}
-                        filter={filter}
-                        setFilter={(val) => handleFilterChange(val)}
-                        filterOptions={[
-                            { value: 'all', label: t('payments.filters.all') || 'Todas' },
-                            { value: 'PAID', label: ADJUSTMENT_CONFIG.PAID?.badgeLabel || 'Pagadas' },
-                            { value: 'PENDING', label: ADJUSTMENT_CONFIG.PENDING?.badgeLabel || 'Pendientes' },
-                            { value: 'DEBT', label: ADJUSTMENT_CONFIG.DEBT?.badgeLabel || 'Deudas' }
-                        ]}
-                        filterRowClass="summary-filter-row-ios"
-                    />
-
-                    {/* Action Items for Mobile */}
-                    <div className="invoices-mobile-actions">
-                        <MonthYearSelector
-                            selectedMonth={selectedMonth}
-                            selectedYear={selectedYear}
-                            onChangeMonth={m => {
-                                setSelectedMonth(m);
-                                setCurrentPage(1);
-                            }}
-                            onChangeYear={y => {
-                                setSelectedYear(y);
-                                setCurrentPage(1);
-                            }}
-                            variant="mobile"
+            {/* Metrics Section: Consolidated iOS Card on Mobile, 4 StatCards on Desktop */}
+            {isMobile ? !showFilters && (
+                <div className="invoices-mobile-metrics-card">
+                    <div className="invoices-metrics-progress-bar">
+                        <div
+                            className="invoices-progress-paid"
+                            style={{ width: `${paidPercentage}%` }}
                         />
-                        <button className="filter-action-btn filter-action-btn-icon" onClick={() => loadInvoices(currentPage)} title="Actualizar">
-                            <RefreshCw size={18} />
+                        <div
+                            className="invoices-progress-unpaid"
+                            style={{ width: `${unpaidPercentage}%` }}
+                        />
+                    </div>
+
+                    <div className="invoices-metrics-columns">
+                        <div className="invoices-metrics-col">
+                            <div className="invoices-metrics-header-row">
+                                <span className="invoices-metrics-dot dot-paid" />
+                                <span className="invoices-metrics-label">Cobrado</span>
+                            </div>
+                            <p className="invoices-metrics-val">
+                                {paidPercentage}% <span className="invoices-metrics-subcount">({stats.paid?.toLocaleString() || 0})</span>
+                            </p>
+                        </div>
+                        <div className="invoices-metrics-col bordered-col">
+                            <div className="invoices-metrics-header-row">
+                                <span className="invoices-metrics-dot dot-unpaid" />
+                                <span className="invoices-metrics-label">En mora</span>
+                            </div>
+                            <p className="invoices-metrics-val val-unpaid">
+                                {unpaidPercentage}% <span className="invoices-metrics-subcount">({stats.unpaid?.toLocaleString() || 0})</span>
+                            </p>
+                        </div>
+                        <div className="invoices-metrics-col">
+                            <div className="invoices-metrics-header-row">
+                                <FileText size={12} className="text-cyan-600" />
+                                <span className="invoices-metrics-label">Emitidas</span>
+                            </div>
+                            <p className="invoices-metrics-val">
+                                {stats.total?.toLocaleString() || 0}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="payment-stats">
+                    <StatCard
+                        title={t('invoices.stats.total')}
+                        value={formatCurrency(stats.totalAmount)}
+                        iconBg="var(--brand-teal)"
+                    />
+                    <StatCard
+                        title={t('invoices.stats.paid')}
+                        value={stats.paid}
+                        change={paidPercentage > 0 ? `${paidPercentage}%` : null}
+                        changeType="positive"
+                        iconBg="#00C292"
+                    />
+                    <StatCard
+                        title={t('invoices.stats.unpaid')}
+                        value={stats.unpaid}
+                        change={unpaidPercentage > 0 ? `${unpaidPercentage}%` : null}
+                        changeType="negative"
+                        iconBg="#EF4444"
+                    />
+                    <StatCard
+                        title={t('invoices.stats.invoices')}
+                        value={stats.total}
+                        iconBg="#7460EE"
+                    />
+                </div>
+            )}
+            {/* Mobile Collapsible Filter & Search Section */}
+            {isMobile && showFilters && (
+                <div className="invoices-mobile-filter-section">
+                    <div className="invoices-mobile-search-bar">
+                        <Search size={16} className="search-icon" />
+                        <input
+                            type="search"
+                            value={searchInput}
+                            onChange={(e) => {
+                                setSearchInput(e.target.value);
+                                setSearchQuery(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            placeholder="Buscar ID factura, cliente o contrato..."
+                            className="invoices-mobile-search-input"
+                        />
+                        {searchInput && (
+                            <button
+                                type="button"
+                                onClick={handleClearSearch}
+                                className="clear-search"
+                                title="Limpiar búsqueda"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="invoices-filter-pills-row no-scrollbar">
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('all')}
+                            className={`invoice-filter-pill ${filter === 'all' ? 'active' : ''}`}
+                        >
+                            <span>Todas</span>
+                            <span className="pill-count">{stats.total?.toLocaleString() || 0}</span>
                         </button>
-                        <button className="filter-action-btn filter-action-btn-icon" onClick={handleExport} title="Descargar CSV">
-                            <Download size={18} />
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('PAID')}
+                            className={`invoice-filter-pill ${filter === 'PAID' ? 'active' : ''}`}
+                        >
+                            <span>Pagadas</span>
+                            <span className="pill-count">{stats.paid?.toLocaleString() || 0}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('PENDING')}
+                            className={`invoice-filter-pill ${filter === 'PENDING' ? 'active' : ''}`}
+                        >
+                            <span>Pendientes</span>
+                            <span className="pill-count">{stats.unpaid?.toLocaleString() || 0}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('FREE')}
+                            className={`invoice-filter-pill ${filter === 'FREE' ? 'active' : ''}`}
+                        >
+                            <span>Gratis</span>
+                            <span className="pill-count">{stats.free?.toLocaleString() || 0}</span>
                         </button>
                     </div>
                 </div>
-            </div>
+            )}
 
-            {/* Summary Stats */}
-            <div className="payment-stats">
-                <StatCard
-                    title={t('invoices.stats.total')}
-                    value={
-                        <>
-                            <span className="desktop-only">{formatCurrency(stats.totalAmount)}</span>
-                            <span className="mobile-only">{formatCompact(stats.totalAmount)}</span>
-                        </>
-                    }
 
-                    iconBg="var(--brand-teal)"
-                />
-                <StatCard
-                    title={t('invoices.stats.paid')}
-                    value={stats.paid}
-                    change={paidPercentage > 0 ? `${paidPercentage}%` : null}
-                    changeType="positive"
-
-                    iconBg="#00C292"
-                />
-                <StatCard
-                    title={t('invoices.stats.unpaid')}
-                    value={stats.unpaid}
-                    change={unpaidPercentage > 0 ? `${unpaidPercentage}%` : null}
-                    changeType="negative"
-
-                    iconBg="#EF4444"
-                />
-                <StatCard
-                    title={t('invoices.stats.invoices')}
-                    value={stats.total}
-
-                    iconBg="#7460EE"
-                />
-            </div>
 
             {/* Desktop Filters (Desktop only) */}
             <div className="payment-controls hidden md:flex">
@@ -467,7 +729,7 @@ const Invoices = () => {
             </div>
 
             {/* Invoices List */}
-            {loading ? (
+            {loading && invoices.length === 0 ? (
                 <div className="loading-state">
                     <div className="spinner"></div>
                     <p>{t('common.loading')}</p>
@@ -478,7 +740,41 @@ const Invoices = () => {
                     <h3>No se encontraron facturas</h3>
                     <p>{searchQuery ? `No hay resultados para "${searchQuery}"` : 'No hay registros de facturas en este periodo.'}</p>
                 </div>
+            ) : isMobile ? (
+                /* Mobile Transaction List with Infinite Scroll */
+                <div className="invoices-mobile-list-container">
+                    <div className="invoices-mobile-list-title">
+                        Facturas Recientes
+                    </div>
+                    <div className="invoices-mobile-cards-group">
+                        {filteredInvoices.map((invoice) => (
+                            <InvoiceMobileRow
+                                key={invoice.invoiceId || invoice._id}
+                                invoice={invoice}
+                                isPayable={invoice.isPayable}
+                                openManualPayModal={openManualPayModal}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Infinite Scroll Sentinel & Status */}
+                    <div ref={observerTarget} className="invoice-infinite-scroll-loader">
+                        {loadingMore ? (
+                            <div className="invoice-infinite-loading-text">
+                                <RefreshCw size={16} className="spin" />
+                                <span>Cargando más facturas...</span>
+                            </div>
+                        ) : currentPage >= totalPages ? (
+                            <p className="invoice-infinite-subtext">
+                                Mostrando {filteredInvoices.length} de {totalInvoices} facturas registradas
+                            </p>
+                        ) : (
+                            <p className="invoice-infinite-subtext">Desliza para cargar más...</p>
+                        )}
+                    </div>
+                </div>
             ) : (
+                /* Desktop Table View */
                 <>
                     <div className="devices-table-card-ios">
                         <div className="invoices-table-header-ios">
@@ -548,7 +844,11 @@ const Invoices = () => {
                         <div className="pagination">
                             <button
                                 className="pagination-circle-btn"
-                                onClick={() => setCurrentPage(p => p - 1)}
+                                onClick={() => {
+                                    const prev = Math.max(1, currentPage - 1);
+                                    setCurrentPage(prev);
+                                    loadInvoices(prev, false);
+                                }}
                                 disabled={currentPage <= 1}
                                 aria-label="Página anterior"
                                 title="Página anterior"
@@ -562,7 +862,11 @@ const Invoices = () => {
                             </div>
                             <button
                                 className="pagination-circle-btn"
-                                onClick={() => setCurrentPage(p => p + 1)}
+                                onClick={() => {
+                                    const next = Math.min(totalPages, currentPage + 1);
+                                    setCurrentPage(next);
+                                    loadInvoices(next, false);
+                                }}
                                 disabled={currentPage >= totalPages}
                                 aria-label="Página siguiente"
                                 title="Página siguiente"
