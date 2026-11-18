@@ -10,11 +10,6 @@ const formatCurrency = (amount) => {
 };
 
 const MatrixPaymentSummary = ({
-    matrixHeaderViewportRef,
-    matrixGeometry,
-    tableContainerRef,
-    handleMatrixScroll,
-    matrixTableRef,
     loading,
     daysInMonth,
     filteredSummaryData,
@@ -29,52 +24,30 @@ const MatrixPaymentSummary = ({
         return acc;
     }, {});
 
-    const renderMatrixHeader = (className = '') => (
-        <thead className={className}>
-            <tr>
-                <th>DISPOSITIVO</th>
-                <th>Deuda</th>
-                {daysArray.map(day => (
-                    <th key={day}>{String(day).padStart(2, '0')}</th>
-                ))}
-                <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
-            </tr>
-            <tr className="daily-totals-row">
-                <th className="totals-label">Total día</th>
-                <th></th>
-                {daysArray.map(day => (
-                    <th key={day} className="daily-total-cell">
-                        {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
-                    </th>
-                ))}
-                <th></th>
-            </tr>
-        </thead>
-    );
-
     return (
         <div className="matrix-shell">
-            <div className="matrix-sticky-header">
-                <div ref={matrixHeaderViewportRef} className="matrix-sticky-header-viewport" aria-hidden="true">
-                    <table
-                        className="summary-table summary-table--sticky-header"
-                        style={matrixGeometry ? { width: `${matrixGeometry.width}px` } : undefined}
-                    >
-                        {matrixGeometry && (
-                            <colgroup>
-                                {matrixGeometry.widths.map((width, index) => (
-                                    <col key={index} style={{ width: `${width}px` }} />
-                                ))}
-                            </colgroup>
-                        )}
-                        {renderMatrixHeader('matrix-visual-thead')}
-                    </table>
-                </div>
-            </div>
-
-            <div className="matrix-container" ref={tableContainerRef} onScroll={handleMatrixScroll}>
-                <table ref={matrixTableRef} className="summary-table">
-                    {renderMatrixHeader('matrix-semantic-thead')}
+            <div className="matrix-container">
+                <table className="summary-table">
+                    <thead>
+                        <tr>
+                            <th>DISPOSITIVO</th>
+                            <th>Deuda</th>
+                            {daysArray.map(day => (
+                                <th key={day}>{String(day).padStart(2, '0')}</th>
+                            ))}
+                            <th style={{ textAlign: 'center', minWidth: '60px' }}>Motor</th>
+                        </tr>
+                        <tr className="daily-totals-row">
+                            <th className="totals-label">Total día</th>
+                            <th></th>
+                            {daysArray.map(day => (
+                                <th key={day} className="daily-total-cell">
+                                    {dailyTotals[day] > 0 ? formatCurrency(dailyTotals[day]) : '--'}
+                                </th>
+                            ))}
+                            <th></th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={daysInMonth + 3}>Cargando...</td></tr>

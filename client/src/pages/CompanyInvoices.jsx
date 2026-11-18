@@ -5,7 +5,6 @@ import { getCompanyInvoices, generateCompanyInvoice, getAllCompanies } from '../
 import { Building, Plus, FileText, Printer, FileSpreadsheet, Search, X, Check, RefreshCw, ListFilter, TrendingDown, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CompanyInvoiceTemplate from '../components/CompanyInvoiceTemplate';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import StatusBadge from '../components/StatusBadge';
@@ -39,8 +38,6 @@ const CompanyInvoices = () => {
     useEffect(() => {
         loadData();
     }, []);
-
-    useFilterVisibilityOnScroll(setShowFilters);
 
     const loadData = async () => {
         setLoading(true);

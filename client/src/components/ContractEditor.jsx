@@ -12,6 +12,7 @@ import { convertPdfToImage, isPdfDocument } from '../utils/pdfToImage';
 import { extractContractDocument } from '../services/api';
 import ImageCropModal from './modals/ImageCropModal';
 import WhatsAppAttachmentModal from './modals/WhatsAppAttachmentModal';
+import './ContractEditor.css';
 
 const ContractEditor = ({
     isOpen,

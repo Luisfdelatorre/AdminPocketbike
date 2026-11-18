@@ -694,6 +694,37 @@ export class InvoiceRepository {
 
         return { invoices, total };
     }
+
+    /**
+     * Get aggregate invoice stats for a match filter (total, paid, unpaid, totalAmount)
+     * @param {Object} matchFilter
+     * @returns {Promise<{ total: number, paid: number, unpaid: number, totalAmount: number }>}
+     */
+    async getInvoiceStats(matchFilter = {}) {
+        const stats = await Invoice.aggregate([
+            { $match: matchFilter },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    totalAmount: { $sum: '$paidAmount' },
+                    paid: {
+                        $sum: { $cond: [{ $eq: ['$paid', true] }, 1, 0] }
+                    },
+                    unpaid: {
+                        $sum: { $cond: [{ $eq: ['$paid', false] }, 1, 0] }
+                    }
+                }
+            }
+        ]);
+
+        return stats[0] || {
+            total: 0,
+            paid: 0,
+            unpaid: 0,
+            totalAmount: 0
+        };
+    }
 }
 
 export default new InvoiceRepository();

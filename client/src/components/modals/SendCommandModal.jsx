@@ -3,7 +3,7 @@ import { X, Check, Terminal, Bolt, PowerOff, ShieldAlert, LoaderCircle } from 'l
 import useAdminScrollLock from '../../hooks/useAdminScrollLock';
 import { sendCommand, getAllDevices } from '../../services/api';
 import { showToast } from '../../utils/toast';
-import '../../pages/Invoices.css';
+import './InvoiceAdjustmentModal.css';
 
 const SendCommandModal = ({
     isOpen,

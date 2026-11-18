@@ -3,6 +3,7 @@ import contractRepository from '../repositories/contractRepository.js';
 import deviceRepository from '../repositories/deviceRepository.js';
 import { resolveDeviceId } from '../utils/deviceResolver.js';
 import contractService from '../services/contractService.js';
+import companyService from '../services/companyService.js';
 import contractDocumentService, { generateContractDocx, generateAndSaveContractPdf, findContractPdf } from '../services/contractDocumentService.js';
 import documentOcrService from '../services/documentOcrService.js';
 import { Device } from '../models/Device.js';
@@ -64,17 +65,31 @@ const getAllContracts = async (req, res) => {
         const isSystemAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
         let query = {};
+        const deviceQuery = {
+            hasActiveContract: { $ne: true }
+        };
 
-        // If not system admin, restrict to own company contracts
+        // If not system admin, restrict to own company contracts and devices
         if (!isSystemAdmin) {
             if (!companyId) {
                 return res.status(403).json({ success: false, error: 'No company assigned' });
             }
             // Filter by companyId field in Contract model
             query.companyId = companyId;
+            deviceQuery.$or = [
+                { companyId: String(companyId) },
+                { companyId }
+            ];
         }
 
-        const allContracts = await contractRepository.getAllContracts(query);
+        const [allContracts, availableDevicesRaw, companySettings] = await Promise.all([
+            contractRepository.getAllContracts(query),
+            Device.find(deviceQuery)
+                .select('_id name nequiNumber hasActiveContract activeContractId')
+                .lean()
+                .sort({ name: 1 }),
+            companyId ? companyService.getCompanySettings(companyId) : null
+        ]);
 
         // Calculate completion percentage for each contract
         const contractsWithStats = allContracts.map(contract => ({
@@ -84,9 +99,22 @@ const getAllContracts = async (req, res) => {
                 : 0
         }));
 
+        const mappedAvailableDevices = availableDevicesRaw.map(device => ({
+            deviceId: device._id,
+            deviceName: device.name || `Pocketbike ${device._id}`,
+            deviceType: 'pocketbike',
+            icon: '🏍️',
+            hasActiveContract: false,
+            contractId: device.activeContractId || null,
+            name: device.name,
+            nequiNumber: device.nequiNumber
+        }));
+
         res.json({
             success: true,
-            contracts: contractsWithStats
+            contracts: contractsWithStats,
+            availableDevices: mappedAvailableDevices,
+            settings: companySettings
         });
     } catch (error) {
         console.error('Error fetching all contracts:', error);
@@ -357,6 +385,16 @@ const downloadContractPdf = async (req, res) => {
             return res.status(403).json({ success: false, error: 'Access denied to this contract' });
         }
 
+        const vInfo = contract.vehicleInfo || {};
+        const placa = vInfo.placa || contract.deviceIdName || null;
+
+        // 1. Si ya existe en disco (generado en background o previamente), servir de inmediato
+        const cachedPdf = findContractPdf(contractId, placa);
+        if (cachedPdf && fs.existsSync(cachedPdf.filePath)) {
+            return res.download(cachedPdf.filePath, cachedPdf.filename);
+        }
+
+        // 2. Si no existe, generar bajo demanda y guardar en caché
         let device = null;
         if (contract.deviceIdName) {
             device = await Device.findOne({ name: contract.deviceIdName }).lean();
