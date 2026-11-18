@@ -71,7 +71,6 @@ const AdminDashboard = () => {
                 if (devResult.success && devResult.devices) {
                     setElectricalSummary(calculateFleetElectricalSummary(devResult.devices));
                 }
-                }
             })
             .catch(error => {
                 if (isMounted) console.error('Error fetching dashboard data:', error);
@@ -108,7 +107,6 @@ const AdminDashboard = () => {
             }
             if (devResult.success && devResult.devices) {
                 setElectricalSummary(calculateFleetElectricalSummary(devResult.devices));
-            }
             }
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
