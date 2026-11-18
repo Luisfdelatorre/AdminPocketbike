@@ -815,9 +815,11 @@
     overflow: visible;
 }
 
+/* Motor, Alternator, Battery Wrappers */
 .motor-icon-wrap {
     display: flex;
     align-items: center;
+    cursor: help;
 }
 
 .motor-icon-wrap.motor-on {
@@ -836,20 +838,61 @@
     color: #c6c6c8;
 }
 
-.battery-wrap {
+/* Alternator Dedicated Wrap */
+.alternator-wrap {
     display: flex;
     align-items: center;
+    justify-content: center;
+    cursor: help;
+    transition: transform 0.15s ease;
 }
 
-.battery-wrap.bat-full {
+.alternator-wrap:hover {
+    transform: scale(1.15);
+}
+
+.alternator-wrap .alt-ok {
     color: #34C759;
 }
 
-.battery-wrap.bat-mid {
+.alternator-wrap .alt-warning {
     color: #FF9500;
 }
 
-.battery-wrap.bat-low {
+.alternator-wrap .alt-danger {
+    color: #FF3B30;
+    filter: drop-shadow(0 0 4px rgba(255, 59, 48, 0.7));
+}
+
+.alternator-wrap .alt-off {
+    color: #d1d5db;
+    opacity: 0.6;
+}
+
+/* Battery Wrap & Health Status */
+.battery-wrap {
+    display: flex;
+    align-items: center;
+    cursor: help;
+    transition: transform 0.15s ease;
+}
+
+.battery-wrap:hover {
+    transform: scale(1.15);
+}
+
+.battery-wrap.bat-full,
+.battery-wrap.bat-healthy {
+    color: #34C759;
+}
+
+.battery-wrap.bat-mid,
+.battery-wrap.bat-weak {
+    color: #FF9500;
+}
+
+.battery-wrap.bat-low,
+.battery-wrap.bat-damaged {
     color: #FF3B30;
 }
 
