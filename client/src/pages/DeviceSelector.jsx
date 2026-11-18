@@ -23,7 +23,6 @@ import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 const DeviceManagement = () => {
     const isMobile = useIsMobile();
     const [searchParams] = useSearchParams();
-    const { subscribe } = useSSE();
     const { t } = useTranslation();
     const { user } = useAuth();
     const [devices, setDevices] = useState({});
