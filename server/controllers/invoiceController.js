@@ -190,42 +190,15 @@ const getInvoiceStats = async (req, res) => {
             date: { $gte: startOfMonth, $lte: endOfMonth }
         };
 
-        if (!isSystemAdmin) {
+        if (!isSystemAdmin && companyId) {
             matchStage.companyId = new mongoose.Types.ObjectId(companyId);
         }
-        console.log(matchStage);
-        const stats = await Invoice.aggregate([
-            { $match: matchStage },
-            {
-                $group: {
-                    _id: null,
-                    totalCount: { $sum: 1 },
-                    totalAmount: { $sum: '$paidAmount' },
-                    paidCount: {
-                        $sum: { $cond: [{ $eq: ['$paid', true] }, 1, 0] }
-                    },
-                    unpaidCount: {
-                        $sum: { $cond: [{ $eq: ['$paid', false] }, 1, 0] }
-                    }
-                }
-            }
-        ]);
 
-        const result = stats[0] || {
-            totalCount: 0,
-            totalAmount: 0,
-            paidCount: 0,
-            unpaidCount: 0
-        };
+        const stats = await invoiceRepository.getInvoiceStats(matchStage);
 
         res.json({
             success: true,
-            stats: {
-                total: result.totalCount,
-                paid: result.paidCount,
-                unpaid: result.unpaidCount,
-                totalAmount: result.totalAmount
-            }
+            stats
         });
 
     } catch (error) {

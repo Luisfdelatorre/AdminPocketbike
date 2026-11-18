@@ -262,6 +262,9 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         year
     } = queryParams;
 
+    const effectiveCompanyId = companyId || queryParams.companyId;
+    const effectiveIsSystemAdmin = isSystemAdmin !== undefined ? isSystemAdmin : queryParams.isSystemAdmin;
+
     const pageNum = parseInt(page) || 1;
     const searchTrim = search ? String(search).trim() : null;
     let limitNum = parseInt(limit) || (searchTrim ? 500 : 100);
@@ -278,6 +281,10 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         const startOfMonth = new Date(yearNum, monthNum - 1, 1);
         const endOfMonth = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
         query.date = { $gte: startOfMonth, $lte: endOfMonth };
+    } else if (yearNum) {
+        const startOfYear = new Date(yearNum, 0, 1);
+        const endOfYear = new Date(yearNum, 11, 31, 23, 59, 59, 999);
+        query.date = { $gte: startOfYear, $lte: endOfYear };
     }
 
     if (searchTrim) {
@@ -306,8 +313,8 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         }
     }
 
-    if (!isSystemAdmin && companyId) {
-        query.companyId = companyId;
+    if (!effectiveIsSystemAdmin && effectiveCompanyId) {
+        query.companyId = effectiveCompanyId;
     }
 
     const invoiceProjection = {
@@ -328,12 +335,32 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
         createdAt: 1
     };
 
-    const { invoices, total } = await invoiceRepository.getPaginatedInvoices({
-        query,
-        projection: invoiceProjection,
-        skip,
-        limit: limitNum
-    });
+    // Build match filter for aggregate stats (by period and company)
+    const statsMatch = {};
+    if (monthNum && yearNum) {
+        const startOfMonth = new Date(yearNum, monthNum - 1, 1);
+        const endOfMonth = new Date(yearNum, monthNum, 0, 23, 59, 59, 999);
+        statsMatch.date = { $gte: startOfMonth, $lte: endOfMonth };
+    } else if (yearNum) {
+        const startOfYear = new Date(yearNum, 0, 1);
+        const endOfYear = new Date(yearNum, 11, 31, 23, 59, 59, 999);
+        statsMatch.date = { $gte: startOfYear, $lte: endOfYear };
+    }
+
+    if (!effectiveIsSystemAdmin && effectiveCompanyId) {
+        statsMatch.companyId = new mongoose.Types.ObjectId(effectiveCompanyId);
+    }
+
+    // Run paginated invoices AND aggregate stats in parallel on first page
+    const [{ invoices, total }, stats] = await Promise.all([
+        invoiceRepository.getPaginatedInvoices({
+            query,
+            projection: invoiceProjection,
+            skip,
+            limit: limitNum
+        }),
+        pageNum === 1 ? invoiceRepository.getInvoiceStats(statsMatch) : Promise.resolve(null)
+    ]);
 
     await enrichInvoices(invoices, allStatusConfigs);
 
@@ -364,6 +391,7 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
     return {
         success: true,
         invoices: cleanInvoices,
+        stats: stats || undefined,
         pagination: {
             page: pageNum,
             limit: limitNum,
