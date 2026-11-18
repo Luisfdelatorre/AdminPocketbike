@@ -4,14 +4,14 @@ import { useTranslation } from 'react-i18next';
 import {
     FileText, Calendar, DollarSign, Check, X, Search, Filter,
     HandCoins, Wrench, AlertTriangle, Hammer, PlusCircle, Plus, Download, RefreshCw, Building2,
-    ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Clock, Gift, Pencil, CreditCard, ChevronDown, SlidersHorizontal
+    ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Clock, Gift, Pencil, CreditCard, ChevronDown, SlidersHorizontal, CheckCircle2
 } from 'lucide-react';
 import './Payments.css';
 import './Invoices.css';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
-import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment, getAdjustmentTypes, getPaymentStatuses } from '../services/api';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
+import { useStatusConfig } from '../context/StatusConfigContext';
+import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
@@ -150,43 +150,45 @@ const InvoiceMobileRow = ({ invoice, isPayable, openManualPayModal }) => {
             >
                 <div className={`invoice-avatar-circle ${isPaid ? 'avatar-paid' : isFree ? 'avatar-free' : 'avatar-pending'}`}>
                     {isPaid ? (
-                        <Check size={20} strokeWidth={2.5} />
+                        <CheckCircle2 size={18} strokeWidth={2.3} />
                     ) : isFree ? (
-                        <Gift size={20} strokeWidth={2} />
+                        <Gift size={18} strokeWidth={2} />
                     ) : (
-                        <Clock size={20} strokeWidth={2} />
+                        <Clock size={18} strokeWidth={2.3} />
                     )}
                 </div>
 
-                <div className="invoice-mobile-center-content">
-                    <div className="invoice-mobile-title-row">
-                        <span className="invoice-mobile-id">{mainId}</span>
-                        <span className="invoice-mobile-cut-date">{invoiceDateStr}</span>
+                <div className="invoice-mobile-inset-content">
+                    <div className="invoice-mobile-info-left">
+                        <div className="invoice-mobile-title-row">
+                            <span className="invoice-mobile-id">{mainId}</span>
+                            <span className="invoice-mobile-cut-date">{invoiceDateStr}</span>
+                        </div>
+                        <p className="invoice-mobile-subtitle">
+                            {isPaid ? (paymentTimeStr || 'Pagado') : isFree ? 'Ajuste / Gratuito' : 'Pendiente de pago'}
+                        </p>
                     </div>
-                    <p className="invoice-mobile-subtitle">
-                        {isPaid ? (paymentTimeStr || 'Pagado') : isFree ? 'Ajuste / Gratuito' : 'Pendiente de pago'}
-                    </p>
-                </div>
 
-                <div className="invoice-mobile-right-content">
-                    <span className="invoice-mobile-amount">
-                        ${amount.toLocaleString()}
-                    </span>
-                    <span className={`invoice-mobile-badge ${isPaid ? 'badge-paid' : isFree ? 'badge-free' : 'badge-pending'}`}>
-                        {isPaid ? (
-                            <>
-                                <Check size={12} strokeWidth={2.5} /> PAGADO
-                            </>
-                        ) : isFree ? (
-                            <>
-                                <Check size={12} strokeWidth={2.5} /> GRATIS
-                            </>
-                        ) : (
-                            <>
-                                <Clock size={12} strokeWidth={2} /> PENDIENTE
-                            </>
-                        )}
-                    </span>
+                    <div className="invoice-mobile-info-right">
+                        <span className="invoice-mobile-amount">
+                            ${amount.toLocaleString()}
+                        </span>
+                        <span className={`invoice-mobile-badge ${isPaid ? 'badge-paid' : isFree ? 'badge-free' : 'badge-pending'}`}>
+                            {isPaid ? (
+                                <>
+                                    <CheckCircle2 size={11} strokeWidth={2.5} /> PAGADO
+                                </>
+                            ) : isFree ? (
+                                <>
+                                    <CheckCircle2 size={11} strokeWidth={2.5} /> GRATIS
+                                </>
+                            ) : (
+                                <>
+                                    <Clock size={11} strokeWidth={2.5} /> PENDIENTE
+                                </>
+                            )}
+                        </span>
+                    </div>
                 </div>
             </article>
         </div>
@@ -225,8 +227,6 @@ const Invoices = () => {
 
     const [showFilters, setShowFilters] = useState(false);
 
-    useFilterVisibilityOnScroll(setShowFilters);
-
     const handleExport = async () => {
         setDownloading(true);
         try {
@@ -258,20 +258,7 @@ const Invoices = () => {
         setManualPayModal({ open: false, invoice: null });
     };
 
-
-    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState({});
-
-    useEffect(() => {
-        Promise.all([getAdjustmentTypes(), getPaymentStatuses()])
-            .then(([adjRes, payRes]) => {
-                const combined = {
-                    ...(payRes?.data || {}),
-                    ...(adjRes?.data || {})
-                };
-                setAdjustmentConfig(combined);
-            })
-            .catch(err => console.warn('No se pudo cargar la configuración de tipos de ajuste:', err));
-    }, []);
+    const { statusConfig: ADJUSTMENT_CONFIG = {} } = useStatusConfig();
     // ─────────────────────────────────────────────────────
 
     const [stats, setStats] = useState({
@@ -285,10 +272,6 @@ const Invoices = () => {
     const observerTarget = useRef(null);
 
     useEffect(() => {
-        loadStats();
-    }, [selectedMonth, selectedYear]);
-
-    useEffect(() => {
         setCurrentPage(1);
         loadInvoices(1, false);
     }, [selectedMonth, selectedYear, searchQuery, filter]);
@@ -296,7 +279,7 @@ const Invoices = () => {
     const loadStats = async () => {
         try {
             const result = await getInvoiceStats({ month: selectedMonth, year: selectedYear });
-            if (result.success) {
+            if (result.success && result.stats) {
                 setStats(result.stats);
             }
         } catch (error) {
@@ -329,6 +312,9 @@ const Invoices = () => {
                     setInvoices(prev => [...prev, ...(result.invoices || [])]);
                 } else {
                     setInvoices(result.invoices || []);
+                }
+                if (result.stats) {
+                    setStats(result.stats);
                 }
                 setTotalPages(result.pagination?.totalPages || 1);
                 setTotalInvoices(result.pagination?.total || 0);
@@ -501,34 +487,19 @@ const Invoices = () => {
             onRefresh={() => {
                 setCurrentPage(1);
                 loadInvoices(1, false);
-                loadStats();
             }}
             loading={loading}
             onFilterToggle={() => setShowFilters(prev => !prev)}
             showFilters={showFilters}
-            leadingActions={
-                <div className="mobile-header-date-pill-wrapper">
-                    <button type="button" className="mobile-header-date-pill">
-                        <Calendar size={13} className="text-cyan-600" />
-                        <span>{currentMonthLabel}</span>
-                        <ChevronDown size={11} className="text-slate-400" />
-                    </button>
-                    <select
-                        value={selectedMonth || ''}
-                        onChange={(e) => {
-                            setSelectedMonth(e.target.value ? Number(e.target.value) : '');
-                            setCurrentPage(1);
-                        }}
-                        className="mobile-header-date-select-hidden"
-                        aria-label="Seleccionar mes"
-                    >
-                        <option value="">Todo el año {selectedYear}</option>
-                        {monthNames.map((m, idx) => (
-                            <option key={idx + 1} value={idx + 1}>{m} {selectedYear}</option>
-                        ))}
-                    </select>
-                </div>
-            }
+            datePicker={{
+                selectedMonth,
+                selectedYear,
+                includeAllMonths: true,
+                onSelect: (m) => {
+                    setSelectedMonth(m);
+                    setCurrentPage(1);
+                }
+            }}
         />
     );
 
@@ -539,43 +510,43 @@ const Invoices = () => {
             {renderHeader}
             {/* Metrics Section: Consolidated iOS Card on Mobile, 4 StatCards on Desktop */}
             {isMobile ? !showFilters && (
-                <div className="invoices-mobile-metrics-card">
-                    <div className="invoices-metrics-progress-bar">
+                <div className="mobile-metrics-card">
+                    <div className="metrics-progress-bar">
                         <div
-                            className="invoices-progress-paid"
+                            className="progress-fill fill-completed"
                             style={{ width: `${paidPercentage}%` }}
                         />
                         <div
-                            className="invoices-progress-unpaid"
+                            className="progress-fill fill-pending"
                             style={{ width: `${unpaidPercentage}%` }}
                         />
                     </div>
 
-                    <div className="invoices-metrics-columns">
-                        <div className="invoices-metrics-col">
-                            <div className="invoices-metrics-header-row">
-                                <span className="invoices-metrics-dot dot-paid" />
-                                <span className="invoices-metrics-label">Cobrado</span>
+                    <div className="metrics-columns">
+                        <div className="metrics-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-dot dot-completed" />
+                                <span className="metrics-label">Cobrado</span>
                             </div>
-                            <p className="invoices-metrics-val">
-                                {paidPercentage}% <span className="invoices-metrics-subcount">({stats.paid?.toLocaleString() || 0})</span>
+                            <p className="metrics-val">
+                                {paidPercentage}% <span className="metrics-subcount">({stats.paid?.toLocaleString() || 0})</span>
                             </p>
                         </div>
-                        <div className="invoices-metrics-col bordered-col">
-                            <div className="invoices-metrics-header-row">
-                                <span className="invoices-metrics-dot dot-unpaid" />
-                                <span className="invoices-metrics-label">En mora</span>
+                        <div className="metrics-col bordered-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-dot dot-pending" />
+                                <span className="metrics-label">En mora</span>
                             </div>
-                            <p className="invoices-metrics-val val-unpaid">
-                                {unpaidPercentage}% <span className="invoices-metrics-subcount">({stats.unpaid?.toLocaleString() || 0})</span>
+                            <p className="metrics-val val-pending">
+                                {unpaidPercentage}% <span className="metrics-subcount">({stats.unpaid?.toLocaleString() || 0})</span>
                             </p>
                         </div>
-                        <div className="invoices-metrics-col">
-                            <div className="invoices-metrics-header-row">
+                        <div className="metrics-col">
+                            <div className="metrics-header-row">
                                 <FileText size={12} className="text-cyan-600" />
-                                <span className="invoices-metrics-label">Emitidas</span>
+                                <span className="metrics-label">Emitidas</span>
                             </div>
-                            <p className="invoices-metrics-val">
+                            <p className="metrics-val">
                                 {stats.total?.toLocaleString() || 0}
                             </p>
                         </div>
@@ -879,15 +850,16 @@ const Invoices = () => {
             )}
 
             {/* ── Manual Payment Modal ─────────────────────────── */}
-            <InvoiceAdjustmentModal
-                isOpen={manualPayModal.open}
-                invoice={manualPayModal.invoice}
-                onClose={closeManualPayModal}
-                onSuccess={() => {
-                    loadInvoices(currentPage);
-                    loadStats();
-                }}
-            />
+            {manualPayModal.open && (
+                <InvoiceAdjustmentModal
+                    isOpen={manualPayModal.open}
+                    invoice={manualPayModal.invoice}
+                    onClose={closeManualPayModal}
+                    onSuccess={() => {
+                        loadInvoices(currentPage);
+                    }}
+                />
+            )}
 
             {/* Floating Action Button (FAB) for Mobile */}
             {fabPortalElement && !addInvoicesModalOpen && !manualPayModal.open && createPortal(
@@ -904,14 +876,15 @@ const Invoices = () => {
             )}
 
             {/* Modal para Crear Factura Diaria */}
-            <CreateDayInvoiceModal
-                isOpen={addInvoicesModalOpen}
-                onClose={() => setAddInvoicesModalOpen(false)}
-                onSuccess={() => {
-                    loadInvoices(1);
-                    loadStats();
-                }}
-            />
+            {addInvoicesModalOpen && (
+                <CreateDayInvoiceModal
+                    isOpen={addInvoicesModalOpen}
+                    onClose={() => setAddInvoicesModalOpen(false)}
+                    onSuccess={() => {
+                        loadInvoices(1);
+                    }}
+                />
+            )}
         </div >
     );
 };

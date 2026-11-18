@@ -3,7 +3,7 @@ import { X, Check, Calendar, AlertCircle } from 'lucide-react';
 import useAdminScrollLock from '../../hooks/useAdminScrollLock';
 import { createInvoice } from '../../services/api';
 import { showToast } from '../../utils/toast';
-import '../../pages/Invoices.css';
+import './InvoiceAdjustmentModal.css';
 
 const CreateDayInvoiceModal = ({
     isOpen,

@@ -7,6 +7,7 @@ import { useStatusConfig } from '../../context/StatusConfigContext';
 import './AdjustmentTypesModal.css';
 
 const SYSTEM_STATUS_KEYS = ['PAID', 'FREE', 'PENDING', 'DEBT', 'FREEPASS', 'VERIFYING', 'CONFIRMING', 'LOAN', 'DECLINED', 'ERROR', 'VOIDED', 'INITIAL_FEE'];
+const LEGACY_ALIASES = ['REPAIR', 'MANTENIMIENTO', 'TALLER', 'INCAPACIDAD', 'TRANSITO'];
 
 const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, onClose, onFilterChange }, ref) => {
     const { t } = useTranslation();
@@ -239,7 +240,7 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
                 )}
 
                 {(() => {
-                    const visibleKeys = Object.keys(types).filter(k => !types[k]?.hidden);
+                    const visibleKeys = Object.keys(types).filter(k => !LEGACY_ALIASES.includes(k));
                     const adjustmentKeys = visibleKeys.filter(k => types[k]?.category === 'ADJUSTMENT' || (!types[k]?.category && !SYSTEM_STATUS_KEYS.includes(k)) || k === 'FREE');
                     const statusKeys = visibleKeys.filter(k => types[k]?.category === 'STATUS' || (!types[k]?.category && SYSTEM_STATUS_KEYS.includes(k)));
                     return (
@@ -365,7 +366,7 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
                     <div className="adj-modal-list">
                         {Object.entries(types)
                             .filter(([key, item]) => {
-                                if (item?.hidden) return false; // Hide internal backward-compatibility alias keys
+                                if (LEGACY_ALIASES.includes(key)) return false; // Hide internal duplicate alias keys
                                 const isSystemStatus = SYSTEM_STATUS_KEYS.includes(key);
                                 if (filterCategory === 'statuses') return isSystemStatus;
                                 if (filterCategory === 'adjustments') return !isSystemStatus || key === 'FREE';
@@ -456,7 +457,7 @@ const AdjustmentTypesModal = forwardRef(({ isOpen = true, isEmbedded = false, on
                                                         <input
                                                             type="checkbox"
                                                             id={`editHidden_${key}`}
-                                                            checked={editForm.hidden}
+                                                            checked={Boolean(editForm.hidden)}
                                                             onChange={e => setEditForm({ ...editForm, hidden: e.target.checked })}
                                                         />
                                                         <label htmlFor={`editHidden_${key}`} className="adj-modal-checkbox-label">
