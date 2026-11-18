@@ -1,23 +1,24 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw, Download, PowerOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine, getAllCompanies } from '../services/api';
+import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, DollarSign, Activity, FileText, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone } from 'lucide-react';
+import { Calendar, DollarSign, Activity, FileText, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone, ChevronDown } from 'lucide-react';
 import MobileHeaderAction from '../components/MobileHeaderAction';
-import { useSSE } from '../context/SSEContext';
 import { showToast } from '../utils/toast';
+import useDeviceUpdates from '../hooks/useDeviceUpdates';
 import './PaymentSummary.css';
-import './Invoices.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
+import MonthYearSelector from '../components/MonthYearSelector';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
-import InvoiceAdjustmentModal from '../components/modals/InvoiceAdjustmentModal';
-import CreateDayInvoiceModal from '../components/modals/CreateDayInvoiceModal';
+
+const InvoiceAdjustmentModal = React.lazy(() => import('../components/modals/InvoiceAdjustmentModal'));
+const CreateDayInvoiceModal = React.lazy(() => import('../components/modals/CreateDayInvoiceModal'));
 
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
@@ -33,24 +34,16 @@ const getInitialDesktopView = () => {
 
 const PaymentSummary = () => {
     const { user } = useAuth();
-    const { subscribe } = useSSE();
     const [loading, setLoading] = useState(false);
     const { t } = useTranslation();
     const [summaryDataMap, setSummaryDataMap] = useState({});
     const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
     const [pendingCommands, setPendingCommands] = useState({});
-    const summaryHeaderRef = useRef(null);
-    const tableContainerRef = useRef(null);
-    const matrixTableRef = useRef(null);
-    const matrixHeaderViewportRef = useRef(null);
     const isMobile = useIsMobile();
     const [desktopView, setDesktopView] = useState(getInitialDesktopView);
-    const [summaryHeaderHeight, setSummaryHeaderHeight] = useState(0);
-    const [isSummaryHeaderStuck, setIsSummaryHeaderStuck] = useState(false);
-    const [matrixGeometry, setMatrixGeometry] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | debt | ok | cutoff
-    const [showFilters, setShowFilters] = useState(true);
+    const [showFilters, setShowFilters] = useState(false);
 
     // Modals for day pill action (adjustment if invoice exists, create day invoice if not)
     const [adjustmentModal, setAdjustmentModal] = useState({ open: false, invoice: null });
@@ -86,13 +79,6 @@ const PaymentSummary = () => {
             });
         }
     };
-
-    const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
-    const [companies, setCompanies] = useState([]);
-    const [selectedCompany, setSelectedCompany] = useState('all');
-
-
-
 
     const handleDesktopViewChange = (view) => {
         setDesktopView(view);
@@ -134,101 +120,12 @@ const PaymentSummary = () => {
 
     const daysArray = Array.from({ length: lastVisibleDay }, (_, i) => i + 1);
 
-    const syncMatrixHeaderScroll = (scrollLeft) => {
-        if (matrixHeaderViewportRef.current) {
-            matrixHeaderViewportRef.current.scrollLeft = scrollLeft;
-        }
-    };
-
-    const handleMatrixScroll = (event) => {
-        syncMatrixHeaderScroll(event.currentTarget.scrollLeft);
-    };
-
-
-
-    useEffect(() => {
-        const updateStickyState = () => {
-            const headerTop = summaryHeaderRef.current?.getBoundingClientRect().top;
-            const nextIsStuck = typeof headerTop === 'number' && headerTop <= -3;
-
-            setIsSummaryHeaderStuck((previous) => (
-                previous === nextIsStuck ? previous : nextIsStuck
-            ));
-        };
-
-        updateStickyState();
-        window.addEventListener('scroll', updateStickyState, { capture: true, passive: true });
-        window.addEventListener('resize', updateStickyState);
-
-        return () => {
-            window.removeEventListener('scroll', updateStickyState, true);
-            window.removeEventListener('resize', updateStickyState);
-        };
-    }, []);
-
-    useLayoutEffect(() => {
-        if (isMobile || desktopView !== 'matrix') {
-            setMatrixGeometry(null);
-            return undefined;
-        }
-
-        const table = matrixTableRef.current;
-        const container = tableContainerRef.current;
-        if (!table || !container) return undefined;
-
-        const updateMatrixGeometry = () => {
-            const cells = Array.from(table.querySelectorAll('tbody tr:first-child > td'));
-            const expectedColumnCount = daysArray.length + 3;
-
-            if (cells.length !== expectedColumnCount) return;
-
-            const widths = cells.map((cell) => Math.round(cell.getBoundingClientRect().width));
-            const width = Math.round(table.getBoundingClientRect().width);
-
-            if (!width || widths.some((columnWidth) => !columnWidth)) return;
-
-            setMatrixGeometry((previous) => {
-                const isUnchanged = previous?.width === width
-                    && previous.widths.length === widths.length
-                    && previous.widths.every((columnWidth, index) => columnWidth === widths[index]);
-
-                return isUnchanged ? previous : { width, widths };
-            });
-        };
-
-        updateMatrixGeometry();
-
-        if (typeof ResizeObserver === 'undefined') {
-            window.addEventListener('resize', updateMatrixGeometry);
-            return () => window.removeEventListener('resize', updateMatrixGeometry);
-        }
-
-        const observer = new ResizeObserver(updateMatrixGeometry);
-        observer.observe(table);
-        observer.observe(container);
-        return () => observer.disconnect();
-    }, [daysArray.length, desktopView, isMobile, loading, summaryData]);
-
-    useEffect(() => {
-        if (isSystemAdmin) {
-            getAllCompanies().then(res => {
-                const list = Array.isArray(res) ? res : (res.data || res.companies || []);
-                setCompanies(list);
-            }).catch(err => console.error('Failed to load companies list:', err));
-        }
-    }, [isSystemAdmin]);
-
-    const activeCompanyId = isSystemAdmin
-        ? (selectedCompany !== 'all' ? selectedCompany : undefined)
-        : undefined;
-
     const fetchData = async (isSilent = false) => {
         if (!isSilent) setLoading(true);
         try {
             const response = await getPaymentSummary({
                 month: selectedMonth,
-                year: selectedYear,
-                companyId: activeCompanyId
+                year: selectedYear
             });
 
             if (response.success && Array.isArray(response.data)) {
@@ -265,7 +162,7 @@ const PaymentSummary = () => {
     const handleExport = async () => {
         setDownloading(true);
         try {
-            await exportPaymentsCSV(selectedMonth, selectedYear, activeCompanyId);
+            await exportPaymentsCSV(selectedMonth, selectedYear);
         } catch (err) {
             console.error('CSV export error:', err);
             alert('Error al descargar el CSV: ' + err.message);
@@ -321,7 +218,7 @@ const PaymentSummary = () => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedMonth, selectedYear, selectedCompany]);
+    }, [selectedMonth, selectedYear]);
 
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [showBulkOffModal, setShowBulkOffModal] = useState(false);
@@ -341,65 +238,27 @@ const PaymentSummary = () => {
         }
     };
 
-    const hasInitialScrolledRef = useRef(false);
-
-    useEffect(() => {
-        hasInitialScrolledRef.current = false;
-    }, [selectedMonth, selectedYear, desktopView]);
-
-
-
     // Real-time SSE listening for device status updates in summary view
-    useEffect(() => {
-        const unsub = subscribe('device_update', (e) => {
-            try {
-                const data = e.parsedData;
-                if (!data) return;
-                const updates = Array.isArray(data) ? data : [data];
-                setSummaryDataMap(prev => {
-                    const next = { ...prev };
-                    let matchFound = false;
-                    updates.forEach(u => {
-                        const key = String(u.gpsId || u.deviceId || u.name || '');
-                        if (key && next[key]) {
-                            matchFound = true;
-                            next[key] = {
-                                ...next[key],
-                                device: {
-                                    ...next[key].device,
-                                    ...u
-                                }
-                            };
+    useDeviceUpdates((updates) => {
+        setSummaryDataMap(prev => {
+            const next = { ...prev };
+            let matchFound = false;
+            updates.forEach(u => {
+                const key = String(u.gpsId || u.deviceId || u.name || '');
+                if (key && next[key]) {
+                    matchFound = true;
+                    next[key] = {
+                        ...next[key],
+                        device: {
+                            ...next[key].device,
+                            ...u
                         }
-                    });
-                    return matchFound ? next : prev;
-                });
-            } catch (err) {
-                console.error('Error parsing SSE device_update in PaymentSummary:', err);
-            }
+                    };
+                }
+            });
+            return matchFound ? next : prev;
         });
-
-        return () => {
-            unsub();
-        };
-    }, [subscribe, user?.companyId]);
-
-    useEffect(() => {
-        if (!isMobile && desktopView === 'matrix' && !loading && tableContainerRef.current) {
-            if (!hasInitialScrolledRef.current) {
-                const { scrollWidth } = tableContainerRef.current;
-                tableContainerRef.current.scrollLeft = scrollWidth;
-                syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
-                hasInitialScrolledRef.current = true;
-            }
-        }
-    }, [desktopView, isMobile, loading]);
-
-    useEffect(() => {
-        if (matrixGeometry && tableContainerRef.current) {
-            syncMatrixHeaderScroll(tableContainerRef.current.scrollLeft);
-        }
-    }, [matrixGeometry]);
+    });
 
     const morososCount = useMemo(() => {
         return summaryData.filter(item => (item.device.unpaidTotal || 0) > 0).length;
@@ -491,11 +350,6 @@ const PaymentSummary = () => {
 
         return (
             <MatrixPaymentSummary
-                matrixHeaderViewportRef={matrixHeaderViewportRef}
-                matrixGeometry={matrixGeometry}
-                tableContainerRef={tableContainerRef}
-                handleMatrixScroll={handleMatrixScroll}
-                matrixTableRef={matrixTableRef}
                 loading={loading}
                 daysInMonth={daysInMonth}
                 filteredSummaryData={filteredSummaryData}
@@ -507,7 +361,7 @@ const PaymentSummary = () => {
         );
     }, [
         desktopView, filteredSummaryData, daysArray, currentDay,
-        loading, user, pendingCommands, matrixGeometry, handleDayClick
+        loading, user, pendingCommands, handleDayClick
     ]);
 
     const autoOffButton = (
@@ -547,50 +401,6 @@ const PaymentSummary = () => {
         </div>
     );
 
-    const renderDateSelectors = (isMobileView = false) => (
-        <div className={`date-selectors-group${isMobileView ? ' mobile-date-selectors' : ''}`}>
-            <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className="date-select-standard"
-                aria-label="Seleccionar mes"
-            >
-                {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                        {new Date(0, i).toLocaleString('es-ES', { month: 'long' })}
-                    </option>
-                ))}
-            </select>
-
-            <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="date-select-standard"
-                aria-label="Seleccionar año"
-            >
-                <option value={2025}>2025</option>
-                <option value={2026}>2026</option>
-                <option value={2027}>2027</option>
-            </select>
-
-            {isSystemAdmin && companies.length > 0 && (
-                <select
-                    value={selectedCompany}
-                    onChange={(e) => setSelectedCompany(e.target.value)}
-                    className="date-select-standard"
-                    aria-label="Seleccionar empresa"
-                >
-                    <option value="all">Todas las empresas</option>
-                    {companies.map(c => (
-                        <option key={c._id} value={c._id}>
-                            {c.name}
-                        </option>
-                    ))}
-                </select>
-            )}
-        </div>
-    );
-
     const desktopHeader = (
         <PageHeader.Desktop
             title={t('sidebar.summary', 'Estatus de Pagos')}
@@ -602,13 +412,19 @@ const PaymentSummary = () => {
             loading={loading}
             refreshText={t('payments.refresh', 'Actualizar')}
             leadingActions={
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
-                    {renderDateSelectors(false)}
-                    {viewToggleSegment}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <MonthYearSelector
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        onChangeMonth={(m) => setSelectedMonth(m)}
+                        onChangeYear={(y) => setSelectedYear(y)}
+                        includeAllMonths={false}
+                    />
                 </div>
             }
             actions={
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    {viewToggleSegment}
                     {autoOffButton}
                 </div>
             }
@@ -616,43 +432,97 @@ const PaymentSummary = () => {
     );
 
     const mobileHeader = (
-        <>
-            <PageHeader.Mobile
-                onRefresh={fetchData}
-                loading={loading}
-                onFilterToggle={handleFilterToggle}
-                showFilters={showFilters}
-                actions={
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <button
-                            type="button"
-                            className={`btn-mobile-header-action ${desktopView === 'matrix' ? 'active' : ''}`}
-                            onClick={() => handleDesktopViewChange(desktopView === 'matrix' ? 'bike' : 'matrix')}
-                            title={desktopView === 'matrix' ? 'Ver tarjetas' : 'Ver matriz'}
-                            aria-label={desktopView === 'matrix' ? 'Cambiar a vista de tarjetas' : 'Cambiar a vista de matriz'}
-                        >
-                            {desktopView === 'matrix' ? <LayoutList size={20} /> : <Table2 size={20} />}
-                        </button>
-                        {autoOffButton}
-                    </div>
-                }
-            />
-            {/* Mobile-only Sticky Date Header */}
-            <div ref={summaryHeaderRef} className={`summary-header md:hidden${isSummaryHeaderStuck ? ' is-stuck' : ''}`}>
-                {renderDateSelectors(true)}
-            </div>
-        </>
+        <PageHeader.Mobile
+            onRefresh={fetchData}
+            loading={loading}
+            onFilterToggle={handleFilterToggle}
+            showFilters={showFilters}
+            datePicker={{
+                selectedMonth,
+                selectedYear,
+                onSelect: (m) => setSelectedMonth(m)
+            }}
+        />
     );
 
     const renderHeader = isMobile ? mobileHeader : desktopHeader;
 
     return (
-        <div className="payment-summary-container" style={{ '--summary-header-height': `${summaryHeaderHeight}px` }} >
+        <div className="payment-summary-container">
 
             {renderHeader}
 
-            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
+            {/* Mobile Collapsible Filter & Search Section */}
+            {isMobile && showFilters && (
+                <div className="mobile-filter-section">
+                    <div className="mobile-search-bar">
+                        <Search size={16} className="search-icon" />
+                        <input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Buscar moto o conductor…"
+                            className="mobile-search-input"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="clear-search"
+                                title="Limpiar búsqueda"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
 
+                    <div className="filter-pills-row no-scrollbar">
+                        <button
+                            type="button"
+                            onClick={() => setStatusFilter('all')}
+                            className={`filter-pill ${statusFilter === 'all' ? 'active' : ''}`}
+                        >
+                            <span>Todos</span>
+                            <span className="pill-count">{summaryData.length}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusFilter('debt')}
+                            className={`filter-pill ${statusFilter === 'debt' ? 'active' : ''}`}
+                        >
+                            <span>Con deuda</span>
+                            <span className="pill-count" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#dc2626' }}>{morososCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusFilter('ok')}
+                            className={`filter-pill ${statusFilter === 'ok' ? 'active' : ''}`}
+                        >
+                            <span>Al día</span>
+                            <span className="pill-count" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#059669' }}>{okCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusFilter('cutoff')}
+                            className={`filter-pill ${statusFilter === 'cutoff' ? 'active' : ''}`}
+                        >
+                            <span>Apagados</span>
+                            <span className="pill-count" style={{ backgroundColor: 'rgba(100, 116, 139, 0.15)', color: '#475569' }}>{cutoffCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusFilter('weekly')}
+                            className={`filter-pill ${statusFilter === 'weekly' ? 'active' : ''}`}
+                        >
+                            <span>Semanal+</span>
+                            <span className="pill-count" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#4f46e5' }}>{weeklyCount}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Desktop Filters (Desktop only) */}
+            {!isMobile && (
                 <SearchAndFilterBar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -668,7 +538,7 @@ const PaymentSummary = () => {
                     ]}
                     filterRowClass="summary-filter-row-ios"
                 />
-            </div>
+            )}
 
             {renderViews}
 
@@ -705,23 +575,28 @@ const PaymentSummary = () => {
                 </div>
             )}
 
-            {/* Modal para Ajuste / Pago Manual si existe la factura */}
-            <InvoiceAdjustmentModal
-                isOpen={adjustmentModal.open}
-                invoice={adjustmentModal.invoice}
-                onClose={() => setAdjustmentModal({ open: false, invoice: null })}
-                onSuccess={() => fetchData()}
-            />
+            {/* Modales Inmersivos con carga bajo demanda (React.lazy) */}
+            <Suspense fallback={null}>
+                {adjustmentModal.open && (
+                    <InvoiceAdjustmentModal
+                        isOpen={adjustmentModal.open}
+                        invoice={adjustmentModal.invoice}
+                        onClose={() => setAdjustmentModal({ open: false, invoice: null })}
+                        onSuccess={() => fetchData()}
+                    />
+                )}
 
-            {/* Modal para Crear Factura Diaria del Día Seleccionado */}
-            <CreateDayInvoiceModal
-                isOpen={createInvoiceModal.open}
-                deviceName={createInvoiceModal.deviceName}
-                date={createInvoiceModal.date}
-                driverName={createInvoiceModal.driverName}
-                onClose={() => setCreateInvoiceModal({ open: false, deviceName: '', date: '', driverName: '' })}
-                onSuccess={() => fetchData()}
-            />
+                {createInvoiceModal.open && (
+                    <CreateDayInvoiceModal
+                        isOpen={createInvoiceModal.open}
+                        deviceName={createInvoiceModal.deviceName}
+                        date={createInvoiceModal.date}
+                        driverName={createInvoiceModal.driverName}
+                        onClose={() => setCreateInvoiceModal({ open: false, deviceName: '', date: '', driverName: '' })}
+                        onSuccess={() => fetchData()}
+                    />
+                )}
+            </Suspense>
 
         </div>
     );
