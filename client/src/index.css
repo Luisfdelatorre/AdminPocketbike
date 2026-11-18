@@ -18,6 +18,7 @@
 
 .admin-card,
 .stat-card,
+.payment-stat-card,
 .contract-card,
 .device-card,
 .contract-stat-card {
@@ -26,6 +27,40 @@
     border-radius: var(--card-radius);
     padding: var(--card-padding);
     box-shadow: var(--card-shadow);
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.stat-info {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 0.813rem;
+    color: #6B7280;
+    margin-bottom: 0.25rem;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1F2937;
 }
 
 .admin-card--flush {
@@ -157,12 +192,12 @@
 
 @keyframes modal-slide-up {
     from {
-        transform: translateY(20px);
+        transform: translateY(24px) scale(0.97);
         opacity: 0;
     }
 
     to {
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
         opacity: 1;
     }
 }
@@ -180,6 +215,9 @@
 @media (max-width: 768px) {
     .modal-overlay {
         padding: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
     }
 
     .modal-content,
@@ -190,6 +228,11 @@
         max-height: 100dvh;
         padding: 1rem;
         border-radius: 0;
+        animation: modal-page-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        overscroll-behavior: contain;
     }
 
     .modal-surface--contract,
@@ -216,10 +259,12 @@
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
 
     .modal-overlay--opening .modal-surface--contract {
-        animation: modal-page-enter 0.22s ease-out both;
+        animation: modal-page-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .modal-overlay--closing {
@@ -232,21 +277,25 @@
 
     @keyframes modal-page-enter {
         from {
-            transform: translateX(100%);
+            transform: translateY(100%);
+            opacity: 0.9;
         }
 
         to {
-            transform: translateX(0);
+            transform: translateY(0);
+            opacity: 1;
         }
     }
 
     @keyframes modal-page-exit {
         from {
-            transform: translateX(0);
+            transform: translateY(0);
+            opacity: 1;
         }
 
         to {
-            transform: translateX(100%);
+            transform: translateY(100%);
+            opacity: 0.8;
         }
     }
 }
@@ -716,6 +765,17 @@ h3.uppercase-title-ios {
 .search-box {
     position: relative;
     max-width: 600px;
+}
+
+.contracts-filters .search-box,
+.invoices-filters .search-box,
+.payment-filters .search-box,
+.payment-controls .search-box,
+.devices-filters .search-box,
+.filters .search-box {
+    min-width: 240px;
+    max-width: 360px;
+    flex-grow: 1;
 }
 
 .search-icon {
@@ -1322,4 +1382,899 @@ h3.uppercase-title-ios {
 
 .toast-ios.toast-success .toast-action-btn {
     color: #25D366;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Mobile Header Controls (Date Pill & Filter Toggle)
+   ========================================================================== */
+.mobile-header-date-pill-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding-right: 8px;
+}
+
+.mobile-header-date-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 9999px;
+    background: #FFFFFF;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    font-size: 13px;
+    font-weight: 600;
+    color: #1E293B;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mobile-header-date-pill:active {
+    background: #F1F5F9;
+    transform: scale(0.97);
+}
+
+.mobile-header-date-select-hidden {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px;
+    -webkit-appearance: none;
+}
+
+.btn-header-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    color: #0891b2;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-header-filter-toggle:active {
+    transform: scale(0.92);
+}
+
+.btn-header-filter-toggle.active {
+    background: #0891b2 !important;
+    color: #FFFFFF !important;
+    border-color: #0891b2 !important;
+    box-shadow: 0 2px 8px rgba(8, 145, 178, 0.3) !important;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Filter Buttons & Sort Select (Desktop)
+   ========================================================================== */
+.filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    color: #4B5563;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+}
+
+.filter-btn.active {
+    background: var(--brand-teal);
+    border-color: var(--brand-teal);
+    color: white;
+}
+
+.sort-select {
+    padding: 0.625rem 1rem;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    color: #4B5563;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sort-select:hover {
+    border-color: #D1D5DB;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.1);
+}
+
+/* ==========================================================================
+   Common Shared Styles: Mobile Filter Section & Filter Pills
+   ========================================================================== */
+.mobile-filter-section,
+.payments-mobile-filter-section,
+.invoices-mobile-filter-section,
+.contracts-mobile-filter-section {
+    padding: 0.5rem 0.25rem 0.75rem;
+    animation: mobileFilterFadeInDown 0.2s ease-out;
+}
+
+@keyframes mobileFilterFadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mobile-search-bar,
+.payments-mobile-search-bar,
+.invoices-mobile-search-bar,
+.contracts-mobile-search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-search-input,
+.payments-mobile-search-input,
+.invoices-mobile-search-input,
+.contracts-mobile-search-input {
+    width: 100%;
+    background-color: #EFEFF0 !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    padding: 0.55rem 2.5rem 0.55rem 2.6rem !important;
+    font-size: 13.5px !important;
+    color: #0F172A !important;
+    font-weight: 400 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease;
+}
+
+.mobile-search-input:focus,
+.payments-mobile-search-input:focus,
+.invoices-mobile-search-input:focus,
+.contracts-mobile-search-input:focus {
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.5) !important;
+    background-color: #FFFFFF !important;
+}
+
+.filter-pills-row,
+.payments-filter-pills-row,
+.invoices-filter-pills-row,
+.contracts-filter-pills-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.25rem 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.filter-pill,
+.payment-filter-pill,
+.invoice-filter-pill,
+.contract-filter-pill {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 500;
+    background: #FFFFFF;
+    color: #334155;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.filter-pill:active,
+.payment-filter-pill:active,
+.invoice-filter-pill:active,
+.contract-filter-pill:active {
+    transform: scale(0.96);
+}
+
+.filter-pill.active,
+.payment-filter-pill.active,
+.invoice-filter-pill.active,
+.contract-filter-pill.active {
+    background: #0891b2;
+    color: #FFFFFF;
+    border-color: #0891b2;
+    box-shadow: 0 2px 6px rgba(8, 145, 178, 0.3);
+}
+
+.filter-pill .pill-count,
+.payment-filter-pill .pill-count,
+.invoice-filter-pill .pill-count,
+.contract-filter-pill .pill-count {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Mobile Consolidated Metrics Card (iOS Style)
+   ========================================================================== */
+.mobile-metrics-card,
+.payments-mobile-metrics-card,
+.invoices-mobile-metrics-card,
+.contracts-mobile-metrics-card {
+    background: #FFFFFF;
+    border-radius: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(226, 232, 240, 0.85);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 0.75rem;
+}
+
+.mobile-metrics-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-metrics-primary-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+}
+
+.mobile-metrics-primary-val {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0F172A;
+    letter-spacing: -0.02em;
+}
+
+.metrics-progress-bar,
+.payments-metrics-progress-bar,
+.invoices-metrics-progress-bar,
+.contracts-metrics-progress-bar {
+    width: 100%;
+    background-color: #F1F5F9;
+    height: 8px;
+    border-radius: 9999px;
+    overflow: hidden;
+    display: flex;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.progress-fill.fill-completed,
+.payments-progress-completed,
+.invoices-progress-paid,
+.contracts-progress-active {
+    background-color: #10B981;
+    height: 100%;
+    border-radius: 9999px 0 0 9999px;
+    transition: width 0.4s ease;
+}
+
+.progress-fill.fill-pending,
+.payments-progress-pending,
+.invoices-progress-unpaid,
+.contracts-progress-ended {
+    background-color: #F43F5E;
+    height: 100%;
+    border-radius: 0 9999px 9999px 0;
+    transition: width 0.4s ease;
+}
+
+.payments-progress-pending {
+    background-color: #F59E0B;
+}
+
+.progress-fill.fill-blue,
+.contracts-progress-completed {
+    background-color: #0EA5E9;
+    height: 100%;
+    border-radius: 0 9999px 9999px 0;
+    transition: width 0.4s ease;
+}
+
+.metrics-columns,
+.payments-metrics-columns,
+.invoices-metrics-columns,
+.contracts-metrics-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #F1F5F9;
+    text-align: center;
+}
+
+.metrics-col,
+.payments-metrics-col,
+.invoices-metrics-col,
+.contracts-metrics-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.metrics-col.bordered-col,
+.payments-metrics-col.bordered-col,
+.invoices-metrics-col.bordered-col,
+.contracts-metrics-col.bordered-col {
+    border-left: 1px solid #F1F5F9;
+    border-right: 1px solid #F1F5F9;
+}
+
+.metrics-header-row,
+.payments-metrics-header-row,
+.invoices-metrics-header-row,
+.contracts-metrics-header-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+}
+
+.metrics-dot,
+.payments-metrics-dot,
+.invoices-metrics-dot,
+.contracts-metrics-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.metrics-dot.dot-completed,
+.metrics-dot.dot-paid,
+.metrics-dot.dot-active,
+.payments-metrics-dot.dot-completed,
+.invoices-metrics-dot.dot-paid,
+.contracts-metrics-dot.dot-active {
+    background-color: #10B981;
+}
+
+.metrics-dot.dot-pending,
+.metrics-dot.dot-unpaid,
+.metrics-dot.dot-ended,
+.payments-metrics-dot.dot-pending,
+.invoices-metrics-dot.dot-unpaid,
+.contracts-metrics-dot.dot-ended {
+    background-color: #F43F5E;
+}
+
+.metrics-dot.dot-cyan,
+.contracts-metrics-dot.dot-completed {
+    background-color: #0EA5E9;
+}
+
+.metrics-label,
+.payments-metrics-label,
+.invoices-metrics-label,
+.contracts-metrics-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748B;
+}
+
+.metrics-val,
+.payments-metrics-val,
+.invoices-metrics-val,
+.contracts-metrics-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.2;
+}
+
+.metrics-val.val-pending,
+.metrics-val.val-unpaid,
+.payments-metrics-val.val-pending,
+.invoices-metrics-val.val-unpaid {
+    color: #E11D48;
+}
+
+.metrics-val.val-cyan,
+.contracts-metrics-val.val-completed {
+    color: #0284C7;
+}
+
+.metrics-subcount,
+.payments-metrics-subcount,
+.invoices-metrics-subcount,
+.contracts-metrics-subcount {
+    font-size: 11px;
+    font-weight: 500;
+    color: #94A3B8;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Loading, Empty State & Spinner
+   ========================================================================== */
+.loading-state,
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    background: white;
+    border-radius: 0.5rem;
+    border: 1px solid #E5E7EB;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #F3F4F6;
+    border-top-color: var(--brand-teal);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-state p {
+    color: #6B7280;
+    font-size: 0.875rem;
+}
+
+.empty-state svg {
+    color: #9CA3AF;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1F2937;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #6B7280;
+    font-size: 0.875rem;
+    max-width: 400px;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Pagination Controls
+   ========================================================================== */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border-top: 1px solid #E5E7EB;
+}
+
+.page-info,
+.pagination-info {
+    font-size: 0.875rem;
+    color: #6B7280;
+}
+
+.page-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.page-btn,
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.75rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.375rem;
+    background: white;
+    color: #374151;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled),
+.pagination-btn:hover:not(:disabled) {
+    background: #F3F4F6;
+    border-color: #D1D5DB;
+}
+
+.page-btn:disabled,
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-btn.active,
+.pagination-btn.active {
+    background: var(--brand-teal);
+    border-color: var(--brand-teal);
+    color: white;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Floating Action Button (FAB)
+   ========================================================================== */
+.contracts-add-fab,
+.app-fab {
+    position: fixed;
+    right: 2rem;
+    bottom: 2rem;
+    z-index: 1100;
+    display: flex;
+    width: 3.75rem;
+    height: 3.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 9999px;
+    color: white;
+    background: linear-gradient(135deg, var(--brand-teal, #009da0), var(--brand-teal-gradient, #006d6f));
+    box-shadow: 0 4px 16px rgba(0, 157, 160, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.contracts-add-fab.primary-blue,
+.app-fab.primary-blue {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.contracts-add-fab:hover,
+.app-fab:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+}
+
+.contracts-add-fab:active,
+.app-fab:active {
+    transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+
+    .contracts-add-fab,
+    .app-fab {
+        right: 1.25rem;
+        bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+        width: 3.5rem;
+        height: 3.5rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+}
+
+/* ==========================================================================
+   Common Shared Styles: Statistics Grids & StatCard (iOS Style)
+   ========================================================================== */
+.stats-grid,
+.contracts-stats,
+.invoices-stats,
+.payment-stats,
+.devices-stats,
+.app-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 600px) {
+
+    .stats-grid.mobile-col-4,
+    .contracts-stats.mobile-col-4,
+    .payment-stats.mobile-col-4 {
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 0.35rem !important;
+    }
+}
+
+.stat-card-ios {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    padding: 0.875rem 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card-ios:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.stat-content-ios {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.stat-content-ios.no-icon {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.stat-text-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-content-ios h3,
+.stat-content-ios h3.uppercase-title-ios {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #64748B;
+    margin: 0 0 0.25rem 0;
+}
+
+.stat-value-container-ios {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.stat-value-ios {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.stat-change-inline {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+.stat-change-inline.positive {
+    background-color: #ECFDF5;
+    color: #059669;
+}
+
+.stat-change-inline.negative {
+    background-color: #FFF1F2;
+    color: #E11D48;
+}
+
+.stat-icon-ios {
+    width: 36px;
+    height: 36px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Refresh Button & Page Search Container
+   ========================================================================== */
+.btn-refresh,
+.btn-refresh-contracts,
+.btn-refresh-page {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.btn-refresh:hover:not(:disabled),
+.btn-refresh-contracts:hover:not(:disabled),
+.btn-refresh-page:hover:not(:disabled) {
+    border-color: var(--brand-teal);
+    color: var(--brand-teal);
+    background: #F0FDFA;
+}
+
+.btn-refresh:disabled,
+.btn-refresh-contracts:disabled,
+.btn-refresh-page:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.page-search,
+.contracts-search,
+.invoices-search,
+.payments-search,
+.devices-search {
+    margin-bottom: 1.5rem;
+}
+
+.filters,
+.contracts-filters,
+.invoices-filters,
+.payment-filters,
+.devices-filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Status Badges
+   ========================================================================== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.2rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    line-height: 1;
+}
+
+.status-badge.active,
+.status-badge.approved,
+.status-badge.completed,
+.status-badge.s_approved,
+.status-badge.paid {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-badge.free {
+    background: #F1F5F9;
+    color: #475569;
+}
+
+.status-badge.pending,
+.status-badge.verifying,
+.status-badge.suspended {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.status-badge.failed,
+.status-badge.declined,
+.status-badge.error,
+.status-badge.cancelled,
+.status-badge.debt {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.status-badge.unknown {
+    background: #F3F4F6;
+    color: #6B7280;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Card Header, Body & Titles
+   ========================================================================== */
+.card-header,
+.contract-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.card-title,
+.contract-title h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1F2937;
+    margin: 0;
+}
+
+.card-body,
+.contract-body {
+    margin-bottom: 0.75rem;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Info Key-Value Items
+   ========================================================================== */
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-label {
+    font-size: 0.688rem;
+    color: #9CA3AF;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    margin-bottom: 0.125rem;
+}
+
+.info-value {
+    font-size: 0.875rem;
+    color: #1F2937;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Common Shared Styles: Card Progress Bars
+   ========================================================================== */
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    color: #6B7280;
+}
+
+.progress-percent {
+    font-weight: 700;
+    color: #1F2937;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #E5E7EB;
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 9999px;
+    background-color: var(--brand-teal);
 }

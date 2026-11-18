@@ -5,7 +5,7 @@ import { showToast } from '../utils/toast';
 import { formatOfflineTimeShort } from '../utils/helpers';
 import { getAllDevices, updateDevice, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { useSSE } from '../context/SSEContext';
+import useDeviceUpdates from '../hooks/useDeviceUpdates';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import StatCard from '../components/StatCard';
@@ -20,7 +20,6 @@ import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 const DeviceManagement = () => {
     const isMobile = useIsMobile();
-    const { subscribe } = useSSE();
     const { t } = useTranslation();
     const { user } = useAuth();
     const [devices, setDevices] = useState({});
@@ -66,55 +65,42 @@ const DeviceManagement = () => {
         loadDevices();
     }, []);
 
-    useEffect(() => {
-        const unsub = subscribe('device_update', (e) => {
-            try {
-                const data = e.parsedData;
-                if (!data) return;
-                const updates = Array.isArray(data) ? data : [data];
-                setDevices((prevDevices) => {
-                    let matchFound = false;
-                    const next = { ...prevDevices };
-                    updates.forEach(u => {
-                        const targetId = String(u.gpsId);
-                        if (targetId && next[targetId]) {
-                            matchFound = true;
-                            next[targetId] = {
-                                ...next[targetId],
-                                ...u
-                            };
-                        }
-                    });
-                    return matchFound ? next : prevDevices;
-                });
-
-                // Clear pending commands for updated devices
-                setPendingCommands(prev => {
-                    let changed = false;
-                    const next = { ...prev };
-                    updates.forEach(u => {
-                        const gpsKey = u.gpsId ? String(u.gpsId) : null;
-                        const devKey = u._id ? String(u._id) : (u.id ? String(u.id) : null);
-                        if (gpsKey && next[gpsKey]) {
-                            delete next[gpsKey];
-                            changed = true;
-                        }
-                        if (devKey && next[devKey]) {
-                            delete next[devKey];
-                            changed = true;
-                        }
-                    });
-                    return changed ? next : prev;
-                });
-            } catch (err) {
-                console.error('Error in DeviceSelector SSE listener:', err);
-            }
+    useDeviceUpdates((updates) => {
+        setDevices((prevDevices) => {
+            let matchFound = false;
+            const next = { ...prevDevices };
+            updates.forEach(u => {
+                const targetId = String(u.gpsId);
+                if (targetId && next[targetId]) {
+                    matchFound = true;
+                    next[targetId] = {
+                        ...next[targetId],
+                        ...u
+                    };
+                }
+            });
+            return matchFound ? next : prevDevices;
         });
 
-        return () => {
-            unsub();
-        };
-    }, [subscribe]);
+        // Clear pending commands for updated devices
+        setPendingCommands(prev => {
+            let changed = false;
+            const next = { ...prev };
+            updates.forEach(u => {
+                const gpsKey = u.gpsId ? String(u.gpsId) : null;
+                const devKey = u._id ? String(u._id) : (u.id ? String(u.id) : null);
+                if (gpsKey && next[gpsKey]) {
+                    delete next[gpsKey];
+                    changed = true;
+                }
+                if (devKey && next[devKey]) {
+                    delete next[devKey];
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    });
 
 
     const handleShare = (device) => {

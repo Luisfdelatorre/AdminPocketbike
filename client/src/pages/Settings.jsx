@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { 
     Settings as SettingsIcon, DollarSign, Clock, Database, Save, Image as ImageIcon, 
     Edit2, ZoomIn, ZoomOut, RefreshCw, Upload, Building, ArrowLeft, Percent, 
-    Zap, MapPin, Bell, BellRing, ShieldCheck, Server, Globe, User, Key, Eye, EyeOff, 
+    Zap, MapPin, Bell, BellRing, ShieldCheck, ShieldAlert, Server, Globe, User, Key, Eye, EyeOff, 
     Smartphone, QrCode, CheckCircle, Check, Radio, Info, Mail
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
