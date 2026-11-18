@@ -6,6 +6,7 @@ import { sseService } from '../utils/sseService.js';
 import logger from '../config/logger.js';
 import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
 import helpers from '../utils/helpers.js';
+import dayjs from '../config/dayjs.js';
 import { Contract } from '../models/Contract.js';
 const { PAYMENT_STATUS, TEMPORARY_RESERVATION_TIMEOUT, DEFAULT_PAYMENT_EMAIL_DOMAIN } = Transaction;
 const { M_REQUEST_SENT } = PAYMENTMESSAGES;
@@ -68,11 +69,8 @@ const paymentController = {
     /*Get payment history*/
     async getPaymentHistory(req, res) {
         try {
-            const { page, limit, status } = req.query;
+            const { page, limit, status, month, year } = req.query;
             const { isSuperAdmin, companyId, role, companyName } = req.auth || {};
-
-            // Check if it's a device request (req.paymentAuth) or admin request (req.auth)
-            // The route seems to be used by Admin panel (req.auth) based on context
 
             let filter = {};
             if (status) filter.status = status;
@@ -83,6 +81,19 @@ const paymentController = {
                     filter.companyId = companyId;
                 }
             }
+
+            if (month && year) {
+                const companyTz = 'America/Bogota';
+                const from = dayjs.tz(`${year}-${String(month).padStart(2, '0')}-01`, companyTz).startOf('month').toDate();
+                const to = dayjs.tz(`${year}-${String(month).padStart(2, '0')}-01`, companyTz).endOf('month').toDate();
+                filter.createdAt = { $gte: from, $lte: to };
+            } else if (year) {
+                const companyTz = 'America/Bogota';
+                const from = dayjs.tz(`${year}-01-01`, companyTz).startOf('year').toDate();
+                const to = dayjs.tz(`${year}-12-31`, companyTz).endOf('year').toDate();
+                filter.createdAt = { $gte: from, $lte: to };
+            }
+
             const history = await paymentService.getPaymentHistory({ page, limit, filter });
             res.json({ success: true, ...history });
 

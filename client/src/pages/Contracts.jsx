@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getAllContracts, getDevicesWithContracts, createContract, updateContract, updateContractStatus, getSettings, downloadContractDocument } from '../services/api';
+import { getAllContracts, createContract, updateContract, updateContractStatus, downloadContractDocument } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download, Clock, CalendarDays, CalendarRange } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatPhoneNumber, formatCurrencyCOP, formatCompact, formatCompactCOP, formatDate } from '../utils/helpers';
 import { safeCalcularPrecioMoto } from '../utils/contractCalculations';
 import useAdminScrollLock from '../hooks/useAdminScrollLock';
-import useFilterVisibilityOnScroll from '../hooks/useFilterVisibilityOnScroll';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import ContractDocPreviewModal from '../components/modals/ContractDocPreviewModal';
@@ -28,6 +27,7 @@ const Contracts = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [editingContract, setEditingContract] = useState(null);
     const [activeMenu, setActiveMenu] = useState(null);
     const [downloadingDocId, setDownloadingDocId] = useState(null);
@@ -249,8 +249,6 @@ const Contracts = () => {
 
     useEffect(() => {
         loadContracts();
-        loadAvailableDevices();
-        loadCompanySettings();
         setFabPortalElement(document.body);
     }, []);
 
@@ -267,20 +265,6 @@ const Contracts = () => {
         };
     }, [activeMenu]);
 
-    useFilterVisibilityOnScroll(setShowFilters);
-
-    const loadCompanySettings = async () => {
-        try {
-            // Fetch settings including contractDefaults from /companies/settings
-            const response = await getSettings();
-            if (response.success) {
-                setCompanySettings(response.data);
-            }
-        } catch (error) {
-            console.error('Error loading company settings:', error);
-        }
-    };
-
     const loadContracts = async () => {
         setLoading(true);
         try {
@@ -288,6 +272,12 @@ const Contracts = () => {
 
             if (result.success) {
                 setContracts(result.contracts || []);
+                if (result.availableDevices) {
+                    setAvailableDevices(result.availableDevices);
+                }
+                if (result.settings) {
+                    setCompanySettings(result.settings);
+                }
             } else {
                 console.error('Failed to fetch contracts:', result.error);
             }
@@ -298,20 +288,8 @@ const Contracts = () => {
         }
     };
 
-    const loadAvailableDevices = async () => {
-        try {
-            const result = await getDevicesWithContracts();
-
-            if (result.success) {
-                setAvailableDevices(result.devices || []);
-            }
-        } catch (error) {
-            console.error('Error loading devices:', error);
-        }
-    };
-
     const handleRefresh = async () => {
-        await Promise.all([loadContracts(), loadAvailableDevices(), loadCompanySettings()]);
+        await loadContracts();
     };
 
     const openContractModal = () => {
@@ -626,6 +604,23 @@ const Contracts = () => {
 
     ];
 
+    const totalCount = contracts.length;
+    const activeCount = contracts.filter(c => c.status === 'ACTIVE').length;
+    const completedCount = contracts.filter(c => c.status === 'COMPLETED').length;
+    const weeklyCount = contracts.filter(c => (c.paymentFrequency || 1) > 1).length;
+    const cancelledCount = contracts.filter(c => c.status === 'CANCELLED').length;
+    const activePercentage = totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0;
+    const completedPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    const handleClearSearch = () => {
+        setSearchInput('');
+        setSearchQuery('');
+    };
+
+    const handleFilterChange = (newFilter) => {
+        setFilter(newFilter);
+    };
+
     const desktopHeader = (
         <PageHeader.Desktop
             title={t('contracts.title')}
@@ -664,22 +659,63 @@ const Contracts = () => {
         <div className="admin-page-container">
             {renderHeader}
 
-            {/* Expandable Metrics and Search & Filter Section */}
-            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
-                {/* Summary Stats — Minimalist iOS style consistent with DeviceSelector */}
+            {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
+            {isMobile ? !showFilters && (
+                <div className="mobile-metrics-card">
+                    <div className="metrics-progress-bar">
+                        <div
+                            className="progress-fill fill-completed"
+                            style={{ width: `${activePercentage}%` }}
+                        />
+                        <div
+                            className="progress-fill fill-blue"
+                            style={{ width: `${completedPercentage}%` }}
+                        />
+                    </div>
+                    <div className="metrics-columns">
+                        <div className="metrics-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-dot dot-active" />
+                                <span className="metrics-label">Activos</span>
+                            </div>
+                            <p className="metrics-val">
+                                {activePercentage}% <span className="metrics-subcount">({activeCount})</span>
+                            </p>
+                        </div>
+                        <div className="metrics-col bordered-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-dot dot-cyan" />
+                                <span className="metrics-label">Finalizados</span>
+                            </div>
+                            <p className="metrics-val val-cyan">
+                                {completedPercentage}% <span className="metrics-subcount">({completedCount})</span>
+                            </p>
+                        </div>
+                        <div className="metrics-col">
+                            <div className="metrics-header-row">
+                                <FileText size={12} className="text-cyan-600" />
+                                <span className="metrics-label">Total</span>
+                            </div>
+                            <p className="metrics-val">
+                                {totalCount}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            ) : (
                 <div className="contracts-stats">
                     <StatCard
                         title={t('contracts.stats.total', 'TOTAL')}
-                        value={contracts.length}
+                        value={totalCount}
                     />
                     <StatCard
                         title={t('contracts.stats.active', 'ACTIVOS')}
-                        value={contracts.filter(c => c.status === 'ACTIVE').length}
+                        value={activeCount}
                         valueColor="#00C292"
                     />
                     <StatCard
                         title={t('contracts.stats.completed', 'FINALIZADOS')}
-                        value={contracts.filter(c => c.status === 'COMPLETED').length}
+                        value={completedCount}
                         valueColor="#0070eb"
                     />
                     <StatCard
@@ -689,7 +725,82 @@ const Contracts = () => {
                         valueColor="#1a1c1c"
                     />
                 </div>
+            )}
 
+            {/* Mobile Collapsible Filter & Search Section */}
+            {isMobile && showFilters && (
+                <div className="contracts-mobile-filter-section">
+                    <div className="contracts-mobile-search-bar">
+                        <Search size={16} className="search-icon" />
+                        <input
+                            type="search"
+                            value={searchInput}
+                            onChange={(e) => {
+                                setSearchInput(e.target.value);
+                                setSearchQuery(e.target.value);
+                            }}
+                            placeholder="Buscar por ID, placa, cliente..."
+                            className="contracts-mobile-search-input"
+                        />
+                        {searchInput && (
+                            <button
+                                type="button"
+                                onClick={handleClearSearch}
+                                className="clear-search"
+                                title="Limpiar búsqueda"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="contracts-filter-pills-row no-scrollbar">
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('all')}
+                            className={`contract-filter-pill ${filter === 'all' ? 'active' : ''}`}
+                        >
+                            <span>Todos</span>
+                            <span className="pill-count">{totalCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('active')}
+                            className={`contract-filter-pill ${filter === 'active' ? 'active' : ''}`}
+                        >
+                            <span>Activos</span>
+                            <span className="pill-count">{activeCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('weekly')}
+                            className={`contract-filter-pill ${filter === 'weekly' ? 'active' : ''}`}
+                        >
+                            <span>Semanales</span>
+                            <span className="pill-count">{weeklyCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('completed')}
+                            className={`contract-filter-pill ${filter === 'completed' ? 'active' : ''}`}
+                        >
+                            <span>Finalizados</span>
+                            <span className="pill-count">{completedCount}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange('cancelled')}
+                            className={`contract-filter-pill ${filter === 'cancelled' ? 'active' : ''}`}
+                        >
+                            <span>Cancelados</span>
+                            <span className="pill-count">{cancelledCount}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Desktop Filters (Desktop only) */}
+            {!isMobile && (
                 <SearchAndFilterBar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -698,7 +809,7 @@ const Contracts = () => {
                     setFilter={setFilter}
                     filterOptions={filterOptions}
                 />
-            </div>
+            )}
 
             {/* Contracts List */}
             <div className="contracts-list">

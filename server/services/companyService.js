@@ -12,13 +12,15 @@ class CompanyService {
     constructor() {
         this.wompiAdapters = new Map();
         this.gpsAdapters = new Map(); // keyed by companyId
+        this.settingsCache = new Map(); // keyed by companyId -> { data, timestamp }
     }
 
     clearCache(companyId) {
         const key = String(companyId);
         this.wompiAdapters.delete(key);
         this.gpsAdapters.delete(key);
-        logger.debug(`[CompanyService] Cleared cached adapters for company: ${companyId}`);
+        this.settingsCache.delete(key);
+        logger.debug(`[CompanyService] Cleared cached adapters and settings for company: ${companyId}`);
     }
 
     async validateTraccarCredentials({ host, user, password, companyId }) {
@@ -372,6 +374,13 @@ class CompanyService {
     }
 
     async getCompanySettings(companyId) {
+        const key = String(companyId);
+        const cached = this.settingsCache.get(key);
+        const TTL = 10 * 60 * 1000; // 10 minutes cache
+        if (cached && (Date.now() - cached.timestamp < TTL)) {
+            return cached.data;
+        }
+
         const company = await companyRepository.findById(companyId);
         if (!company) {
             const error = new Error('Company not found');
@@ -408,10 +417,13 @@ class CompanyService {
             ...(maskedData.contractDefaults.financialParameters || {})
         };
 
-        return {
+        const result = {
             ...maskedData,
             availableGpsServices: Object.values(GPS_SERVICES)
         };
+
+        this.settingsCache.set(key, { data: result, timestamp: Date.now() });
+        return result;
     }
 
     async getCompanyById(companyId) {

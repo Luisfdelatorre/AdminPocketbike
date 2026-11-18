@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pago a {{COMPANY_NAME}}</title>
   <link rel="preload" as="image" href="{{COMPANY_LOGO}}" fetchpriority="high">
-  <link rel="modulepreload" href="/assets/payment-app-ixKVyKIN.js?v=4">
+  <link rel="modulepreload" href="/assets/payment-app-BsO5kPVE.js?v=4">
 
   <style>
     :root {
@@ -737,6 +737,33 @@
       transform: rotate(180deg);
     }
 
+    .schedule-btn-sublabel {
+      font-size: 11px;
+      font-weight: 500;
+      color: #94a3b8;
+      letter-spacing: -0.1px;
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 120px;
+      opacity: 1;
+      transform: translateX(0);
+      transition: max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 0.25s ease,
+                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  margin 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-block;
+      vertical-align: middle;
+      pointer-events: none;
+    }
+
+    #toggle-schedule-btn.is-expanded .schedule-btn-sublabel {
+      max-width: 0 !important;
+      opacity: 0 !important;
+      transform: translateX(8px) !important;
+      margin: 0 !important;
+      pointer-events: none !important;
+    }
+
     /* Toast Notifications */
     .toast-notification {
       position: fixed;
@@ -991,7 +1018,7 @@
   </style>
   <!-- Scripts -->
 
-  <script type="module" crossorigin src="/assets/payment-CbArTBi5.js"></script>
+  <script type="module" crossorigin src="/assets/payment-DPF58ixy.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="stylesheet" crossorigin href="/assets/payment-Ci0zoWqn.css">
 </head>
@@ -1134,9 +1161,12 @@
             </svg>
             <span>Lista de pagos</span>
           </div>
-          <svg class="w-3.5 h-3.5 transform transition-transform" id="accordion-chevron" fill="currentColor" viewBox="0 0 20 20">
-            <path clip-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" fill-rule="evenodd"></path>
-          </svg>
+          <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+            <span class="schedule-btn-sublabel" id="accordion-label">Más información</span>
+            <svg class="w-3.5 h-3.5 transform transition-transform" id="accordion-chevron" fill="currentColor" viewBox="0 0 20 20">
+              <path clip-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" fill-rule="evenodd"></path>
+            </svg>
+          </div>
         </button>
         <div class="month-selector month-selector-hidden" id="monthSelector">
           <button class="month-nav-btn" id="monthPrevBtn" title="Mes anterior"

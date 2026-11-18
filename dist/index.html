@@ -18,16 +18,40 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         html,
-        body,
+        body {
+            touch-action: pan-x pan-y;
+            -webkit-text-size-adjust: 100%;
+            overscroll-behavior: none;
+        }
+
         #root {
             touch-action: pan-x pan-y;
             -webkit-text-size-adjust: 100%;
-            /* Evita zoom de texto en iOS */
+        }
+
+        @media (max-width: 768px) {
+            html,
+            body {
+                position: fixed;
+                width: 100%;
+                height: 100%;
+                height: 100dvh;
+                overflow: hidden;
+                overscroll-behavior: none;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            #root {
+                width: 100%;
+                height: 100%;
+                height: 100dvh;
+                overflow: hidden;
+            }
         }
     </style>
-  <script type="module" crossorigin src="/assets/main-CSXfCHSp.js"></script>
+  <script type="module" crossorigin src="/assets/main-CzneT6Ml.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="stylesheet" crossorigin href="/assets/main-D9zdRKP6.css">
+  <link rel="stylesheet" crossorigin href="/assets/main-zH1wlBql.css">
 </head>
 
 <body>

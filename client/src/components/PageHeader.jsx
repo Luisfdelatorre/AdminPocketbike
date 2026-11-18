@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MobileHeaderAction from './MobileHeaderAction';
 import Breadcrumbs from './Breadcrumbs';
+import HeaderDatePill from './HeaderDatePill';
 import { RefreshCw, Filter } from 'lucide-react';
 
 /**
@@ -67,6 +68,7 @@ export const MobilePageHeader = ({
     onRefresh,
     loading = false,
     leadingActions,
+    datePicker,
     actions,
     children
 }) => {
@@ -84,8 +86,20 @@ export const MobilePageHeader = ({
 
     return (
         <>
-            {(onRefresh || onFilterToggle || leadingActions || actions) && (
+            {(onRefresh || onFilterToggle || leadingActions || datePicker || actions) && (
                 <MobileHeaderAction>
+                    {datePicker && (
+                        <HeaderDatePill
+                            selectedMonth={datePicker.selectedMonth}
+                            selectedYear={datePicker.selectedYear}
+                            onSelect={datePicker.onSelect || datePicker.onChangeMonth}
+                            format={datePicker.format || 'short'}
+                            includeAllMonths={datePicker.includeAllMonths}
+                            allMonthsLabel={datePicker.allMonthsLabel}
+                            disabled={datePicker.disabled}
+                            className={datePicker.className}
+                        />
+                    )}
                     {leadingActions}
                     {onFilterToggle && (
                         <button
@@ -166,5 +180,6 @@ const PageHeader = ({
 
 PageHeader.Desktop = DesktopPageHeader;
 PageHeader.Mobile = MobilePageHeader;
+PageHeader.DatePill = HeaderDatePill;
 
 export default PageHeader;

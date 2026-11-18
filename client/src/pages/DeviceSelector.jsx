@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Edit, RefreshCw, Share2, BatteryLow, BatteryMedium, BatteryFull, Power, ZapOff } from 'lucide-react';
+import { Edit, RefreshCw, Share2, BatteryLow, BatteryMedium, BatteryFull, Power, Zap, ZapOff, AlertTriangle, Search, X } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatOfflineTimeShort } from '../utils/helpers';
 import { getAllDevices, updateDevice, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { useSSE } from '../context/SSEContext';
+import useDeviceUpdates from '../hooks/useDeviceUpdates';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import StatCard from '../components/StatCard';
@@ -14,13 +15,14 @@ import useIsMobile from '../hooks/useIsMobile';
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
+import { getDeviceElectricalHealth, BATTERY_STATUS, ALTERNATOR_STATUS } from '../utils/batteryHealthHelper';
 
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 
 const DeviceManagement = () => {
     const isMobile = useIsMobile();
-    const { subscribe } = useSSE();
+    const [searchParams] = useSearchParams();
     const { t } = useTranslation();
     const { user } = useAuth();
     const [devices, setDevices] = useState({});
@@ -31,7 +33,7 @@ const DeviceManagement = () => {
     const [selectedShareDevice, setSelectedShareDevice] = useState(null);
     const [shareUrl, setShareUrl] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [filter, setFilter] = useState('all'); // all, active, available, off, on, offline
+    const [filter, setFilter] = useState(searchParams.get('filter') || 'all'); // all, active, available, off, on, offline, battery_issue, alt_issue
     const [sortBy, setSortBy] = useState('default'); // default, offline
     const [pendingCommands, setPendingCommands] = useState({});
     const [showFilters, setShowFilters] = useState(false);
@@ -66,55 +68,42 @@ const DeviceManagement = () => {
         loadDevices();
     }, []);
 
-    useEffect(() => {
-        const unsub = subscribe('device_update', (e) => {
-            try {
-                const data = e.parsedData;
-                if (!data) return;
-                const updates = Array.isArray(data) ? data : [data];
-                setDevices((prevDevices) => {
-                    let matchFound = false;
-                    const next = { ...prevDevices };
-                    updates.forEach(u => {
-                        const targetId = String(u.gpsId);
-                        if (targetId && next[targetId]) {
-                            matchFound = true;
-                            next[targetId] = {
-                                ...next[targetId],
-                                ...u
-                            };
-                        }
-                    });
-                    return matchFound ? next : prevDevices;
-                });
-
-                // Clear pending commands for updated devices
-                setPendingCommands(prev => {
-                    let changed = false;
-                    const next = { ...prev };
-                    updates.forEach(u => {
-                        const gpsKey = u.gpsId ? String(u.gpsId) : null;
-                        const devKey = u._id ? String(u._id) : (u.id ? String(u.id) : null);
-                        if (gpsKey && next[gpsKey]) {
-                            delete next[gpsKey];
-                            changed = true;
-                        }
-                        if (devKey && next[devKey]) {
-                            delete next[devKey];
-                            changed = true;
-                        }
-                    });
-                    return changed ? next : prev;
-                });
-            } catch (err) {
-                console.error('Error in DeviceSelector SSE listener:', err);
-            }
+    useDeviceUpdates((updates) => {
+        setDevices((prevDevices) => {
+            let matchFound = false;
+            const next = { ...prevDevices };
+            updates.forEach(u => {
+                const targetId = String(u.gpsId);
+                if (targetId && next[targetId]) {
+                    matchFound = true;
+                    next[targetId] = {
+                        ...next[targetId],
+                        ...u
+                    };
+                }
+            });
+            return matchFound ? next : prevDevices;
         });
 
-        return () => {
-            unsub();
-        };
-    }, [subscribe]);
+        // Clear pending commands for updated devices
+        setPendingCommands(prev => {
+            let changed = false;
+            const next = { ...prev };
+            updates.forEach(u => {
+                const gpsKey = u.gpsId ? String(u.gpsId) : null;
+                const devKey = u._id ? String(u._id) : (u.id ? String(u.id) : null);
+                if (gpsKey && next[gpsKey]) {
+                    delete next[gpsKey];
+                    changed = true;
+                }
+                if (devKey && next[devKey]) {
+                    delete next[devKey];
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    });
 
 
     const handleShare = (device) => {
@@ -262,6 +251,15 @@ const DeviceManagement = () => {
         if (filter === 'off' && !device.cutOff) return false;
         if (filter === 'on' && !device.ignition) return false;
         if (filter === 'offline' && !isDeviceOffline(device)) return false;
+
+        const health = getDeviceElectricalHealth(device);
+        if (filter === 'battery_issue') {
+            return health.batteryStatus === BATTERY_STATUS.WEAK || health.batteryStatus === BATTERY_STATUS.DAMAGED || health.batteryStatus === BATTERY_STATUS.POWER_CUT;
+        }
+        if (filter === 'alt_issue') {
+            return health.alternatorStatus === ALTERNATOR_STATUS.REGULATOR_OVERVOLTAGE || health.alternatorStatus === ALTERNATOR_STATUS.NO_CHARGE || health.alternatorStatus === ALTERNATOR_STATUS.WEAK_CHARGE;
+        }
+
         return true;
     });
 
@@ -278,6 +276,25 @@ const DeviceManagement = () => {
         }
         return 0;
     });
+
+    const activeContractsCount = useMemo(() => devicesList.filter(d => d.hasActiveContract).length, [devicesList]);
+    const availableCount = useMemo(() => devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length, [devicesList]);
+    const activeContractsPercentage = devicesList.length > 0 ? Math.round((activeContractsCount / devicesList.length) * 100) : 0;
+    const availablePercentage = devicesList.length > 0 ? Math.round((availableCount / devicesList.length) * 100) : 0;
+
+    const filterOptions = useMemo(() => [
+        { value: 'all', label: t('devices.filterAll', 'Todos'), badge: devicesList.length },
+        {
+            value: 'offline', label: 'Desconexión',
+            badge: offlineDevicesCount,
+            badgeType: 'cutoff'
+        },
+        { value: 'battery_issue', label: '🔋 Batería mala' },
+        { value: 'active', label: t('devices.filterActive', 'Activos'), badge: activeContractsCount },
+        { value: 'on', label: t('devices.filterOn', 'Encendidos') },
+        { value: 'off', label: t('devices.filterOff', 'Apagados') },
+        { value: 'alt_issue', label: '⚡ Falla Alternador' }
+    ], [devicesList.length, offlineDevicesCount, activeContractsCount, t]);
 
     if (loading) {
         return (
@@ -318,8 +335,50 @@ const DeviceManagement = () => {
         <div className="admin-page-container ios-devices-page">
             {renderHeader}
 
-            {/* Expandable Metrics Section */}
-            <div className={`expandable-metrics-container ${!isMobile || showFilters ? 'expanded' : 'collapsed'}`}>
+            {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
+            {isMobile ? !showFilters && (
+                <div className="mobile-metrics-card">
+                    <div className="metrics-progress-bar">
+                        <div
+                            className="progress-fill fill-completed"
+                            style={{ width: `${activeContractsPercentage}%` }}
+                        />
+                        <div
+                            className="progress-fill fill-pending"
+                            style={{ width: `${availablePercentage}%` }}
+                        />
+                    </div>
+
+                    <div className="metrics-columns">
+                        <div className="metrics-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-dot dot-completed" />
+                                <span className="metrics-label">{t('devices.activeContracts', 'Con Contrato')}</span>
+                            </div>
+                            <p className="metrics-val">
+                                {activeContractsPercentage}% <span className="metrics-subcount">({activeContractsCount})</span>
+                            </p>
+                        </div>
+                        <div className="metrics-col bordered-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-dot dot-pending" />
+                                <span className="metrics-label">{t('devices.available', 'Disponibles')}</span>
+                            </div>
+                            <p className="metrics-val val-pending">
+                                {availablePercentage}% <span className="metrics-subcount">({availableCount})</span>
+                            </p>
+                        </div>
+                        <div className="metrics-col">
+                            <div className="metrics-header-row">
+                                <span className="metrics-label">{t('devices.totalDevices', 'Total Motos')}</span>
+                            </div>
+                            <p className="metrics-val">
+                                {devicesList.length}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            ) : (
                 <div className="devices-stats-ios">
                     <StatCard
                         title={t('devices.totalDevices')}
@@ -327,35 +386,72 @@ const DeviceManagement = () => {
                     />
                     <StatCard
                         title={t('devices.activeContracts')}
-                        value={devicesList.filter(d => d.hasActiveContract).length}
+                        value={activeContractsCount}
                         valueColor={COLORS.SUCCESS}
                     />
                     <StatCard
                         title={t('devices.available')}
-                        value={devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length}
+                        value={availableCount}
                         valueColor={COLORS.WARNING}
                     />
                 </div>
-                <SearchAndFilterBar
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    searchPlaceholder={t('devices.searchPlaceholder')}
-                    filter={filter}
-                    setFilter={setFilter}
-                    filterOptions={[
-                        { value: 'all', label: t('devices.filterAll') },
-                        {
-                            value: 'offline', label: 'Desconexión',
-                            badge: offlineDevicesCount,
-                            badgeType: 'cutoff'
-                        },
-                        { value: 'active', label: t('devices.filterActive') },
-                        { value: 'on', label: t('devices.filterOn') },
-                        { value: 'off', label: t('devices.filterOff') },
+            )}
 
-                    ]}
-                />
-            </div>
+            {/* Mobile Collapsible Filter & Search Section */}
+            {isMobile && showFilters && (
+                <div className="mobile-filter-section">
+                    <div className="mobile-search-bar">
+                        <Search size={16} className="search-icon" />
+                        <input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={t('devices.searchPlaceholder', 'Buscar dispositivo, placa...')}
+                            className="mobile-search-input"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="clear-search"
+                                title="Limpiar búsqueda"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="filter-pills-row no-scrollbar">
+                        {filterOptions.map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setFilter(opt.value)}
+                                className={`filter-pill ${filter === opt.value ? 'active' : ''}`}
+                            >
+                                <span>{opt.label}</span>
+                                {opt.badge !== undefined && (
+                                    <span className="pill-count">{opt.badge}</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Desktop Filters (Desktop only) */}
+            {!isMobile && (
+                <div className="payment-controls hidden md:flex items-center justify-between gap-4">
+                    <SearchAndFilterBar
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        searchPlaceholder={t('devices.searchPlaceholder')}
+                        filter={filter}
+                        setFilter={setFilter}
+                        filterOptions={filterOptions}
+                    />
+                </div>
+            )}
 
             {/* iOS Device Table */}
             <div className="devices-table-card-ios">
@@ -371,7 +467,7 @@ const DeviceManagement = () => {
                         onClick={() => setSortBy(prev => prev === 'offline' ? 'default' : 'offline')}
                         title="Clic para alternar orden por mayor tiempo de desconexión"
                     >
-                        Motor {sortBy === 'offline' || filter === 'offline' ? '⏱️↓' : ''}
+                        Motor {sortBy === 'offline' || filter === 'offline' ? '↓' : ''}
                     </span>
                     <span className="col-center">Acc.</span>
                 </div>
@@ -416,45 +512,74 @@ const DeviceManagement = () => {
                                 {device.freeDays || 0}
                             </div>
 
-                            {/* Motor: icon + battery (with offline text) + toggle */}
+                            {/* Motor, Alternador, Batería y Toggle */}
                             <div className="col-center device-motor-col">
-                                <div className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}>
-                                    <MotorIcon />
-                                </div>
-                                <div className="battery-column-container">
-                                    <div
-                                        className={`battery-wrap ${device.powerCut ? 'bat-powercut' : device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}
-                                        title={device.powerCut ? '¡Alerta! Batería principal desconectada' : `Batería: ${device.batteryLevel ?? 'N/A'}%`}
-                                    >
-                                        {device.powerCut ? (
-                                            <ZapOff size={15} className="animate-pulse" />
-                                        ) : device.batteryLevel > 70 ? (
-                                            <BatteryFull size={15} />
-                                        ) : device.batteryLevel > 30 ? (
-                                            <BatteryMedium size={15} />
-                                        ) : (
-                                            <BatteryLow size={15} className={device.batteryLevel <= 30 ? 'animate-pulse' : ''} />
-                                        )}
-                                    </div>
-                                    {device.lastUpdate ? (
-                                        formatOfflineTimeShort(device.lastUpdate) && (
-                                            <span
-                                                className="battery-offline-subtext"
-                                                title={`Inactivo desde: ${new Date(device.lastUpdate).toLocaleString('es-CO')}`}
+                                {(() => {
+                                    const health = getDeviceElectricalHealth(device);
+                                    return (
+                                        <>
+                                            {/* 1. MOTOR (Ignición / Corte del sistema) */}
+                                            <div
+                                                className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}
+                                                title={Boolean(device.cutOff) ? 'Motor APAGADO por el sistema' : device.ignition ? 'Motor ENCENDIDO (Ignición ON)' : 'Motor en reposo / Switch apagado'}
                                             >
-                                                {formatOfflineTimeShort(device.lastUpdate)}
-                                            </span>
-                                        )
-                                    ) : (
-                                        <span
-                                            className="battery-offline-subtext"
-                                            style={{ color: '#94a3b8' }}
-                                            title="Sin reportes GPS registrados"
-                                        >
-                                            Sin GPS
-                                        </span>
-                                    )}
-                                </div>
+                                                <MotorIcon size={18} />
+                                            </div>
+
+                                            {/* 2. ALTERNADOR / CARGA (Dedicado) */}
+                                            <div
+                                                className={`alternator-wrap alt-${health.alternatorStatus.toLowerCase()}`}
+                                                title={health.alternatorDetails}
+                                            >
+                                                {health.alternatorStatus === ALTERNATOR_STATUS.REGULATOR_OVERVOLTAGE ? (
+                                                    <AlertTriangle size={15} className="animate-pulse alt-danger" />
+                                                ) : health.alternatorStatus === ALTERNATOR_STATUS.NO_CHARGE ? (
+                                                    <ZapOff size={15} className="alt-danger" />
+                                                ) : health.alternatorStatus === ALTERNATOR_STATUS.WEAK_CHARGE ? (
+                                                    <Zap size={15} className="alt-warning" />
+                                                ) : health.alternatorStatus === ALTERNATOR_STATUS.CHARGING_OK ? (
+                                                    <Zap size={15} className="alt-ok" />
+                                                ) : (
+                                                    <Zap size={15} className="alt-off" />
+                                                )}
+                                            </div>
+
+                                            {/* 3. BATERÍA (Salud y Voltaje) */}
+                                            <div className="battery-column-container">
+                                                <div
+                                                    className={`battery-wrap bat-${health.batteryStatus.toLowerCase()} ${device.powerCut ? 'bat-powercut' : ''}`}
+                                                    title={device.powerCut ? '¡Alerta! Batería principal desconectada' : health.batteryDetails}
+                                                >
+                                                    {health.batteryStatus === BATTERY_STATUS.HEALTHY && !device.powerCut ? (
+                                                        <BatteryFull size={15} />
+                                                    ) : health.batteryStatus === BATTERY_STATUS.WEAK && !device.powerCut ? (
+                                                        <BatteryMedium size={15} />
+                                                    ) : (
+                                                        <BatteryLow size={15} className={device.powerCut || health.batteryStatus === BATTERY_STATUS.POWER_CUT ? 'animate-pulse' : ''} />
+                                                    )}
+                                                </div>
+                                                {device.lastUpdate ? (
+                                                    formatOfflineTimeShort(device.lastUpdate) && (
+                                                        <span
+                                                            className="battery-offline-subtext"
+                                                            title={`Inactivo desde: ${new Date(device.lastUpdate).toLocaleString('es-CO')}`}
+                                                        >
+                                                            {formatOfflineTimeShort(device.lastUpdate)}
+                                                        </span>
+                                                    )
+                                                ) : (
+                                                    <span
+                                                        className="battery-offline-subtext"
+                                                        style={{ color: '#94a3b8' }}
+                                                        title="Sin reportes GPS registrados"
+                                                    >
+                                                        Sin GPS
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                                 {user?.role !== 'viewer' ? (() => {
                                     const isQueued = Boolean(device.queued);
                                     return (

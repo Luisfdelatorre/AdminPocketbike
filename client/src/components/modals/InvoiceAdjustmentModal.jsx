@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Check, AlertTriangle } from 'lucide-react';
 import useAdminScrollLock from '../../hooks/useAdminScrollLock';
-import { getAdjustmentTypes, getPaymentStatuses, registerManualAdjustment } from '../../services/api';
+import { useStatusConfig } from '../../context/StatusConfigContext';
+import { registerManualAdjustment } from '../../services/api';
 import { showToast } from '../../utils/toast';
-import '../../pages/Invoices.css';
+import './InvoiceAdjustmentModal.css';
 
 const DEFAULT_ADJUSTMENT_CONFIG = {
     FREE: {
@@ -94,7 +95,9 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
     const { t } = useTranslation();
     useAdminScrollLock(isOpen);
 
-    const [ADJUSTMENT_CONFIG, setAdjustmentConfig] = useState(DEFAULT_ADJUSTMENT_CONFIG);
+    const { statusConfig } = useStatusConfig();
+    const ADJUSTMENT_CONFIG = { ...DEFAULT_ADJUSTMENT_CONFIG, ...(statusConfig || {}) };
+
     const [manualPayForm, setManualPayForm] = useState({
         amount: '',
         reference: '',
@@ -110,19 +113,6 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
         const num = Number(amount) || 0;
         return isMobile ? `$${num.toLocaleString('es-CO')}` : `$${num.toLocaleString('es-CO')} COP`;
     };
-
-    useEffect(() => {
-        Promise.all([getAdjustmentTypes(), getPaymentStatuses()])
-            .then(([adjRes, payRes]) => {
-                const combined = {
-                    ...DEFAULT_ADJUSTMENT_CONFIG,
-                    ...(payRes?.data || {}),
-                    ...(adjRes?.data || {})
-                };
-                setAdjustmentConfig(combined);
-            })
-            .catch(err => console.warn('Error al cargar tipos de ajuste:', err));
-    }, []);
 
     const buildAutoReference = (cfg, inv) => {
         if (!cfg) return '';
@@ -152,7 +142,7 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
         const availableKeys = Object.keys(ADJUSTMENT_CONFIG).filter(k => isAllowedOption(k, ADJUSTMENT_CONFIG[k]));
         const reason = (invoice.adjustmentType && ADJUSTMENT_CONFIG[invoice.adjustmentType])
             ? invoice.adjustmentType
-            : (invoice.dayType === 'FREE' ? 'FREE' : (availableKeys[0] || 'NEQUI'));
+            : (invoice.dayType === 'FREE' ? 'FREE' : (availableKeys[0] || 'FREE'));
         const cfg = ADJUSTMENT_CONFIG[reason] || null;
         const autoAmount = cfg?.autoAmount !== undefined && cfg?.autoAmount !== null ? cfg.autoAmount : invoice.amount;
 
@@ -181,9 +171,9 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
         try {
             await registerManualAdjustment({
                 invoiceId: invoice.invoiceId || invoice._id,
-                adjustmentType: manualPayForm.adjustmentType || 'NEQUI',
+                adjustmentType: manualPayForm.adjustmentType || 'FREE',
                 amount: Number(manualPayForm.amount),
-                adjustmentReference: manualPayForm.reference || 'Pago manual Nequi / Registro directo por Admin',
+                adjustmentReference: manualPayForm.reference || 'Ajuste manual registrado por Admin',
                 note: manualPayForm.note,
             });
             showToast('success', 'Ajuste Registrado', `Factura ${invoice.invoiceId || invoice._id} actualizada con éxito.`);
