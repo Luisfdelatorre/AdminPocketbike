@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Edit, RefreshCw, Share2, BatteryLow, BatteryMedium, BatteryFull, Power, ZapOff } from 'lucide-react';
+import { Edit, RefreshCw, Share2, BatteryLow, BatteryMedium, BatteryFull, Power, Zap, ZapOff, AlertTriangle } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatOfflineTimeShort } from '../utils/helpers';
 import { getAllDevices, updateDevice, controlEngine } from '../services/api';
@@ -14,12 +15,14 @@ import useIsMobile from '../hooks/useIsMobile';
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
+import { getDeviceElectricalHealth, BATTERY_STATUS, ALTERNATOR_STATUS } from '../utils/batteryHealthHelper';
 
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 
 const DeviceManagement = () => {
     const isMobile = useIsMobile();
+    const [searchParams] = useSearchParams();
     const { subscribe } = useSSE();
     const { t } = useTranslation();
     const { user } = useAuth();
@@ -31,7 +34,7 @@ const DeviceManagement = () => {
     const [selectedShareDevice, setSelectedShareDevice] = useState(null);
     const [shareUrl, setShareUrl] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [filter, setFilter] = useState('all'); // all, active, available, off, on, offline
+    const [filter, setFilter] = useState(searchParams.get('filter') || 'all'); // all, active, available, off, on, offline, battery_issue, alt_issue
     const [sortBy, setSortBy] = useState('default'); // default, offline
     const [pendingCommands, setPendingCommands] = useState({});
     const [showFilters, setShowFilters] = useState(false);
@@ -262,6 +265,15 @@ const DeviceManagement = () => {
         if (filter === 'off' && !device.cutOff) return false;
         if (filter === 'on' && !device.ignition) return false;
         if (filter === 'offline' && !isDeviceOffline(device)) return false;
+
+        const health = getDeviceElectricalHealth(device);
+        if (filter === 'battery_issue') {
+            return health.batteryStatus === BATTERY_STATUS.WEAK || health.batteryStatus === BATTERY_STATUS.DAMAGED || health.batteryStatus === BATTERY_STATUS.POWER_CUT;
+        }
+        if (filter === 'alt_issue') {
+            return health.alternatorStatus === ALTERNATOR_STATUS.REGULATOR_OVERVOLTAGE || health.alternatorStatus === ALTERNATOR_STATUS.NO_CHARGE || health.alternatorStatus === ALTERNATOR_STATUS.WEAK_CHARGE;
+        }
+
         return true;
     });
 
@@ -352,7 +364,8 @@ const DeviceManagement = () => {
                         { value: 'active', label: t('devices.filterActive') },
                         { value: 'on', label: t('devices.filterOn') },
                         { value: 'off', label: t('devices.filterOff') },
-
+                        { value: 'battery_issue', label: '🔋 Batería Baja/Dañada' },
+                        { value: 'alt_issue', label: '⚡ Falla Alternador' }
                     ]}
                 />
             </div>
@@ -416,45 +429,76 @@ const DeviceManagement = () => {
                                 {device.freeDays || 0}
                             </div>
 
-                            {/* Motor: icon + battery (with offline text) + toggle */}
+                            {/* Motor, Alternador, Batería y Toggle */}
                             <div className="col-center device-motor-col">
-                                <div className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}>
-                                    <MotorIcon />
-                                </div>
-                                <div className="battery-column-container">
-                                    <div
-                                        className={`battery-wrap ${device.powerCut ? 'bat-powercut' : device.batteryLevel > 70 ? 'bat-full' : device.batteryLevel > 30 ? 'bat-mid' : 'bat-low'}`}
-                                        title={device.powerCut ? '¡Alerta! Batería principal desconectada' : `Batería: ${device.batteryLevel ?? 'N/A'}%`}
-                                    >
-                                        {device.powerCut ? (
-                                            <ZapOff size={15} className="animate-pulse" />
-                                        ) : device.batteryLevel > 70 ? (
-                                            <BatteryFull size={15} />
-                                        ) : device.batteryLevel > 30 ? (
-                                            <BatteryMedium size={15} />
-                                        ) : (
-                                            <BatteryLow size={15} className={device.batteryLevel <= 30 ? 'animate-pulse' : ''} />
-                                        )}
-                                    </div>
-                                    {device.lastUpdate ? (
-                                        formatOfflineTimeShort(device.lastUpdate) && (
-                                            <span
-                                                className="battery-offline-subtext"
-                                                title={`Inactivo desde: ${new Date(device.lastUpdate).toLocaleString('es-CO')}`}
+                                {(() => {
+                                    const health = getDeviceElectricalHealth(device);
+                                    return (
+                                        <>
+                                            {/* 1. MOTOR (Ignición / Corte del sistema) */}
+                                            <div 
+                                                className={`motor-icon-wrap ${Boolean(device.cutOff) ? 'motor-off' : device.ignition ? 'motor-on' : 'motor-idle'}`}
+                                                title={Boolean(device.cutOff) ? 'Motor APAGADO por el sistema' : device.ignition ? 'Motor ENCENDIDO (Ignición ON)' : 'Motor en reposo / Switch apagado'}
                                             >
-                                                {formatOfflineTimeShort(device.lastUpdate)}
-                                            </span>
-                                        )
-                                    ) : (
-                                        <span
-                                            className="battery-offline-subtext"
-                                            style={{ color: '#94a3b8' }}
-                                            title="Sin reportes GPS registrados"
-                                        >
-                                            Sin GPS
-                                        </span>
-                                    )}
-                                </div>
+                                                <MotorIcon size={18} />
+                                            </div>
+
+                                            {/* 2. ALTERNADOR / CARGA (Dedicado) */}
+                                            <div 
+                                                className={`alternator-wrap alt-${health.alternatorStatus.toLowerCase()}`}
+                                                title={health.alternatorDetails}
+                                            >
+                                                {health.alternatorStatus === ALTERNATOR_STATUS.REGULATOR_OVERVOLTAGE ? (
+                                                    <AlertTriangle size={15} className="animate-pulse alt-danger" />
+                                                ) : health.alternatorStatus === ALTERNATOR_STATUS.NO_CHARGE ? (
+                                                    <ZapOff size={15} className="alt-danger" />
+                                                ) : health.alternatorStatus === ALTERNATOR_STATUS.WEAK_CHARGE ? (
+                                                    <Zap size={15} className="alt-warning" />
+                                                ) : health.alternatorStatus === ALTERNATOR_STATUS.CHARGING_OK ? (
+                                                    <Zap size={15} className="alt-ok" />
+                                                ) : (
+                                                    <Zap size={15} className="alt-off" />
+                                                )}
+                                            </div>
+
+                                            {/* 3. BATERÍA (Salud y Voltaje) */}
+                                            <div className="battery-column-container">
+                                                <div
+                                                    className={`battery-wrap bat-${health.batteryStatus.toLowerCase()} ${device.powerCut ? 'bat-powercut' : ''}`}
+                                                    title={health.batteryDetails}
+                                                >
+                                                    {device.powerCut || health.batteryStatus === BATTERY_STATUS.POWER_CUT ? (
+                                                        <ZapOff size={15} className="animate-pulse" />
+                                                    ) : health.batteryStatus === BATTERY_STATUS.HEALTHY ? (
+                                                        <BatteryFull size={15} />
+                                                    ) : health.batteryStatus === BATTERY_STATUS.WEAK ? (
+                                                        <BatteryMedium size={15} />
+                                                    ) : (
+                                                        <BatteryLow size={15} className="animate-pulse" />
+                                                    )}
+                                                </div>
+                                                {device.lastUpdate ? (
+                                                    formatOfflineTimeShort(device.lastUpdate) && (
+                                                        <span
+                                                            className="battery-offline-subtext"
+                                                            title={`Inactivo desde: ${new Date(device.lastUpdate).toLocaleString('es-CO')}`}
+                                                        >
+                                                            {formatOfflineTimeShort(device.lastUpdate)}
+                                                        </span>
+                                                    )
+                                                ) : (
+                                                    <span
+                                                        className="battery-offline-subtext"
+                                                        style={{ color: '#94a3b8' }}
+                                                        title="Sin reportes GPS registrados"
+                                                    >
+                                                        Sin GPS
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                                 {user?.role !== 'viewer' ? (() => {
                                     const isQueued = Boolean(device.queued);
                                     return (

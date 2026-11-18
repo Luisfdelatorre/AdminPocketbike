@@ -1079,28 +1079,163 @@ span.desktop-only {
     /* Filters bar is always visible; only metrics expand/collapse */
 }
 
+/* Fleet Electrical Health Card */
+.fleet-electrical-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(229, 231, 235, 0.8);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fleet-electrical-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+    border-color: rgba(3, 201, 215, 0.4);
+}
+
+.fleet-electrical-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.875rem;
+}
+
+.fleet-electrical-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.fleet-electrical-icon-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(3, 201, 215, 0.12);
+    color: #03C9D7;
+}
+
+.fleet-electrical-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.fleet-electrical-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.fleet-electrical-score-wrap {
+    text-align: right;
+}
+
+.fleet-electrical-score {
+    font-size: 24px;
+    font-weight: 800;
+    color: #10b981;
+    line-height: 1;
+    display: block;
+}
+
+.fleet-electrical-score-label {
+    font-size: 10px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.fleet-electrical-badges-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.fleet-pill-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.fleet-pill-filter:hover {
+    transform: scale(1.04);
+}
+
+.fleet-pill-filter.pill-healthy {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+}
+
+.fleet-pill-filter.pill-healthy .pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+}
+
+.fleet-pill-filter.pill-warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: #d97706;
+}
+
+.fleet-pill-filter.pill-warning .pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+}
+
+.fleet-pill-filter.pill-danger {
+    background: rgba(239, 68, 68, 0.14);
+    color: #dc2626;
+}
+
+.fleet-electrical-cta {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0070eb;
+    transition: color 0.15s ease;
+}
+
+.fleet-electrical-card:hover .fleet-electrical-cta {
+    text-decoration: underline;
+}
+
 @media (max-width: 480px) {
-    .ios-dashboard {
-        padding: 0.25rem;
+    .fleet-electrical-card {
+        padding: 0.75rem 0.875rem;
     }
-
-    .stat-card-ios {
-        padding: 0.25rem 0.325rem;
+    .fleet-electrical-score {
+        font-size: 20px;
     }
-
-    .stat-value-ios {
-        font-size: 1.25rem;
+    .fleet-electrical-title {
+        font-size: 13px;
     }
-
-    .stats-grid-mid-3 .stat-value-ios {
-        font-size: 1rem;
+    .fleet-electrical-subtitle {
+        font-size: 11px;
     }
-
-    .stat-content-ios h3 {
-        font-size: 0.75rem;
-    }
-
-    .stat-content-ios h3.uppercase-title-ios {
-        font-size: 0.625rem;
+    .fleet-electrical-cta {
+        width: 100%;
+        text-align: right;
+        margin-top: 0.25rem;
     }
 }
