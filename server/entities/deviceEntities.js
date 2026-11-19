@@ -4,7 +4,9 @@
 export class DeviceUpdate {
     constructor(p) {
         this.filter = { gpsId: p.deviceId };
-        this.ignition = p.attributes?.ignition ?? false;
+        if (p.attributes?.ignition !== undefined) {
+            this.ignition = Boolean(p.attributes.ignition);
+        }
         this.lastUpdate = p.deviceTime ? new Date(p.deviceTime) : new Date();
         this.batteryLevel = p.attributes?.batteryLevel ?? null;
         const protocol = (p.protocol || p.attributes?.protocol || '').toLowerCase();
