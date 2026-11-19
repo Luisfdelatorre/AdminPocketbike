@@ -1,22 +1,11 @@
 /* Alerts.css - Redesigned Telemetry Monitoring Center & Desktop Command Center */
 
 .alerts-page {
-    padding: .25rem;
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
     min-height: calc(100vh - 70px);
     display: flex;
     flex-direction: column;
-    gap: .75rem;
     padding-bottom: 5rem;
-}
-
-@media (min-width: 1200px) {
-    .alerts-page {
-        max-width: 1560px;
-        padding: 0.5rem 1.25rem;
-        gap: 1rem;
-    }
 }
 
 /* ── Desktop Header ──────────────────────────────────────── */
@@ -1315,4 +1304,170 @@
     justify-content: flex-end;
     gap: 0.65rem;
     margin-top: 0.5rem;
+}
+
+/* ── Group Toggle Button (Header) ────────────────────────── */
+.alerts-group-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.alerts-group-toggle-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.alerts-group-toggle-btn.active {
+    background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.12);
+    color: var(--brand-teal-dark, #0891b2);
+    border-color: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.35);
+}
+
+.alerts-group-toggle-btn.compact {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+}
+
+/* ── Collapsible Events Pill & Drawer ────────────────────── */
+.incident-collapse-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.incident-collapse-pill:hover,
+.incident-collapse-pill.expanded {
+    background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.14);
+    color: var(--brand-teal-dark, #0891b2);
+    border-color: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.4);
+}
+
+.collapsed-alerts-drawer {
+    margin-top: 0.55rem;
+    padding-top: 0.55rem;
+    border-top: 1px dashed #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    animation: mobileFilterFadeInDown 0.18s ease-out;
+}
+
+.collapsed-alerts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    padding: 0 0.25rem;
+}
+
+.collapsed-alerts-more {
+    font-weight: 500;
+    text-transform: none;
+    color: #94a3b8;
+}
+
+.collapsed-alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.collapsed-alert-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.collapsed-alert-row:hover {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+.collapsed-alert-row.is-selected {
+    background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.08);
+    border-color: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.35);
+}
+
+.collapsed-alert-left {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #334155;
+    font-weight: 500;
+}
+
+.collapsed-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.collapsed-alert-metrics {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.72rem;
+    color: #64748b;
+}
+
+.collapsed-status-label {
+    font-family: inherit;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+}
+
+.collapsed-status-label.active {
+    background: #ffe4e6;
+    color: #be123c;
+}
+
+.collapsed-status-label.ack {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.collapsed-status-label.resolved {
+    background: #d1fae5;
+    color: #047857;
 }

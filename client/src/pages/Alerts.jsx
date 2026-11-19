@@ -31,12 +31,18 @@ import {
     Satellite,
     ExternalLink,
     Lock,
-    Search
+    Search,
+    X,
+    Layers,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
+import StatCard from '../components/StatCard';
+import MobileMetricsCard from '../components/MobileMetricsCard';
 import MotorIcon from '../components/MotorIcon';
 import { useAuth } from '../context/AuthContext';
 import { useSSE } from '../context/SSEContext';
@@ -59,8 +65,8 @@ const ALERT_TYPE_META = {
         color: '#dc2626'
     },
     POWER_CUT: {
-        label: 'Corte Batería',
-        shortLabel: 'Corte',
+        label: 'Energia',
+        shortLabel: 'Energia',
         icon: Zap,
         themeClass: 'critical',
         color: '#e11d48'
@@ -109,6 +115,15 @@ const Alerts = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
     const [streamMode, setStreamMode] = useState('active'); // 'active' | 'paused' | 'reconnecting'
+    const [groupByDeviceEvent, setGroupByDeviceEvent] = useState(true);
+    const [expandedGroups, setExpandedGroups] = useState({});
+
+    const toggleGroupExpanded = (groupKey) => {
+        setExpandedGroups((prev) => ({
+            ...prev,
+            [groupKey]: !prev[groupKey]
+        }));
+    };
 
     const handleCycleStreamMode = async () => {
         if (streamMode === 'active') {
@@ -187,7 +202,8 @@ const Alerts = () => {
                 status: statusFilter,
                 search: searchQuery,
                 page: pageToLoad,
-                limit: 20
+                limit: 20,
+                grouped: groupByDeviceEvent
             });
             const data = res?.data || res;
             if (data?.alerts) {
@@ -199,7 +215,7 @@ const Alerts = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedMonth, selectedYear, filter, statusFilter, searchQuery]);
+    }, [selectedMonth, selectedYear, filter, statusFilter, searchQuery, groupByDeviceEvent]);
 
     useEffect(() => {
         fetchStats();
@@ -209,10 +225,12 @@ const Alerts = () => {
         fetchHistory(currentPage);
     }, [fetchHistory, currentPage]);
 
-    // Set default selected alert
+    // Set default selected alert (also supports selecting collapsed sub-events)
     useEffect(() => {
         if (alerts.length > 0) {
-            const stillExists = alerts.some((a) => a._id === selectedAlertId);
+            const stillExists = alerts.some(
+                (a) => a._id === selectedAlertId || (a.collapsedAlerts || []).some((sub) => sub._id === selectedAlertId)
+            );
             if (!stillExists) {
                 setSelectedAlertId(alerts[0]._id);
             }
@@ -221,9 +239,16 @@ const Alerts = () => {
         }
     }, [alerts, selectedAlertId]);
 
-    // Currently selected alert object
+    // Currently selected alert object (checks top-level and collapsed sub-alerts)
     const selectedAlert = useMemo(() => {
-        return alerts.find((a) => a._id === selectedAlertId) || alerts[0] || null;
+        for (const a of alerts) {
+            if (a._id === selectedAlertId) return a;
+            if (a.collapsedAlerts?.length) {
+                const sub = a.collapsedAlerts.find((item) => item._id === selectedAlertId);
+                if (sub) return sub;
+            }
+        }
+        return alerts[0] || null;
     }, [alerts, selectedAlertId]);
 
     // Fetch active contract for the selected alert's plate
@@ -287,9 +312,11 @@ const Alerts = () => {
             if (!updatedAlert) return;
 
             setAlerts((prev) =>
-                prev.map((a) => (a._id === updatedAlert._id ? updatedAlert : a))
+                prev.map((a) => (a._id === updatedAlert._id ? { ...a, ...updatedAlert } : a))
             );
-            fetchStats();
+            if (!updatedAlert._isLiveSummaryUpdate) {
+                fetchStats();
+            }
         });
 
         return () => {
@@ -434,13 +461,39 @@ const Alerts = () => {
 
     const filterOptions = [
         { value: 'ALL', label: 'Todas', badge: stats.total || 0 },
-        { value: 'UNAUTHORIZED_DRIVING', label: 'Sabotaje', badge: stats.counts?.unauthorizedDriving || 0, badgeType: 'red' },
-        { value: 'POWER_CUT', label: 'Batería', badge: stats.counts?.powerCut || 0, badgeType: 'red' },
-        { value: 'UNAUTHORIZED_MOVEMENT', label: 'Movimie.', badge: stats.counts?.movement || 0, badgeType: 'red' },
-        { value: 'UNAUTHORIZED_IGNITION', label: 'Ignición', badge: stats.counts?.ignition || 0, badgeType: 'red' },
-        { value: 'GEOFENCE_EXIT', label: 'Geocerca', badge: stats.counts?.geofence || 0, badgeType: 'blue' },
+        { value: 'STATUS_ACTIVE', label: 'Pendientes', badge: stats.active || 0, badgeType: 'cutoff' },
+        { value: 'STATUS_RESOLVED', label: 'Resueltas', badge: stats.resolved || 0, badgeType: 'ok' },
+        { value: 'UNAUTHORIZED_DRIVING', label: 'Sabotaje', badge: stats.counts?.unauthorizedDriving || 0, badgeType: 'debt' },
+        { value: 'POWER_CUT', label: 'Batería', badge: stats.counts?.powerCut || 0, badgeType: 'debt' },
+        { value: 'UNAUTHORIZED_MOVEMENT', label: 'Movimie.', badge: stats.counts?.movement || 0, badgeType: 'debt' },
+        { value: 'UNAUTHORIZED_IGNITION', label: 'Ignición', badge: stats.counts?.ignition || 0, badgeType: 'debt' },
+        { value: 'GEOFENCE_EXIT', label: 'Geocerca', badge: stats.counts?.geofence || 0, badgeType: 'weekly' },
         { value: 'EXTENDED_OFFLINE', label: 'Offline', badge: stats.counts?.offline || 0 }
     ];
+
+    const activeFilterValue = statusFilter === 'ACTIVE'
+        ? 'STATUS_ACTIVE'
+        : statusFilter === 'RESOLVED'
+            ? 'STATUS_RESOLVED'
+            : filter;
+
+    const handleUnifiedFilterChange = (val) => {
+        if (val === 'STATUS_ACTIVE') {
+            setFilter('ALL');
+            setStatusFilter('ACTIVE');
+        } else if (val === 'STATUS_RESOLVED') {
+            setFilter('ALL');
+            setStatusFilter('RESOLVED');
+        } else {
+            setStatusFilter('ALL');
+            setFilter(val);
+        }
+        setCurrentPage(1);
+    };
+
+    const totalAlertsCount = stats.total || 0;
+    const resolvedPercentage = totalAlertsCount > 0 ? Math.round(((stats.resolved || 0) / totalAlertsCount) * 100) : 0;
+    const activePercentage = totalAlertsCount > 0 ? Math.round(((stats.active || 0) / totalAlertsCount) * 100) : 0;
 
     const renderSSECyclicButton = (isCompact = false) => {
         const isAct = streamMode === 'active';
@@ -477,35 +530,44 @@ const Alerts = () => {
         );
     };
 
+    const renderGroupToggleButton = (isCompact = false) => {
+        const tooltip = groupByDeviceEvent
+            ? 'Agrupado por moto y evento (Clic para ver historial cronológico)'
+            : 'Historial cronológico completo (Clic para colapsar por moto y evento)';
+
+        return (
+            <button
+                type="button"
+                className={`alerts-group-toggle-btn ${groupByDeviceEvent ? 'active' : ''} ${isCompact ? 'compact' : ''}`}
+                onClick={() => {
+                    setGroupByDeviceEvent((prev) => !prev);
+                    setExpandedGroups({});
+                    setCurrentPage(1);
+                }}
+                title={tooltip}
+                aria-label={tooltip}
+                aria-pressed={groupByDeviceEvent}
+            >
+                <Layers size={15} />
+                {!isCompact && <span>{groupByDeviceEvent ? 'Agrupado' : 'Todos'}</span>}
+            </button>
+        );
+    };
+
     const desktopHeader = (
-        <div className="alerts-desktop-header">
-            <div className="alerts-desktop-header-left">
-                <nav className="alerts-breadcrumb">
-                    <span className="breadcrumb-item">
-                        <Navigation size={13} />
-                        <span>Inicio</span>
-                    </span>
-                    <span className="breadcrumb-sep">/</span>
-                    <span className="breadcrumb-active">Alertas &amp; Incidentes</span>
-                </nav>
-                <div className="alerts-title-row">
-                    <h1 className="alerts-main-title">Centro de Alertas y Telemetría en Vivo</h1>
-                    {stats.critical > 0 && (
-                        <span className="badge-critical-count">
-                            <span className="badge-critical-dot" />
-                            {stats.critical} Críticas
-                        </span>
-                    )}
-                </div>
-                <p className="alerts-subtitle">
-                    Supervisión telemétrica continua, detección de fugas mecánicas y control de inmovilización remota • <span className="font-semibold text-slate-800">{user?.companyName || 'MOTOS AZVI SAS'}</span>
-                </p>
-            </div>
-            <div className="alerts-desktop-header-right">
-                <div className="alerts-date-pill">
-                    <Calendar size={14} />
-                    <span>{new Date().toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                </div>
+        <PageHeader.Desktop
+            title="Alertas & Incidentes"
+            breadcrumbs={[
+                { label: 'Operaciones' },
+                { label: 'Alertas & Incidentes' }
+            ]}
+            onRefresh={() => {
+                fetchStats();
+                fetchHistory(currentPage);
+            }}
+            loading={loading || statsLoading}
+            refreshText="Actualizar"
+            leadingActions={
                 <MonthYearSelector
                     selectedMonth={selectedMonth}
                     selectedYear={selectedYear}
@@ -517,20 +579,16 @@ const Alerts = () => {
                         setSelectedYear(y);
                         setCurrentPage(1);
                     }}
+                    variant="desktop"
                 />
-                <button
-                    className="filter-action-btn filter-action-btn-icon"
-                    onClick={() => {
-                        fetchStats();
-                        fetchHistory(currentPage);
-                    }}
-                    title="Actualizar datos"
-                >
-                    <RefreshCw size={16} className={loading || statsLoading ? 'animate-spin' : ''} />
-                </button>
-                {renderSSECyclicButton()}
-            </div>
-        </div>
+            }
+            actions={
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    {renderGroupToggleButton(false)}
+                    {renderSSECyclicButton()}
+                </div>
+            }
+        />
     );
 
     const mobileHeader = (
@@ -542,232 +600,141 @@ const Alerts = () => {
             loading={loading || statsLoading}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
-            actions={renderSSECyclicButton(true)}
-            leadingActions={
-                pagination.totalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginRight: '4px' }}>
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                            disabled={currentPage <= 1}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#94a3b8' : '#1e293b' }}
-                            aria-label="Página anterior"
-                        >
-                            <ChevronLeft size={14} />
-                        </button>
-                        <span className="font-mono">{currentPage}/{pagination.totalPages}</span>
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage((p) => p + 1)}
-                            disabled={currentPage >= pagination.totalPages}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= pagination.totalPages ? '#94a3b8' : '#1e293b' }}
-                            aria-label="Página siguiente"
-                        >
-                            <ChevronRight size={14} />
-                        </button>
-                    </div>
-                )
+            datePicker={{
+                selectedMonth,
+                selectedYear,
+                includeAllMonths: false,
+                onSelect: (m) => {
+                    setSelectedMonth(m);
+                    setCurrentPage(1);
+                }
+            }}
+            actions={
+                <>
+                    {renderGroupToggleButton(true)}
+                    {renderSSECyclicButton(true)}
+                </>
             }
         />
     );
+
+    const renderHeader = isMobile ? mobileHeader : desktopHeader;
 
     const selectedCutOff = selectedAlert?.metadata?.cutOff;
 
     return (
         <div className="alerts-page payments-page">
-            {isMobile ? mobileHeader : desktopHeader}
+            {renderHeader}
 
-            {/* Mobile Collapsible Filter Section */}
-            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
-                <div className="pt-2 pb-1">
-                    <SearchAndFilterBar
-                        searchQuery={searchQuery}
-                        setSearchQuery={handleSearchChange}
-                        searchPlaceholder="Buscar por placa (ej. FPZ45I)..."
-                        filter={filter}
-                        setFilter={handleFilterChange}
-                        filterOptions={filterOptions}
-                        filterRowClass="summary-filter-row-ios"
+            {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
+            {isMobile ? !showFilters && (
+                <MobileMetricsCard
+                    segments={[
+                        { width: resolvedPercentage, variant: 'completed' },
+                        { width: activePercentage, variant: 'pending' }
+                    ]}
+                    columns={[
+                        {
+                            label: 'Críticas',
+                            dot: 'pending',
+                            value: stats.critical || 0,
+                            subcount: `${stats.active || 0} act.`,
+                            valueClass: 'val-pending'
+                        },
+                        {
+                            label: 'Resueltas',
+                            dot: 'completed',
+                            value: `${resolvedPercentage}%`,
+                            subcount: stats.resolved || 0
+                        },
+                        {
+                            label: 'Total Mes',
+                            icon: <Activity size={12} className="text-cyan-600" />,
+                            value: totalAlertsCount
+                        }
+                    ]}
+                />
+            ) : (
+                /* Summary Stats — Minimalist iOS style (Desktop) */
+                <div className="devices-stats-ios payments-stats-grid">
+                    <StatCard
+                        title="CRÍTICAS"
+                        value={stats.critical || 0}
+                        valueColor="#E46A76"
                     />
-
-                    <div className="invoices-mobile-actions">
-                        <MonthYearSelector
-                            selectedMonth={selectedMonth}
-                            selectedYear={selectedYear}
-                            onChangeMonth={(m) => {
-                                setSelectedMonth(m);
-                                setCurrentPage(1);
-                            }}
-                            onChangeYear={(y) => {
-                                setSelectedYear(y);
-                                setCurrentPage(1);
-                            }}
-                            variant="mobile"
-                        />
-                        <button
-                            className="filter-action-btn filter-action-btn-icon"
-                            onClick={() => {
-                                fetchStats();
-                                fetchHistory(currentPage);
-                            }}
-                            title="Actualizar"
-                        >
-                            <RefreshCw size={15} />
-                        </button>
-                        {renderSSECyclicButton(true)}
-                    </div>
+                    <StatCard
+                        title="ACTIVAS"
+                        value={stats.active || 0}
+                        valueColor="#FB9678"
+                    />
+                    <StatCard
+                        title="RESUELTAS"
+                        value={stats.resolved || 0}
+                        valueColor="#00C292"
+                    />
+                    <StatCard
+                        title="TOTAL MES"
+                        value={totalAlertsCount}
+                        valueColor="#1a1c1c"
+                    />
                 </div>
-            </div>
+            )}
 
-            {/* ── BEGIN: KPI Dashboard ─────────────────────────────────── */}
-            <section aria-label="Resumen telemétrico" className="alerts-metrics-grid">
-                {/* Críticas */}
-                <div className="alert-metric-card ">
-                    <div className="alert-metric-header">
-                        <span className="metric-card-label">Críticas</span>
-                        <div className="metric-card-pill rose">
-                            <Zap size={12} />
-                            <span>Prioridad</span>
-                        </div>
-                    </div>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value rose">{stats.critical}</span>
-                        <span className="metric-card-sub">corte / fuga</span>
-                    </div>
-                </div>
-
-                {/* Activas */}
-                <div className="alert-metric-card ">
-                    <div className="alert-metric-header">
-                        <span className="metric-card-label">Activas</span>
-                        <div className="metric-card-pill amber">
-                            <Clock size={12} />
-                            <span>Pendientes</span>
-                        </div>
-                    </div>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value amber">{stats.active}</span>
-                        <span className="metric-card-sub">sin despachar</span>
-                    </div>
-                </div>
-
-                {/* Resueltas */}
-                <div className="alert-metric-card ">
-                    <div className="alert-metric-header">
-                        <span className="metric-card-label">Resueltas</span>
-                        <div className="metric-card-pill slate">
-                            <Check size={12} color="#059669" />
-                            <span>Cerradas</span>
-                        </div>
-                    </div>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value slate">{stats.resolved}</span>
-                        <span className="metric-card-sub">por equipo</span>
-                    </div>
-                </div>
-
-                {/* Total Mes */}
-                <div className="alert-metric-card ">
-                    <div className="alert-metric-header">
-                        <span className="metric-card-label">Total Mes</span>
-                        <div className="metric-card-pill slate">
-                            <Activity size={12} color="#64748b" />
-                            <span>Globales</span>
-                        </div>
-                    </div>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value slate">{stats.total}</span>
-                        <span className="metric-card-sub">incidentes</span>
-                    </div>
-                </div>
-            </section>
-            {/* ── END: KPI Dashboard ───────────────────────────────────── */}
-
-            {/* ── BEGIN: Quick Status Pills Toolbar (Desktop Only) ───── */}
-            {!isMobile && (
-                <div className="alerts-toolbar">
-                    <div className="alerts-search-wrap">
-                        <Search size={15} className="alerts-search-icon" />
+            {/* Mobile Collapsible Filter & Search Section */}
+            {isMobile && showFilters && (
+                <div className="mobile-filter-section">
+                    <div className="mobile-search-bar">
+                        <Search size={16} className="search-icon" />
                         <input
-                            type="text"
-                            className="alerts-search-input"
-                            placeholder="Filtrar placa (ej: FPZ45I), ID o chofer..."
+                            type="search"
                             value={searchQuery}
                             onChange={(e) => handleSearchChange(e.target.value)}
+                            placeholder="Buscar por placa (ej. FPZ45I)..."
+                            className="mobile-search-input"
                         />
-                    </div>
-
-                    <div className="alerts-pills-row">
-                        <button
-                            type="button"
-                            className={`alerts-filter-pill ${statusFilter === 'ALL' && filter === 'ALL' ? 'active' : ''}`}
-                            onClick={() => {
-                                setStatusFilter('ALL');
-                                setFilter('ALL');
-                                setCurrentPage(1);
-                            }}
-                        >
-                            <span>Todos</span>
-                            <span className="pill-counter">{stats.total || 0}</span>
-                        </button>
-
-                        {(stats.counts?.unauthorizedDriving || 0) > 0 && (
+                        {searchQuery && (
                             <button
                                 type="button"
-                                className={`alerts-filter-pill sabotage ${filter === 'UNAUTHORIZED_DRIVING' ? 'active' : ''}`}
-                                onClick={() => {
-                                    setFilter(filter === 'UNAUTHORIZED_DRIVING' ? 'ALL' : 'UNAUTHORIZED_DRIVING');
-                                    setCurrentPage(1);
-                                }}
+                                onClick={() => handleSearchChange('')}
+                                className="clear-search"
+                                title="Limpiar búsqueda"
                             >
-                                <span className="pill-dot red animate-pulse" />
-                                <span>Sabotajes</span>
-                                <span className="pill-counter">{stats.counts.unauthorizedDriving}</span>
+                                <X size={16} />
                             </button>
                         )}
+                    </div>
 
-                        <button
-                            type="button"
-                            className={`alerts-filter-pill critical ${filter === 'UNAUTHORIZED_MOVEMENT' || filter === 'POWER_CUT' || filter === 'UNAUTHORIZED_DRIVING' || filter === 'UNAUTHORIZED_IGNITION' ? 'active' : ''}`}
-                            onClick={() => {
-                                setFilter(filter === 'UNAUTHORIZED_MOVEMENT' ? 'ALL' : 'UNAUTHORIZED_MOVEMENT');
-                                setCurrentPage(1);
-                            }}
-                        >
-                            <span className="pill-dot red" />
-                            <span>Críticas</span>
-                            <span className="pill-counter">{stats.critical || 0}</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className={`alerts-filter-pill pending ${statusFilter === 'ACTIVE' ? 'active' : ''}`}
-                            onClick={() => {
-                                setStatusFilter(statusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE');
-                                setCurrentPage(1);
-                            }}
-                        >
-                            <span className="pill-dot amber" />
-                            <span>Pendientes</span>
-                            <span className="pill-counter">{stats.active || 0}</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className={`alerts-filter-pill resolved ${statusFilter === 'RESOLVED' ? 'active' : ''}`}
-                            onClick={() => {
-                                setStatusFilter(statusFilter === 'RESOLVED' ? 'ALL' : 'RESOLVED');
-                                setCurrentPage(1);
-                            }}
-                        >
-                            <span className="pill-dot green" />
-                            <span>Resueltas</span>
-                            <span className="pill-counter">{stats.resolved || 0}</span>
-                        </button>
+                    <div className="filter-pills-row no-scrollbar">
+                        {filterOptions.map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => handleUnifiedFilterChange(opt.value)}
+                                className={`filter-pill ${activeFilterValue === opt.value ? 'active' : ''}`}
+                            >
+                                <span>{opt.label}</span>
+                                {opt.badge !== undefined && (
+                                    <span className="pill-count">{opt.badge}</span>
+                                )}
+                            </button>
+                        ))}
                     </div>
                 </div>
             )}
-            {/* ── END: Quick Status Pills Toolbar ──────────────────────── */}
+
+            {/* Desktop Filters (Desktop only) */}
+            {!isMobile && (
+                <div className="payment-controls hidden md:flex items-center justify-between gap-4">
+                    <SearchAndFilterBar
+                        searchQuery={searchQuery}
+                        setSearchQuery={handleSearchChange}
+                        searchPlaceholder="Filtrar placa (ej: FPZ45I), ID o chofer..."
+                        filter={activeFilterValue}
+                        setFilter={handleUnifiedFilterChange}
+                        filterOptions={filterOptions}
+                    />
+                </div>
+            )}
 
             {/* ── BEGIN: 2-Column Split Workspace (Feed + Desktop Inspector) ── */}
             <div className="alerts-workspace-split">
@@ -803,6 +770,10 @@ const Alerts = () => {
                                 const batteryLevel = alert.metadata?.batteryLevel;
                                 const isPowerCut = alert.alertType === 'POWER_CUT' || alert.metadata?.powerCut;
                                 const isSelected = selectedAlert?._id === alert._id;
+                                const groupKey = `${alert.deviceIdName}_${alert.alertType}`;
+                                const collapsedCount = alert.groupedCount > 1 ? alert.groupedCount : 0;
+                                const collapsedAlerts = alert.collapsedAlerts || [];
+                                const isExpanded = Boolean(expandedGroups[groupKey]);
 
                                 return (
                                     <article
@@ -821,12 +792,25 @@ const Alerts = () => {
                                                     </span>
                                                     {(alert.alertType === 'UNAUTHORIZED_DRIVING' || alert.metadata?.bypassSuspected) && (
                                                         <span className="incident-sabotage-badge">
-                                                            Relé Puenteado
+                                                            Puenteado
                                                         </span>
                                                     )}
-                                                    {alert.occurrenceCount > 1 && (
+                                                    {collapsedCount > 1 ? (
+                                                        <button
+                                                            type="button"
+                                                            className={`incident-collapse-pill ${isExpanded ? 'expanded' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleGroupExpanded(groupKey);
+                                                            }}
+                                                            title={isExpanded ? 'Ocultar eventos anteriores' : `Ver ${collapsedCount - 1} eventos anteriores de ${alert.deviceIdName}`}
+                                                        >
+                                                            <span>x{collapsedCount}</span>
+                                                            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                                        </button>
+                                                    ) : alert.occurrenceCount > 1 && (
                                                         <span className="incident-events-badge">
-                                                            x{alert.occurrenceCount} eventos
+                                                            x{alert.occurrenceCount}
                                                         </span>
                                                     )}
                                                 </div>
@@ -945,6 +929,54 @@ const Alerts = () => {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Expanded History of Collapsed Alerts for this Bike & Event */}
+                                        {isExpanded && collapsedAlerts.length > 0 && (
+                                            <div className="collapsed-alerts-drawer" onClick={(e) => e.stopPropagation()}>
+                                                <div className="collapsed-alerts-header">
+                                                    <span>Eventos anteriores ({collapsedCount - 1})</span>
+                                                    {collapsedCount - 1 > collapsedAlerts.length && (
+                                                        <span className="collapsed-alerts-more">
+                                                            Mostrando últimos {collapsedAlerts.length}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="collapsed-alerts-list">
+                                                    {collapsedAlerts.map((sub) => {
+                                                        const subResolved = sub.status === 'RESOLVED';
+                                                        const subAck = sub.status === 'ACKNOWLEDGED';
+                                                        const subSelected = selectedAlert?._id === sub._id;
+                                                        const subSpeed = Math.round(sub.location?.speed ?? 0);
+                                                        const subBat = sub.metadata?.batteryLevel;
+
+                                                        return (
+                                                            <div
+                                                                key={sub._id || sub.timestamp}
+                                                                className={`collapsed-alert-row ${subSelected ? 'is-selected' : ''}`}
+                                                                onClick={() => setSelectedAlertId(sub._id)}
+                                                            >
+                                                                <div className="collapsed-alert-left">
+                                                                    <span
+                                                                        className="collapsed-status-dot"
+                                                                        style={{ background: subResolved ? '#059669' : subAck ? '#d97706' : '#e11d48' }}
+                                                                    />
+                                                                    <span className="collapsed-alert-time" title={sub.timestamp ? new Date(sub.timestamp).toLocaleString('es-CO') : ''}>
+                                                                        {formatTimeAgo(sub.timestamp)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="collapsed-alert-metrics">
+                                                                    <span>{subSpeed} km/h</span>
+                                                                    <span>{subBat !== null && subBat !== undefined ? `${subBat}%` : '--'}</span>
+                                                                    <span className={`collapsed-status-label ${subResolved ? 'resolved' : subAck ? 'ack' : 'active'}`}>
+                                                                        {subResolved ? 'Resuelta' : subAck ? 'Atendida' : 'Activa'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </article>
                                 );
                             })}
