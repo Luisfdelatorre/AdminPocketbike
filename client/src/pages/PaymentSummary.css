@@ -812,3 +812,52 @@
     color: #000000;
     font-weight: 700;
 }
+
+/* Header & Compact Controls */
+.summary-header-action-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.summary-engine-toggle-compact {
+    transform: scale(0.75);
+    transform-origin: center;
+}
+
+/* Mobile Filter Pill Count Variants */
+.filter-pill .pill-count--debt {
+
+    color: #dc2626;
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+.filter-pill .pill-count--ok {
+
+    color: #059669;
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+.filter-pill .pill-count--cutoff {
+
+    color: #475569;
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+.filter-pill .pill-count--weekly {
+
+    color: #4f46e5;
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+.filter-pill.active .pill-count--debt,
+.filter-pill.active .pill-count--ok,
+.filter-pill.active .pill-count--cutoff,
+.filter-pill.active .pill-count--weekly {
+
+    color: #ffffff;
+}

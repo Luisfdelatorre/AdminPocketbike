@@ -313,9 +313,8 @@ const PaymentSummary = () => {
             <button
                 onClick={() => handleEngineToggle(dev)}
                 disabled={isDisabled}
-                className={`engine-toggle-slider ${isOff ? 'deactivated' : 'active'} ${isPendingCommand ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
+                className={`engine-toggle-slider summary-engine-toggle-compact ${isOff ? 'deactivated' : 'active'} ${isPendingCommand ? 'pending' : ''} ${isQueued ? 'queued' : ''}`}
                 title={isQueued ? 'Comando en cola (esperando señal GPS)' : (isOff ? 'Activar Moto' : 'Desactivar Moto')}
-                style={{ transform: 'scale(0.75)', transformOrigin: 'center' }}
             >
                 <div className="slider-knob">
                     {isPendingCommand
@@ -412,7 +411,7 @@ const PaymentSummary = () => {
             loading={loading}
             refreshText={t('payments.refresh', 'Actualizar')}
             leadingActions={
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <div className="summary-header-action-group">
                     <MonthYearSelector
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
@@ -423,7 +422,7 @@ const PaymentSummary = () => {
                 </div>
             }
             actions={
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <div className="summary-header-action-group">
                     {viewToggleSegment}
                     {autoOffButton}
                 </div>
@@ -491,7 +490,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'debt' ? 'active' : ''}`}
                         >
                             <span>Con deuda</span>
-                            <span className="pill-count" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#dc2626' }}>{morososCount}</span>
+                            <span className="pill-count pill-count--debt">{morososCount}</span>
                         </button>
                         <button
                             type="button"
@@ -499,7 +498,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'ok' ? 'active' : ''}`}
                         >
                             <span>Al día</span>
-                            <span className="pill-count" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#059669' }}>{okCount}</span>
+                            <span className="pill-count pill-count--ok">{okCount}</span>
                         </button>
                         <button
                             type="button"
@@ -507,7 +506,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'cutoff' ? 'active' : ''}`}
                         >
                             <span>Apagados</span>
-                            <span className="pill-count" style={{ backgroundColor: 'rgba(100, 116, 139, 0.15)', color: '#475569' }}>{cutoffCount}</span>
+                            <span className="pill-count pill-count--cutoff">{cutoffCount}</span>
                         </button>
                         <button
                             type="button"
@@ -515,7 +514,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'weekly' ? 'active' : ''}`}
                         >
                             <span>Semanal+</span>
-                            <span className="pill-count" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#4f46e5' }}>{weeklyCount}</span>
+                            <span className="pill-count pill-count--weekly">{weeklyCount}</span>
                         </button>
                     </div>
                 </div>
