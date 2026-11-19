@@ -86,6 +86,8 @@ const MobileHeader = ({ sidebarOpen, setSidebarOpen }) => {
             return companyName ? companyName : t('sidebar.reports');
         }
         if (path.startsWith('/summary')) return t('sidebar.summary');
+        if (path.startsWith('/alerts') || path.startsWith('/alertas')) return t('sidebar.alerts', 'Alertas');
+        if (path.startsWith('/commands')) return t('sidebar.commands', 'Comandos');
         return 'PocketBike';
     };
 

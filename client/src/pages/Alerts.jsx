@@ -33,7 +33,6 @@ import {
     Lock,
     Search,
     X,
-    Layers,
     ChevronDown,
     ChevronUp
 } from 'lucide-react';
@@ -115,7 +114,6 @@ const Alerts = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
     const [streamMode, setStreamMode] = useState('active'); // 'active' | 'paused' | 'reconnecting'
-    const [groupByDeviceEvent, setGroupByDeviceEvent] = useState(true);
     const [expandedGroups, setExpandedGroups] = useState({});
 
     const toggleGroupExpanded = (groupKey) => {
@@ -203,7 +201,7 @@ const Alerts = () => {
                 search: searchQuery,
                 page: pageToLoad,
                 limit: 20,
-                grouped: groupByDeviceEvent
+                grouped: true
             });
             const data = res?.data || res;
             if (data?.alerts) {
@@ -215,7 +213,7 @@ const Alerts = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedMonth, selectedYear, filter, statusFilter, searchQuery, groupByDeviceEvent]);
+    }, [selectedMonth, selectedYear, filter, statusFilter, searchQuery]);
 
     useEffect(() => {
         fetchStats();
@@ -461,10 +459,11 @@ const Alerts = () => {
 
     const filterOptions = [
         { value: 'ALL', label: 'Todas', badge: stats.total || 0 },
-        { value: 'STATUS_ACTIVE', label: 'Pendientes', badge: stats.active || 0, badgeType: 'cutoff' },
-        { value: 'STATUS_RESOLVED', label: 'Resueltas', badge: stats.resolved || 0, badgeType: 'ok' },
         { value: 'UNAUTHORIZED_DRIVING', label: 'Sabotaje', badge: stats.counts?.unauthorizedDriving || 0, badgeType: 'debt' },
         { value: 'POWER_CUT', label: 'Batería', badge: stats.counts?.powerCut || 0, badgeType: 'debt' },
+        { value: 'STATUS_ACTIVE', label: 'Pendientes', badge: stats.active || 0, badgeType: 'cutoff' },
+        { value: 'STATUS_RESOLVED', label: 'Resueltas', badge: stats.resolved || 0, badgeType: 'ok' },
+
         { value: 'UNAUTHORIZED_MOVEMENT', label: 'Movimie.', badge: stats.counts?.movement || 0, badgeType: 'debt' },
         { value: 'UNAUTHORIZED_IGNITION', label: 'Ignición', badge: stats.counts?.ignition || 0, badgeType: 'debt' },
         { value: 'GEOFENCE_EXIT', label: 'Geocerca', badge: stats.counts?.geofence || 0, badgeType: 'weekly' },
@@ -530,30 +529,6 @@ const Alerts = () => {
         );
     };
 
-    const renderGroupToggleButton = (isCompact = false) => {
-        const tooltip = groupByDeviceEvent
-            ? 'Agrupado por moto y evento (Clic para ver historial cronológico)'
-            : 'Historial cronológico completo (Clic para colapsar por moto y evento)';
-
-        return (
-            <button
-                type="button"
-                className={`alerts-group-toggle-btn ${groupByDeviceEvent ? 'active' : ''} ${isCompact ? 'compact' : ''}`}
-                onClick={() => {
-                    setGroupByDeviceEvent((prev) => !prev);
-                    setExpandedGroups({});
-                    setCurrentPage(1);
-                }}
-                title={tooltip}
-                aria-label={tooltip}
-                aria-pressed={groupByDeviceEvent}
-            >
-                <Layers size={15} />
-                {!isCompact && <span>{groupByDeviceEvent ? 'Agrupado' : 'Todos'}</span>}
-            </button>
-        );
-    };
-
     const desktopHeader = (
         <PageHeader.Desktop
             title="Alertas & Incidentes"
@@ -582,21 +557,12 @@ const Alerts = () => {
                     variant="desktop"
                 />
             }
-            actions={
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    {renderGroupToggleButton(false)}
-                    {renderSSECyclicButton()}
-                </div>
-            }
+            actions={renderSSECyclicButton()}
         />
     );
 
     const mobileHeader = (
         <PageHeader.Mobile
-            onRefresh={() => {
-                fetchStats();
-                fetchHistory(currentPage);
-            }}
             loading={loading || statsLoading}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
@@ -609,12 +575,7 @@ const Alerts = () => {
                     setCurrentPage(1);
                 }
             }}
-            actions={
-                <>
-                    {renderGroupToggleButton(true)}
-                    {renderSSECyclicButton(true)}
-                </>
-            }
+            actions={renderSSECyclicButton(true)}
         />
     );
 

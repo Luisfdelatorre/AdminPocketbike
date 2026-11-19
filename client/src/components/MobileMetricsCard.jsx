@@ -55,3 +55,4 @@ const MobileMetricsCard = ({ segments = [], columns = [], className = '' }) => {
 };
 
 export default MobileMetricsCard;
+
