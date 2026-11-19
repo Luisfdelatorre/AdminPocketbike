@@ -1,14 +1,17 @@
 /* CommandHistory.css - Styles matching mobile/desktop Azvi theme */
 
 .commands-page {
-    padding: 1rem;
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
     min-height: calc(100vh - 70px);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
     padding-bottom: 5rem;
+}
+
+.commands-new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* Header & Controls */

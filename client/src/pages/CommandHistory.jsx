@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Terminal,
-    RefreshCw,
     Bolt,
     PowerOff,
     ShieldAlert,
@@ -12,13 +11,15 @@ import {
     LoaderCircle,
     Clock,
     AlertCircle,
-    ChevronLeft,
-    ChevronRight
+    Search,
+    X
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
+import StatCard from '../components/StatCard';
+import MobileMetricsCard from '../components/MobileMetricsCard';
 import SendCommandModal from '../components/modals/SendCommandModal';
 import { getCommandHistory, getCommandStats } from '../services/api';
 import './CommandHistory.css';
@@ -179,6 +180,10 @@ const CommandHistory = () => {
     const desktopHeader = (
         <PageHeader.Desktop
             title="Historial Comandos"
+            breadcrumbs={[
+                { label: 'Operaciones' },
+                { label: 'Historial Comandos' }
+            ]}
             onRefresh={() => {
                 fetchStats();
                 fetchHistory(currentPage);
@@ -188,10 +193,9 @@ const CommandHistory = () => {
             leadingActions={renderDateSelectors()}
             actions={
                 <button
-                    className="btn-primary"
+                    className="btn-primary commands-new-btn"
                     type="button"
                     onClick={() => setIsSendCommandOpen(true)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
                     <Plus size={16} /> Nuevo Comando
                 </button>
@@ -208,31 +212,15 @@ const CommandHistory = () => {
             loading={loading || statsLoading}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
-            leadingActions={
-                pagination.totalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, color: '#4b5563', marginRight: '4px' }}>
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage <= 1}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage <= 1 ? '#9ca3af' : '#1f2937' }}
-                            aria-label="Página anterior"
-                        >
-                            <ChevronLeft size={14} />
-                        </button>
-                        <span>{currentPage}/{pagination.totalPages}</span>
-                        <button
-                            type="button"
-                            onClick={() => setCurrentPage(p => p + 1)}
-                            disabled={currentPage >= pagination.totalPages}
-                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: currentPage >= pagination.totalPages ? '#9ca3af' : '#1f2937' }}
-                            aria-label="Página siguiente"
-                        >
-                            <ChevronRight size={14} />
-                        </button>
-                    </div>
-                )
-            }
+            datePicker={{
+                selectedMonth,
+                selectedYear,
+                includeAllMonths: false,
+                onSelect: (m) => {
+                    setSelectedMonth(m);
+                    setCurrentPage(1);
+                }
+            }}
         />
     );
 
@@ -240,19 +228,112 @@ const CommandHistory = () => {
 
     const filterOptions = [
         { value: 'ALL', label: 'Todos', badge: stats.counts?.all || 0 },
-        { value: 'STOP', label: 'Apagados', badge: stats.counts?.stop || 0, badgeType: 'red' },
-        { value: 'RESUME', label: 'Encendidos', badge: stats.counts?.resume || 0, badgeType: 'blue' },
+        { value: 'STOP', label: 'Apagados', badge: stats.counts?.stop || 0, badgeType: 'debt' },
+        { value: 'RESUME', label: 'Encendidos', badge: stats.counts?.resume || 0, badgeType: 'weekly' },
         { value: 'PREVENTIVE', label: 'Preventivos', badge: stats.counts?.preventive || 0 },
-        { value: 'FAILED', label: 'Fallidos', badge: stats.counts?.failed || 0, badgeType: 'red' }
+        { value: 'FAILED', label: 'Fallidos', badge: stats.counts?.failed || 0, badgeType: 'debt' }
     ];
+
+    const successPercentage = parseInt(String(stats.successRate || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const failedPercentage = stats.total > 0 ? Math.round(((stats.counts?.failed || 0) / stats.total) * 100) : 0;
 
     return (
         <div className="commands-page payments-page">
             {renderHeader}
 
-            {/* Mobile Collapsible Filter Section (Mobile only) */}
-            <div className={`collapsible-content w-full md:hidden ${showFilters ? 'expanded' : ''}`} id="filterSection">
-                <div className="pt-2 pb-1">
+            {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
+            {isMobile ? !showFilters && (
+                <MobileMetricsCard
+                    segments={[
+                        { width: successPercentage, variant: 'completed' },
+                        { width: failedPercentage, variant: 'pending' }
+                    ]}
+                    columns={[
+                        {
+                            label: 'Éxito GPS',
+                            dot: 'completed',
+                            value: stats.successRate || '0%',
+                            subcount: `~${stats.latencySeconds || '0s'}`
+                        },
+                        {
+                            label: 'En Cola',
+                            dot: 'pending',
+                            value: stats.queuedCount || 0,
+                            subcount: `${stats.counts?.failed || 0} err.`,
+                            valueClass: (stats.queuedCount || 0) > 0 ? 'val-pending' : ''
+                        },
+                        {
+                            label: 'Total Cmds',
+                            icon: <Terminal size={12} className="text-cyan-600" />,
+                            value: stats.total || 0
+                        }
+                    ]}
+                />
+            ) : (
+                <div className="devices-stats-ios">
+                    <StatCard
+                        title="TOTAL CMDS"
+                        value={stats.total || 0}
+                        valueColor="#1a1c1c"
+                    />
+                    <StatCard
+                        title="ÉXITO GPS"
+                        value={stats.successRate || '0%'}
+                        valueColor="#00C292"
+                    />
+                    <StatCard
+                        title="EN COLA"
+                        value={stats.queuedCount || 0}
+                        valueColor={(stats.queuedCount || 0) > 0 ? '#E46A76' : '#0070eb'}
+                    />
+                </div>
+            )}
+
+            {/* Mobile Collapsible Filter & Search Section */}
+            {isMobile && showFilters && (
+                <div className="mobile-filter-section">
+                    <div className="mobile-search-bar">
+                        <Search size={16} className="search-icon" />
+                        <input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            placeholder="Buscar moto (ej. QBD25I) o comando..."
+                            className="mobile-search-input"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => handleSearchChange('')}
+                                className="clear-search"
+                                title="Limpiar búsqueda"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="filter-pills-row no-scrollbar">
+                        {filterOptions.map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => handleFilterChange(opt.value)}
+                                className={`filter-pill ${filter === opt.value ? 'active' : ''}`}
+                            >
+                                <span>{opt.label}</span>
+                                {opt.badge !== undefined && (
+                                    <span className="pill-count">{opt.badge}</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Desktop Filters (Desktop only) */}
+            {!isMobile && (
+                <div className="payment-controls hidden md:flex items-center justify-between gap-4">
                     <SearchAndFilterBar
                         searchQuery={searchQuery}
                         setSearchQuery={handleSearchChange}
@@ -260,79 +341,9 @@ const CommandHistory = () => {
                         filter={filter}
                         setFilter={handleFilterChange}
                         filterOptions={filterOptions}
-                        filterRowClass="summary-filter-row-ios"
                     />
-
-                    {/* Action Items for Mobile */}
-                    <div className="invoices-mobile-actions">
-                        <MonthYearSelector
-                            selectedMonth={selectedMonth}
-                            selectedYear={selectedYear}
-                            onChangeMonth={m => {
-                                setSelectedMonth(m);
-                                setCurrentPage(1);
-                            }}
-                            onChangeYear={y => {
-                                setSelectedYear(y);
-                                setCurrentPage(1);
-                            }}
-                            variant="mobile"
-                        />
-                        <button
-                            className="filter-action-btn filter-action-btn-icon"
-                            onClick={() => {
-                                fetchStats();
-                                fetchHistory(currentPage);
-                            }}
-                            title="Actualizar"
-                        >
-                            <RefreshCw size={15} />
-                        </button>
-                    </div>
                 </div>
-            </div>
-
-            {/* Desktop Filters (Always visible on desktop) */}
-            <div className="hidden md:block" style={{ marginBottom: '1rem' }}>
-                <SearchAndFilterBar
-                    searchQuery={searchQuery}
-                    setSearchQuery={handleSearchChange}
-                    searchPlaceholder="Buscar moto (ej. QBD25I) o comando..."
-                    filter={filter}
-                    setFilter={handleFilterChange}
-                    filterOptions={filterOptions}
-                    filterRowClass="summary-filter-row-ios"
-                />
-            </div>
-
-            {/* Telemetry Metric Cards */}
-            <div className="telemetry-metrics-grid">
-                <div className="telemetry-metric-card">
-                    <span className="metric-card-label">Total Cmds</span>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value">{stats.total}</span>
-                        <span className="metric-card-badge">{stats.trendPercent}</span>
-                    </div>
-                    <span className="metric-card-sub">Mes activo</span>
-                </div>
-
-                <div className="telemetry-metric-card">
-                    <span className="metric-card-label">Éxito GPS</span>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value">{stats.successRate}</span>
-                    </div>
-                    <span className="metric-card-sub">Latencia ~{stats.latencySeconds}</span>
-                </div>
-
-                <div className="telemetry-metric-card">
-                    <span className="metric-card-label">En Cola</span>
-                    <div className="metric-card-value-row">
-                        <span className="metric-card-value">{stats.queuedCount}</span>
-                        {stats.queuedCount > 0 && <span className="metric-card-badge error">●</span>}
-                    </div>
-                    <span className="metric-card-sub">Modem GPRS</span>
-                </div>
-            </div>
+            )}
 
             {/* Command History Cards List */}
             {loading ? (
