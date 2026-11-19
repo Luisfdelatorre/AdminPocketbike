@@ -83,11 +83,14 @@ paymentSchema.statics.buildFreePaymentDoc = function (contract, invoiceId, date 
 
 paymentSchema.statics.totalPerDayByDevice = async function (query) {
     const match = {
-        status: 'APPROVED' // Only count approved payments
+        status: 'APPROVED', // Only count approved payments
+        deviceIdName: { $type: 'string', $ne: '' }
     };
 
     if (query.date) {
         match.finalized_at = query.date;
+    } else {
+        match.finalized_at = { $type: 'date' };
     }
 
     let companyTz = query.timezone || 'America/Bogota';
