@@ -9,10 +9,112 @@ import logger from '../config/logger.js';
 const DEDUPLICATION_COOLDOWN_MINUTES = {
     [ALERT_TYPE.UNAUTHORIZED_DRIVING]: 15,
     [ALERT_TYPE.POWER_CUT]: 20,
-    [ALERT_TYPE.UNAUTHORIZED_MOVEMENT]: 15,
+    [ALERT_TYPE.UNAUTHORIZED_MOVEMENT]: 30,
     [ALERT_TYPE.UNAUTHORIZED_IGNITION]: 15,
     [ALERT_TYPE.GEOFENCE_EXIT]: 30,
     [ALERT_TYPE.EXTENDED_OFFLINE]: 120
+};
+
+// In-memory 30-minute summary buffer for UNAUTHORIZED_MOVEMENT:
+// Minute 0: inserts 1 document in MongoDB + broadcasts SSE.
+// Minutes 0-30: 0 MongoDB writes; accumulates count/maxSpeed/location in RAM + broadcasts live SSE.
+// Minute 30 (or on status change): 1 single updateOne with the final interval summary.
+const MOVEMENT_SUMMARY_WINDOW_MS = DEDUPLICATION_COOLDOWN_MINUTES[ALERT_TYPE.UNAUTHORIZED_MOVEMENT] * 60 * 1000;
+const MOVEMENT_SSE_THROTTLE_MS = 2500;
+const movementSummaryBuffers = new Map();
+
+const getMovementBufferKey = (devName) => `${devName}_${ALERT_TYPE.UNAUTHORIZED_MOVEMENT}`;
+
+const flushMovementBuffer = async (bufferKey) => {
+    const entry = movementSummaryBuffers.get(bufferKey);
+    if (!entry) return;
+
+    movementSummaryBuffers.delete(bufferKey);
+    if (entry.timer) {
+        clearTimeout(entry.timer);
+        entry.timer = null;
+    }
+
+    if (!entry.dirty) return;
+
+    try {
+        await AlertLog.updateOne(
+            { _id: entry.alertId },
+            {
+                $set: {
+                    occurrenceCount: entry.occurrenceCount,
+                    lastSeenAt: entry.lastSeenAt,
+                    location: entry.alertSnapshot.location,
+                    metadata: entry.alertSnapshot.metadata
+                }
+            }
+        );
+        logger.info(`[AlertService] 📦 Flushed movement summary for ${entry.alertSnapshot.deviceIdName} (x${entry.occurrenceCount}, max ${Math.round(entry.maxSpeed)} km/h)`);
+    } catch (err) {
+        logger.error(`[AlertService] Error flushing movement summary buffer (${bufferKey}):`, err);
+    }
+};
+
+const registerMovementBuffer = (alertDoc, companyId) => {
+    const snapshot = typeof alertDoc.toObject === 'function' ? alertDoc.toObject() : { ...alertDoc };
+    const bufferKey = getMovementBufferKey(snapshot.deviceIdName);
+    const existing = movementSummaryBuffers.get(bufferKey);
+    if (existing?.timer) {
+        clearTimeout(existing.timer);
+    }
+
+    const now = Date.now();
+    const initialSpeed = snapshot.location?.speed ?? 0;
+    const entry = {
+        alertId: snapshot._id,
+        companyId: companyId ?? snapshot.companyId,
+        windowExpiresAt: now + MOVEMENT_SUMMARY_WINDOW_MS,
+        occurrenceCount: snapshot.occurrenceCount || 1,
+        maxSpeed: Math.max(initialSpeed, snapshot.metadata?.maxSpeed ?? 0),
+        lastSeenAt: snapshot.lastSeenAt || snapshot.timestamp || new Date(),
+        lastSseBroadcastAt: now,
+        dirty: false,
+        alertSnapshot: {
+            ...snapshot,
+            metadata: {
+                ...(snapshot.metadata || {}),
+                maxSpeed: Math.max(initialSpeed, snapshot.metadata?.maxSpeed ?? 0),
+                firstLocation: snapshot.metadata?.firstLocation || (
+                    snapshot.location?.latitude && snapshot.location?.longitude
+                        ? { latitude: snapshot.location.latitude, longitude: snapshot.location.longitude }
+                        : null
+                )
+            }
+        },
+        timer: setTimeout(() => {
+            flushMovementBuffer(bufferKey);
+        }, MOVEMENT_SUMMARY_WINDOW_MS)
+    };
+
+    if (typeof entry.timer.unref === 'function') {
+        entry.timer.unref();
+    }
+
+    movementSummaryBuffers.set(bufferKey, entry);
+    return entry;
+};
+
+const overlayActiveMovementBuffers = (alerts = []) => {
+    if (!movementSummaryBuffers.size || !Array.isArray(alerts)) return alerts;
+    return alerts.map((a) => {
+        if (a.alertType !== ALERT_TYPE.UNAUTHORIZED_MOVEMENT) return a;
+        const entry = movementSummaryBuffers.get(getMovementBufferKey(a.deviceIdName));
+        if (entry && String(entry.alertId) === String(a._id)) {
+            return {
+                ...a,
+                occurrenceCount: entry.occurrenceCount,
+                lastSeenAt: entry.lastSeenAt,
+                location: entry.alertSnapshot.location,
+                metadata: entry.alertSnapshot.metadata
+            };
+        }
+        return a;
+    });
 };
 
 /**
@@ -82,6 +184,52 @@ export const recordAlert = async ({
             }
         }
 
+        // Fast-path: In-memory 30-minute summary buffer for UNAUTHORIZED_MOVEMENT
+        // Zero MongoDB reads/writes during the interval; sends live SSE updates to frontend.
+        if (alertType === ALERT_TYPE.UNAUTHORIZED_MOVEMENT) {
+            const bufferKey = getMovementBufferKey(devName);
+            const activeEntry = movementSummaryBuffers.get(bufferKey);
+            const nowMs = Date.now();
+
+            if (activeEntry && nowMs < activeEntry.windowExpiresAt) {
+                const nowDate = new Date(nowMs);
+                const incomingSpeed = location?.speed ?? metadata?.speed ?? 0;
+
+                activeEntry.occurrenceCount += 1;
+                activeEntry.lastSeenAt = nowDate;
+                activeEntry.maxSpeed = Math.max(activeEntry.maxSpeed, incomingSpeed);
+                activeEntry.dirty = true;
+
+                if (location?.latitude && location?.longitude) {
+                    activeEntry.alertSnapshot.location = {
+                        ...activeEntry.alertSnapshot.location,
+                        ...location
+                    };
+                }
+                activeEntry.alertSnapshot.occurrenceCount = activeEntry.occurrenceCount;
+                activeEntry.alertSnapshot.lastSeenAt = nowDate;
+                activeEntry.alertSnapshot.metadata = {
+                    ...(activeEntry.alertSnapshot.metadata || {}),
+                    ...(metadata || {}),
+                    maxSpeed: activeEntry.maxSpeed
+                };
+
+                if (nowMs - activeEntry.lastSseBroadcastAt >= MOVEMENT_SSE_THROTTLE_MS) {
+                    activeEntry.lastSseBroadcastAt = nowMs;
+                    sseService.broadcast(
+                        'alert_updated',
+                        { ...activeEntry.alertSnapshot, _isLiveSummaryUpdate: true },
+                        { companyId: activeEntry.companyId }
+                    );
+                }
+
+                return activeEntry.alertSnapshot;
+            } else if (activeEntry) {
+                // Window expired; flush final summary before opening a new interval
+                await flushMovementBuffer(bufferKey);
+            }
+        }
+
         // Deduplication check: Has this exact alert occurred recently on this device while still ACTIVE or ACKNOWLEDGED?
         const cooldownMinutes = DEDUPLICATION_COOLDOWN_MINUTES[alertType] || 15;
         const cooldownThreshold = dayjs().subtract(cooldownMinutes, 'minute').toDate();
@@ -104,6 +252,10 @@ export const recordAlert = async ({
                 existingAlert.metadata = { ...existingAlert.metadata, ...metadata };
             }
             await existingAlert.save();
+
+            if (alertType === ALERT_TYPE.UNAUTHORIZED_MOVEMENT) {
+                registerMovementBuffer(existingAlert, targetCompanyId);
+            }
 
             // Notify frontend of update
             sseService.broadcast('alert_updated', existingAlert.toObject(), { companyId: targetCompanyId });
@@ -171,6 +323,10 @@ export const recordAlert = async ({
         await newAlert.save();
         logger.info(`[AlertService] 🚨 Created alert [${alertType}] (${alertSeverity}) for device ${devName}`);
 
+        if (alertType === ALERT_TYPE.UNAUTHORIZED_MOVEMENT) {
+            registerMovementBuffer(newAlert, targetCompanyId);
+        }
+
         // Broadcast to clients via SSE
         sseService.broadcast('new_alert', newAlert.toObject(), { companyId: targetCompanyId });
 
@@ -194,7 +350,8 @@ export const getAlertsHistory = async ({
     status,
     search,
     page = 1,
-    limit = 20
+    limit = 20,
+    grouped = false
 }) => {
     try {
         const query = {};
@@ -246,7 +403,86 @@ export const getAlertsHistory = async ({
         const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
         const skip = (pageNum - 1) * limitNum;
 
-        const [alerts, total] = await Promise.all([
+        const isGrouped = grouped === true || grouped === 'true' || grouped === '1';
+
+        if (isGrouped) {
+            const [aggResult] = await AlertLog.aggregate([
+                { $match: query },
+                { $sort: { timestamp: -1 } },
+                {
+                    $group: {
+                        _id: {
+                            deviceIdName: '$deviceIdName',
+                            alertType: '$alertType'
+                        },
+                        latestAlert: { $first: '$$ROOT' },
+                        groupedCount: { $sum: 1 },
+                        totalOccurrences: { $sum: { $ifNull: ['$occurrenceCount', 1] } },
+                        history: {
+                            $push: {
+                                _id: '$_id',
+                                timestamp: '$timestamp',
+                                status: '$status',
+                                severity: '$severity',
+                                alertType: '$alertType',
+                                deviceIdName: '$deviceIdName',
+                                title: '$title',
+                                message: '$message',
+                                location: '$location',
+                                metadata: '$metadata',
+                                occurrenceCount: '$occurrenceCount',
+                                resolvedAt: '$resolvedAt',
+                                resolutionNotes: '$resolutionNotes'
+                            }
+                        }
+                    }
+                },
+                { $sort: { 'latestAlert.timestamp': -1 } },
+                {
+                    $facet: {
+                        items: [
+                            { $skip: skip },
+                            { $limit: limitNum },
+                            {
+                                $project: {
+                                    _id: 0,
+                                    latestAlert: 1,
+                                    groupedCount: 1,
+                                    totalOccurrences: 1,
+                                    collapsedAlerts: { $slice: ['$history', 1, 15] }
+                                }
+                            }
+                        ],
+                        totalCount: [{ $count: 'total' }]
+                    }
+                }
+            ]);
+
+            const items = aggResult?.items || [];
+            const total = aggResult?.totalCount?.[0]?.total || 0;
+            const alerts = overlayActiveMovementBuffers(
+                items.map((item) => ({
+                    ...item.latestAlert,
+                    groupedCount: item.groupedCount,
+                    totalOccurrences: item.totalOccurrences,
+                    collapsedAlerts: item.collapsedAlerts || []
+                }))
+            );
+
+            return {
+                success: true,
+                alerts,
+                grouped: true,
+                pagination: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(total / limitNum) || 1
+                }
+            };
+        }
+
+        const [rawAlerts, total] = await Promise.all([
             AlertLog.find(query)
                 .sort({ timestamp: -1 })
                 .skip(skip)
@@ -255,9 +491,12 @@ export const getAlertsHistory = async ({
             AlertLog.countDocuments(query)
         ]);
 
+        const alerts = overlayActiveMovementBuffers(rawAlerts);
+
         return {
             success: true,
             alerts,
+            grouped: false,
             pagination: {
                 total,
                 page: pageNum,
@@ -373,6 +612,20 @@ export const updateAlertStatus = async (alertId, { status, notes, user = {} }) =
         const alert = await AlertLog.findById(alertId);
         if (!alert) {
             return { success: false, error: 'Alert not found' };
+        }
+
+        // Flush any active in-memory movement summary before changing status
+        if (alert.alertType === ALERT_TYPE.UNAUTHORIZED_MOVEMENT) {
+            const bufferKey = getMovementBufferKey(alert.deviceIdName);
+            const activeEntry = movementSummaryBuffers.get(bufferKey);
+            if (activeEntry && String(activeEntry.alertId) === String(alert._id)) {
+                alert.occurrenceCount = activeEntry.occurrenceCount;
+                alert.lastSeenAt = activeEntry.lastSeenAt;
+                alert.location = activeEntry.alertSnapshot.location;
+                alert.metadata = activeEntry.alertSnapshot.metadata;
+                movementSummaryBuffers.delete(bufferKey);
+                if (activeEntry.timer) clearTimeout(activeEntry.timer);
+            }
         }
 
         alert.status = status;
@@ -552,6 +805,29 @@ export const processTraccarEvents = async (events = []) => {
             }
 
             if (alertType && gpsId) {
+                // Only record UNAUTHORIZED_MOVEMENT from Traccar events when the device is actually in cutOff
+                if (alertType === ALERT_TYPE.UNAUTHORIZED_MOVEMENT) {
+                    const num = Number(gpsId);
+                    const devQuery = !isNaN(num)
+                        ? { $or: [{ gpsId: num }, { gpsId: String(gpsId) }] }
+                        : { gpsId: String(gpsId) };
+                    const devDoc = await Device.findOne(devQuery, { name: 1, cutOff: 1, companyId: 1, deviceId: 1 }).lean();
+                    if (!devDoc || devDoc.cutOff !== true) {
+                        continue;
+                    }
+                    await recordAlert({
+                        deviceIdName: devDoc.name,
+                        deviceId: devDoc.deviceId,
+                        gpsId,
+                        companyId: devDoc.companyId,
+                        alertType,
+                        severity,
+                        message,
+                        metadata: { cutOff: true, rawEvent: evt }
+                    });
+                    continue;
+                }
+
                 await recordAlert({
                     gpsId,
                     alertType,

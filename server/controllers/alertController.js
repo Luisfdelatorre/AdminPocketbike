@@ -6,7 +6,7 @@ export const getAlertsHistory = async (req, res) => {
         const { companyId, isSuperAdmin, role, companyName } = req.auth;
         const isSysAdmin = isSuperAdmin || (role === 'admin' && companyName === 'System');
 
-        const { month, year, type, severity, status, search, page, limit } = req.query;
+        const { month, year, type, severity, status, search, page, limit, grouped } = req.query;
 
         const result = await alertService.getAlertsHistory({
             companyId,
@@ -18,7 +18,8 @@ export const getAlertsHistory = async (req, res) => {
             status,
             search,
             page,
-            limit
+            limit,
+            grouped
         });
 
         res.json(result);
