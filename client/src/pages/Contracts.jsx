@@ -14,6 +14,7 @@ import ContractDocPreviewModal from '../components/modals/ContractDocPreviewModa
 import ContractEditor from '../components/ContractEditor';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import StatCard from '../components/StatCard';
+import MobileMetricsCard from '../components/MobileMetricsCard';
 import './Contracts.css';
 import './ContractModalRestyle.css';
 
@@ -661,47 +662,32 @@ const Contracts = () => {
 
             {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
             {isMobile ? !showFilters && (
-                <div className="mobile-metrics-card">
-                    <div className="metrics-progress-bar">
-                        <div
-                            className="progress-fill fill-completed"
-                            style={{ width: `${activePercentage}%` }}
-                        />
-                        <div
-                            className="progress-fill fill-blue"
-                            style={{ width: `${completedPercentage}%` }}
-                        />
-                    </div>
-                    <div className="metrics-columns">
-                        <div className="metrics-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-dot dot-active" />
-                                <span className="metrics-label">Activos</span>
-                            </div>
-                            <p className="metrics-val">
-                                {activePercentage}% <span className="metrics-subcount">({activeCount})</span>
-                            </p>
-                        </div>
-                        <div className="metrics-col bordered-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-dot dot-cyan" />
-                                <span className="metrics-label">Finalizados</span>
-                            </div>
-                            <p className="metrics-val val-cyan">
-                                {completedPercentage}% <span className="metrics-subcount">({completedCount})</span>
-                            </p>
-                        </div>
-                        <div className="metrics-col">
-                            <div className="metrics-header-row">
-                                <FileText size={12} className="text-cyan-600" />
-                                <span className="metrics-label">Total</span>
-                            </div>
-                            <p className="metrics-val">
-                                {totalCount}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <MobileMetricsCard
+                    segments={[
+                        { width: activePercentage, variant: 'completed' },
+                        { width: completedPercentage, variant: 'blue' }
+                    ]}
+                    columns={[
+                        {
+                            label: 'Activos',
+                            dot: 'active',
+                            value: `${activePercentage}%`,
+                            subcount: activeCount
+                        },
+                        {
+                            label: 'Finalizados',
+                            dot: 'cyan',
+                            value: `${completedPercentage}%`,
+                            subcount: completedCount,
+                            valueClass: 'val-cyan'
+                        },
+                        {
+                            label: 'Total',
+                            icon: <FileText size={12} className="text-cyan-600" />,
+                            value: totalCount
+                        }
+                    ]}
+                />
             ) : (
                 <div className="contracts-stats">
                     <StatCard

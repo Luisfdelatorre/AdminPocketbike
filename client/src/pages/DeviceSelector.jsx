@@ -10,6 +10,7 @@ import useDeviceUpdates from '../hooks/useDeviceUpdates';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import StatCard from '../components/StatCard';
+import MobileMetricsCard from '../components/MobileMetricsCard';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import './DeviceSelector.css';
@@ -337,47 +338,31 @@ const DeviceManagement = () => {
 
             {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
             {isMobile ? !showFilters && (
-                <div className="mobile-metrics-card">
-                    <div className="metrics-progress-bar">
-                        <div
-                            className="progress-fill fill-completed"
-                            style={{ width: `${activeContractsPercentage}%` }}
-                        />
-                        <div
-                            className="progress-fill fill-pending"
-                            style={{ width: `${availablePercentage}%` }}
-                        />
-                    </div>
-
-                    <div className="metrics-columns">
-                        <div className="metrics-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-dot dot-completed" />
-                                <span className="metrics-label">{t('devices.activeContracts', 'Con Contrato')}</span>
-                            </div>
-                            <p className="metrics-val">
-                                {activeContractsPercentage}% <span className="metrics-subcount">({activeContractsCount})</span>
-                            </p>
-                        </div>
-                        <div className="metrics-col bordered-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-dot dot-pending" />
-                                <span className="metrics-label">{t('devices.available', 'Disponibles')}</span>
-                            </div>
-                            <p className="metrics-val val-pending">
-                                {availablePercentage}% <span className="metrics-subcount">({availableCount})</span>
-                            </p>
-                        </div>
-                        <div className="metrics-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-label">{t('devices.totalDevices', 'Total Motos')}</span>
-                            </div>
-                            <p className="metrics-val">
-                                {devicesList.length}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <MobileMetricsCard
+                    segments={[
+                        { width: activeContractsPercentage, variant: 'completed' },
+                        { width: availablePercentage, variant: 'pending' }
+                    ]}
+                    columns={[
+                        {
+                            label: t('devices.activeContracts', 'Con Contrato'),
+                            dot: 'completed',
+                            value: `${activeContractsPercentage}%`,
+                            subcount: activeContractsCount
+                        },
+                        {
+                            label: t('devices.available', 'Disponibles'),
+                            dot: 'pending',
+                            value: `${availablePercentage}%`,
+                            subcount: availableCount,
+                            valueClass: 'val-pending'
+                        },
+                        {
+                            label: t('devices.totalDevices', 'Total Motos'),
+                            value: devicesList.length
+                        }
+                    ]}
+                />
             ) : (
                 <div className="devices-stats-ios">
                     <StatCard

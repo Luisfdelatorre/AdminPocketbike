@@ -15,6 +15,7 @@ import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjus
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
+import MobileMetricsCard from '../components/MobileMetricsCard';
 import StatusBadge from '../components/StatusBadge';
 import CreateDayInvoiceModal from '../components/modals/CreateDayInvoiceModal';
 import InvoiceAdjustmentModal from '../components/modals/InvoiceAdjustmentModal';
@@ -510,48 +511,32 @@ const Invoices = () => {
             {renderHeader}
             {/* Metrics Section: Consolidated iOS Card on Mobile, 4 StatCards on Desktop */}
             {isMobile ? !showFilters && (
-                <div className="mobile-metrics-card">
-                    <div className="metrics-progress-bar">
-                        <div
-                            className="progress-fill fill-completed"
-                            style={{ width: `${paidPercentage}%` }}
-                        />
-                        <div
-                            className="progress-fill fill-pending"
-                            style={{ width: `${unpaidPercentage}%` }}
-                        />
-                    </div>
-
-                    <div className="metrics-columns">
-                        <div className="metrics-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-dot dot-completed" />
-                                <span className="metrics-label">Cobrado</span>
-                            </div>
-                            <p className="metrics-val">
-                                {paidPercentage}% <span className="metrics-subcount">({stats.paid?.toLocaleString() || 0})</span>
-                            </p>
-                        </div>
-                        <div className="metrics-col bordered-col">
-                            <div className="metrics-header-row">
-                                <span className="metrics-dot dot-pending" />
-                                <span className="metrics-label">En mora</span>
-                            </div>
-                            <p className="metrics-val val-pending">
-                                {unpaidPercentage}% <span className="metrics-subcount">({stats.unpaid?.toLocaleString() || 0})</span>
-                            </p>
-                        </div>
-                        <div className="metrics-col">
-                            <div className="metrics-header-row">
-                                <FileText size={12} className="text-cyan-600" />
-                                <span className="metrics-label">Emitidas</span>
-                            </div>
-                            <p className="metrics-val">
-                                {stats.total?.toLocaleString() || 0}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <MobileMetricsCard
+                    segments={[
+                        { width: paidPercentage, variant: 'completed' },
+                        { width: unpaidPercentage, variant: 'pending' }
+                    ]}
+                    columns={[
+                        {
+                            label: 'Cobrado',
+                            dot: 'completed',
+                            value: `${paidPercentage}%`,
+                            subcount: stats.paid?.toLocaleString() || 0
+                        },
+                        {
+                            label: 'En mora',
+                            dot: 'pending',
+                            value: `${unpaidPercentage}%`,
+                            subcount: stats.unpaid?.toLocaleString() || 0,
+                            valueClass: 'val-pending'
+                        },
+                        {
+                            label: 'Emitidas',
+                            icon: <FileText size={12} className="text-cyan-600" />,
+                            value: stats.total?.toLocaleString() || 0
+                        }
+                    ]}
+                />
             ) : (
                 <div className="payment-stats">
                     <StatCard

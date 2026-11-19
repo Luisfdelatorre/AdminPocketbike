@@ -14,6 +14,7 @@ import MonthYearSelector from '../components/MonthYearSelector';
 import { getAllPayments, exportPaymentsCSV } from '../services/api';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import StatCard from '../components/StatCard';
+import MobileMetricsCard from '../components/MobileMetricsCard';
 import useIsMobile from '../hooks/useIsMobile';
 
 const PaymentMobileRow = ({ payment }) => {
@@ -478,48 +479,32 @@ const Payments = () => {
             <div className="payments-mobile-top-section">
                 {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
                 {isMobile ? !showFilters && (
-                    <div className="mobile-metrics-card">
-                        <div className="metrics-progress-bar">
-                            <div
-                                className="progress-fill fill-completed"
-                                style={{ width: `${completedPercentage}%` }}
-                            />
-                            <div
-                                className="progress-fill fill-pending"
-                                style={{ width: `${pendingPercentage}%` }}
-                            />
-                        </div>
-
-                        <div className="metrics-columns">
-                            <div className="metrics-col">
-                                <div className="metrics-header-row">
-                                    <span className="metrics-dot dot-completed" />
-                                    <span className="metrics-label">Cobrado</span>
-                                </div>
-                                <p className="metrics-val">
-                                    {completedPercentage}% <span className="metrics-subcount">({completedCount})</span>
-                                </p>
-                            </div>
-                            <div className="metrics-col bordered-col">
-                                <div className="metrics-header-row">
-                                    <span className="metrics-dot dot-pending" />
-                                    <span className="metrics-label">Pendiente</span>
-                                </div>
-                                <p className="metrics-val val-pending">
-                                    {pendingPercentage}% <span className="metrics-subcount">({pendingCount})</span>
-                                </p>
-                            </div>
-                            <div className="metrics-col">
-                                <div className="metrics-header-row">
-                                    <DollarSign size={12} className="text-cyan-600" />
-                                    <span className="metrics-label">Ingresos</span>
-                                </div>
-                                <p className="metrics-val">
-                                    ${totalAmount.toLocaleString()}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    <MobileMetricsCard
+                        segments={[
+                            { width: completedPercentage, variant: 'completed' },
+                            { width: pendingPercentage, variant: 'pending' }
+                        ]}
+                        columns={[
+                            {
+                                label: 'Cobrado',
+                                dot: 'completed',
+                                value: `${completedPercentage}%`,
+                                subcount: completedCount
+                            },
+                            {
+                                label: 'Pendiente',
+                                dot: 'pending',
+                                value: `${pendingPercentage}%`,
+                                subcount: pendingCount,
+                                valueClass: 'val-pending'
+                            },
+                            {
+                                label: 'Ingresos',
+                                icon: <DollarSign size={12} className="text-cyan-600" />,
+                                value: `$${totalAmount.toLocaleString()}`
+                            }
+                        ]}
+                    />
                 ) : (
                     /* Summary Stats — Minimalist iOS style (Desktop) */
                     <div className="devices-stats-ios payments-stats-grid">
