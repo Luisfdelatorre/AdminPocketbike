@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Check, AlertTriangle } from 'lucide-react';
 import useAdminScrollLock from '../../hooks/useAdminScrollLock';
@@ -96,7 +96,10 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
     useAdminScrollLock(isOpen);
 
     const { statusConfig } = useStatusConfig();
-    const ADJUSTMENT_CONFIG = { ...DEFAULT_ADJUSTMENT_CONFIG, ...(statusConfig || {}) };
+    const ADJUSTMENT_CONFIG = useMemo(
+        () => ({ ...DEFAULT_ADJUSTMENT_CONFIG, ...(statusConfig || {}) }),
+        [statusConfig]
+    );
 
     const [manualPayForm, setManualPayForm] = useState({
         amount: '',
