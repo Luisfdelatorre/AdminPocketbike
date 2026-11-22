@@ -50,6 +50,7 @@ La navegación principal usa `HashRouter`. Las rutas administrativas viven dentr
 - `matcher.js`: matcher local con normalización de acentos y tolerancia a errores ortográficos (Levenshtein); resuelve navegación y ayuda sin red y pre-identifica consultas antes de llamar al endpoint.
 - `tts.js`: síntesis de voz (`window.speechSynthesis`) con selección automática de voz en español (`es-CO` prioritaria), control de silencio persistido y cancelación inmediata.
 - `dispatcher.js`: ejecuta una intención resuelta; navega con React Router, consulta el endpoint o construye la ayuda.
+- `client/src/hooks/useSpeechRecognition.js`: hook sobre Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) con transcripción parcial en vivo, consulta de permisos de micrófono (`navigator.permissions`), manejo de errores (`not-allowed`, `no-speech`, `audio-capture`, `network`, navegador no compatible) y fallback inmediato al campo de texto.
 
 Endpoint: `POST /api/v1/assistant/query` (también bajo `/apinode` en `server/server.js`), protegido con `verifyToken`. Cuerpo `{ text?, capabilityId? }`; responde `{ capabilityId, matched, reply, data, demo: true }`. Usa exclusivamente el dataset ficticio de `server/services/assistantDemoService.js`: no consulta MongoDB ni datos de compañías. Los IDs de capacidad deben coincidir entre cliente y servidor. Como es `POST`, `verifyToken` lo bloquea para el rol `viewer`.
 

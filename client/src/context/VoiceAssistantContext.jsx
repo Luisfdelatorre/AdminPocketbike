@@ -4,6 +4,7 @@ import { assistantQuery } from '../services/api';
 import { dispatchIntent } from '../services/voiceAssistant/dispatcher';
 import { matchLocalIntent } from '../services/voiceAssistant/matcher';
 import { isTTSSupported, speakText, stopSpeaking } from '../services/voiceAssistant/tts';
+import useSpeechRecognition from '../hooks/useSpeechRecognition';
 
 const VoiceAssistantContext = createContext(null);
 
@@ -30,7 +31,7 @@ const createMessage = (role, text, extra = {}) => ({ id: `${Date.now()}-${++mess
 
 const WELCOME = createMessage(
     'assistant',
-    'Hola, soy el asistente de demostración. Pregúntame por el recaudo, la flota o las alertas, o pídeme abrir una sección.'
+    'Hola, soy el asistente de demostración. Pulsa el micrófono o escribe para consultar el recaudo, la flota, las alertas o abrir una sección.'
 );
 
 export const VoiceAssistantProvider = ({ children }) => {
@@ -71,13 +72,13 @@ export const VoiceAssistantProvider = ({ children }) => {
         }
     }, [ttsSupported, ttsEnabled]);
 
-    const submitText = useCallback(async (rawText) => {
+    const submitText = useCallback(async (rawText, { viaVoice = false } = {}) => {
         const text = (rawText || '').trim();
         if (!text || busyRef.current) return;
 
         busyRef.current = true;
         stopSpeaking();
-        appendMessage(createMessage('user', text));
+        appendMessage(createMessage('user', text, { viaVoice }));
         setStatus(ASSISTANT_STATUS.THINKING);
 
         try {
@@ -114,6 +115,43 @@ export const VoiceAssistantProvider = ({ children }) => {
         }
     }, [appendMessage, navigate, query, speakReply]);
 
+    const {
+        isSupported: speechSupported,
+        isListening,
+        interimTranscript,
+        permissionState: micPermission,
+        error: speechError,
+        startListening,
+        stopListening,
+        clearError: clearSpeechError,
+    } = useSpeechRecognition({
+        lang: 'es-CO',
+        onStart: () => {
+            stopSpeaking();
+            setStatus(ASSISTANT_STATUS.LISTENING);
+        },
+        onFinalTranscript: (transcript) => {
+            submitText(transcript, { viaVoice: true });
+        },
+        onEnd: () => {
+            setStatus((prev) => (prev === ASSISTANT_STATUS.LISTENING ? ASSISTANT_STATUS.IDLE : prev));
+        },
+        onError: () => {
+            setStatus(ASSISTANT_STATUS.ERROR);
+        },
+    });
+
+    const toggleListening = useCallback(() => {
+        if (busyRef.current) return;
+        if (isListening) {
+            stopListening();
+            setStatus(ASSISTANT_STATUS.IDLE);
+        } else {
+            stopSpeaking();
+            startListening();
+        }
+    }, [isListening, startListening, stopListening]);
+
     const toggleTts = useCallback(() => {
         setTtsEnabled((prev) => {
             const next = !prev;
@@ -138,30 +176,42 @@ export const VoiceAssistantProvider = ({ children }) => {
     const open = useCallback(() => setIsOpen(true), []);
     const close = useCallback(() => {
         stopSpeaking();
-        setStatus((s) => (s === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : s));
+        stopListening();
+        setStatus(ASSISTANT_STATUS.IDLE);
         setIsOpen(false);
-    }, []);
+    }, [stopListening]);
     const toggle = useCallback(() => {
         setIsOpen((prev) => {
             if (prev) {
                 stopSpeaking();
-                setStatus((s) => (s === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : s));
+                stopListening();
+                setStatus(ASSISTANT_STATUS.IDLE);
             }
             return !prev;
         });
-    }, []);
+    }, [stopListening]);
     const clearConversation = useCallback(() => {
         stopSpeaking();
+        stopListening();
+        clearSpeechError();
         setMessages([WELCOME]);
         setStatus(ASSISTANT_STATUS.IDLE);
-    }, []);
+    }, [clearSpeechError, stopListening]);
 
     const value = useMemo(() => ({
         isOpen, open, close, toggle,
         status, setStatus,
         messages, submitText, clearConversation,
         ttsSupported, ttsEnabled, toggleTts, stopAudio,
-    }), [isOpen, open, close, toggle, status, messages, submitText, clearConversation, ttsSupported, ttsEnabled, toggleTts, stopAudio]);
+        speechSupported, isListening, interimTranscript, micPermission,
+        speechError, toggleListening, clearSpeechError,
+    }), [
+        isOpen, open, close, toggle,
+        status, messages, submitText, clearConversation,
+        ttsSupported, ttsEnabled, toggleTts, stopAudio,
+        speechSupported, isListening, interimTranscript, micPermission,
+        speechError, toggleListening, clearSpeechError,
+    ]);
 
     return <VoiceAssistantContext.Provider value={value}>{children}</VoiceAssistantContext.Provider>;
 };

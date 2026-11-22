@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, X, Send, RotateCcw, Loader2, Volume2, VolumeX, Square } from 'lucide-react';
+import { Sparkles, X, Send, RotateCcw, Loader2, Volume2, VolumeX, Square, Mic, MicOff, AlertCircle } from 'lucide-react';
 import { useVoiceAssistant, ASSISTANT_STATUS, STATUS_LABELS } from '../../context/VoiceAssistantContext';
 import { getCapability, SUGGESTED_CAPABILITY_IDS } from '../../services/voiceAssistant/capabilities';
 import './VoiceAssistantPanel.css';
@@ -44,6 +44,8 @@ const VoiceAssistantPanel = () => {
         isOpen, toggle, close,
         status, messages, submitText, clearConversation,
         ttsSupported, ttsEnabled, toggleTts, stopAudio,
+        speechSupported, isListening, interimTranscript, micPermission,
+        speechError, toggleListening, clearSpeechError,
     } = useVoiceAssistant();
     const [draft, setDraft] = useState('');
     const listRef = useRef(null);
@@ -51,10 +53,11 @@ const VoiceAssistantPanel = () => {
     const isThinking = status === ASSISTANT_STATUS.THINKING;
     const isSpeaking = status === ASSISTANT_STATUS.SPEAKING;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[ASSISTANT_STATUS.IDLE];
+    const micDenied = micPermission === 'denied';
 
     useEffect(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-    }, [messages, isThinking]);
+    }, [messages, isThinking, isListening, interimTranscript]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -69,6 +72,7 @@ const VoiceAssistantPanel = () => {
     const handleSubmit = (event) => {
         event.preventDefault();
         if (!draft.trim() || isThinking) return;
+        clearSpeechError();
         submitText(draft);
         setDraft('');
     };
@@ -131,6 +135,26 @@ const VoiceAssistantPanel = () => {
                         </div>
                     </header>
 
+                    {(!speechSupported || speechError) && (
+                        <div className="va-banner va-banner--warning" role="status">
+                            <AlertCircle size={15} className="va-banner-icon" />
+                            <span>
+                                {speechError?.message ||
+                                    'Tu navegador no soporta dictado por voz (Web Speech API). Puedes usar el campo de texto.'}
+                            </span>
+                            {speechError && (
+                                <button
+                                    type="button"
+                                    className="va-banner-close"
+                                    onClick={clearSpeechError}
+                                    aria-label="Descartar aviso"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     <div className="va-messages" ref={listRef} aria-live="polite">
                         {messages.map((message) => (
                             <div key={message.id} className={`va-msg va-msg--${message.role} ${message.error ? 'is-error' : ''}`}>
@@ -141,6 +165,11 @@ const VoiceAssistantPanel = () => {
                                 )}
                             </div>
                         ))}
+                        {isListening && (
+                            <div className="va-msg va-msg--user va-msg--interim">
+                                <span>{interimTranscript || 'Escuchando… habla ahora'}</span>
+                            </div>
+                        )}
                         {isThinking && (
                             <div className="va-msg va-msg--assistant va-msg--thinking">
                                 <Loader2 size={14} className="va-spin" />
@@ -158,7 +187,7 @@ const VoiceAssistantPanel = () => {
                                     key={id}
                                     type="button"
                                     className="va-chip"
-                                    disabled={isThinking}
+                                    disabled={isThinking || isListening}
                                     onClick={() => submitText(capability.examples[0])}
                                 >
                                     {capability.label}
@@ -168,12 +197,31 @@ const VoiceAssistantPanel = () => {
                     </div>
 
                     <form className="va-input-bar" onSubmit={handleSubmit}>
+                        {speechSupported && (
+                            <button
+                                type="button"
+                                className={`va-mic-btn ${isListening ? 'is-listening' : ''} ${micDenied ? 'is-denied' : ''}`}
+                                onClick={toggleListening}
+                                disabled={isThinking}
+                                aria-label={isListening ? 'Detener micrófono' : 'Hablar con el asistente'}
+                                aria-pressed={isListening}
+                                title={
+                                    micDenied
+                                        ? 'Permiso de micrófono bloqueado en el navegador'
+                                        : isListening
+                                        ? 'Detener escucha'
+                                        : 'Hablar por micrófono'
+                                }
+                            >
+                                {micDenied ? <MicOff size={18} /> : <Mic size={18} />}
+                            </button>
+                        )}
                         <input
                             ref={inputRef}
                             type="text"
                             value={draft}
                             onChange={(event) => setDraft(event.target.value)}
-                            placeholder="Escribe una pregunta o un comando…"
+                            placeholder={isListening ? 'Escuchando tu voz…' : 'Escribe o pulsa el micrófono…'}
                             maxLength={500}
                             aria-label="Mensaje para el asistente"
                         />
