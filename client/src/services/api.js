@@ -34,7 +34,7 @@ api.interceptors.response.use(
 // --- Auth ---
 export const login = (data) => api.post('/auth/login', data);
 export const switchCompany = (targetCompanyId) => api.post('/auth/switch-company', { targetCompanyId });
-export const verifyDevicePin = (data) => api.post('/auth/device-pin', data);
+export const verifyDevicePin = (data) => api.post('/auth/pin-login', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
 // --- Commands History ---
@@ -188,13 +188,10 @@ export const createCompany = (data) => api.post('/companies', data);
 export const updateCompany = (id, data) => api.put(`/companies/${id}`, data);
 
 // --- Payments ---
-export const createPaymentIntent = (data) => api.post('/payments/create-intent', data);
-export const createBatchPaymentIntent = (data) => api.post('/payments/create-batch-intent', data);
+export const createPaymentIntent = (data) => api.post('/payments/request', data);
 export const getAllPayments = (params) => api.get('/payments/all', { params });
 export const getPaymentSummary = (params) => api.get('/payments/allPayments', { params });
-export const getPaymentStatus = (reference) => api.get(`/payments/status/${reference}`);
 export const getPaymentHistory = (deviceId, params) => api.get(`/payments/history/${deviceId}`, { params });
-export const verifyTransaction = (reference) => api.post(`/payments/verify/${reference}`);
 export const registerManualAdjustment = (data) => api.post('/payments/admin/manual', data);
 
 export const exportPaymentsCSV = async (month, year, companyId = '') => {
