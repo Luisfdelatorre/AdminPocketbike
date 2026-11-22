@@ -6,7 +6,11 @@ import {
     deleteSystemJob 
 } from '../controllers/systemJobController.js';
 
+import { verifyToken, requireSuperAdmin } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
+
+router.use(verifyToken, requireSuperAdmin);
 
 router.get('/', getAllSystemJobs);
 router.post('/', createSystemJob);

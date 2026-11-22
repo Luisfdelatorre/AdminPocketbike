@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 import * as alertController from '../controllers/alertController.js';
 
 const router = express.Router();
@@ -20,6 +20,6 @@ router.get('/stats', verifyToken, alertController.getAlertsStats);
  * PATCH /apinode/alerts/:id/status
  * Acknowledge or resolve an alert
  */
-router.patch('/:id/status', verifyToken, alertController.updateAlertStatus);
+router.patch('/:id/status', verifyToken, requireWriteRole, alertController.updateAlertStatus);
 
 export default router;

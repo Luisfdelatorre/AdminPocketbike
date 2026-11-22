@@ -1,6 +1,6 @@
 import express from 'express';
 import invoiceController from '../controllers/invoiceController.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 
 
 const router = express.Router();
@@ -27,7 +27,7 @@ router.get('/history', verifyToken, invoiceController.getInvoiceHistory);
  * POST /api/invoices/create
  * Create a daily invoice for a device
  */
-router.post('/create', verifyToken, invoiceController.createInvoice);
+router.post('/create', verifyToken, requireWriteRole, invoiceController.createInvoice);
 
 /**
  * GET /api/invoices/all
@@ -49,6 +49,6 @@ router.get('/:deviceId', verifyToken, invoiceController.getInvoicesByDevice);
  * GET /api/invoices/:deviceId/unpaid
  * Get unpaid invoices for a device
  */
-router.get('/:deviceId/unpaid', invoiceController.getUnpaidInvoices);
+router.get('/:deviceId/unpaid', verifyToken, invoiceController.getUnpaidInvoices);
 
 export default router;

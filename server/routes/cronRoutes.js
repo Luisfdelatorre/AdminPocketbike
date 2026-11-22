@@ -1,14 +1,15 @@
 import express from 'express';
 import jobRegistry from '../cron-server/jobRegistry.js';
+import { verifyToken, requireSuperAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 /**
  * @route GET /api/cron/available-jobs
  * @desc Retrieves all loaded plugins/jobs from the JobRegistry
- * @access Private (Admin)
+ * @access Private (SuperAdmin)
  */
-router.get('/available-jobs', async (req, res) => {
+router.get('/available-jobs', verifyToken, requireSuperAdmin, async (req, res) => {
   try {
     await jobRegistry.loadJobs();
     const jobs = jobRegistry.getAll();

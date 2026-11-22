@@ -1,6 +1,6 @@
 import express from 'express';
 import sseController from '../controllers/sseController.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -22,6 +22,6 @@ router.get('/subscribe', optionalVerifyToken, sseController.subscribe);
  * GET /api/sse/status
  * Get SSE service status
  */
-router.get('/status', sseController.getStatus);
+router.get('/status', verifyToken, requireWriteRole, sseController.getStatus);
 
 export default router;

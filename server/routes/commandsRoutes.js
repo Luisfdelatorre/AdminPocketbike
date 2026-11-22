@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 import * as commandController from '../controllers/commandController.js';
 
 const router = express.Router();
@@ -20,7 +20,7 @@ router.get('/stats', verifyToken, commandController.getCommandStats);
  * POST /api/v1/commands/send
  * Issue a new engine command
  */
-router.post('/send', verifyToken, commandController.sendCommand);
+router.post('/send', verifyToken, requireWriteRole, commandController.sendCommand);
 
 export default router;
 

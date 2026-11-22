@@ -44,3 +44,35 @@ export const verifyToken = (req, res, next) => {
         return res.status(401).json({ error: 'Invalid token' });
     }
 };
+
+/**
+ * Requires SuperAdmin privileges (global multi-company/system configuration)
+ */
+export const requireSuperAdmin = (req, res, next) => {
+    if (!req.auth || req.auth.isSuperAdmin !== true) {
+        return res.status(403).json({
+            success: false,
+            error: 'SuperAdmin privileges required',
+        });
+    }
+    next();
+};
+
+/**
+ * Requires Admin, Manager, or SuperAdmin role (blocks viewers and device PIN tokens)
+ */
+export const requireWriteRole = (req, res, next) => {
+    if (!req.auth) {
+        return res.status(401).json({
+            success: false,
+            error: 'Authentication required',
+        });
+    }
+    if (req.auth.isSuperAdmin === true || req.auth.role === 'admin' || req.auth.role === 'manager') {
+        return next();
+    }
+    return res.status(403).json({
+        success: false,
+        error: 'Admin or Manager privileges required',
+    });
+};

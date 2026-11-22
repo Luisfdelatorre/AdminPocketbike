@@ -1,7 +1,7 @@
 import express from 'express';
 import paymentController from '../controllers/paymentController.js';
 import { authenticate } from '../middleware/auth.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.get('/status', verifyToken, paymentController.getPaymentStatus);
@@ -30,38 +30,15 @@ router.get('/allPayments', authenticate, paymentController.getPaymentSummary);
 
 // Get daily reconciliation report
 router.get('/reconciliation', authenticate, paymentController.getDailyReconciliationReport);
-router.post('/reconciliation/toggle', authenticate, paymentController.toggleReconciliation);
+router.post('/reconciliation/toggle', authenticate, requireWriteRole, paymentController.toggleReconciliation);
 
 // Export payments as CSV (month/year via query params)
 router.get('/export', authenticate, paymentController.exportCSV);
 
 // Admin: apply a manual adjustment (REPAIR / DAMAGE / MAINTENANCE / WORKSHOP)
-router.post('/admin/manual', authenticate, paymentController.manualAdjustment);
+router.post('/admin/manual', authenticate, requireWriteRole, paymentController.manualAdjustment);
 
 // Get payment history (Legacy/Device specific)
 router.get('/history', authenticate, paymentController.getPaymentHistory);
-
-
-
-
-
-
-
-// Request loan
-
-
-// Create payment
-router.post('/create', paymentController.createPayment);
-
-
-
-// OLD ROUTES (Kept for backward compatibility or admin if needed?)
-// For now, I'm prioritizing the user's expected "Payment Page" routes.
-// The user snippet replaced everything. I should probably keep admin routes separately?
-// But the user *replaced* the controller logic. 
-// I'll assume this router is mainly for the Device Payment App. Admin routes might be elsewhere or different.
-
-// SSE Stream
-router.get('/stream/:reference', paymentController.getPaymentStream);
 
 export default router;

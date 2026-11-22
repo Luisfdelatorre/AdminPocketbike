@@ -1,7 +1,7 @@
 import express from 'express';
 import contractController from '../controllers/contractController.js';
 
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -24,13 +24,13 @@ router.get('/all', contractController.getAllContracts);
  * POST /api/contracts/create
  * Create a new 500-day contract
  */
-router.post('/create', contractController.createContract);
+router.post('/create', requireWriteRole, contractController.createContract);
 
 /**
  * POST /api/contracts/extract-document
  * Upload and extract information from Tarjeta de Propiedad, Cédula, or SOAT
  */
-router.post('/extract-document', contractController.extractDocumentData);
+router.post('/extract-document', requireWriteRole, contractController.extractDocumentData);
 
 /**
  * GET /api/contracts/expiring/:daysThreshold
@@ -72,12 +72,12 @@ router.get('/:deviceId/all', contractController.getAllContractsForDevice);
  * PUT /api/contracts/:contractId/status
  * Update contract status
  */
-router.put('/:contractId/status', contractController.updateContractStatus);
+router.put('/:contractId/status', requireWriteRole, contractController.updateContractStatus);
 
 /**
  * PUT /api/contracts/:contractId/update
  * Update contract details (customer info, notes, etc.)
  */
-router.put('/:contractId/update', contractController.updateContract);
+router.put('/:contractId/update', requireWriteRole, contractController.updateContract);
 
 export default router;

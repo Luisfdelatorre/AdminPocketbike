@@ -1,7 +1,10 @@
 import express from 'express';
 import deviceAccessController from '../controllers/deviceAccessController.js';
+import { verifyToken, requireWriteRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.use(verifyToken, requireWriteRole);
 
 /**
  * POST /api/device-access/create
