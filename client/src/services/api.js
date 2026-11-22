@@ -37,6 +37,9 @@ export const switchCompany = (targetCompanyId) => api.post('/auth/switch-company
 export const verifyDevicePin = (data) => api.post('/auth/pin-login', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
+// --- Voice Assistant (demo) ---
+export const assistantQuery = (data) => api.post('/assistant/query', data);
+
 // --- Commands History ---
 export const getCommandHistory = (params) => api.get('/commands', { params });
 export const getCommandStats = (params) => api.get('/commands/stats', { params });

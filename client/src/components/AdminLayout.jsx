@@ -6,6 +6,8 @@ import { useSSE } from '../context/SSEContext';
 import AdminSidebar from './AdminSidebar';
 import MobileHeader from './MobileHeader';
 import MobileBottomNav from './MobileBottomNav';
+import VoiceAssistantPanel from './voiceAssistant/VoiceAssistantPanel';
+import { VoiceAssistantProvider } from '../context/VoiceAssistantContext';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
@@ -76,22 +78,26 @@ const AdminLayout = () => {
 
     // Only admins can access this layout
     return (
-        <div className="admin-layout">
-            <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <VoiceAssistantProvider>
+            <div className="admin-layout">
+                <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-            <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+                <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
-            <main ref={contentRef} className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                <Outlet key={user?.companyId || 'default'} context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
-            </main>
+                <main ref={contentRef} className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+                    <Outlet key={user?.companyId || 'default'} context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
+                </main>
 
-            <MobileBottomNav
-                settingsTab={settingsTab}
-                setSettingsTab={setSettingsTab}
-                companiesTab={companiesTab}
-                setCompaniesTab={setCompaniesTab}
-            />
-        </div>
+                <MobileBottomNav
+                    settingsTab={settingsTab}
+                    setSettingsTab={setSettingsTab}
+                    companiesTab={companiesTab}
+                    setCompaniesTab={setCompaniesTab}
+                />
+
+                <VoiceAssistantPanel />
+            </div>
+        </VoiceAssistantProvider>
     );
 };
 

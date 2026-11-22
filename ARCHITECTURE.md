@@ -42,6 +42,15 @@ Una intervención debe conservar esta dirección de dependencias. La UI no debe 
 
 La navegación principal usa `HashRouter`. Las rutas administrativas viven dentro de `AdminLayout`; la página del dispositivo usa `/Id/:deviceId`.
 
+### Asistente de voz (demo)
+
+`AdminLayout` monta `VoiceAssistantProvider` (`client/src/context/VoiceAssistantContext.jsx`) y el panel flotante `client/src/components/voiceAssistant/VoiceAssistantPanel.jsx`. La lógica vive en `client/src/services/voiceAssistant/`:
+
+- `capabilities.js`: registro de capacidades (`navigate`, `query`, `help`) con etiquetas, ejemplos y palabras clave.
+- `dispatcher.js`: ejecuta una intención resuelta; navega con React Router, consulta el endpoint o construye la ayuda.
+
+Endpoint: `POST /api/v1/assistant/query` (también bajo `/apinode` en `server/server.js`), protegido con `verifyToken`. Cuerpo `{ text?, capabilityId? }`; responde `{ capabilityId, matched, reply, data, demo: true }`. Usa exclusivamente el dataset ficticio de `server/services/assistantDemoService.js`: no consulta MongoDB ni datos de compañías. Los IDs de capacidad deben coincidir entre cliente y servidor. Como es `POST`, `verifyToken` lo bloquea para el rol `viewer`.
+
 ## Flujo de contratos y cobro
 
 1. Se valida el dispositivo y que no tenga otro contrato activo.

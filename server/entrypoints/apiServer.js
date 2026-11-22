@@ -23,6 +23,7 @@ import cronRoutes from '../routes/cronRoutes.js';
 import systemJobsRoutes from '../routes/systemJobsRoutes.js';
 import commandsRouter from '../routes/commandsRoutes.js';
 import alertsRouter from '../routes/alertsRoutes.js';
+import assistantRouter from '../routes/assistantRoutes.js';
 
 import deviceServices from '../services/deviceServices.js';
 import seedSuperAdmin from '../utils/seedSuperAdmin.js';
@@ -75,6 +76,7 @@ app.use('/api/v1/cron', cronRoutes);
 app.use('/api/v1/system-jobs', systemJobsRoutes);
 app.use('/api/v1/commands', commandsRouter);
 app.use('/api/v1/alerts', alertsRouter);
+app.use('/api/v1/assistant', assistantRouter);
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));

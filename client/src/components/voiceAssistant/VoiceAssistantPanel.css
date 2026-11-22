@@ -1,0 +1,400 @@
+/* ==========================================================================
+   Voice Assistant (demo) — floating glass panel
+   Layering: above mobile nav (1000) and header (1100), below modals (1300).
+   ========================================================================== */
+
+.va-fab {
+    position: fixed;
+    right: 2rem;
+    bottom: 6.5rem;
+    z-index: 1200;
+    width: 3.25rem;
+    height: 3.25rem;
+    border: none;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    background: linear-gradient(135deg, var(--brand-teal), var(--brand-teal-dark));
+    box-shadow: 0 8px 24px rgba(var(--brand-teal-rgb), 0.35);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.va-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(var(--brand-teal-rgb), 0.45);
+}
+
+.va-fab:active {
+    transform: scale(0.94);
+}
+
+.va-fab.is-open {
+    background: #0F172A;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3);
+}
+
+.va-panel {
+    position: fixed;
+    right: 2rem;
+    bottom: 10.5rem;
+    z-index: 1200;
+    width: min(380px, calc(100vw - 2rem));
+    height: min(560px, calc(100vh - 13rem));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    animation: va-panel-in 0.28s cubic-bezier(0.34, 1.35, 0.64, 1);
+    transform-origin: bottom right;
+}
+
+@keyframes va-panel-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* --- Header --- */
+.va-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.va-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.va-header-title h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.va-demo-badge {
+    display: inline-block;
+    margin-top: 2px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--brand-teal-dark);
+    background: rgba(var(--brand-teal-rgb), 0.12);
+    padding: 1px 8px;
+    border-radius: 9999px;
+}
+
+.va-header-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.va-icon-btn {
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748B;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.va-icon-btn:hover {
+    background: rgba(226, 232, 240, 0.8);
+    color: #0F172A;
+}
+
+/* --- Status orb --- */
+.va-orb {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 9999px;
+    background: var(--brand-teal);
+    box-shadow: 0 0 0 4px rgba(var(--brand-teal-rgb), 0.18);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.va-orb--thinking {
+    animation: va-pulse 1.1s ease-in-out infinite;
+}
+
+.va-orb--error {
+    background: #EF4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18);
+}
+
+@keyframes va-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.75); opacity: 0.6; }
+}
+
+/* --- Messages --- */
+.va-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    overscroll-behavior: contain;
+}
+
+.va-msg {
+    max-width: 88%;
+    padding: 0.625rem 0.875rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    animation: va-msg-in 0.22s ease;
+}
+
+.va-msg p {
+    margin: 0;
+}
+
+@keyframes va-msg-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.va-msg--user {
+    align-self: flex-end;
+    color: #FFFFFF;
+    background: var(--brand-teal-dark);
+    border-bottom-right-radius: 0.375rem;
+}
+
+.va-msg--assistant {
+    align-self: flex-start;
+    color: #0F172A;
+    background: #FFFFFF;
+    border: 1px solid var(--card-border);
+    border-bottom-left-radius: 0.375rem;
+}
+
+.va-msg--assistant.is-error {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: #FEF2F2;
+    color: #991B1B;
+}
+
+.va-msg--thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #64748B;
+}
+
+.va-spin {
+    animation: va-spin 0.9s linear infinite;
+}
+
+@keyframes va-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Structured data --- */
+.va-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+}
+
+.va-stat {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.625rem;
+    background: #F8FAFC;
+}
+
+.va-stat-value {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #0F172A;
+}
+
+.va-stat-label {
+    font-size: 0.7rem;
+    color: #64748B;
+}
+
+.va-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.va-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.4rem 0.625rem;
+    border-radius: 0.625rem;
+    background: #F8FAFC;
+}
+
+.va-list-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.va-list-title {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #0F172A;
+}
+
+.va-list-subtitle {
+    font-size: 0.7rem;
+    color: #64748B;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.va-list-value {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--brand-teal-dark);
+}
+
+/* --- Suggestions --- */
+.va-suggestions {
+    display: flex;
+    gap: 0.375rem;
+    padding: 0 1rem 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.va-suggestions::-webkit-scrollbar {
+    display: none;
+}
+
+.va-chip {
+    flex-shrink: 0;
+    border: 1px solid var(--card-border);
+    background: #FFFFFF;
+    color: #334155;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.va-chip:hover:not(:disabled) {
+    border-color: var(--brand-teal);
+    color: var(--brand-teal-dark);
+    background: rgba(var(--brand-teal-rgb), 0.06);
+}
+
+.va-chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* --- Input bar --- */
+.va-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.va-input-bar input {
+    flex: 1;
+    min-width: 0;
+    height: 2.5rem;
+    padding: 0 0.875rem;
+    border-radius: 9999px;
+    border: 1px solid var(--card-border);
+    background: #F8FAFC;
+    font-size: 0.85rem;
+    color: #0F172A;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.va-input-bar input:focus {
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.15);
+}
+
+.va-send-btn {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: none;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    background: var(--brand-teal-dark);
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.va-send-btn:active:not(:disabled) {
+    transform: scale(0.94);
+}
+
+.va-send-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* --- Mobile: FAB on the left so it never overlaps page FABs (right side) --- */
+@media (max-width: 768px) {
+    .va-fab {
+        right: auto;
+        left: 1.25rem;
+        bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+        width: 3.25rem;
+        height: 3.25rem;
+    }
+
+    .va-panel {
+        right: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+        bottom: calc(9.25rem + env(safe-area-inset-bottom, 0px));
+        height: min(520px, calc(100dvh - 12rem - env(safe-area-inset-bottom, 0px)));
+        transform-origin: bottom left;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .va-panel,
+    .va-msg,
+    .va-orb--thinking,
+    .va-spin {
+        animation: none;
+    }
+}
