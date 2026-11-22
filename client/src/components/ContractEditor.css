@@ -762,6 +762,8 @@
     background: #F0FDF4;
     color: #166534;
     border: 1px solid #BBF7D0;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .contract-accordion-chevron {

@@ -371,7 +371,7 @@ const Contracts = () => {
             startDate: new Date().toISOString().split('T')[0],
             notes: '',
             devicePin: '',
-            freeDaysLimit: defaults.freeDaysLimit || 4,
+            freeDaysLimit: defaults.freeDaysLimit ?? 4,
             freeDayPolicy: defaults.freeDayPolicy || 'FLEXIBLE',
             fixedFreeDayOfWeek: defaults.fixedFreeDayOfWeek ?? 0,
             paymentFrequency: defaults.paymentFrequency || 1,
@@ -440,6 +440,7 @@ const Contracts = () => {
             if (cMatch && cMatch[1]) vInfo.numeroChasis = cMatch[1].toUpperCase();
         }
 
+        const defaults = companySettings?.contractDefaults || {};
         setFormData({
             deviceId: contract.deviceId,
             customerName: contract.customerName || '',
@@ -461,10 +462,10 @@ const Contracts = () => {
             startDate: toDateInputValue(contract.startDate),
             notes: contract.notes || '',
             devicePin: contract.plainPin || ((contract.customerPhone || '').replace(/\D/g, '').slice(-4)) || ((contract.customerDocument || '').replace(/\D/g, '').slice(-4)) || '1234',
-            freeDaysLimit: contract.freeDaysLimit || 4,
-            freeDayPolicy: contract.freeDayPolicy || 'FLEXIBLE',
-            fixedFreeDayOfWeek: contract.fixedFreeDayOfWeek ?? 0,
-            paymentFrequency: contract.paymentFrequency || 1,
+            freeDaysLimit: contract.freeDaysLimit ?? defaults.freeDaysLimit ?? 4,
+            freeDayPolicy: contract.freeDayPolicy || defaults.freeDayPolicy || 'FLEXIBLE',
+            fixedFreeDayOfWeek: contract.fixedFreeDayOfWeek ?? defaults.fixedFreeDayOfWeek ?? 0,
+            paymentFrequency: contract.paymentFrequency || defaults.paymentFrequency || 1,
             initialFee: contract.financialBreakdown?.initialFee || contract.initialFee || 0,
             exemptFromCutOff: contract.exemptFromCutOff || false,
             exemptFromCurfew: contract.exemptFromCurfew || false,

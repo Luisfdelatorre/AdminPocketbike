@@ -851,9 +851,9 @@
 
 /* List Item Rows */
 .wa-profile-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(130px, 60%) minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     padding: 0.625rem 0.75rem;
     border-bottom: 1px solid #E2E8F0;
     gap: 0.75rem;
@@ -873,16 +873,17 @@
     font-weight: 600;
     color: #1E293B;
     white-space: nowrap;
-    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .wa-profile-value-wrap {
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    flex: 1;
-    justify-content: flex-end;
+    justify-content: flex-start;
     min-width: 0;
+    width: 100%;
 }
 
 .wa-profile-chevron {
@@ -902,16 +903,57 @@
 .wa-profile-input {
     border: none !important;
     background: transparent !important;
+    background-image: none !important;
     font-size: 0.875rem !important;
     font-weight: 500 !important;
     color: #475569 !important;
-    text-align: right !important;
+    text-align: left !important;
+    text-align-last: left !important;
     padding: 0 !important;
     height: auto !important;
     cursor: pointer;
+    width: 100%;
     max-width: 100%;
     outline: none !important;
     box-shadow: none !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.wa-profile-summary-block {
+    border-top: 1px solid #E2E8F0;
+    background: #F8FAFC;
+}
+
+.wa-profile-summary-row {
+    display: grid;
+    grid-template-columns: minmax(130px, 60%) minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.8125rem;
+    color: #64748B;
+    font-weight: 500;
+}
+
+.wa-profile-summary-row+.wa-profile-summary-row {
+    border-top: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+.wa-profile-summary-row--highlight {
+    color: #2563EB;
+    font-weight: 600;
+}
+
+.wa-profile-summary-val {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #334155;
+    text-align: left;
+}
+
+.wa-profile-summary-row--highlight .wa-profile-summary-val {
+    color: #2563EB;
+    font-weight: 700;
 }
 
 .wa-profile-select:focus,
@@ -981,6 +1023,7 @@
 
 /* Sub-toggle Row */
 .wa-profile-row--sub {
+    display: block;
     padding: 0;
 }
 

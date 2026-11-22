@@ -273,7 +273,6 @@ const ContractDocPreviewModal = ({ contract, isOpen, onClose }) => {
                                 <div className="contract-header-status-line">
                                     <h1 className="contract-header-title">Contrato Digital</h1>
                                     <span className="contract-status-badge">
-                                        <span className="contract-status-dot"></span>
                                         {contract.status === 'COMPLETED' ? 'Completado' : 'Activo'}
                                     </span>
                                 </div>

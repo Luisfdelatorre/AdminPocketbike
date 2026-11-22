@@ -597,7 +597,7 @@ const ContractEditor = ({
                             <ArrowLeft size={18} />
                         </button>
                         <div className="contract-editor-header-title">
-                            <span className="contract-status-dot" />
+
                             <h2>{editingContract ? t('contracts.modal.editTitle') : t('contracts.modal.addTitle')}</h2>
                         </div>
                     </div>
@@ -616,7 +616,7 @@ const ContractEditor = ({
                             </span>
                             <span className="contract-header-device-label font-mono font-bold">
                                 {(() => {
-                                    if (!formData.deviceId) return 'Seleccionar Moto';
+                                    if (!formData.deviceId) return 'Seleccionar';
                                     const dev = availableDevices.find(d => String(d.deviceId) === String(formData.deviceId));
                                     return dev?.name || dev?.deviceName || `ID: ${formData.deviceId}`;
                                 })()}
@@ -692,7 +692,7 @@ const ContractEditor = ({
                             >
                                 <div className="btn-ocr-left">
                                     <div className="btn-ocr-text-group">
-                                        <span className="btn-ocr-label">{tp?.placa ? `Tarjeta: ${tp.placa}` : 'Tarjeta Propiedad'}</span>
+                                        <span className="btn-ocr-label">{tp?.placa ? `Tarjeta: ${tp.placa}` : 'Tarjeta'}</span>
                                         <span className="btn-ocr-subtext">✓</span>
                                     </div>
                                 </div>
@@ -708,17 +708,6 @@ const ContractEditor = ({
                                     >
                                         <RefreshCw size={12} />
                                     </button>
-                                    <button
-                                        type="button"
-                                        className="btn-ocr-mini-action btn-ocr-mini-action--danger"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveAttachment('tarjeta_propiedad');
-                                        }}
-                                        title="Quitar documento"
-                                    >
-                                        <X size={12} />
-                                    </button>
                                 </div>
                             </div>
                         ) : (
@@ -730,7 +719,7 @@ const ContractEditor = ({
                                 title="Tomar foto o subir Tarjeta de Propiedad"
                             >
                                 <span className="btn-ocr-icon btn-ocr-icon--teal"><Camera size={16} /></span>
-                                <span className="btn-ocr-label">Tarjeta Propiedad</span>
+                                <span className="btn-ocr-label">Tarjeta</span>
                             </button>
                         )}
 
@@ -745,7 +734,7 @@ const ContractEditor = ({
                             >
                                 <div className="btn-ocr-left">
                                     <div className="btn-ocr-text-group">
-                                        <span className="btn-ocr-label">{cd?.documentNumber ? `Cédula: ${cd.documentNumber}` : 'Cédula / PPT'}</span>
+                                        <span className="btn-ocr-label">{cd?.documentNumber ? `Cédula: ${cd.documentNumber}` : 'Documento'}</span>
                                         <span className="btn-ocr-subtext">✓</span>
                                     </div>
                                 </div>
@@ -761,17 +750,6 @@ const ContractEditor = ({
                                     >
                                         <RefreshCw size={12} />
                                     </button>
-                                    <button
-                                        type="button"
-                                        className="btn-ocr-mini-action btn-ocr-mini-action--danger"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveAttachment('cedula');
-                                        }}
-                                        title="Quitar documento"
-                                    >
-                                        <X size={12} />
-                                    </button>
                                 </div>
                             </div>
                         ) : (
@@ -783,7 +761,7 @@ const ContractEditor = ({
                                 title="Tomar foto o subir Cédula / PPT"
                             >
                                 <span className="btn-ocr-icon btn-ocr-icon--indigo"><Camera size={16} /></span>
-                                <span className="btn-ocr-label">Cédula / PPT</span>
+                                <span className="btn-ocr-label">Documento</span>
                             </button>
                         )}
 
@@ -798,7 +776,7 @@ const ContractEditor = ({
                             >
                                 <div className="btn-ocr-left">
                                     <div className="btn-ocr-text-group">
-                                        <span className="btn-ocr-label">{st?.numeroPoliza ? `SOAT: ${st.numeroPoliza}` : 'Póliza SOAT'}</span>
+                                        <span className="btn-ocr-label">{st?.numeroPoliza ? `SOAT: ${st.numeroPoliza}` : 'SOAT'}</span>
                                         <span className="btn-ocr-subtext">✓</span>
                                     </div>
                                 </div>
@@ -814,17 +792,6 @@ const ContractEditor = ({
                                     >
                                         <RefreshCw size={12} />
                                     </button>
-                                    <button
-                                        type="button"
-                                        className="btn-ocr-mini-action btn-ocr-mini-action--danger"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveAttachment('soat');
-                                        }}
-                                        title="Quitar documento"
-                                    >
-                                        <X size={12} />
-                                    </button>
                                 </div>
                             </div>
                         ) : (
@@ -836,7 +803,7 @@ const ContractEditor = ({
                                 title="Subir SOAT (PDF o foto)"
                             >
                                 <span className="btn-ocr-icon btn-ocr-icon--amber"><FileUp size={16} /></span>
-                                <span className="btn-ocr-label">SOAT (PDF / Foto)</span>
+                                <span className="btn-ocr-label">SOAT</span>
                             </button>
                         )}
                     </div>
@@ -1081,22 +1048,22 @@ const ContractEditor = ({
 
                                         {/* Resumen Financiero Dinámico */}
                                         {contractFinancials?.isValid && (
-                                            <div className="p-3 bg-slate-50 border-t border-slate-100 flex flex-col gap-1.5 text-xs">
-                                                <div className="flex justify-between text-slate-500 font-medium">
-                                                    <span>Precio Base Moto:</span>
-                                                    <span className="font-mono text-slate-700 font-bold">
+                                            <div className="wa-profile-summary-block">
+                                                <div className="wa-profile-summary-row">
+                                                    <span>Precio Base Moto</span>
+                                                    <span className="wa-profile-summary-val">
                                                         {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.precioAntesIVA || 0)}
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between text-slate-500 font-medium">
-                                                    <span>Gastos Fijos Total:</span>
-                                                    <span className="font-mono text-slate-700">
+                                                <div className="wa-profile-summary-row">
+                                                    <span>Gastos Fijos Total</span>
+                                                    <span className="wa-profile-summary-val">
                                                         {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.gastos || 0)}
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between text-indigo-600 font-semibold border-t border-slate-200/60 pt-1">
-                                                    <span>Valor a Financiar:</span>
-                                                    <span className="font-mono font-bold">
+                                                <div className="wa-profile-summary-row wa-profile-summary-row--highlight">
+                                                    <span>Valor a Financiar</span>
+                                                    <span className="wa-profile-summary-val">
                                                         {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(contractFinancials.data.saldoFinanciable || 0)}
                                                     </span>
                                                 </div>
@@ -1414,7 +1381,7 @@ const ContractEditor = ({
                                         <div className="contract-accordion-titles">
                                             <span className="contract-accordion-title">PARÁMETROS AVANZADOS</span>
                                             <span className="contract-accordion-subtitle">
-                                                PIN {formData.devicePin || '—'} • {formData.freeDaysLimit || 0} días libres • {formData.exemptFromCutOff ? 'Exento corte' : 'Corte activo'}
+                                                PIN {formData.devicePin || '—'} • {(formData.freeDayPolicy || companySettings?.contractDefaults?.freeDayPolicy || 'FLEXIBLE') === 'FIXED_WEEKDAY' ? 'Día fijo semanal' : `${formData.freeDaysLimit ?? companySettings?.contractDefaults?.freeDaysLimit ?? 0} días libres/mes`} • {formData.exemptFromCutOff ? 'Exento corte' : 'Corte activo'}
                                             </span>
                                         </div>
                                     </div>
@@ -1439,20 +1406,56 @@ const ContractEditor = ({
                                             </div>
                                         </div>
 
-                                        {/* Límite de Días Libres */}
+                                        {/* Política de Día Libre */}
                                         <div className="wa-profile-row">
-                                            <span className="wa-profile-label">Días libres permitidos</span>
+                                            <span className="wa-profile-label">Política día libre</span>
                                             <div className="wa-profile-value-wrap">
-                                                <input
-                                                    type="number"
-                                                    className="wa-profile-input font-mono"
-                                                    value={formData.freeDaysLimit}
-                                                    onChange={(e) => setFormData({ ...formData, freeDaysLimit: parseInt(e.target.value) || 0 })}
-                                                    min="0"
-                                                    max="30"
-                                                />
+                                                <select
+                                                    className="wa-profile-select"
+                                                    value={formData.freeDayPolicy || companySettings?.contractDefaults?.freeDayPolicy || 'FLEXIBLE'}
+                                                    onChange={(e) => setFormData({ ...formData, freeDayPolicy: e.target.value })}
+                                                >
+                                                    <option value="FLEXIBLE">{t('settings.general.policyFlexible') || 'Flexible (días por mes)'}</option>
+                                                    <option value="FIXED_WEEKDAY">{t('settings.general.policyFixed') || 'Día fijo semanal'}</option>
+                                                </select>
                                             </div>
                                         </div>
+
+                                        {/* Límite de Días Libres o Día Libre Fijo */}
+                                        {(formData.freeDayPolicy || companySettings?.contractDefaults?.freeDayPolicy || 'FLEXIBLE') !== 'FIXED_WEEKDAY' ? (
+                                            <div className="wa-profile-row">
+                                                <span className="wa-profile-label">Días libres/mes</span>
+                                                <div className="wa-profile-value-wrap">
+                                                    <input
+                                                        type="number"
+                                                        className="wa-profile-input font-mono"
+                                                        value={formData.freeDaysLimit ?? companySettings?.contractDefaults?.freeDaysLimit ?? 0}
+                                                        onChange={(e) => setFormData({ ...formData, freeDaysLimit: parseInt(e.target.value) || 0 })}
+                                                        min="0"
+                                                        max="31"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="wa-profile-row">
+                                                <span className="wa-profile-label">Día libre fijo</span>
+                                                <div className="wa-profile-value-wrap">
+                                                    <select
+                                                        className="wa-profile-select"
+                                                        value={formData.fixedFreeDayOfWeek ?? companySettings?.contractDefaults?.fixedFreeDayOfWeek ?? 0}
+                                                        onChange={(e) => setFormData({ ...formData, fixedFreeDayOfWeek: parseInt(e.target.value) })}
+                                                    >
+                                                        <option value={0}>{t('settings.general.days.sun') || 'Domingo'}</option>
+                                                        <option value={1}>{t('settings.general.days.mon') || 'Lunes'}</option>
+                                                        <option value={2}>{t('settings.general.days.tue') || 'Martes'}</option>
+                                                        <option value={3}>{t('settings.general.days.wed') || 'Miércoles'}</option>
+                                                        <option value={4}>{t('settings.general.days.thu') || 'Jueves'}</option>
+                                                        <option value={5}>{t('settings.general.days.fri') || 'Viernes'}</option>
+                                                        <option value={6}>{t('settings.general.days.sat') || 'Sábado'}</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Hora de Corte Automático */}
                                         <div className="wa-profile-row">
@@ -1637,8 +1640,7 @@ const ContractEditor = ({
                                 <ArrowLeft size={20} />
                             </button>
                             <div className="wa-picker-header-title">
-                                <h3>Datos de Tarjeta & SOAT</h3>
-                                <small>Información técnica del vehículo, tomador y póliza</small>
+                                <h3>Tarjeta/SOAT</h3>
                             </div>
                         </div>
 
@@ -1773,7 +1775,7 @@ const ContractEditor = ({
                             {/* BLOQUE 2: PROPIETARIO REGISTRADO */}
                             <div className="wa-profile-card">
                                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 font-bold text-xs text-slate-500 uppercase tracking-wider">
-                                    Propietario / Tomador (Tarjeta de Propiedad)
+                                    Tarjeta de Propiedad
                                 </div>
                                 <div className="wa-profile-row">
                                     <span className="wa-profile-label">Nombre Propietario</span>
