@@ -2,6 +2,9 @@ import axios from 'axios';
 import deviceRepository from '../repositories/deviceRepository.js';
 import invoiceRepository from '../repositories/invoiceRepository.js';
 import { Device } from '../models/Device.js';
+import { Contract } from '../models/Contract.js';
+import { Invoice } from '../models/Invoice.js';
+import { DeviceState } from '../entities/deviceEntities.js';
 import companyRepository from '../repositories/companyRepository.js';
 import { Company } from '../models/Company.js';
 import { Transaction, PAYMENTMESSAGES as PM, GPS_SERVICES, GPS_THROTTLE } from '../config/config.js';
@@ -322,7 +325,7 @@ const syncFromGps = async (companyId) => {
     const adapter = await companyService.getGpsAdapterByCompany(companyId || null);
     const devices = await adapter.fetchDevices();
     if (!devices || devices.length === 0) {
-        return { created: 0, updated: 0, errors: 0 };
+        return { created: 0, updated: 0, contractsUpdated: 0, invoicesUpdated: 0, errors: 0 };
     }
     // Stamp company info onto filtered device records
     const gpsDevices = devices.map(d => ({
@@ -331,7 +334,98 @@ const syncFromGps = async (companyId) => {
         companyId: company._id.toString(),
         companyName: company.name
     }));
-    return bulkWriteDevices(gpsDevices);
+
+    const result = await bulkWriteDevices(gpsDevices);
+
+    // 1. Propagate updated gpsId to active Contracts & unpaid Invoices in batch
+    let contractsUpdated = 0;
+    let invoicesUpdated = 0;
+    const gpsByPlate = new Map();
+    for (const d of gpsDevices) {
+        if (d.name && d.gpsId != null && String(d.gpsId).trim() !== '') {
+            gpsByPlate.set(d.name, d.gpsId);
+        }
+    }
+
+    if (gpsByPlate.size > 0) {
+        const plates = Array.from(gpsByPlate.keys());
+        const contractQuery = {
+            status: 'ACTIVE',
+            deviceIdName: { $in: plates },
+            ...(company?._id ? { companyId: company._id } : {})
+        };
+        const activeContracts = await Contract.find(contractQuery, { _id: 1, deviceIdName: 1, gpsId: 1 }).lean();
+
+        const contractOps = [];
+        const invoiceOps = [];
+        for (const c of activeContracts) {
+            const newGpsId = gpsByPlate.get(c.deviceIdName);
+            if (newGpsId != null && String(c.gpsId ?? '') !== String(newGpsId)) {
+                contractOps.push({
+                    updateOne: {
+                        filter: { _id: c._id },
+                        update: { $set: { gpsId: newGpsId } }
+                    }
+                });
+                invoiceOps.push({
+                    updateMany: {
+                        filter: {
+                            deviceIdName: c.deviceIdName,
+                            paid: false,
+                            gpsId: { $ne: String(newGpsId) }
+                        },
+                        update: { $set: { gpsId: String(newGpsId) } }
+                    }
+                });
+            }
+        }
+
+        if (contractOps.length > 0) {
+            const cRes = await Contract.bulkWrite(contractOps);
+            contractsUpdated = cRes.modifiedCount || 0;
+        }
+        if (invoiceOps.length > 0) {
+            const iRes = await Invoice.bulkWrite(invoiceOps);
+            invoicesUpdated = iRes.modifiedCount || 0;
+        }
+        if (contractsUpdated > 0 || invoicesUpdated > 0) {
+            logger.info(`[GPS SYNC] Propagated gpsId changes: ${contractsUpdated} active contracts, ${invoicesUpdated} unpaid invoices updated`);
+        }
+
+        // 2. Refresh in-memory deviceStateCache so live WebSocket telemetry works immediately without restart
+        const refreshedDevices = await Device.find(
+            { name: { $in: plates }, ...(company?._id ? { companyId: company._id } : {}) },
+            '_id name gpsId imei companyId telemetry'
+        ).lean();
+
+        const refreshedById = new Map(refreshedDevices.map(d => [String(d._id), d]));
+        // Remove stale gpsId keys for any device whose gpsId changed
+        for (const [key, mem] of deviceStateCache.entries()) {
+            const latest = refreshedById.get(String(mem?._id));
+            if (latest && String(latest.gpsId) !== String(mem?.gpsId)) {
+                deviceStateCache.delete(key);
+            }
+        }
+        // Index current gpsId keys (preserving live telemetry if gpsId did not change)
+        for (const d of refreshedDevices) {
+            if (d.gpsId == null) continue;
+            const existing = getDeviceState(d.gpsId);
+            if (!existing || String(existing._id) !== String(d._id)) {
+                const state = new DeviceState(d);
+                deviceStateCache.set(d.gpsId, state);
+                deviceStateCache.set(String(d.gpsId), state);
+                if (!isNaN(Number(d.gpsId))) {
+                    deviceStateCache.set(Number(d.gpsId), state);
+                }
+            }
+        }
+    }
+
+    return {
+        ...result,
+        contractsUpdated,
+        invoicesUpdated
+    };
 };
 
 /**

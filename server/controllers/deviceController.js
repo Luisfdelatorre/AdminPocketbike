@@ -200,7 +200,7 @@ const syncDevices = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Sync complete. Devices: ${stats.created} new, ${stats.updated} updated. PINs: ${stats.pinUpdates ?? 0} synced.`,
+            message: `Sync complete. Devices: ${stats.created} new, ${stats.updated} updated. Contracts: ${stats.contractsUpdated ?? 0} synced. Unpaid invoices: ${stats.invoicesUpdated ?? 0} synced.`,
             stats
         });
     } catch (error) {
