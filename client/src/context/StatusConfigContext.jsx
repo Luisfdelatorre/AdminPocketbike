@@ -165,6 +165,7 @@ export const DEFAULT_STATUS_CONFIG = {
 
 const StatusConfigContext = createContext({
     statusConfig: DEFAULT_STATUS_CONFIG,
+    adjustmentTypes: null,
     loading: false,
     refreshStatusConfig: async () => { },
     updateLocalStatus: () => { },
@@ -173,6 +174,7 @@ const StatusConfigContext = createContext({
 
 export const StatusConfigProvider = ({ children }) => {
     const [statusConfig, setStatusConfig] = useState(DEFAULT_STATUS_CONFIG);
+    const [adjustmentTypes, setAdjustmentTypes] = useState(null);
     const [loading, setLoading] = useState(false);
 
     const loadStatuses = useCallback(async () => {
@@ -192,9 +194,13 @@ export const StatusConfigProvider = ({ children }) => {
             }
 
             if (adjRes?.data && typeof adjRes.data === 'object') {
+                const adjOnly = {};
                 Object.entries(adjRes.data).forEach(([key, val]) => {
-                    merged[key] = { ...(merged[key] || {}), ...val, category: 'ADJUSTMENT' };
+                    const entry = { ...(merged[key] || {}), ...val, category: 'ADJUSTMENT' };
+                    merged[key] = entry;
+                    adjOnly[key] = entry;
                 });
+                setAdjustmentTypes(adjOnly);
             }
 
             setStatusConfig(merged);
@@ -215,6 +221,16 @@ export const StatusConfigProvider = ({ children }) => {
             ...prev,
             [key]: { ...(prev[key] || {}), ...updatedItem }
         }));
+        setAdjustmentTypes(prev => {
+            if (!prev) return prev;
+            if (prev[key] || updatedItem?.category === 'ADJUSTMENT') {
+                return {
+                    ...prev,
+                    [key]: { ...(prev[key] || {}), ...updatedItem, category: 'ADJUSTMENT' }
+                };
+            }
+            return prev;
+        });
     }, []);
 
     // Helper O(1) de resolución de estilo
@@ -246,6 +262,7 @@ export const StatusConfigProvider = ({ children }) => {
         <StatusConfigContext.Provider
             value={{
                 statusConfig,
+                adjustmentTypes,
                 loading,
                 refreshStatusConfig: loadStatuses,
                 updateLocalStatus,

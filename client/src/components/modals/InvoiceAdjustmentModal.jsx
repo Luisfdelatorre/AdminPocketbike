@@ -95,11 +95,24 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
     const { t } = useTranslation();
     useAdminScrollLock(isOpen);
 
-    const { statusConfig } = useStatusConfig();
-    const ADJUSTMENT_CONFIG = useMemo(
-        () => ({ ...DEFAULT_ADJUSTMENT_CONFIG, ...(statusConfig || {}) }),
-        [statusConfig]
-    );
+    const { statusConfig, adjustmentTypes } = useStatusConfig();
+    const ADJUSTMENT_CONFIG = useMemo(() => {
+        const freeCfg = {
+            ...DEFAULT_ADJUSTMENT_CONFIG.FREE,
+            ...(statusConfig?.FREE || {}),
+            hidden: false,
+        };
+        if (adjustmentTypes && Object.keys(adjustmentTypes).length > 0) {
+            return {
+                FREE: freeCfg,
+                ...adjustmentTypes,
+            };
+        }
+        return {
+            ...DEFAULT_ADJUSTMENT_CONFIG,
+            FREE: freeCfg,
+        };
+    }, [statusConfig, adjustmentTypes]);
 
     const [manualPayForm, setManualPayForm] = useState({
         amount: '',
@@ -141,7 +154,7 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
     useEffect(() => {
         if (!isOpen || !invoice) return;
 
-        const isAllowedOption = (k, c) => !c?.hidden && (c?.category !== 'STATUS' || k === 'FREE');
+        const isAllowedOption = (k, c) => !c?.hidden && (k === 'FREE' || c?.category === 'ADJUSTMENT' || !c?.category);
         const availableKeys = Object.keys(ADJUSTMENT_CONFIG).filter(k => isAllowedOption(k, ADJUSTMENT_CONFIG[k]));
         const reason = (invoice.adjustmentType && ADJUSTMENT_CONFIG[invoice.adjustmentType])
             ? invoice.adjustmentType
@@ -255,7 +268,7 @@ const InvoiceAdjustmentModal = ({ isOpen, onClose, invoice, onSuccess }) => {
                             style={{ width: '100%', color: '#1a1a2e', background: '#fff', padding: '8px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px' }}
                         >
                             {Object.entries(ADJUSTMENT_CONFIG)
-                                .filter(([key, cfg]) => !cfg?.hidden && (cfg?.category !== 'STATUS' || key === 'FREE'))
+                                .filter(([key, cfg]) => !cfg?.hidden && (key === 'FREE' || cfg?.category === 'ADJUSTMENT' || !cfg?.category))
                                 .map(([key, cfg]) => (
                                     <option key={key} value={key} style={{ color: cfg.color, background: cfg.bg, fontWeight: 600 }}>{cfg.label}</option>
                                 ))
