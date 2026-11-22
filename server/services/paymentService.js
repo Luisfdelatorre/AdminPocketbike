@@ -639,8 +639,13 @@ export class PaymentService {
                     logger.info(`[DEVICE] Activation skipped - curfew active (${curfew.startTime}–${curfew.endTime}) for device: ${payment.megaDeviceId}`);
                     notifyStateChange(onUpdate, PS.S_COMPLETED, `Pago registrado ✅. El dispositivo se activará al finalizar el toque de queda (${curfew.endTime}).`, reference);
                 } else {
-                    console.log(`[TRACE-1] processApprovedPayment → activateDevice | megaDeviceId=${payment.megaDeviceId} companyId=${payment.companyId}`);
-                    await this.activateDevice(payment.gpsId, reference, onUpdate, payment.companyId);
+                    let targetGpsId = payment.gpsId;
+                    if (!targetGpsId && payment.deviceIdName) {
+                        const device = await deviceRepository.getDeviceByName(payment.deviceIdName);
+                        targetGpsId = device?.gpsId ?? null;
+                    }
+                    console.log(`[TRACE-1] processApprovedPayment → activateDevice | gpsId=${targetGpsId} megaDeviceId=${payment.megaDeviceId} companyId=${payment.companyId}`);
+                    await this.activateDevice(targetGpsId, reference, onUpdate, payment.companyId);
                 }
             } else {
                 const strategy = company?.cutOffStrategy || 1;
@@ -671,6 +676,10 @@ export class PaymentService {
         }
     }
     async activateDevice(gpsId, reference, onUpdate, companyId) {
+        if (gpsId === null || gpsId === undefined || String(gpsId).trim() === '' || String(gpsId) === 'null') {
+            logger.warn(`[DEVICE] Activation skipped - missing gpsId (reference: ${reference || 'N/A'}, companyId: ${companyId || 'N/A'})`);
+            return { success: false, confirmed: false, reason: 'Missing gpsId' };
+        }
         if (onUpdate) onUpdate({ status: 'DEVICE_ACTIVATING', message: 'Activando dispositivo...' });
         const startTime = Date.now();
         try {

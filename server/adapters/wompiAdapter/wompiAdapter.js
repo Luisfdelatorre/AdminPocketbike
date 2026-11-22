@@ -52,7 +52,7 @@ class WompiAdapter {
       deviceIdName: unpaidInvoice.deviceIdName,
       unpaidInvoiceId: unpaidInvoice._id,
       deviceId: unpaidInvoice.deviceId,
-      gpsId: unpaidInvoice.gpsId,
+      gpsId: unpaidInvoice.gpsId ?? contract?.gpsId ?? null,
       invoiceDate: unpaidInvoice.date,
       companyId: contract.companyId || unpaidInvoice.companyId,
       paymentFrequency: contract.paymentFrequency,

@@ -45,7 +45,10 @@ const InvoiceSchema = new mongoose.Schema(
         adjustmentReference: { type: String, default: '' }, // Admin reference / note for the adjustment
         adjustmentComment: { type: String, default: '' }, // Free-text explanation for the adjustment
     },
-    { collection: 'invoices' }
+    {
+        collection: 'invoices',
+        timestamps: true
+    }
 );
 
 // Indexes
@@ -179,10 +182,30 @@ InvoiceSchema.statics.bulkCreateInvoicesForContracts = async function (contracts
     const dateObj = dayjs(date).startOf('day').toDate();
     const toInsert = [];
 
+    // Batch-resolve missing gpsId from Device so invoices never get gpsId: null when Contract lacks it
+    const missingGpsNames = [
+        ...new Set(
+            contracts
+                .filter(c => c.deviceIdName && c.dailyRate > 0 && !c.gpsId)
+                .map(c => c.deviceIdName)
+        )
+    ];
+    const deviceGpsMap = new Map();
+    if (missingGpsNames.length > 0) {
+        const devices = await mongoose.model('Device').find(
+            { name: { $in: missingGpsNames } },
+            { name: 1, gpsId: 1 }
+        ).lean();
+        for (const d of devices) {
+            if (d.gpsId != null) deviceGpsMap.set(d.name, String(d.gpsId));
+        }
+    }
+
     for (const contract of contracts) {
         const devName = contract.deviceIdName;
         if (!devName || contract.dailyRate <= 0) continue;
         const invoiceId = this.buildId(devName, dateObj);
+        const resolvedGpsId = contract.gpsId != null ? String(contract.gpsId) : (deviceGpsMap.get(devName) || null);
 
         toInsert.push({
             _id: invoiceId,
@@ -192,7 +215,7 @@ InvoiceSchema.statics.bulkCreateInvoicesForContracts = async function (contracts
             paidAmount: 0,
             deviceIdName: contract.deviceIdName,
             deviceId: contract.deviceId,
-            gpsId: contract.gpsId || null,
+            gpsId: resolvedGpsId,
             companyId: contract.companyId || null,
             contractId: contract.contractId || null,
             paid: false,

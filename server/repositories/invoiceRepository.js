@@ -127,10 +127,15 @@ export class InvoiceRepository {
     }
 
     async findOrCreateInvoiceByName(contract, date) {
-        const { deviceIdName, deviceId, dailyRate: amount, companyId, gpsId = null, contractId = null } = contract;
+        const { deviceIdName, deviceId, dailyRate: amount, companyId, contractId = null } = contract;
+        let gpsId = contract.gpsId ?? null;
         try {
             let invoice = await Invoice.findByDate(deviceIdName, date);
             if (!invoice) {
+                if (!gpsId && deviceIdName) {
+                    const device = await Device.findOne({ name: deviceIdName }, { gpsId: 1 }).lean();
+                    if (device?.gpsId != null) gpsId = String(device.gpsId);
+                }
                 invoice = await Invoice.createInvoice({
                     deviceIdName,
                     amount,
