@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, X, Send, RotateCcw, Loader2 } from 'lucide-react';
-import { useVoiceAssistant, ASSISTANT_STATUS } from '../../context/VoiceAssistantContext';
+import { Sparkles, X, Send, RotateCcw, Loader2, Volume2, VolumeX, Square } from 'lucide-react';
+import { useVoiceAssistant, ASSISTANT_STATUS, STATUS_LABELS } from '../../context/VoiceAssistantContext';
 import { getCapability, SUGGESTED_CAPABILITY_IDS } from '../../services/voiceAssistant/capabilities';
 import './VoiceAssistantPanel.css';
 
@@ -40,11 +40,17 @@ const AssistantData = ({ data }) => {
 };
 
 const VoiceAssistantPanel = () => {
-    const { isOpen, toggle, close, status, messages, submitText, clearConversation } = useVoiceAssistant();
+    const {
+        isOpen, toggle, close,
+        status, messages, submitText, clearConversation,
+        ttsSupported, ttsEnabled, toggleTts, stopAudio,
+    } = useVoiceAssistant();
     const [draft, setDraft] = useState('');
     const listRef = useRef(null);
     const inputRef = useRef(null);
     const isThinking = status === ASSISTANT_STATUS.THINKING;
+    const isSpeaking = status === ASSISTANT_STATUS.SPEAKING;
+    const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[ASSISTANT_STATUS.IDLE];
 
     useEffect(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
@@ -71,7 +77,7 @@ const VoiceAssistantPanel = () => {
         <>
             <button
                 type="button"
-                className={`va-fab ${isOpen ? 'is-open' : ''}`}
+                className={`va-fab va-fab--${status} ${isOpen ? 'is-open' : ''}`}
                 onClick={toggle}
                 aria-label={isOpen ? 'Cerrar asistente' : 'Abrir asistente'}
                 aria-expanded={isOpen}
@@ -80,17 +86,43 @@ const VoiceAssistantPanel = () => {
             </button>
 
             {isOpen && (
-                <section className="va-panel" role="dialog" aria-label="Asistente de voz">
+                <section className={`va-panel va-panel--${status}`} role="dialog" aria-label="Asistente de voz">
                     <header className="va-header">
                         <div className="va-header-title">
                             <span className={`va-orb va-orb--${status}`} aria-hidden="true" />
                             <div>
-                                <h2>Asistente</h2>
+                                <div className="va-title-row">
+                                    <h2>Asistente</h2>
+                                    <span className={`va-status-pill va-status-pill--${status}`}>{statusLabel}</span>
+                                </div>
                                 <span className="va-demo-badge">Demo · datos de ejemplo</span>
                             </div>
                         </div>
                         <div className="va-header-actions">
-                            <button type="button" className="va-icon-btn" onClick={clearConversation} aria-label="Reiniciar conversación">
+                            {isSpeaking && (
+                                <button
+                                    type="button"
+                                    className="va-icon-btn is-speaking"
+                                    onClick={stopAudio}
+                                    aria-label="Detener voz"
+                                    title="Detener voz"
+                                >
+                                    <Square size={14} />
+                                </button>
+                            )}
+                            {ttsSupported && (
+                                <button
+                                    type="button"
+                                    className={`va-icon-btn ${ttsEnabled ? 'is-active' : ''}`}
+                                    onClick={toggleTts}
+                                    aria-label={ttsEnabled ? 'Silenciar respuestas por voz' : 'Activar respuestas por voz'}
+                                    aria-pressed={ttsEnabled}
+                                    title={ttsEnabled ? 'Voz activada' : 'Voz silenciada'}
+                                >
+                                    {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                                </button>
+                            )}
+                            <button type="button" className="va-icon-btn" onClick={clearConversation} aria-label="Reiniciar conversación" title="Reiniciar conversación">
                                 <RotateCcw size={16} />
                             </button>
                             <button type="button" className="va-icon-btn" onClick={close} aria-label="Cerrar">
@@ -104,6 +136,9 @@ const VoiceAssistantPanel = () => {
                             <div key={message.id} className={`va-msg va-msg--${message.role} ${message.error ? 'is-error' : ''}`}>
                                 <p>{message.text}</p>
                                 {message.role === 'assistant' && <AssistantData data={message.data} />}
+                                {message.role === 'assistant' && message.source === 'local' && (
+                                    <span className="va-msg-meta">Resuelto localmente</span>
+                                )}
                             </div>
                         ))}
                         {isThinking && (

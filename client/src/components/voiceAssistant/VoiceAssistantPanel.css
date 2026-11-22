@@ -84,6 +84,44 @@
     color: #0F172A;
 }
 
+.va-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.va-status-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 9999px;
+    color: #475569;
+    background: rgba(148, 163, 184, 0.16);
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.va-status-pill--listening {
+    color: #0369A1;
+    background: rgba(14, 165, 233, 0.16);
+}
+
+.va-status-pill--thinking {
+    color: #B45309;
+    background: rgba(245, 158, 11, 0.16);
+}
+
+.va-status-pill--speaking {
+    color: var(--brand-teal-dark);
+    background: rgba(var(--brand-teal-rgb), 0.18);
+}
+
+.va-status-pill--error {
+    color: #B91C1C;
+    background: rgba(239, 68, 68, 0.15);
+}
+
 .va-demo-badge {
     display: inline-block;
     margin-top: 2px;
@@ -119,6 +157,16 @@
     color: #0F172A;
 }
 
+.va-icon-btn.is-active {
+    color: var(--brand-teal-dark);
+    background: rgba(var(--brand-teal-rgb), 0.14);
+}
+
+.va-icon-btn.is-speaking {
+    color: #DC2626;
+    background: rgba(239, 68, 68, 0.12);
+}
+
 /* --- Status orb --- */
 .va-orb {
     width: 0.875rem;
@@ -129,8 +177,22 @@
     transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
+.va-orb--listening {
+    background: #0EA5E9;
+    box-shadow: 0 0 0 5px rgba(14, 165, 233, 0.24);
+    animation: va-pulse 1s ease-in-out infinite;
+}
+
 .va-orb--thinking {
+    background: #F59E0B;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
     animation: va-pulse 1.1s ease-in-out infinite;
+}
+
+.va-orb--speaking {
+    background: var(--brand-teal);
+    box-shadow: 0 0 0 6px rgba(var(--brand-teal-rgb), 0.25);
+    animation: va-speaking-wave 0.9s ease-in-out infinite;
 }
 
 .va-orb--error {
@@ -141,6 +203,11 @@
 @keyframes va-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(0.75); opacity: 0.6; }
+}
+
+@keyframes va-speaking-wave {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb), 0.2); }
+    50% { transform: scale(1.14); box-shadow: 0 0 0 7px rgba(var(--brand-teal-rgb), 0.32); }
 }
 
 /* --- Messages --- */
@@ -165,6 +232,14 @@
 
 .va-msg p {
     margin: 0;
+}
+
+.va-msg-meta {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #64748B;
 }
 
 @keyframes va-msg-in {

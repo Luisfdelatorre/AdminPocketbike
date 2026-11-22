@@ -47,6 +47,8 @@ La navegación principal usa `HashRouter`. Las rutas administrativas viven dentr
 `AdminLayout` monta `VoiceAssistantProvider` (`client/src/context/VoiceAssistantContext.jsx`) y el panel flotante `client/src/components/voiceAssistant/VoiceAssistantPanel.jsx`. La lógica vive en `client/src/services/voiceAssistant/`:
 
 - `capabilities.js`: registro de capacidades (`navigate`, `query`, `help`) con etiquetas, ejemplos y palabras clave.
+- `matcher.js`: matcher local con normalización de acentos y tolerancia a errores ortográficos (Levenshtein); resuelve navegación y ayuda sin red y pre-identifica consultas antes de llamar al endpoint.
+- `tts.js`: síntesis de voz (`window.speechSynthesis`) con selección automática de voz en español (`es-CO` prioritaria), control de silencio persistido y cancelación inmediata.
 - `dispatcher.js`: ejecuta una intención resuelta; navega con React Router, consulta el endpoint o construye la ayuda.
 
 Endpoint: `POST /api/v1/assistant/query` (también bajo `/apinode` en `server/server.js`), protegido con `verifyToken`. Cuerpo `{ text?, capabilityId? }`; responde `{ capabilityId, matched, reply, data, demo: true }`. Usa exclusivamente el dataset ficticio de `server/services/assistantDemoService.js`: no consulta MongoDB ni datos de compañías. Los IDs de capacidad deben coincidir entre cliente y servidor. Como es `POST`, `verifyToken` lo bloquea para el rol `viewer`.
