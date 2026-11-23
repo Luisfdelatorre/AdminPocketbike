@@ -449,6 +449,21 @@ describe('18.5 Multi-Turn Conversation & Expected Final Behavior (Section 21)', 
         assert.equal(p9.actions[0].params.module, 'alerts');
         assert.equal(p9.actions[1].name, 'applyFilter');
         assert.equal(p9.actions[1].params.alertType, 'UNAUTHORIZED_DRIVING');
+
+        // Turn 10: "¿Por qué fue el rechazo?" on payments -> explains failure reason without asking for clarification
+        const p10 = planContextualFallback({
+            text: '¿Por qué fue el rechazo?',
+            lang: 'es-CO',
+            applicationContext: {
+                currentRoute: '/payments',
+                currentModule: 'payments',
+                activeFilters: { status: 'failed' },
+            },
+            conversationHistory: history,
+        });
+        assert.equal(p10.targetModule, 'payments');
+        assert.equal(p10.needsClarification, false);
+        assert.match(p10.responseTemplate, /fondos insuficientes|rechazo/i);
     });
 
     it('trims conversation history to at most 5 turns in validateChatRequest', () => {

@@ -937,16 +937,34 @@ export const fetchSanitizedModuleRecords = async ({
                         .lean(),
                 ]);
 
-                const records = docs.map((p) => ({
-                    reference: p.reference,
-                    plate: p.deviceIdName,
-                    amount: formatCOP(p.amount || 0),
-                    status: p.status,
-                    method: p.payment_method_type || p.type,
-                    invoiceId: p.invoiceId,
-                    createdAtLocal: formatLocalTimeEsCO(p.created_at),
-                    finalizedAtLocal: formatLocalTimeEsCO(p.finalized_at),
-                }));
+                const getPaymentFailureExplanation = (p) => {
+                    const st = String(p.status || '').toUpperCase();
+                    if (['DECLINED', 'REJECTED'].includes(st)) {
+                        return 'Rechazado por la entidad bancaria / fondos insuficientes o declinado en Nequi/Bancolombia';
+                    }
+                    if (['ERROR', 'FAILED'].includes(st)) {
+                        return 'Error de comunicación o timeout con la pasarela de pagos';
+                    }
+                    if (st === 'VOIDED') {
+                        return 'Transacción anulada';
+                    }
+                    return null;
+                };
+
+                const records = docs.map((p) => {
+                    const failReason = getPaymentFailureExplanation(p);
+                    return {
+                        reference: p.reference,
+                        plate: p.deviceIdName,
+                        amount: formatCOP(p.amount || 0),
+                        status: p.status,
+                        method: p.payment_method_type || p.type,
+                        invoiceId: p.invoiceId,
+                        createdAtLocal: formatLocalTimeEsCO(p.created_at),
+                        finalizedAtLocal: formatLocalTimeEsCO(p.finalized_at),
+                        ...(failReason ? { failureReason: failReason } : {}),
+                    };
+                });
 
                 return {
                     module: 'payments',

@@ -192,6 +192,7 @@ Your sole responsibility is to interpret the user's natural-language request (in
      * "¿A qué hora fueron esos sabotajes?" / "What time did those alerts happen?"
      * "¿Por qué se declaró sabotaje en esas motos?" / "Explain why sabotage was declared"
      * "¿Por qué se dieron esas alertas?" / "MWY10I mira esta" / "¿Qué le pasó a la moto MWY10I?" (when the user names a specific plate like "MWY10I", pass query="MWY10I" to "fetch_module_records" and also emit a "search" action for that plate on the current module)
+     * "¿Por qué fue el rechazo?" / "¿Por qué falló el pago?" / "Why was the payment declined?" (pass module="payments", status="failed" to "fetch_module_records" and explain the plate, amount, and reason such as DECLINED / fondos insuficientes en Nequi/Bancolombia)
      * "¿Cuáles son las placas y qué velocidad o voltaje tenían?" / "Which motorcycle has the lowest battery or longest disconnection?"
      * "¿Cuántos días de mora lleva cada una?" / "When was the last payment or command sent?"
      you MUST call the read-only function tool "fetch_module_records" with the 1:1 module and filter parameters ("module", "status", "alertType", "datePreset", "query", "month", "year", "limit") to inspect the sanitized live records on-demand, and then write a clear, accurate "responseTemplate" citing the real timestamps ("timestampLocal"), plates ("plate"), and telemetry reasons ("reason", "speedKmh", "batteryLevel", "minutesSinceReport", "debtAmount") returned by the tool.
@@ -877,6 +878,23 @@ export const planContextualFallback = ({
         }
     }
 
+    // 8c. Contextual question about payment rejections / failures ("¿Por qué fue el rechazo?", "¿Por qué fallaron?")
+    if (
+        (currentModule === 'payments' || lastModule === 'payments') &&
+        /\b(rechazo|rechazados|rechazada|fallo|fallaron|declined|failed)\b/.test(clean) &&
+        /\b(por que|motivo|causa|razon|why)\b/.test(clean)
+    ) {
+        return {
+            scope: 'conversation_context',
+            targetModule: 'payments',
+            actions: [],
+            needsClarification: false,
+            responseTemplate: isEn
+                ? 'Payments are typically rejected due to insufficient funds in the payer account (Nequi/Bancolombia) or rejection by the issuing bank.'
+                : 'Los rechazos de pago suelen ocurrir por fondos insuficientes en la cuenta del pagador (Nequi/Bancolombia) o rechazo directo de la entidad bancaria.',
+        };
+    }
+
     // 9. Debtors / Overdue motorcycles in Payment Summary ("¿Quiénes deben más?", "Motos con deuda", "Morosos")
     if (/\b(deudores|deben|morosos|mora|con deuda|overdue|debtors|unpaid motorcycles)\b/.test(clean)) {
         const scope = currentModule === 'summary' ? 'current_screen' : 'other_screen';
@@ -1131,7 +1149,7 @@ const getOpenAIClient = async () => {
         }
         if (!openaiClientPromise) {
             openaiClientPromise = import('openai')
-                .then(({ default: OpenAI }) => new OpenAI({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 1 }))
+                .then(({ default: OpenAI }) => new OpenAI({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 }))
                 .catch(() => {
                     openaiClientPromise = null;
                     return null;
@@ -1141,6 +1159,24 @@ const getOpenAIClient = async () => {
     } catch {
         return null;
     }
+};
+
+/**
+ * Executes an async function with up to `maxRetries` attempts and an exponential/jitter delay.
+ */
+const callWithRetry = async (fn, maxRetries = 1, delayMs = 350) => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastError = err;
+            if (attempt < maxRetries) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+        }
+    }
+    throw lastError;
 };
 
 /**
@@ -1173,36 +1209,78 @@ export const interpretUserRequest = async ({
     const startTime = performance.now();
     const openai = await getOpenAIClient();
 
-    // Use OpenAI Responses API when configured and within daily token cap
-    let fallbackReason = !openai
-        ? 'no_openai_client'
-        : metricsState.dailyTokensUsed >= DAILY_TOKEN_CAP
-        ? 'daily_token_cap_exceeded'
-        : null;
+    // 1. Guard: Daily token cap exceeded
+    if (openai && metricsState.dailyTokensUsed >= DAILY_TOKEN_CAP) {
+        const isEn = lang === 'en-US';
+        const capPlan = {
+            scope: 'current_screen',
+            targetModule: applicationContext?.currentModule || 'dashboard',
+            actions: [],
+            needsClarification: false,
+            responseTemplate: isEn
+                ? 'The daily AI token quota has been reached for today. Basic navigation is still available.'
+                : 'Se ha alcanzado la cuota diaria de tokens de IA para hoy. La navegación básica sigue disponible.',
+        };
+        const capMetrics = extractUsageMetrics(null, {
+            catalogHash: prefixInfo.catalogHash,
+            modelName: `${DEFAULT_MODEL} (cap_reached)`,
+            latencyMs: performance.now() - startTime,
+            fallbackReason: 'daily_token_cap_exceeded',
+        });
+        recordMetrics(capMetrics);
+        recordTrainingTrace({
+            traceId: activeTraceId,
+            viaVoice,
+            lang,
+            userRole: roleVariant,
+            companyId: user?.companyId || null,
+            userText: text,
+            applicationContext,
+            matcherStatus: 'NO_MATCH',
+            plannerSource: 'daily_cap_guard',
+            plan: capPlan,
+            executionStatus: 'failed',
+            metrics: capMetrics,
+        });
+        return {
+            traceId: activeTraceId,
+            plan: capPlan,
+            metrics: capMetrics,
+            source: 'daily_cap_guard',
+        };
+    }
 
+    let fallbackReason = !openai ? 'no_openai_client' : null;
+
+    // 2. OpenAI Responses API with automatic retry (1 retry, 350ms delay) & transparent error notification
     if (openai && metricsState.dailyTokensUsed < DAILY_TOKEN_CAP) {
         try {
             const cacheKey = `upay_${roleVariant}_${prefixInfo.catalogHash.slice(0, 32)}`;
-            let response = await openai.responses.create(
-                {
-                    model: DEFAULT_MODEL,
-                    instructions: prefixInfo.stablePrefix,
-                    input: [
+            let response = await callWithRetry(
+                () =>
+                    openai.responses.create(
                         {
-                            role: 'user',
-                            content: dynamicSuffix,
+                            model: DEFAULT_MODEL,
+                            instructions: prefixInfo.stablePrefix,
+                            input: [
+                                {
+                                    role: 'user',
+                                    content: dynamicSuffix,
+                                },
+                            ],
+                            tools: [FETCH_MODULE_RECORDS_TOOL],
+                            tool_choice: 'auto',
+                            text: {
+                                format: { type: 'json_object' },
+                            },
+                            prompt_cache_key: cacheKey,
+                            max_output_tokens: MAX_OUTPUT_TOKENS,
+                            temperature: 0.1,
                         },
-                    ],
-                    tools: [FETCH_MODULE_RECORDS_TOOL],
-                    tool_choice: 'auto',
-                    text: {
-                        format: { type: 'json_object' },
-                    },
-                    prompt_cache_key: cacheKey,
-                    max_output_tokens: MAX_OUTPUT_TOKENS,
-                    temperature: 0.1,
-                },
-                { timeout: REQUEST_TIMEOUT_MS, maxRetries: 1 }
+                        { timeout: REQUEST_TIMEOUT_MS }
+                    ),
+                1,
+                350
             );
 
             let firstSample = extractUsageMetrics(response?.usage, {
@@ -1274,20 +1352,25 @@ export const interpretUserRequest = async ({
                 }
 
                 const secondStart = performance.now();
-                response = await openai.responses.create(
-                    {
-                        model: DEFAULT_MODEL,
-                        instructions: prefixInfo.stablePrefix,
-                        previous_response_id: response.id,
-                        input: toolOutputs,
-                        text: {
-                            format: { type: 'json_object' },
-                        },
-                        prompt_cache_key: cacheKey,
-                        max_output_tokens: MAX_OUTPUT_TOKENS,
-                        temperature: 0.1,
-                    },
-                    { timeout: REQUEST_TIMEOUT_MS, maxRetries: 1 }
+                response = await callWithRetry(
+                    () =>
+                        openai.responses.create(
+                            {
+                                model: DEFAULT_MODEL,
+                                instructions: prefixInfo.stablePrefix,
+                                previous_response_id: response.id,
+                                input: toolOutputs,
+                                text: {
+                                    format: { type: 'json_object' },
+                                },
+                                prompt_cache_key: cacheKey,
+                                max_output_tokens: MAX_OUTPUT_TOKENS,
+                                temperature: 0.1,
+                            },
+                            { timeout: REQUEST_TIMEOUT_MS }
+                        ),
+                    1,
+                    350
                 );
 
                 const secondSample = extractUsageMetrics(response?.usage, {
@@ -1356,6 +1439,47 @@ export const interpretUserRequest = async ({
             const errStatus = err?.status ? ` (${err.status})` : '';
             const errMsg = typeof err?.message === 'string' ? err.message.slice(0, 140) : 'unknown';
             fallbackReason = `${errName}${errStatus}: ${errMsg}`;
+
+            // When OpenAI fails after retry, inform the user honestly instead of asking for clarification
+            const isEn = lang === 'en-US';
+            const errorNoticePlan = {
+                scope: 'current_screen',
+                targetModule: applicationContext?.currentModule || 'dashboard',
+                actions: [],
+                needsClarification: false,
+                responseTemplate: isEn
+                    ? 'The AI assistant service could not complete the request at this time (temporary connection or timeout issue with the AI provider). Please try again in a few moments.'
+                    : 'El servicio del asistente de IA no pudo completar la solicitud en este momento (tiempo de espera o fallo temporal con el proveedor de IA). Por favor intenta de nuevo en unos momentos.',
+            };
+            const errorMetrics = extractUsageMetrics(null, {
+                catalogHash: prefixInfo.catalogHash,
+                modelName: `${DEFAULT_MODEL} (error_notice)`,
+                latencyMs: performance.now() - startTime,
+                fallbackReason,
+            });
+            recordMetrics(errorMetrics);
+
+            recordTrainingTrace({
+                traceId: activeTraceId,
+                viaVoice,
+                lang,
+                userRole: roleVariant,
+                companyId: user?.companyId || null,
+                userText: text,
+                applicationContext,
+                matcherStatus: 'NO_MATCH',
+                plannerSource: 'openai_error_notice',
+                plan: errorNoticePlan,
+                executionStatus: 'failed',
+                metrics: errorMetrics,
+            });
+
+            return {
+                traceId: activeTraceId,
+                plan: errorNoticePlan,
+                metrics: errorMetrics,
+                source: 'openai_error_notice',
+            };
         }
     }
 
