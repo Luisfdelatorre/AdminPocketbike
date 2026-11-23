@@ -44,15 +44,21 @@ La navegación principal usa `HashRouter`. Las rutas administrativas viven dentr
 
 ### Asistente de voz (demo)
 
-`AdminLayout` monta `VoiceAssistantProvider` (`client/src/context/VoiceAssistantContext.jsx`) y el panel flotante `client/src/components/voiceAssistant/VoiceAssistantPanel.jsx`. La lógica vive en `client/src/services/voiceAssistant/`:
+`AdminLayout` monta `VoiceAssistantProvider` (`client/src/context/VoiceAssistantContext.jsx`) y el panel Bottom Sheet `client/src/components/voiceAssistant/VoiceAssistantPanel.jsx`. La lógica vive en `client/src/services/voiceAssistant/` y `server/services/aiAssistantService.js`:
 
-- `capabilities.js`: registro de capacidades (`navigate`, `query`, `help`) con etiquetas, ejemplos y palabras clave.
-- `matcher.js`: matcher local con normalización de acentos y tolerancia a errores ortográficos (Levenshtein); resuelve navegación y ayuda sin red y pre-identifica consultas antes de llamar al endpoint.
-- `tts.js`: síntesis de voz (`window.speechSynthesis`) con selección automática de voz en español (`es-CO` prioritaria), control de silencio persistido y cancelación inmediata.
-- `dispatcher.js`: ejecuta una intención resuelta; navega con React Router, consulta el endpoint o construye la ayuda.
-- `client/src/hooks/useSpeechRecognition.js`: hook sobre Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) con transcripción parcial en vivo, consulta de permisos de micrófono (`navigator.permissions`), manejo de errores (`not-allowed`, `no-speech`, `audio-capture`, `network`, navegador no compatible) y fallback inmediato al campo de texto.
+- `capabilities.js`: catálogo canónico compartido entre cliente y servidor con las 6 herramientas de solo lectura (`navigate`, `applyFilter`, `search`, `clearFilters`, `openDetail`, `showHelp`, todas con `risk: "read"`), módulos, permisos por rol, enums de filtros, placeholders `{{...}}` y serialización determinista (`serializeCatalogForPrompt`) para Prompt Caching.
+- `schemaValidator.js`: validación determinista (`.safeParse()`) de planes de hasta 3 acciones, parámetros y peticiones entrantes.
+- `screenBridge.js` y `client/src/hooks/useAssistantScreenBridge.js`: puente reactivo que conecta el estado real de las pantallas (`Payments`, `DeviceSelector`, `Contracts`, `PaymentSummary`, `Invoices`, `Alerts`, `CommandHistory`, `AdminDashboard`) con el asistente para aplicar filtros, búsquedas, abrir vistas previas de solo lectura y exponer métricas sin crear un estado duplicado.
+- `matcher.js`: matcher determinista local (`MATCH | NO_MATCH | AMBIGUOUS`) con soporte bilingüe (`es-CO` / `en-US`) y guarda contra preguntas o negaciones que contengan palabras comando (p. ej. *"Why can't I open contracts?"*).
+- `dispatcher.js`: ejecutor asíncrono secuencial que valida el plan, navega con React Router, espera las señales de montaje y carga de datos (`waitForScreenMount`, `waitForScreenDataReady`), se detiene ante cualquier fallo y resuelve placeholders al finalizar.
+- `resolvers.js`: resolución local segura de placeholders `{{...}}` en texto plano (sin `eval`, sin HTML y distinguiendo conteos/totales cargados en página frente a totales globales del mes).
+- `tts.js`: síntesis de voz (`window.speechSynthesis`) con selector de voz/acento, modos de tono (`Normal`, `Ejecutiva`, `Suave`, `Grave`), filtros de privacidad de voz (`speakAmounts: OFF/ON`, `speakCustomerNames: OFF/ON`, desactivados por defecto) y compatibilidad con Firefox/iOS.
+- `client/src/hooks/useSpeechRecognition.js`: hook sobre Web Speech API (`es-CO` / `en-US`) con transcripción parcial en vivo, deduplicación de frases finales, bloqueo de eco durante TTS y fallback al campo de texto.
 
-Endpoint: `POST /api/v1/assistant/query` (también bajo `/apinode` en `server/server.js`), protegido con `verifyToken`. Cuerpo `{ text?, capabilityId? }`; responde `{ capabilityId, matched, reply, data, demo: true }`. Usa exclusivamente el dataset ficticio de `server/services/assistantDemoService.js`: no consulta MongoDB ni datos de compañías. Los IDs de capacidad deben coincidir entre cliente y servidor. Como es `POST`, `verifyToken` lo bloquea para el rol `viewer`.
+Endpoints:
+- `POST /api/v1/ai/chat` (y `/apinode/ai/chat`): interpreta intenciones con OpenAI Responses API (`server/services/aiAssistantService.js`) usando **Prompt Caching** (prefijo estable $\ge 1024$ tokens con hash SHA-256 `catalog_hash` + sufijo dinámico con `applicationContext` y memoria efímera de los últimos 5 turnos) o el planificador contextual determinista cuando `OPENAI_API_KEY` no está configurada. Nunca recibe registros de base de datos, montos financieros ni PII. Protegido con `verifyToken` (accesible para todos los roles autenticados incluido `viewer`), rate-limit por usuario, tope diario de tokens (`AI_DAILY_TOKEN_CAP`) y flag `AI_DEMO_ENABLED`.
+- `GET /api/v1/ai/diagnostics`: métricas operativas seguras de Prompt Caching en desarrollo (`catalog_hash`, `catalog_token_estimate`, `input_tokens`, `cached_tokens`, `cache_hit_ratio`, `average_latency_ms`).
+- `GET/POST /api/v1/assistant/query`: endpoint demo estático de respaldo (`server/services/assistantDemoService.js` y `client/src/services/voiceAssistant/demoData.js`).
 
 ## Flujo de contratos y cobro
 

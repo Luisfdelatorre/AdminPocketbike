@@ -16,15 +16,8 @@ export const SPEECH_ERROR_MESSAGES = Object.freeze({
 
 /**
  * Custom hook wrapping the Web Speech API (SpeechRecognition / webkitSpeechRecognition)
- * with microphone permission inspection, interim transcript streaming, and Spanish error messages.
- *
- * @param {{
- *   lang?: string,
- *   onFinalTranscript?: (transcript: string) => void,
- *   onStart?: () => void,
- *   onEnd?: () => void,
- *   onError?: (err: { code: string, message: string }) => void,
- * }} options
+ * with microphone permission inspection, interim transcript streaming, repeated-phrase
+ * deduplication (Section 14), and Spanish/English error messages.
  */
 export default function useSpeechRecognition({
     lang = 'es-CO',
@@ -40,13 +33,13 @@ export default function useSpeechRecognition({
     const [error, setError] = useState(null);
 
     const recognitionRef = useRef(null);
+    const lastFinalSubmissionRef = useRef({ text: '', timestamp: 0 });
     const callbacksRef = useRef({ onFinalTranscript, onStart, onEnd, onError });
 
     useEffect(() => {
         callbacksRef.current = { onFinalTranscript, onStart, onEnd, onError };
     }, [onFinalTranscript, onStart, onEnd, onError]);
 
-    // Inspect microphone permission state when supported by Permissions API
     useEffect(() => {
         if (typeof navigator === 'undefined' || !navigator.permissions?.query) return undefined;
         let permissionStatus = null;
@@ -88,7 +81,10 @@ export default function useSpeechRecognition({
         if (!Ctor) {
             const unsupported = {
                 code: 'unsupported',
-                message: 'Tu navegador no soporta reconocimiento de voz (Web Speech API). Usa Chrome o Edge, o escribe tu consulta.',
+                message:
+                    lang === 'en-US'
+                        ? 'Your browser does not support Web Speech API voice recognition. Use Chrome, Edge, Safari, or type below.'
+                        : 'Tu navegador no soporta reconocimiento de voz (Web Speech API). Usa Chrome, Edge o Safari, o escribe tu consulta.',
             };
             setError(unsupported);
             callbacksRef.current.onError?.(unsupported);
@@ -108,12 +104,13 @@ export default function useSpeechRecognition({
 
         try {
             const recognition = new Ctor();
-            recognition.lang = lang;
+            recognition.lang = lang === 'en-US' ? 'en-US' : 'es-CO';
             recognition.continuous = false;
             recognition.interimResults = true;
             recognition.maxAlternatives = 1;
 
             let finalCollected = '';
+            let submitted = false;
 
             recognition.onstart = () => {
                 setIsListening(true);
@@ -127,7 +124,7 @@ export default function useSpeechRecognition({
                     const res = event.results[i];
                     const transcript = res[0]?.transcript || '';
                     if (res.isFinal) {
-                        finalCollected += transcript;
+                        finalCollected += ` ${transcript}`;
                     } else {
                         interim += transcript;
                     }
@@ -157,7 +154,17 @@ export default function useSpeechRecognition({
                 setInterimTranscript('');
                 recognitionRef.current = null;
                 const cleanFinal = finalCollected.trim();
-                if (cleanFinal) {
+
+                if (cleanFinal && !submitted) {
+                    submitted = true;
+                    const now = Date.now();
+                    const prev = lastFinalSubmissionRef.current;
+                    // Deduplicate identical final phrase fired twice within 1.5s on mobile WebKit/Blink
+                    if (prev.text === cleanFinal && now - prev.timestamp < 1500) {
+                        callbacksRef.current.onEnd?.();
+                        return;
+                    }
+                    lastFinalSubmissionRef.current = { text: cleanFinal, timestamp: now };
                     callbacksRef.current.onFinalTranscript?.(cleanFinal);
                 } else {
                     callbacksRef.current.onEnd?.();
