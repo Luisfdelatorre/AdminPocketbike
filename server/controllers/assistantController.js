@@ -21,13 +21,9 @@ const checkRateLimit = (key) => {
     return true;
 };
 
-const isAiDemoAllowed = () => {
-    // Blocked in production unless AI_DEMO_ALLOW_PROD is explicitly set;
-    // enabled when AI_DEMO_ENABLED=true (or in local non-production dev when not explicitly disabled).
-    if (process.env.NODE_ENV === 'production' && process.env.AI_DEMO_ALLOW_PROD !== 'true') {
-        return false;
-    }
-    if (process.env.AI_DEMO_ENABLED === 'false') {
+const isAiAssistantAllowed = () => {
+    // Enabled by default; can be disabled with AI_ASSISTANT_ENABLED=false or AI_DEMO_ENABLED=false
+    if (process.env.AI_ASSISTANT_ENABLED === 'false' || process.env.AI_DEMO_ENABLED === 'false') {
         return false;
     }
     return true;
@@ -39,10 +35,10 @@ const isAiDemoAllowed = () => {
  * + response template with `{{placeholders}}` (never exposes business data or API keys).
  */
 export const chatWithAssistant = async (req, res) => {
-    if (!isAiDemoAllowed()) {
+    if (!isAiAssistantAllowed()) {
         return res.status(403).json({
             success: false,
-            error: 'AI assistant demo is disabled in this environment',
+            error: 'AI assistant is disabled in this environment',
         });
     }
 
@@ -93,7 +89,7 @@ export const chatWithAssistant = async (req, res) => {
  * and 👍/👎 RLHF reward signals) into `server/scratch/assistant_rl_dataset.jsonl`.
  */
 export const recordAssistantTelemetry = (req, res) => {
-    if (!isAiDemoAllowed()) {
+    if (!isAiAssistantAllowed()) {
         return res.status(403).json({ success: false, error: 'Telemetry disabled' });
     }
     const body = req.body || {};
@@ -113,8 +109,8 @@ export const recordAssistantTelemetry = (req, res) => {
  * Returns captured training/evaluation traces and reward counts.
  */
 export const getAssistantTelemetry = (req, res) => {
-    if (process.env.NODE_ENV === 'production' && process.env.AI_DEMO_ALLOW_PROD !== 'true') {
-        return res.status(403).json({ success: false, error: 'Telemetry export disabled in production' });
+    if (!isAiAssistantAllowed()) {
+        return res.status(403).json({ success: false, error: 'Telemetry disabled' });
     }
     const limit = Math.min(500, Math.max(1, Number(req.query?.limit) || 100));
     return res.json({
@@ -128,10 +124,10 @@ export const getAssistantTelemetry = (req, res) => {
  * Development-only Prompt Caching & catalog diagnostics (never logs user prompts).
  */
 export const getAssistantDiagnostics = (req, res) => {
-    if (process.env.NODE_ENV === 'production') {
+    if (!isAiAssistantAllowed()) {
         return res.status(403).json({
             success: false,
-            error: 'Diagnostics are only available in development',
+            error: 'Diagnostics disabled',
         });
     }
     return res.json({
