@@ -22,8 +22,13 @@ export const verifyToken = (req, res, next) => {
 
         // Viewer protection logic: block mutative requests
         if (req.auth.role === 'viewer' && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
-            // Exclude specific endpoints like switch-company or login
-            if (!req.path.includes('/switch-company') && !req.path.includes('/login')) {
+            // Exclude specific read-only or session endpoints like switch-company, login, and AI chat/query
+            const isReadOnlyAssistant =
+                req.originalUrl?.includes('/ai/chat') ||
+                req.originalUrl?.includes('/assistant/query') ||
+                req.path.includes('/chat') ||
+                req.path.includes('/query');
+            if (!req.path.includes('/switch-company') && !req.path.includes('/login') && !isReadOnlyAssistant) {
                 return res.status(403).json({ success: false, error: 'Viewers are not authorized to modify data' });
             }
         }

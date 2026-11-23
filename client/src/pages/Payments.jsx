@@ -16,6 +16,7 @@ import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import StatCard from '../components/StatCard';
 import MobileMetricsCard from '../components/MobileMetricsCard';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 
 const PaymentMobileRow = ({ payment }) => {
     const status = (payment.status || '').toUpperCase();
@@ -126,6 +127,7 @@ const Payments = () => {
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [filter, setFilter] = useState('all'); // all, completed, pending, failed
+    const [datePreset, setDatePreset] = useState('all'); // all, today, yesterday, last_7_days
     const [sortBy, setSortBy] = useState('date'); // date, amount, device
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -340,6 +342,7 @@ const Payments = () => {
     const handleClearSearch = () => {
         setSearchInput('');
         setSearchQuery('');
+        setDatePreset('all');
     };
 
     // Client-side filtering and sorting
@@ -357,6 +360,21 @@ const Payments = () => {
                 if (filter === 'pending' && !isPending) return false;
                 if (filter === 'failed' && !isFailed) return false;
                 if (filter === 'free' && !isFreeOrAdj) return false;
+            }
+            if (datePreset !== 'all' && p.createdAt) {
+                const pDate = new Date(p.createdAt);
+                if (!isNaN(pDate.getTime())) {
+                    const now = new Date();
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const startOfYesterday = new Date(startOfToday);
+                    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+                    const startOfLast7Days = new Date(startOfToday);
+                    startOfLast7Days.setDate(startOfLast7Days.getDate() - 7);
+
+                    if (datePreset === 'today' && pDate < startOfToday) return false;
+                    if (datePreset === 'yesterday' && (pDate < startOfYesterday || pDate >= startOfToday)) return false;
+                    if (datePreset === 'last_7_days' && pDate < startOfLast7Days) return false;
+                }
             }
             if (!searchQuery) return true;
             const query = searchQuery.toLowerCase();
@@ -376,6 +394,48 @@ const Payments = () => {
                     return 0;
             }
         });
+
+    const filteredTotalAmount = sortedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    useAssistantScreenBridge('payments', {
+        loading,
+        activeFilters: {
+            status: filter,
+            datePreset,
+            searchQuery,
+            month: selectedMonth,
+            year: selectedYear,
+            sortBy,
+        },
+        metrics: {
+            filteredCount: sortedPayments.length,
+            filteredTotal: filteredTotalAmount,
+            loadedCount: payments.length,
+            globalTotalCount: Number(pagination.total || payments.length),
+            isPaginated: Number(pagination.totalPages || 1) > 1,
+        },
+        singleMatchItem: sortedPayments.length === 1 ? sortedPayments[0]?.deviceId || null : null,
+        applyFilter: (params = {}) => {
+            if (params.status) setFilter(params.status);
+            if (params.datePreset) setDatePreset(params.datePreset);
+            if (params.sortBy) setSortBy(params.sortBy);
+            if (params.month) setSelectedMonth(Number(params.month));
+            if (params.year) setSelectedYear(Number(params.year));
+            return true;
+        },
+        search: (q) => {
+            setSearchInput(q);
+            setSearchQuery(q);
+            return true;
+        },
+        clearFilters: () => {
+            setFilter('all');
+            setDatePreset('all');
+            setSearchInput('');
+            setSearchQuery('');
+            return true;
+        },
+    });
 
     const totalAmount = payments.reduce((sum, p) => {
         const status = (p.status || '').toUpperCase();

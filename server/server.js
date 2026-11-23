@@ -84,6 +84,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
     app.use(`${prefix}/commands`, commandsRouter);
     app.use(`${prefix}/alerts`, alertsRouter);
     app.use(`${prefix}/assistant`, assistantRouter);
+    app.use(`${prefix}/ai`, assistantRouter);
 });
 
 // Serve uploaded documents

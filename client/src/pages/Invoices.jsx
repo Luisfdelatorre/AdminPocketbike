@@ -10,6 +10,7 @@ import './Payments.css';
 import './Invoices.css';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import { useStatusConfig } from '../context/StatusConfigContext';
 import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
@@ -434,6 +435,45 @@ const Invoices = () => {
         setFilter(newFilter);
         setCurrentPage(1);
     };
+
+    useAssistantScreenBridge('invoices', {
+        loading,
+        activeFilters: {
+            status: filter,
+            searchQuery,
+            month: selectedMonth,
+            year: selectedYear,
+        },
+        metrics: {
+            filteredCount: filteredInvoices.length,
+            totalCount: Number(stats.total || totalInvoices || 0),
+            paidCount: Number(stats.paid || 0),
+            unpaidCount: Number(stats.unpaid || 0),
+            totalAmount: Number(stats.totalAmount || 0),
+        },
+        applyFilter: (params = {}) => {
+            if (params.status) {
+                setFilter(params.status);
+                setCurrentPage(1);
+            }
+            if (params.month) setSelectedMonth(Number(params.month));
+            if (params.year) setSelectedYear(Number(params.year));
+            return true;
+        },
+        search: (q) => {
+            setSearchInput(q);
+            setSearchQuery(q);
+            setCurrentPage(1);
+            return true;
+        },
+        clearFilters: () => {
+            setFilter('all');
+            setSearchInput('');
+            setSearchQuery('');
+            setCurrentPage(1);
+            return true;
+        },
+    });
 
     const renderDateSelectors = () => (
         <MonthYearSelector

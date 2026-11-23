@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
@@ -111,6 +112,41 @@ const CommandHistory = () => {
         setSearchQuery(val);
         setCurrentPage(1);
     };
+
+    useAssistantScreenBridge('commands', {
+        loading: loading || statsLoading,
+        activeFilters: {
+            status: filter,
+            searchQuery,
+            month: selectedMonth,
+            year: selectedYear,
+        },
+        metrics: {
+            filteredCount: commands.length,
+            totalCount: Number(stats.total || stats.counts?.all || 0),
+            failedCount: Number(stats.counts?.failed || 0),
+        },
+        applyFilter: (params = {}) => {
+            if (params.status) {
+                setFilter(params.status);
+                setCurrentPage(1);
+            }
+            if (params.month) setSelectedMonth(Number(params.month));
+            if (params.year) setSelectedYear(Number(params.year));
+            return true;
+        },
+        search: (q) => {
+            setSearchQuery(q);
+            setCurrentPage(1);
+            return true;
+        },
+        clearFilters: () => {
+            setFilter('ALL');
+            setSearchQuery('');
+            setCurrentPage(1);
+            return true;
+        },
+    });
 
     const formatTime = (dateStr) => {
         if (!dateStr) return '';

@@ -77,6 +77,7 @@ app.use('/api/v1/system-jobs', systemJobsRoutes);
 app.use('/api/v1/commands', commandsRouter);
 app.use('/api/v1/alerts', alertsRouter);
 app.use('/api/v1/assistant', assistantRouter);
+app.use('/api/v1/ai', assistantRouter);
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));

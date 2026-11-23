@@ -10,6 +10,7 @@ import { safeCalcularPrecioMoto } from '../utils/contractCalculations';
 import useAdminScrollLock from '../hooks/useAdminScrollLock';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import ContractDocPreviewModal from '../components/modals/ContractDocPreviewModal';
 import ContractEditor from '../components/ContractEditor';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
@@ -622,6 +623,69 @@ const Contracts = () => {
     const handleFilterChange = (newFilter) => {
         setFilter(newFilter);
     };
+
+    const filteredTotalValue = useMemo(
+        () => filteredContracts.reduce((sum, c) => sum + (Number(c.totalAmount) || 0), 0),
+        [filteredContracts]
+    );
+
+    useAssistantScreenBridge('contracts', {
+        loading,
+        activeFilters: { status: filter, searchQuery },
+        metrics: {
+            filteredCount: filteredContracts.length,
+            filteredTotalValue,
+            totalCount,
+            activeCount,
+            completedCount,
+        },
+        selectedItem: previewContract?.deviceId || editingContract?.deviceId || null,
+        singleMatchItem:
+            filteredContracts.length === 1
+                ? filteredContracts[0]?.deviceId || filteredContracts[0]?.contractId || null
+                : null,
+        applyFilter: (params = {}) => {
+            if (params.status) setFilter(params.status);
+            return true;
+        },
+        search: (q) => {
+            setSearchInput(q);
+            setSearchQuery(q);
+            return true;
+        },
+        clearFilters: () => {
+            setFilter('all');
+            setSearchInput('');
+            setSearchQuery('');
+            return true;
+        },
+        openDetail: ({ identifier } = {}) => {
+            const targetKey = (identifier || '').trim().toLowerCase();
+            let matches = filteredContracts;
+            if (targetKey) {
+                matches = contracts.filter(
+                    (c) =>
+                        (c.deviceId || '').toLowerCase() === targetKey ||
+                        (c.contractId || '').toLowerCase() === targetKey ||
+                        (c.vehicleInfo?.placa || '').toLowerCase() === targetKey ||
+                        (c.customerName || '').toLowerCase().includes(targetKey)
+                );
+            }
+            if (matches.length === 1) {
+                setPreviewContract(matches[0]);
+                return true;
+            }
+            if (matches.length > 1 && targetKey) {
+                setSearchInput(identifier);
+                setSearchQuery(identifier);
+                return {
+                    ok: false,
+                    error: `Encontré ${matches.length} contratos que coinciden con "${identifier}". Los filtré en pantalla para que elijas cuál abrir.`,
+                };
+            }
+            return false;
+        },
+    });
 
     const desktopHeader = (
         <PageHeader.Desktop

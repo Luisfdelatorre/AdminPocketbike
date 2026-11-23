@@ -16,6 +16,7 @@ import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 
 const InvoiceAdjustmentModal = React.lazy(() => import('../components/modals/InvoiceAdjustmentModal'));
 const CreateDayInvoiceModal = React.lazy(() => import('../components/modals/CreateDayInvoiceModal'));
@@ -299,6 +300,53 @@ const PaymentSummary = () => {
             return (item.device?.paymentFrequency || 1) > 1;
         }
         return true;
+    });
+
+    const filteredDebtTotal = useMemo(
+        () =>
+            filteredSummaryData.reduce(
+                (sum, item) => sum + (Number(item.device?.unpaidTotal) || 0),
+                0
+            ),
+        [filteredSummaryData]
+    );
+
+    useAssistantScreenBridge('summary', {
+        loading,
+        activeFilters: {
+            status: statusFilter,
+            searchQuery,
+            month: selectedMonth,
+            year: selectedYear,
+            view: desktopView,
+        },
+        metrics: {
+            filteredCount: filteredSummaryData.length,
+            debtorsCount: morososCount,
+            okCount,
+            cutoffCount,
+            filteredDebtTotal,
+        },
+        singleMatchItem:
+            filteredSummaryData.length === 1
+                ? filteredSummaryData[0]?.device?.name || filteredSummaryData[0]?.device?.deviceId || null
+                : null,
+        applyFilter: (params = {}) => {
+            if (params.status) setStatusFilter(params.status);
+            if (params.month) setSelectedMonth(Number(params.month));
+            if (params.year) setSelectedYear(Number(params.year));
+            if (params.view) handleDesktopViewChange(params.view);
+            return true;
+        },
+        search: (q) => {
+            setSearchQuery(q);
+            return true;
+        },
+        clearFilters: () => {
+            setStatusFilter('all');
+            setSearchQuery('');
+            return true;
+        },
     });
 
     const renderEngineButton = (item) => {

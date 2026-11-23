@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import StatusBadge from '../components/StatusBadge';
 import { calculateFleetElectricalSummary } from '../utils/batteryHealthHelper';
 import './AdminDashboard.css';
@@ -138,6 +139,23 @@ const AdminDashboard = () => {
 
     const collectionPercentage = Math.min(100, Math.max(0, Math.round(stats.collectionRate || 0)));
     const pendingPercentage = Math.max(0, 100 - collectionPercentage);
+
+    useAssistantScreenBridge('dashboard', {
+        loading,
+        activeFilters: { month: selectedMonth, year: selectedYear },
+        metrics: {
+            totalRevenue: Number(stats.totalRevenue || 0),
+            totalInvoiced: Number(stats.totalInvoiced || 0),
+            collectionRate: Number(stats.collectionRate || 0),
+            activeDevices: Number(stats.activeDevices || 0),
+            totalDevices: Number(stats.totalDevices || 0),
+        },
+        applyFilter: (params = {}) => {
+            if (params.month) setSelectedMonth(Number(params.month));
+            if (params.year) setSelectedYear(Number(params.year));
+            return true;
+        },
+    });
 
     const desktopHeader = (
         <PageHeader.Desktop

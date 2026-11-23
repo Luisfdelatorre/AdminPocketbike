@@ -13,6 +13,7 @@ import StatCard from '../components/StatCard';
 import MobileMetricsCard from '../components/MobileMetricsCard';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import './DeviceSelector.css';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MotorIcon from '../components/MotorIcon';
@@ -280,6 +281,39 @@ const DeviceManagement = () => {
 
     const activeContractsCount = useMemo(() => devicesList.filter(d => d.hasActiveContract).length, [devicesList]);
     const availableCount = useMemo(() => devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length, [devicesList]);
+    const cutoffDevicesCount = useMemo(() => devicesList.filter(d => Boolean(d.cutOff)).length, [devicesList]);
+
+    useAssistantScreenBridge('devices', {
+        loading,
+        activeFilters: { status: filter, searchQuery, sortBy },
+        metrics: {
+            filteredCount: sortedDevices.length,
+            totalCount: devicesList.length,
+            offlineCount: offlineDevicesCount,
+            cutoffCount: cutoffDevicesCount,
+            activeContractsCount,
+            availableCount,
+        },
+        singleMatchItem:
+            sortedDevices.length === 1
+                ? sortedDevices[0]?.name || sortedDevices[0]?.deviceName || null
+                : null,
+        applyFilter: (params = {}) => {
+            if (params.status) setFilter(params.status);
+            if (params.sortBy) setSortBy(params.sortBy);
+            return true;
+        },
+        search: (q) => {
+            setSearchQuery(q);
+            return true;
+        },
+        clearFilters: () => {
+            setFilter('all');
+            setSearchQuery('');
+            setSortBy('default');
+            return true;
+        },
+    });
     const activeContractsPercentage = devicesList.length > 0 ? Math.round((activeContractsCount / devicesList.length) * 100) : 0;
     const availablePercentage = devicesList.length > 0 ? Math.round((availableCount / devicesList.length) * 100) : 0;
 

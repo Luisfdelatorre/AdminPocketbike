@@ -39,6 +39,8 @@ export const createDeviceAccess = (data) => api.post('/device-access/create', da
 
 // --- Voice Assistant (demo) ---
 export const assistantQuery = (data) => api.post('/assistant/query', data);
+export const assistantChat = (data) => api.post('/ai/chat', data);
+export const getAssistantDiagnostics = () => api.get('/ai/diagnostics');
 
 // --- Commands History ---
 export const getCommandHistory = (params) => api.get('/commands', { params });

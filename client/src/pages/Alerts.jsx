@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
@@ -170,6 +171,60 @@ const Alerts = () => {
     // Resolve Modal
     const [resolvingAlert, setResolvingAlert] = useState(null);
     const [resolutionNotes, setResolutionNotes] = useState('');
+
+    useAssistantScreenBridge('alerts', {
+        loading: loading || statsLoading,
+        activeFilters: {
+            status: statusFilter,
+            alertType: filter,
+            searchQuery,
+            month: selectedMonth,
+            year: selectedYear,
+        },
+        metrics: {
+            filteredCount: alerts.length,
+            totalCount: Number(stats.total || 0),
+            activeCount: Number(stats.active || 0),
+            criticalCount: Number(stats.critical || 0),
+        },
+        selectedItem: selectedAlertId,
+        applyFilter: (params = {}) => {
+            if (params.status) {
+                setStatusFilter(params.status);
+                setCurrentPage(1);
+            }
+            if (params.month) setSelectedMonth(Number(params.month));
+            if (params.year) setSelectedYear(Number(params.year));
+            return true;
+        },
+        search: (q) => {
+            setSearchQuery(q);
+            setCurrentPage(1);
+            return true;
+        },
+        clearFilters: () => {
+            setFilter('ALL');
+            setStatusFilter('ALL');
+            setSearchQuery('');
+            setCurrentPage(1);
+            return true;
+        },
+        openDetail: ({ identifier } = {}) => {
+            const key = (identifier || '').trim().toLowerCase();
+            const found = key
+                ? alerts.find(
+                      (a) =>
+                          String(a._id) === identifier ||
+                          (a.deviceIdName || '').toLowerCase() === key
+                  )
+                : alerts[0];
+            if (found) {
+                setSelectedAlertId(found._id);
+                return true;
+            }
+            return false;
+        },
+    });
 
     const fetchStats = useCallback(async () => {
         setStatsLoading(true);
