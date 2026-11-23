@@ -723,7 +723,14 @@ export const fetchLiveModuleData = async (moduleId, activeFilters = {}) => {
  */
 export const resolveTemplateWithLiveData = async (
     template = '',
-    { targetModule = null, activeFilters = {}, user = null, lang = 'es-CO', metricsOverride = null } = {}
+    {
+        targetModule = null,
+        activeFilters = {},
+        user = null,
+        lang = 'es-CO',
+        metricsOverride = null,
+        onDemandDataUsed = false,
+    } = {}
 ) => {
     const combinedOverrides = { ...(metricsOverride || {}) };
     let cardsData = null;
@@ -789,8 +796,9 @@ export const resolveTemplateWithLiveData = async (
 
     // If the model's responseTemplate didn't contain a placeholder (e.g. "He navegado a motos apagadas."),
     // append the live data summary sentence so the written chat message and TTS voice both include the real numbers!
+    // Skip appending if OpenAI already inspected real records on-demand (`onDemandDataUsed === true`).
     let finalText = resolved.text;
-    if (!hadPlaceholders && targetSummarySentence) {
+    if (!hadPlaceholders && !onDemandDataUsed && targetSummarySentence) {
         finalText = finalText
             ? `${finalText.replace(/\.*\s*$/, '.')} ${targetSummarySentence}`
             : targetSummarySentence;

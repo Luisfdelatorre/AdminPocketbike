@@ -314,6 +314,7 @@ export const validateActionPlan = (plan, { currentModule = 'dashboard', user = n
             : '';
 
     const needsClarification = Boolean(plan.needsClarification);
+    const onDemandDataUsed = Boolean(plan.onDemandDataUsed);
 
     if (!responseTemplate && validatedActions.length === 0) {
         return { success: false, error: 'Plan must contain at least one action or a responseTemplate' };
@@ -327,6 +328,7 @@ export const validateActionPlan = (plan, { currentModule = 'dashboard', user = n
             actions: validatedActions,
             responseTemplate,
             needsClarification,
+            ...(onDemandDataUsed ? { onDemandDataUsed: true } : {}),
         },
     };
 };

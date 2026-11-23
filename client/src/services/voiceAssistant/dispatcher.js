@@ -343,6 +343,7 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         user: ctx.user || null,
         lang,
         metricsOverride: ctx.metricsOverride || null,
+        onDemandDataUsed: Boolean(plan.onDemandDataUsed),
     });
 
     const primaryActionType =

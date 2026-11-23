@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
     Home, Users, CreditCard, DollarSign, FileText,
-    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, Terminal, Bell
+    Settings, LogOut, Menu, X, Building, Calendar, ChevronDown, Terminal, Bell, Sparkles
 } from 'lucide-react';
 import './AdminSidebar.css';
 
@@ -220,6 +220,16 @@ const AdminSidebar = ({ isOpen, onToggle }) => {
                             >
                                 <Building size={20} />
                                 <span>{t('sidebar.companies')}</span>
+                            </button>
+                        )}
+                        {user?.role !== 'viewer' && (
+                            <button
+                                className={`nav-item ${isActive('/ai-telemetry') ? 'active' : ''}`}
+                                onClick={() => handleNavigation('/ai-telemetry')}
+                                title="Telemetría IA & RLHF"
+                            >
+                                <Sparkles size={20} />
+                                <span>Telemetría IA</span>
                             </button>
                         )}
                         <button

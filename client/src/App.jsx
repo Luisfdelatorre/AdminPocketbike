@@ -23,6 +23,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const CompanyInvoices = lazy(() => import('./pages/CompanyInvoices'));
 const CommandHistory = lazy(() => import('./pages/CommandHistory'));
 const Alerts = lazy(() => import('./pages/Alerts'));
+const AiTelemetry = lazy(() => import('./pages/AiTelemetry'));
 
 // Simple Loading Component
 const LoadingSpinner = () => (
@@ -64,6 +65,7 @@ function App() {
                                     <Route path="historial-comandos" element={<Navigate to="/commands" replace />} />
                                     <Route path="alerts" element={<Alerts />} />
                                     <Route path="alertas" element={<Navigate to="/alerts" replace />} />
+                                    <Route path="ai-telemetry" element={<AiTelemetry />} />
                                 </Route>
 
                                 {/* Default redirect */}

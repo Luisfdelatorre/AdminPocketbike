@@ -36,7 +36,9 @@ import {
     buildDynamicSuffix,
     extractUsageMetrics,
     planContextualFallback,
+    FETCH_MODULE_RECORDS_TOOL,
 } from '../services/aiAssistantService.js';
+import { fetchSanitizedModuleRecords } from '../services/assistantDemoService.js';
 
 describe('18.1 Catalog & Schema Validation Tests', () => {
     it('validates canonical read-only actions', () => {
@@ -521,5 +523,32 @@ describe('18.6 Prompt Caching Architecture Tests', () => {
         assert.equal(metrics.output_tokens, 48);
         assert.equal(metrics.latency_ms, 312);
         assert.equal(metrics.cache_hit_ratio, Number((1152 / 1400).toFixed(4)));
+    });
+
+    it('exposes 1:1 on-demand fetch_module_records tool and enforces role permissions', async () => {
+        assert.equal(FETCH_MODULE_RECORDS_TOOL.name, 'fetch_module_records');
+        assert.deepEqual(
+            FETCH_MODULE_RECORDS_TOOL.parameters.properties.module.enum,
+            Object.keys(MODULES)
+        );
+
+        const alertsSample = await fetchSanitizedModuleRecords({
+            module: 'alerts',
+            alertType: 'UNAUTHORIZED_DRIVING',
+            auth: { role: 'admin', companyId: 'demo-company' },
+        });
+        assert.equal(alertsSample.authorized, true);
+        assert.equal(alertsSample.module, 'alerts');
+        assert.ok(Array.isArray(alertsSample.records));
+        assert.ok(alertsSample.records.length > 0);
+        assert.ok(alertsSample.records[0].timestampLocal);
+        assert.ok(alertsSample.records[0].reason);
+
+        const deniedSample = await fetchSanitizedModuleRecords({
+            module: 'companies',
+            auth: { role: 'admin', isSuperAdmin: false },
+        });
+        assert.equal(deniedSample.authorized, false);
+        assert.deepEqual(deniedSample.records, []);
     });
 });

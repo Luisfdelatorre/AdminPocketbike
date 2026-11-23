@@ -8,11 +8,37 @@
  */
 
 import mongoose from 'mongoose';
+import {
+    MODULES,
+    MODULE_IDS,
+    canUserAccessModule,
+    normalizeFilterStatus,
+    normalizeDatePreset,
+} from '../../client/src/services/voiceAssistant/capabilities.js';
 
 const formatCOP = (value) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(
         Number(value) || 0
     );
+
+const formatLocalTimeEsCO = (dateVal) => {
+    if (!dateVal) return null;
+    try {
+        const d = new Date(dateVal);
+        if (Number.isNaN(d.getTime())) return null;
+        return d.toLocaleString('es-CO', {
+            timeZone: 'America/Bogota',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        });
+    } catch {
+        return null;
+    }
+};
 
 const DEMO_DATA = Object.freeze({
     collectionsToday: { collected: 1250000, expected: 1800000, approvedPayments: 23, pendingPayments: 9 },
@@ -457,9 +483,635 @@ export const resolveLiveQuery = async ({ text, capabilityId, auth = null } = {})
     }
 };
 
+/**
+ * 1:1 On-Demand Sanitized Module Record Fetcher (`fetch_module_records` tool for OpenAI).
+ *
+ * Maps 1:1 to every module in `MODULES` (`capabilities.js`) and its `filters` schema:
+ *  - `alerts`    -> status, alertType, query, month, year
+ *  - `devices`   -> status, query
+ *  - `contracts` -> status, query
+ *  - `summary`   -> status, query, month, year
+ *  - `payments`  -> status, datePreset, query, month, year
+ *  - `invoices`  -> status, query, month, year
+ *  - `commands`  -> status, query, month, year
+ *  - `dashboard` -> month, year
+ *
+ * Security & Privacy:
+ *  - Strictly checks `canUserAccessModule(module, auth)`.
+ *  - Scoped to `auth.companyId`.
+ *  - Never returns tokens, PINs, passwords, raw credentials, customer ID documents, or addresses.
+ *  - Caps results to at most 12 sanitized records.
+ */
+export const fetchSanitizedModuleRecords = async ({
+    module: rawModule = 'dashboard',
+    status: rawStatus = null,
+    alertType: rawAlertType = null,
+    datePreset: rawDatePreset = null,
+    query: rawQuery = null,
+    month: rawMonth = null,
+    year: rawYear = null,
+    limit: rawLimit = 10,
+    auth = null,
+} = {}) => {
+    const targetModule = MODULE_IDS.includes(rawModule) ? rawModule : 'dashboard';
+    if (auth && !canUserAccessModule(targetModule, auth)) {
+        return {
+            module: targetModule,
+            authorized: false,
+            error: `Role not authorized to inspect module "${targetModule}"`,
+            records: [],
+        };
+    }
+
+    const maxItems = Math.min(Math.max(Number(rawLimit) || 10, 1), 12);
+    const normalizedStatus =
+        rawStatus && rawStatus !== 'null'
+            ? normalizeFilterStatus(targetModule, rawStatus) || String(rawStatus)
+            : null;
+    const normalizedDatePreset =
+        rawDatePreset && rawDatePreset !== 'null' ? normalizeDatePreset(rawDatePreset) : null;
+    const searchQuery =
+        typeof rawQuery === 'string' && rawQuery !== 'null' && rawQuery.trim()
+            ? rawQuery.trim().toUpperCase()
+            : null;
+
+    const now = new Date();
+    const month =
+        Number.isInteger(Number(rawMonth)) && Number(rawMonth) >= 1 && Number(rawMonth) <= 12
+            ? Number(rawMonth)
+            : now.getMonth() + 1;
+    const year =
+        Number.isInteger(Number(rawYear)) && Number(rawYear) >= 2024 && Number(rawYear) <= 2030
+            ? Number(rawYear)
+            : now.getFullYear();
+
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Offline / disconnected unit-test fallback
+    if (mongoose.connection.readyState !== 1) {
+        return {
+            module: targetModule,
+            authorized: true,
+            demo: true,
+            appliedFilters: {
+                status: normalizedStatus,
+                alertType: rawAlertType || null,
+                datePreset: normalizedDatePreset,
+                query: searchQuery,
+                month,
+                year,
+            },
+            totalMatching: 2,
+            records:
+                targetModule === 'alerts'
+                    ? [
+                          {
+                              plate: 'DMO-118',
+                              alertType: rawAlertType || 'UNAUTHORIZED_DRIVING',
+                              title: 'Conducción en corte (Sabotaje)',
+                              severity: 'CRITICAL',
+                              status: 'ACTIVE',
+                              timestampLocal: '23/11/2026, 10:02 a. m.',
+                              reason: 'Velocidad reportada de 14 km/h con motor en corte activo',
+                              speedKmh: 14,
+                              cutOffActive: true,
+                          },
+                          {
+                              plate: 'DMO-205',
+                              alertType: rawAlertType || 'UNAUTHORIZED_DRIVING',
+                              title: 'Conducción en corte (Sabotaje)',
+                              severity: 'CRITICAL',
+                              status: 'ACTIVE',
+                              timestampLocal: '23/11/2026, 09:48 a. m.',
+                              reason: 'Velocidad reportada de 9 km/h con motor en corte activo',
+                              speedKmh: 9,
+                              cutOffActive: true,
+                          },
+                      ]
+                    : DEMO_DATA.cutOffDevices.slice(0, maxItems),
+        };
+    }
+
+    try {
+        const [
+            { Device, Contract, Payment, Invoice },
+            { default: AlertLog },
+            { default: CommandLog },
+        ] = await Promise.all([
+            import('../models/index.js'),
+            import('../models/AlertLog.js').catch(() => ({ default: null })),
+            import('../models/CommandLog.js').catch(() => ({ default: null })),
+        ]);
+
+        const companyId = auth?.companyId || null;
+        const companyObjFilter = companyId
+            ? mongoose.Types.ObjectId.isValid(companyId)
+                ? { companyId: new mongoose.Types.ObjectId(companyId) }
+                : { companyId }
+            : {};
+        const companyMixedFilter = companyId
+            ? {
+                  companyId: {
+                      $in: [
+                          String(companyId),
+                          ...(mongoose.Types.ObjectId.isValid(companyId)
+                              ? [new mongoose.Types.ObjectId(companyId)]
+                              : []),
+                      ],
+                  },
+              }
+            : {};
+        const companyStrFilter = companyId ? { companyId: String(companyId) } : {};
+
+        switch (targetModule) {
+            case 'alerts': {
+                if (!AlertLog) {
+                    return { module: 'alerts', authorized: true, totalMatching: 0, records: [] };
+                }
+                const filter = {
+                    ...companyMixedFilter,
+                    timestamp: { $gte: startOfMonth, $lte: endOfMonth },
+                };
+                if (normalizedStatus && normalizedStatus !== 'ALL') {
+                    filter.status = normalizedStatus.toUpperCase();
+                }
+                if (rawAlertType && rawAlertType !== 'ALL' && rawAlertType !== 'null') {
+                    filter.alertType = String(rawAlertType).toUpperCase();
+                }
+                if (searchQuery) {
+                    filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
+                }
+
+                const [totalMatching, docs] = await Promise.all([
+                    AlertLog.countDocuments(filter),
+                    AlertLog.find(filter)
+                        .sort({ timestamp: -1 })
+                        .limit(maxItems)
+                        .select(
+                            'deviceIdName alertType severity status title message location metadata occurrenceCount timestamp lastSeenAt'
+                        )
+                        .lean(),
+                ]);
+
+                const records = docs.map((a) => ({
+                    plate: a.deviceIdName,
+                    alertType: a.alertType,
+                    title: a.title || a.alertType,
+                    severity: a.severity,
+                    status: a.status,
+                    timestampLocal: formatLocalTimeEsCO(a.timestamp),
+                    lastSeenLocal: formatLocalTimeEsCO(a.lastSeenAt),
+                    occurrenceCount: a.occurrenceCount || 1,
+                    reason: a.message || a.title || '',
+                    speedKmh: a.location?.speed ?? null,
+                    cutOffActive: a.metadata?.cutOff ?? null,
+                    ignitionOn: a.metadata?.ignition ?? null,
+                    batteryLevel: a.metadata?.batteryLevel ?? null,
+                    hoursOffline: a.metadata?.hoursOffline ?? null,
+                }));
+
+                return {
+                    module: 'alerts',
+                    authorized: true,
+                    appliedFilters: {
+                        status: normalizedStatus || 'ALL',
+                        alertType: rawAlertType || 'ALL',
+                        query: searchQuery,
+                        month,
+                        year,
+                    },
+                    totalMatching,
+                    records,
+                };
+            }
+
+            case 'devices': {
+                const filter = {
+                    ...companyStrFilter,
+                    isDeleted: { $ne: true },
+                };
+                if (searchQuery) {
+                    filter.name = { $regex: searchQuery, $options: 'i' };
+                }
+
+                const allDevices = await Device.find(filter)
+                    .select(
+                        'name status telemetry hasActiveContract dailyRate activeContractId exemptFromCutOff curfewStatus'
+                    )
+                    .lean();
+
+                const nowMs = Date.now();
+                const enriched = allDevices.map((d) => {
+                    const lastUp = d.telemetry?.lastUpdate
+                        ? new Date(d.telemetry.lastUpdate).getTime()
+                        : 0;
+                    const minutesSinceReport = lastUp
+                        ? Math.round((nowMs - lastUp) / 60000)
+                        : null;
+                    const isOffline = !lastUp || nowMs - lastUp >= 3 * 60 * 1000;
+                    const cutOff = Boolean(d.telemetry?.cutOff);
+                    const ignition = Boolean(d.telemetry?.ignition);
+                    const batteryLevel = d.telemetry?.batteryLevel ?? null;
+                    const powerCut = Boolean(d.telemetry?.powerCut);
+                    return {
+                        plate: d.name,
+                        online: !isOffline,
+                        minutesSinceReport,
+                        lastReportLocal: formatLocalTimeEsCO(d.telemetry?.lastUpdate),
+                        engineCutOff: cutOff,
+                        ignitionOn: ignition,
+                        batteryLevel,
+                        powerCut,
+                        hasActiveContract: Boolean(d.hasActiveContract),
+                        dailyRate: d.dailyRate ? formatCOP(d.dailyRate) : null,
+                    };
+                });
+
+                const filtered = enriched.filter((item) => {
+                    if (!normalizedStatus || normalizedStatus === 'all') return true;
+                    if (normalizedStatus === 'off') return item.engineCutOff;
+                    if (normalizedStatus === 'on') return item.ignitionOn && !item.engineCutOff;
+                    if (normalizedStatus === 'offline') return !item.online;
+                    if (normalizedStatus === 'active') return item.hasActiveContract;
+                    if (normalizedStatus === 'available') return !item.hasActiveContract;
+                    if (normalizedStatus === 'battery_issue') {
+                        return (
+                            item.powerCut ||
+                            (typeof item.batteryLevel === 'number' && item.batteryLevel < 30)
+                        );
+                    }
+                    if (normalizedStatus === 'alt_issue') {
+                        return typeof item.batteryLevel === 'number' && item.batteryLevel < 50;
+                    }
+                    return true;
+                });
+
+                return {
+                    module: 'devices',
+                    authorized: true,
+                    appliedFilters: { status: normalizedStatus || 'all', query: searchQuery },
+                    totalMatching: filtered.length,
+                    records: filtered.slice(0, maxItems),
+                };
+            }
+
+            case 'contracts': {
+                const filter = { ...companyObjFilter };
+                if (normalizedStatus && normalizedStatus !== 'all') {
+                    if (normalizedStatus === 'weekly') {
+                        filter.paymentFrequency = 7;
+                    } else {
+                        filter.status = normalizedStatus.toUpperCase();
+                    }
+                }
+                if (searchQuery) {
+                    filter.$or = [
+                        { deviceIdName: { $regex: searchQuery, $options: 'i' } },
+                        { contractId: { $regex: searchQuery, $options: 'i' } },
+                    ];
+                }
+
+                const [totalMatching, docs] = await Promise.all([
+                    Contract.countDocuments(filter),
+                    Contract.find(filter)
+                        .sort({ createdAt: -1 })
+                        .limit(maxItems)
+                        .select(
+                            'contractId deviceIdName status dailyRate contractDays startDate endDate totalAmount paidAmount paidDays remainingDays paymentFrequency'
+                        )
+                        .lean(),
+                ]);
+
+                const records = docs.map((c) => ({
+                    contractId: c.contractId,
+                    plate: c.deviceIdName,
+                    status: c.status,
+                    paymentFrequency: c.paymentFrequency === 7 ? 'weekly' : 'daily',
+                    dailyRate: formatCOP(c.dailyRate || 0),
+                    totalAmount: formatCOP(c.totalAmount || 0),
+                    paidAmount: formatCOP(c.paidAmount || 0),
+                    remainingBalance: formatCOP(
+                        Math.max(0, (Number(c.totalAmount) || 0) - (Number(c.paidAmount) || 0))
+                    ),
+                    paidDays: c.paidDays || 0,
+                    remainingDays: c.remainingDays || 0,
+                    startDate: c.startDate,
+                    endDate: c.endDate,
+                }));
+
+                return {
+                    module: 'contracts',
+                    authorized: true,
+                    appliedFilters: { status: normalizedStatus || 'all', query: searchQuery },
+                    totalMatching,
+                    records,
+                };
+            }
+
+            case 'summary': {
+                const unpaidInvoices = await Invoice.aggregate([
+                    {
+                        $match: {
+                            ...companyObjFilter,
+                            paid: false,
+                            dayType: { $ne: 'FREE' },
+                            date: { $lte: now },
+                        },
+                    },
+                    {
+                        $group: {
+                            _id: '$deviceIdName',
+                            unpaidCount: { $sum: 1 },
+                            unpaidTotal: {
+                                $sum: {
+                                    $subtract: [
+                                        { $ifNull: ['$amount', 0] },
+                                        { $ifNull: ['$paidAmount', 0] },
+                                    ],
+                                },
+                            },
+                            oldestUnpaidDate: { $min: '$date' },
+                            latestUnpaidDate: { $max: '$date' },
+                        },
+                    },
+                    { $sort: { unpaidTotal: -1 } },
+                ]);
+
+                let list = unpaidInvoices.map((u) => ({
+                    plate: u._id,
+                    unpaidDaysCount: u.unpaidCount,
+                    debtAmount: formatCOP(u.unpaidTotal),
+                    rawDebtAmount: u.unpaidTotal,
+                    oldestUnpaidDate: u.oldestUnpaidDate
+                        ? new Date(u.oldestUnpaidDate).toISOString().slice(0, 10)
+                        : null,
+                }));
+
+                if (searchQuery) {
+                    list = list.filter((i) => String(i.plate || '').includes(searchQuery));
+                }
+
+                return {
+                    module: 'summary',
+                    authorized: true,
+                    appliedFilters: {
+                        status: normalizedStatus || 'debt',
+                        query: searchQuery,
+                        month,
+                        year,
+                    },
+                    totalMatching: list.length,
+                    totalDebtFormatted: formatCOP(
+                        list.reduce((acc, item) => acc + (Number(item.rawDebtAmount) || 0), 0)
+                    ),
+                    records: list.slice(0, maxItems),
+                };
+            }
+
+            case 'payments': {
+                const filter = {
+                    ...companyObjFilter,
+                };
+                if (normalizedDatePreset === 'today') {
+                    const startToday = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        now.getDate(),
+                        0,
+                        0,
+                        0
+                    );
+                    filter.created_at = { $gte: startToday };
+                } else if (normalizedDatePreset === 'yesterday') {
+                    const startYest = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        now.getDate() - 1,
+                        0,
+                        0,
+                        0
+                    );
+                    const endYest = new Date(
+                        now.getFullYear(),
+                        now.getMonth(),
+                        now.getDate() - 1,
+                        23,
+                        59,
+                        59,
+                        999
+                    );
+                    filter.created_at = { $gte: startYest, $lte: endYest };
+                } else if (normalizedDatePreset === 'last_7_days') {
+                    const start7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    filter.created_at = { $gte: start7 };
+                } else {
+                    filter.created_at = { $gte: startOfMonth, $lte: endOfMonth };
+                }
+
+                if (normalizedStatus === 'completed') {
+                    filter.status = { $in: ['APPROVED', 'COMPLETED'] };
+                } else if (normalizedStatus === 'failed') {
+                    filter.status = { $in: ['DECLINED', 'ERROR', 'FAILED', 'REJECTED', 'VOIDED'] };
+                } else if (normalizedStatus === 'pending') {
+                    filter.status = { $in: ['PENDING', 'VERIFYING'] };
+                } else if (normalizedStatus === 'free') {
+                    filter.type = 'FREE';
+                }
+
+                if (searchQuery) {
+                    filter.$or = [
+                        { deviceIdName: { $regex: searchQuery, $options: 'i' } },
+                        { reference: { $regex: searchQuery, $options: 'i' } },
+                    ];
+                }
+
+                const [totalMatching, docs] = await Promise.all([
+                    Payment.countDocuments(filter),
+                    Payment.find(filter)
+                        .sort({ created_at: -1 })
+                        .limit(maxItems)
+                        .select(
+                            'reference deviceIdName amount status type payment_method_type adjustmentType created_at finalized_at invoiceId'
+                        )
+                        .lean(),
+                ]);
+
+                const records = docs.map((p) => ({
+                    reference: p.reference,
+                    plate: p.deviceIdName,
+                    amount: formatCOP(p.amount || 0),
+                    status: p.status,
+                    method: p.payment_method_type || p.type,
+                    invoiceId: p.invoiceId,
+                    createdAtLocal: formatLocalTimeEsCO(p.created_at),
+                    finalizedAtLocal: formatLocalTimeEsCO(p.finalized_at),
+                }));
+
+                return {
+                    module: 'payments',
+                    authorized: true,
+                    appliedFilters: {
+                        status: normalizedStatus || 'all',
+                        datePreset: normalizedDatePreset || 'all',
+                        query: searchQuery,
+                        month,
+                        year,
+                    },
+                    totalMatching,
+                    records,
+                };
+            }
+
+            case 'invoices': {
+                const filter = {
+                    ...companyObjFilter,
+                    date: { $gte: startOfMonth, $lte: endOfMonth },
+                };
+                if (normalizedStatus === 'PAID') filter.paid = true;
+                else if (normalizedStatus === 'PENDING') {
+                    filter.paid = false;
+                    filter.dayType = { $ne: 'FREE' };
+                } else if (normalizedStatus === 'FREE') {
+                    filter.dayType = 'FREE';
+                }
+                if (searchQuery) {
+                    filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
+                }
+
+                const [totalMatching, docs] = await Promise.all([
+                    Invoice.countDocuments(filter),
+                    Invoice.find(filter)
+                        .sort({ date: -1 })
+                        .limit(maxItems)
+                        .select('invoiceId deviceIdName date amount paidAmount paid dayType cutOff')
+                        .lean(),
+                ]);
+
+                const records = docs.map((inv) => ({
+                    invoiceId: inv.invoiceId,
+                    plate: inv.deviceIdName,
+                    date: inv.date ? new Date(inv.date).toISOString().slice(0, 10) : null,
+                    amount: formatCOP(inv.amount || 0),
+                    paid: Boolean(inv.paid),
+                    dayType: inv.dayType,
+                    cutOffTriggered: Boolean(inv.cutOff),
+                }));
+
+                return {
+                    module: 'invoices',
+                    authorized: true,
+                    appliedFilters: {
+                        status: normalizedStatus || 'all',
+                        query: searchQuery,
+                        month,
+                        year,
+                    },
+                    totalMatching,
+                    records,
+                };
+            }
+
+            case 'commands': {
+                if (!CommandLog) {
+                    return { module: 'commands', authorized: true, totalMatching: 0, records: [] };
+                }
+                const filter = {
+                    ...companyMixedFilter,
+                    sentAt: { $gte: startOfMonth, $lte: endOfMonth },
+                };
+                if (normalizedStatus && normalizedStatus !== 'ALL') {
+                    const upper = normalizedStatus.toUpperCase();
+                    if (['STOP', 'RESUME', 'PREVENTIVE'].includes(upper)) {
+                        filter.commandType = upper;
+                    } else if (['EXECUTED', 'QUEUED', 'FAILED', 'SENT'].includes(upper)) {
+                        filter.status = upper === 'SENT' ? 'QUEUED' : upper;
+                    }
+                }
+                if (searchQuery) {
+                    filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
+                }
+
+                const [totalMatching, docs] = await Promise.all([
+                    CommandLog.countDocuments(filter),
+                    CommandLog.find(filter)
+                        .sort({ sentAt: -1 })
+                        .limit(maxItems)
+                        .select(
+                            'deviceIdName commandType source status latencyMs reason details error sentAt'
+                        )
+                        .lean(),
+                ]);
+
+                const records = docs.map((cmd) => ({
+                    plate: cmd.deviceIdName,
+                    commandType: cmd.commandType,
+                    source: cmd.source,
+                    status: cmd.status,
+                    sentAtLocal: formatLocalTimeEsCO(cmd.sentAt),
+                    reason: cmd.reason || cmd.details || '',
+                    error: cmd.error || null,
+                }));
+
+                return {
+                    module: 'commands',
+                    authorized: true,
+                    appliedFilters: {
+                        status: normalizedStatus || 'ALL',
+                        query: searchQuery,
+                        month,
+                        year,
+                    },
+                    totalMatching,
+                    records,
+                };
+            }
+
+            case 'dashboard':
+            default: {
+                const [payments, devicesCount, activeContractsCount] = await Promise.all([
+                    Payment.find({
+                        ...companyObjFilter,
+                        status: { $in: ['APPROVED', 'COMPLETED'] },
+                        created_at: { $gte: startOfMonth, $lte: endOfMonth },
+                    })
+                        .select('amount')
+                        .lean(),
+                    Device.countDocuments({ ...companyStrFilter, isDeleted: { $ne: true } }),
+                    Contract.countDocuments({ ...companyObjFilter, status: 'ACTIVE' }),
+                ]);
+                const totalRevenue = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+                return {
+                    module: 'dashboard',
+                    authorized: true,
+                    appliedFilters: { month, year },
+                    totalMatching: 1,
+                    records: [
+                        {
+                            period: `${year}-${String(month).padStart(2, '0')}`,
+                            totalRevenue: formatCOP(totalRevenue),
+                            approvedPaymentsCount: payments.length,
+                            totalFleet: devicesCount,
+                            activeContracts: activeContractsCount,
+                        },
+                    ],
+                };
+            }
+        }
+    } catch (err) {
+        return {
+            module: targetModule,
+            authorized: true,
+            error: 'Could not query module records at this moment',
+            records: [],
+        };
+    }
+};
+
 export default {
     resolveQuery,
     resolveLiveQuery,
+    fetchSanitizedModuleRecords,
     matchIntent,
     normalizeText,
     SUPPORTED_CAPABILITIES,
