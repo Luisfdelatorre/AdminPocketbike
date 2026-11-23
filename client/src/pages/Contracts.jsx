@@ -641,7 +641,7 @@ const Contracts = () => {
         },
         selectedItem: previewContract?.deviceId || editingContract?.deviceId || null,
         singleMatchItem:
-            filteredContracts.length === 1
+            Boolean(searchQuery || filter !== 'all') && filteredContracts.length === 1
                 ? filteredContracts[0]?.deviceId || filteredContracts[0]?.contractId || null
                 : null,
         applyFilter: (params = {}) => {

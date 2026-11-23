@@ -17,6 +17,7 @@ import {
     canUserAccessModule,
     normalizeFilterStatus,
     normalizeDatePreset,
+    normalizeAlertType,
 } from './capabilities.js';
 
 export const MAX_ACTIONS_PER_PLAN = 3;
@@ -90,14 +91,36 @@ export const validateAction = (action, { currentModule = 'dashboard', user = nul
 
             if (params.status !== undefined && params.status !== null && params.status !== '') {
                 const normalizedStatus = normalizeFilterStatus(targetModule, params.status);
-                if (!normalizedStatus) {
+                if (normalizedStatus) {
+                    cleanParams.status = normalizedStatus;
+                    hasAnyFilter = true;
+                } else if (targetModule === 'alerts') {
+                    const asAlertType = normalizeAlertType(params.status);
+                    if (asAlertType) {
+                        cleanParams.alertType = asAlertType;
+                        hasAnyFilter = true;
+                    }
+                } else if (mod?.filters?.status) {
+                    // Explicit invalid enum when called directly without strict schema
                     return {
                         success: false,
                         error: `Invalid status filter "${String(params.status)}" for module "${targetModule}"`,
                     };
                 }
-                cleanParams.status = normalizedStatus;
-                hasAnyFilter = true;
+            }
+
+            if (params.alertType !== undefined && params.alertType !== null && params.alertType !== '') {
+                if (targetModule === 'alerts') {
+                    const normalizedType = normalizeAlertType(params.alertType);
+                    if (!normalizedType) {
+                        return {
+                            success: false,
+                            error: `Invalid alertType "${String(params.alertType)}"`,
+                        };
+                    }
+                    cleanParams.alertType = normalizedType;
+                    hasAnyFilter = true;
+                }
             }
 
             if (params.datePreset !== undefined && params.datePreset !== null && params.datePreset !== '') {
@@ -108,8 +131,10 @@ export const validateAction = (action, { currentModule = 'dashboard', user = nul
                         error: `Invalid datePreset "${String(params.datePreset)}"`,
                     };
                 }
-                cleanParams.datePreset = normalizedPreset;
-                hasAnyFilter = true;
+                if (mod?.filters?.datePreset) {
+                    cleanParams.datePreset = normalizedPreset;
+                    hasAnyFilter = true;
+                }
             }
 
             if (params.month !== undefined && params.month !== null) {
@@ -117,8 +142,10 @@ export const validateAction = (action, { currentModule = 'dashboard', user = nul
                 if (!Number.isInteger(m) || m < 1 || m > 12) {
                     return { success: false, error: 'month must be an integer between 1 and 12' };
                 }
-                cleanParams.month = m;
-                hasAnyFilter = true;
+                if (mod?.filters?.month) {
+                    cleanParams.month = m;
+                    hasAnyFilter = true;
+                }
             }
 
             if (params.year !== undefined && params.year !== null) {
@@ -126,32 +153,36 @@ export const validateAction = (action, { currentModule = 'dashboard', user = nul
                 if (!Number.isInteger(y) || y < 2024 || y > 2030) {
                     return { success: false, error: 'year must be an integer between 2024 and 2030' };
                 }
-                cleanParams.year = y;
-                hasAnyFilter = true;
+                if (mod?.filters?.year) {
+                    cleanParams.year = y;
+                    hasAnyFilter = true;
+                }
             }
 
             if (params.sortBy !== undefined && params.sortBy !== null && params.sortBy !== '') {
                 const sortDef = mod?.filters?.sortBy;
-                if (!sortDef || !sortDef.values.includes(params.sortBy)) {
+                if (sortDef && sortDef.values.includes(params.sortBy)) {
+                    cleanParams.sortBy = params.sortBy;
+                    hasAnyFilter = true;
+                } else if (sortDef) {
                     return {
                         success: false,
                         error: `Invalid sortBy "${String(params.sortBy)}" for module "${targetModule}"`,
                     };
                 }
-                cleanParams.sortBy = params.sortBy;
-                hasAnyFilter = true;
             }
 
             if (params.view !== undefined && params.view !== null && params.view !== '') {
                 const viewDef = mod?.filters?.view;
-                if (!viewDef || !viewDef.values.includes(params.view)) {
+                if (viewDef && viewDef.values.includes(params.view)) {
+                    cleanParams.view = params.view;
+                    hasAnyFilter = true;
+                } else if (viewDef) {
                     return {
                         success: false,
                         error: `Invalid view "${String(params.view)}" for module "${targetModule}"`,
                     };
                 }
-                cleanParams.view = params.view;
-                hasAnyFilter = true;
             }
 
             if (!hasAnyFilter) {
@@ -256,6 +287,13 @@ export const validateActionPlan = (plan, { currentModule = 'dashboard', user = n
     for (const rawAction of rawActions) {
         const res = validateAction(rawAction, { currentModule: effectiveModule, user });
         if (!res.success) {
+            // If OpenAI's strict schema emitted an applyFilter with all-null params, skip the no-op filter safely
+            if (
+                rawAction?.name === 'applyFilter' &&
+                res.error === 'applyFilter requires at least one valid filter parameter'
+            ) {
+                continue;
+            }
             return {
                 success: false,
                 error: res.error,

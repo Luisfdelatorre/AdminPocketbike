@@ -65,12 +65,15 @@ export const chatWithAssistant = async (req, res) => {
     try {
         const result = await aiAssistantService.interpretUserRequest({
             ...validation.data,
+            traceId: typeof req.body?.traceId === 'string' ? req.body.traceId : null,
+            viaVoice: Boolean(req.body?.viaVoice),
             user: req.auth || null,
         });
 
         return res.json({
             success: true,
             data: {
+                traceId: result.traceId,
                 plan: result.plan,
                 source: result.source,
                 ...(process.env.NODE_ENV !== 'production' ? { metrics: result.metrics } : {}),
@@ -82,6 +85,42 @@ export const chatWithAssistant = async (req, res) => {
             error: 'Assistant service is temporarily unavailable',
         });
     }
+};
+
+/**
+ * POST /api/v1/ai/telemetry
+ * Captures end-to-end turn results (including local matcher turns, resolved responses,
+ * and 👍/👎 RLHF reward signals) into `server/scratch/assistant_rl_dataset.jsonl`.
+ */
+export const recordAssistantTelemetry = (req, res) => {
+    if (!isAiDemoAllowed()) {
+        return res.status(403).json({ success: false, error: 'Telemetry disabled' });
+    }
+    const body = req.body || {};
+    const record = aiAssistantService.recordTrainingTrace({
+        ...body,
+        userRole: aiAssistantService.getRoleVariant(req.auth || null),
+        companyId: req.auth?.companyId || null,
+    });
+    return res.json({
+        success: true,
+        data: { traceId: record?.traceId || body.traceId || null },
+    });
+};
+
+/**
+ * GET /api/v1/ai/telemetry
+ * Returns captured training/evaluation traces and reward counts.
+ */
+export const getAssistantTelemetry = (req, res) => {
+    if (process.env.NODE_ENV === 'production' && process.env.AI_DEMO_ALLOW_PROD !== 'true') {
+        return res.status(403).json({ success: false, error: 'Telemetry export disabled in production' });
+    }
+    const limit = Math.min(500, Math.max(1, Number(req.query?.limit) || 100));
+    return res.json({
+        success: true,
+        data: aiAssistantService.getTrainingTraces({ limit }),
+    });
 };
 
 /**
@@ -106,7 +145,7 @@ export const getAssistantDiagnostics = (req, res) => {
  * Input (body or query): { text?: string, capabilityId?: string }
  * Read-only demo endpoint: answers from a fictional dataset.
  */
-export const queryAssistant = (req, res) => {
+export const queryAssistant = async (req, res) => {
     const source = req.method === 'GET' ? req.query : req.body;
     const { text, capabilityId } = source || {};
 
@@ -126,10 +165,16 @@ export const queryAssistant = (req, res) => {
     }
 
     try {
-        const result = assistantDemoService.resolveQuery({
-            text: hasText ? text.trim() : undefined,
-            capabilityId: hasCapability ? capabilityId : undefined,
-        });
+        const result = req.auth
+            ? await assistantDemoService.resolveLiveQuery({
+                  text: hasText ? text.trim() : undefined,
+                  capabilityId: hasCapability ? capabilityId : undefined,
+                  auth: req.auth,
+              })
+            : assistantDemoService.resolveQuery({
+                  text: hasText ? text.trim() : undefined,
+                  capabilityId: hasCapability ? capabilityId : undefined,
+              });
         return res.json({ success: true, data: result });
     } catch {
         return res.status(500).json({ success: false, error: 'Assistant query failed' });

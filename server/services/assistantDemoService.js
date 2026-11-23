@@ -1,15 +1,19 @@
 /**
- * Assistant Demo Service
+ * Assistant Query Service (Live MongoDB + Static Fallback)
  *
- * Resolves assistant queries against a static, fictional dataset.
- * It never touches MongoDB, external providers or real company data.
- * Capability IDs must stay aligned with client/src/services/voiceAssistant/capabilities.js.
+ * When MongoDB is connected (`mongoose.connection.readyState === 1`), resolves
+ * queries against real company-scoped records (`Device`, `Contract`, `Payment`,
+ * `Invoice`, `AlertLog`). Falls back to the static dataset only when disconnected
+ * (e.g., offline unit tests).
  */
 
-const formatCOP = (value) =>
-    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
+import mongoose from 'mongoose';
 
-// Fictional demo dataset (plates, names and amounts are invented).
+const formatCOP = (value) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(
+        Number(value) || 0
+    );
+
 const DEMO_DATA = Object.freeze({
     collectionsToday: { collected: 1250000, expected: 1800000, approvedPayments: 23, pendingPayments: 9 },
     fleet: { total: 48, online: 41, offline: 7, ignitionOn: 12, cutOff: 3 },
@@ -32,10 +36,10 @@ const DEMO_DATA = Object.freeze({
     contracts: { active: 48, finishingThisMonth: 5, newThisMonth: 4, averageProgress: 62 },
 });
 
-// Server-side intent table used when the client sends free text.
 const INTENTS = [
     { id: 'help', keywords: ['ayuda', 'que puedes hacer', 'que sabes hacer', 'comandos', 'opciones'] },
-    { id: 'query.collections_today', keywords: ['recaudo', 'recaudado', 'cobrado', 'cobros de hoy', 'ingresos', 'cuanto se ha pagado', 'pagos de hoy'] },
+    { id: 'query.collections_today', keywords: ['recaudo', 'recaudado', 'cobrado', 'cobros de hoy', 'ingresos', 'cuanto se ha pagado', 'pagos de hoy', 'pagos aprobados'] },
+    { id: 'query.rejected_payments', keywords: ['pagos rechazados', 'rejected payments', 'pagos fallidos'] },
     { id: 'query.fleet_status', keywords: ['estado de la flota', 'flota', 'en linea', 'conectadas', 'desconectadas'] },
     { id: 'query.cutoff_devices', keywords: ['apagadas', 'apagados', 'cortadas', 'corte', 'bloqueadas'] },
     { id: 'query.top_debtors', keywords: ['deudores', 'deben', 'morosos', 'deuda', 'mora'] },
@@ -63,10 +67,6 @@ export const normalizeText = (text = '') =>
         .replace(/\s+/g, ' ')
         .trim();
 
-/**
- * Keyword matcher: longer keyword matches weigh more so that
- * "resumen de contratos" wins over "contratos".
- */
 export const matchIntent = (text) => {
     const normalized = ` ${normalizeText(text)} `;
     if (!normalized.trim()) return null;
@@ -86,7 +86,7 @@ export const matchIntent = (text) => {
     return best?.id ?? null;
 };
 
-const buildQueryResult = (capabilityId) => {
+const buildStaticQueryResult = (capabilityId) => {
     switch (capabilityId) {
         case 'query.collections_today': {
             const c = DEMO_DATA.collectionsToday;
@@ -166,18 +166,15 @@ const buildQueryResult = (capabilityId) => {
             };
         }
         default:
-            // Navigation and help capabilities are resolved by the client dispatcher.
             return { reply: null, data: null };
     }
 };
 
 /**
- * Resolves a query either by explicit capabilityId or by matching free text.
- * @param {{ text?: string, capabilityId?: string }} input
+ * Synchronous resolver used by offline unit tests.
  */
 export const resolveQuery = ({ text, capabilityId } = {}) => {
     const resolvedId = capabilityId || matchIntent(text);
-
     if (!resolvedId) {
         return {
             capabilityId: null,
@@ -191,9 +188,279 @@ export const resolveQuery = ({ text, capabilityId } = {}) => {
     return {
         capabilityId: resolvedId,
         matched: true,
-        ...buildQueryResult(resolvedId),
+        ...buildStaticQueryResult(resolvedId),
         demo: true,
     };
 };
 
-export default { resolveQuery, matchIntent, normalizeText, SUPPORTED_CAPABILITIES };
+/**
+ * Live MongoDB query resolver scoped by `auth.companyId`.
+ */
+export const resolveLiveQuery = async ({ text, capabilityId, auth = null } = {}) => {
+    const resolvedId = capabilityId || matchIntent(text);
+    if (!resolvedId) {
+        return resolveQuery({ text, capabilityId });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+        return resolveQuery({ text, capabilityId: resolvedId });
+    }
+
+    try {
+        const [{ Device, Contract, Payment, Invoice }, { default: AlertLog }] = await Promise.all([
+            import('../models/index.js'),
+            import('../models/AlertLog.js').catch(() => ({ default: null })),
+        ]);
+
+        const companyId = auth?.companyId || null;
+        const companyFilter = companyId ? { companyId } : {};
+        const companyStrFilter = companyId ? { companyId: String(companyId) } : {};
+
+        switch (resolvedId) {
+            case 'query.collections_today': {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const payments = await Payment.find({
+                    ...companyFilter,
+                    createdAt: { $gte: startOfMonth },
+                })
+                    .select('amount status type adjustmentType createdAt')
+                    .lean();
+
+                let collected = 0;
+                let approvedCount = 0;
+                let pendingCount = 0;
+                for (const p of payments) {
+                    const st = String(p.status || '').toUpperCase();
+                    if ((st === 'APPROVED' || st === 'COMPLETED') && Number(p.amount) > 0) {
+                        collected += Number(p.amount) || 0;
+                        approvedCount += 1;
+                    } else if (st === 'PENDING' || st === 'VERIFYING') {
+                        pendingCount += 1;
+                    }
+                }
+
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply: `En el mes actual se han recaudado ${formatCOP(collected)} en ${approvedCount} pagos aprobados (${pendingCount} pendientes).`,
+                    data: {
+                        kind: 'stats',
+                        stats: [
+                            { label: 'Recaudado mes', value: formatCOP(collected) },
+                            { label: 'Aprobados', value: String(approvedCount) },
+                            { label: 'Pendientes', value: String(pendingCount) },
+                            { label: 'Registros', value: String(payments.length) },
+                        ],
+                    },
+                    demo: false,
+                };
+            }
+
+            case 'query.rejected_payments': {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const rejected = await Payment.find({
+                    ...companyFilter,
+                    status: { $in: ['DECLINED', 'ERROR', 'FAILED', 'REJECTED'] },
+                    createdAt: { $gte: startOfMonth },
+                })
+                    .sort({ createdAt: -1 })
+                    .limit(10)
+                    .select('deviceId deviceIdName invoiceId amount status createdAt')
+                    .lean();
+
+                const totalRejected = rejected.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply: `Encontré ${rejected.length} pagos rechazados recientes en el mes por un total de ${formatCOP(totalRejected)}.`,
+                    data: {
+                        kind: 'list',
+                        items: rejected.slice(0, 5).map((p) => ({
+                            title: p.deviceIdName || p.deviceId || 'Moto',
+                            subtitle: p.invoiceId || p.status || 'Rechazado',
+                            value: formatCOP(p.amount || 0),
+                        })),
+                    },
+                    demo: false,
+                };
+            }
+
+            case 'query.fleet_status': {
+                const devices = await Device.find({
+                    ...companyStrFilter,
+                    isDeleted: { $ne: true },
+                })
+                    .select('name customerName lastUpdate cutOff ignition hasActiveContract')
+                    .lean();
+
+                const total = devices.length;
+                let offline = 0;
+                let cutOff = 0;
+                let ignitionOn = 0;
+                for (const d of devices) {
+                    const lastMs = d.lastUpdate ? new Date(d.lastUpdate).getTime() : 0;
+                    if (!lastMs || Date.now() - lastMs >= 3 * 60 * 1000) offline += 1;
+                    if (d.cutOff) cutOff += 1;
+                    if (d.ignition) ignitionOn += 1;
+                }
+                const online = Math.max(0, total - offline);
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply: `La flota tiene ${total} motos: ${online} en línea y ${offline} desconectadas. ${ignitionOn} están encendidas y ${cutOff} tienen corte activo.`,
+                    data: {
+                        kind: 'stats',
+                        stats: [
+                            { label: 'Total flota', value: String(total) },
+                            { label: 'En línea', value: String(online) },
+                            { label: 'Desconectadas', value: String(offline) },
+                            { label: 'Con corte', value: String(cutOff) },
+                        ],
+                    },
+                    demo: false,
+                };
+            }
+
+            case 'query.cutoff_devices': {
+                const cutDevices = await Device.find({
+                    ...companyStrFilter,
+                    isDeleted: { $ne: true },
+                    cutOff: true,
+                })
+                    .select('name customerName unpaidCount unpaidTotal')
+                    .limit(15)
+                    .lean();
+
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply:
+                        cutDevices.length > 0
+                            ? `Hay ${cutDevices.length} motos apagadas con corte activo: ${cutDevices
+                                  .slice(0, 6)
+                                  .map((d) => d.name)
+                                  .join(', ')}.`
+                            : 'En este momento no hay ninguna moto apagada por corte en la flota.',
+                    data: {
+                        kind: 'list',
+                        items: cutDevices.slice(0, 6).map((d) => ({
+                            title: d.name || 'Moto',
+                            subtitle: d.customerName || 'Con corte activo',
+                            value: d.unpaidTotal ? formatCOP(d.unpaidTotal) : 'Apagada',
+                        })),
+                    },
+                    demo: false,
+                };
+            }
+
+            case 'query.top_debtors': {
+                const debtors = await Device.find({
+                    ...companyStrFilter,
+                    isDeleted: { $ne: true },
+                    unpaidTotal: { $gt: 0 },
+                })
+                    .sort({ unpaidTotal: -1 })
+                    .limit(6)
+                    .select('name customerName unpaidTotal unpaidCount')
+                    .lean();
+
+                if (debtors.length === 0) {
+                    return {
+                        capabilityId: resolvedId,
+                        matched: true,
+                        reply: 'Todas las motos de la compañía están al día (0 con deuda pendiente).',
+                        data: null,
+                        demo: false,
+                    };
+                }
+
+                const top = debtors[0];
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply: `El mayor saldo pendiente es ${top.name} con ${formatCOP(top.unpaidTotal)}. Te muestro las ${debtors.length} motos con mayor mora.`,
+                    data: {
+                        kind: 'list',
+                        items: debtors.map((d) => ({
+                            title: d.name || 'Moto',
+                            subtitle: `${d.customerName || 'Conductor'} · ${d.unpaidCount || 1} días`,
+                            value: formatCOP(d.unpaidTotal || 0),
+                        })),
+                    },
+                    demo: false,
+                };
+            }
+
+            case 'query.open_alerts': {
+                if (!AlertLog) return resolveQuery({ text, capabilityId: resolvedId });
+                const activeAlerts = await AlertLog.find({
+                    ...(companyId ? { companyId: { $in: [companyId, String(companyId)] } } : {}),
+                    status: 'ACTIVE',
+                })
+                    .sort({ createdAt: -1 })
+                    .limit(6)
+                    .select('deviceIdName alertType title severity createdAt')
+                    .lean();
+
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply:
+                        activeAlerts.length > 0
+                            ? `Hay ${activeAlerts.length} alertas activas recientes. La última es ${activeAlerts[0].title || activeAlerts[0].alertType} en ${activeAlerts[0].deviceIdName}.`
+                            : 'No hay alertas activas pendientes en este momento.',
+                    data: {
+                        kind: 'list',
+                        items: activeAlerts.map((a) => ({
+                            title: a.title || a.alertType,
+                            subtitle: a.deviceIdName,
+                            value: a.severity || 'ACTIVA',
+                        })),
+                    },
+                    demo: false,
+                };
+            }
+
+            case 'query.contracts_overview': {
+                const contracts = await Contract.find(companyFilter)
+                    .select('status totalAmount dailyRate')
+                    .lean();
+
+                const active = contracts.filter((c) => c.status === 'ACTIVE');
+                const completed = contracts.filter((c) => c.status === 'COMPLETED');
+                const totalVal = active.reduce((s, c) => s + (Number(c.totalAmount) || 0), 0);
+
+                return {
+                    capabilityId: resolvedId,
+                    matched: true,
+                    reply: `Hay ${active.length} contratos activos y ${completed.length} finalizados (de ${contracts.length} totales), por un valor activo de ${formatCOP(totalVal)}.`,
+                    data: {
+                        kind: 'stats',
+                        stats: [
+                            { label: 'Activos', value: String(active.length) },
+                            { label: 'Finalizados', value: String(completed.length) },
+                            { label: 'Total', value: String(contracts.length) },
+                            { label: 'Valor activo', value: formatCOP(totalVal) },
+                        ],
+                    },
+                    demo: false,
+                };
+            }
+
+            default:
+                return resolveQuery({ text, capabilityId: resolvedId });
+        }
+    } catch {
+        return resolveQuery({ text, capabilityId: resolvedId });
+    }
+};
+
+export default {
+    resolveQuery,
+    resolveLiveQuery,
+    matchIntent,
+    normalizeText,
+    SUPPORTED_CAPABILITIES,
+};

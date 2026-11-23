@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { assistantChat, assistantQuery } from '../services/api';
+import { assistantChat, assistantQuery, recordAssistantTelemetry } from '../services/api';
 import { ROUTE_TO_MODULE } from '../services/voiceAssistant/capabilities';
 import { MAX_CONVERSATION_TURNS } from '../services/voiceAssistant/schemaValidator';
 import { dispatchActionPlan } from '../services/voiceAssistant/dispatcher';
@@ -126,18 +126,40 @@ export const VoiceAssistantProvider = ({ children }) => {
         return localStorage.getItem(VOICE_STYLE_STORAGE_KEY) || 'normal';
     });
 
-    // Voice privacy settings default to OFF (Section 15)
+    // Voice privacy settings default to ON so the chat text and spoken voice match by default;
+    // the user can toggle Montos/Clientes to OFF in the voice drawer anytime.
     const [speakAmounts, setSpeakAmountsState] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return localStorage.getItem(SPEAK_AMOUNTS_STORAGE_KEY) === 'true';
+        if (typeof window === 'undefined') return true;
+        const saved = localStorage.getItem(SPEAK_AMOUNTS_STORAGE_KEY);
+        return saved === null ? true : saved === 'true';
     });
     const [speakCustomerNames, setSpeakCustomerNamesState] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return localStorage.getItem(SPEAK_NAMES_STORAGE_KEY) === 'true';
+        if (typeof window === 'undefined') return true;
+        const saved = localStorage.getItem(SPEAK_NAMES_STORAGE_KEY);
+        return saved === null ? true : saved === 'true';
     });
 
     const busyRef = useRef(false);
     const inactivityTimerRef = useRef(null);
+    const typingIntervalRef = useRef(null);
+
+    const stopTypingStream = useCallback((finalizeMessageId = null) => {
+        if (typingIntervalRef.current) {
+            clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+        }
+        if (finalizeMessageId) {
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === finalizeMessageId ? { ...m, streamedText: m.text, isTyping: false } : m
+                )
+            );
+        } else {
+            setMessages((prev) =>
+                prev.map((m) => (m.isTyping ? { ...m, streamedText: m.text, isTyping: false } : m))
+            );
+        }
+    }, []);
 
     const currentRoute = location.pathname || '/';
     const currentModule = ROUTE_TO_MODULE[currentRoute] || 'dashboard';
@@ -192,15 +214,108 @@ export const VoiceAssistantProvider = ({ children }) => {
 
     const speakReply = useCallback(
         (replyText, overrides = {}) => {
-            if (!ttsSupported || !ttsEnabled || !replyText) {
-                setStatus(ASSISTANT_STATUS.IDLE);
-                return;
-            }
+            const msgId = overrides.messageId || null;
             const spokenText = applySpeechPrivacyFilter(replyText, {
                 speakAmounts,
                 speakCustomerNames,
                 lang: assistantLang,
             });
+
+            if (msgId && spokenText && spokenText !== replyText) {
+                // Keep chat text identical to what is being read aloud when privacy filter modifies it
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === msgId ? { ...m, text: spokenText } : m))
+                );
+            }
+
+            if (!ttsSupported || !ttsEnabled || !spokenText) {
+                if (msgId) stopTypingStream(msgId);
+                setStatus(ASSISTANT_STATUS.IDLE);
+                return;
+            }
+
+            stopTypingStream();
+
+            // Progressive word-by-word typing synchronized with TTS speech
+            if (msgId) {
+                const words = spokenText.split(/(\s+)/);
+                let wordIdx = Math.min(2, words.length);
+                let boundarySeen = false;
+
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === msgId
+                            ? {
+                                  ...m,
+                                  text: spokenText,
+                                  streamedText: words.slice(0, wordIdx).join(''),
+                                  isTyping: wordIdx < words.length,
+                              }
+                            : m
+                    )
+                );
+
+                // Smooth fallback ticker (~55ms per word token) when the OS voice doesn't emit onboundary
+                typingIntervalRef.current = setInterval(() => {
+                    if (boundarySeen) return;
+                    wordIdx = Math.min(words.length, wordIdx + 2);
+                    const partial = words.slice(0, wordIdx).join('');
+                    const done = wordIdx >= words.length;
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === msgId
+                                ? { ...m, streamedText: partial, isTyping: !done }
+                                : m
+                        )
+                    );
+                    if (done && typingIntervalRef.current) {
+                        clearInterval(typingIntervalRef.current);
+                        typingIntervalRef.current = null;
+                    }
+                }, 70);
+
+                const started = speakText(spokenText, {
+                    voiceURI:
+                        overrides.voiceURI !== undefined ? overrides.voiceURI : selectedVoiceURI || null,
+                    styleId: overrides.styleId || voiceStyle,
+                    onStart: () => setStatus(ASSISTANT_STATUS.SPEAKING),
+                    onBoundary: ({ charIndex, charLength }) => {
+                        boundarySeen = true;
+                        const endIdx = Math.min(
+                            spokenText.length,
+                            charIndex + Math.max(charLength || 8, 8)
+                        );
+                        // Snap to end of current word
+                        const nextSpace = spokenText.indexOf(' ', endIdx);
+                        const sliceEnd = nextSpace === -1 ? spokenText.length : nextSpace;
+                        const partial = spokenText.slice(0, sliceEnd);
+                        setMessages((prev) =>
+                            prev.map((m) =>
+                                m.id === msgId
+                                    ? {
+                                          ...m,
+                                          streamedText: partial,
+                                          isTyping: sliceEnd < spokenText.length,
+                                      }
+                                    : m
+                            )
+                        );
+                    },
+                    onEnd: () => {
+                        stopTypingStream(msgId);
+                        setStatus((prev) =>
+                            prev === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : prev
+                        );
+                    },
+                });
+
+                if (!started) {
+                    stopTypingStream(msgId);
+                    setStatus(ASSISTANT_STATUS.IDLE);
+                }
+                return;
+            }
+
             const started = speakText(spokenText, {
                 voiceURI: overrides.voiceURI !== undefined ? overrides.voiceURI : selectedVoiceURI || null,
                 styleId: overrides.styleId || voiceStyle,
@@ -214,7 +329,16 @@ export const VoiceAssistantProvider = ({ children }) => {
                 setStatus(ASSISTANT_STATUS.IDLE);
             }
         },
-        [ttsSupported, ttsEnabled, selectedVoiceURI, voiceStyle, speakAmounts, speakCustomerNames, assistantLang]
+        [
+            ttsSupported,
+            ttsEnabled,
+            selectedVoiceURI,
+            voiceStyle,
+            speakAmounts,
+            speakCustomerNames,
+            assistantLang,
+            stopTypingStream,
+        ]
     );
 
     const setAssistantLang = useCallback((nextLang) => {
@@ -303,6 +427,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             setStatus(ASSISTANT_STATUS.PROCESSING);
 
             const appCtx = getApplicationContext();
+            const traceId = `tr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
             try {
                 // 1. Deterministic local command matcher first (Section 10)
@@ -315,18 +440,32 @@ export const VoiceAssistantProvider = ({ children }) => {
                     const clarifyText =
                         localMatch.clarificationPrompt ||
                         '¿Podrías especificar a qué sección o registro te refieres?';
-                    appendMessage(
-                        createMessage('assistant', clarifyText, {
-                            source: 'local',
-                            needsClarification: true,
-                        })
-                    );
-                    speakReply(clarifyText);
+                    const clarifyMsg = createMessage('assistant', clarifyText, {
+                        traceId,
+                        source: 'local',
+                        needsClarification: true,
+                    });
+                    appendMessage(clarifyMsg);
+                    recordAssistantTelemetry({
+                        traceId,
+                        viaVoice,
+                        lang: assistantLang,
+                        userText: text,
+                        applicationContext: appCtx,
+                        matcherStatus: MATCH_STATUS.AMBIGUOUS,
+                        plannerSource: 'local_matcher',
+                        plan: null,
+                        executionStatus: 'clarification',
+                        executedActions: [],
+                        assistantFinalText: clarifyText,
+                    }).catch(() => {});
+                    speakReply(clarifyText, { messageId: clarifyMsg.id });
                     return;
                 }
 
                 let actionPlan = null;
-                let source = 'local';
+                let source = 'local_matcher';
+                let chatMetrics = null;
 
                 if (localMatch.status === MATCH_STATUS.MATCH && localMatch.plan) {
                     actionPlan = localMatch.plan;
@@ -334,6 +473,8 @@ export const VoiceAssistantProvider = ({ children }) => {
                     // 2. Send to backend `/api/v1/ai/chat` with current context + 5-turn memory
                     try {
                         const chatRes = await assistantChat({
+                            traceId,
+                            viaVoice,
                             text,
                             lang: assistantLang,
                             applicationContext: appCtx,
@@ -341,6 +482,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                         });
                         actionPlan = chatRes?.data?.plan || null;
                         source = chatRes?.data?.source || 'api';
+                        chatMetrics = chatRes?.data?.metrics || null;
                     } catch {
                         // Offline fallback if backend is unreachable
                         if (localMatch.capabilityId) {
@@ -348,14 +490,14 @@ export const VoiceAssistantProvider = ({ children }) => {
                                 capabilityId: localMatch.capabilityId,
                                 text,
                             });
-                            appendMessage(
-                                createMessage('assistant', demoAns.reply, {
-                                    data: demoAns.data,
-                                    capabilityId: demoAns.capabilityId,
-                                    source: 'local',
-                                })
-                            );
-                            speakReply(demoAns.reply);
+                            const fallbackMsg = createMessage('assistant', demoAns.reply, {
+                                traceId,
+                                data: demoAns.data,
+                                capabilityId: demoAns.capabilityId,
+                                source: 'local',
+                            });
+                            appendMessage(fallbackMsg);
+                            speakReply(demoAns.reply, { messageId: fallbackMsg.id });
                             return;
                         }
                         throw new Error(
@@ -377,13 +519,30 @@ export const VoiceAssistantProvider = ({ children }) => {
                     selectedItem: appCtx.selectedItem,
                 });
 
-                appendMessage(
-                    createMessage('assistant', execResult.reply, {
-                        data: execResult.data,
-                        source,
-                        error: !execResult.ok,
-                    })
-                );
+                const replyMsg = createMessage('assistant', execResult.reply, {
+                    traceId,
+                    data: execResult.data,
+                    source: source === 'local_matcher' ? 'local' : source,
+                    error: !execResult.ok,
+                });
+                appendMessage(replyMsg);
+
+                // Record full post-execution trace for fine-tuning / RLHF dataset
+                recordAssistantTelemetry({
+                    traceId,
+                    viaVoice,
+                    lang: assistantLang,
+                    userText: text,
+                    applicationContext: appCtx,
+                    matcherStatus: localMatch.status,
+                    plannerSource: source,
+                    plan: actionPlan,
+                    executionStatus: execResult.ok ? 'success' : 'failed',
+                    executedActions: execResult.executedActions || [],
+                    resolvedPlaceholders: execResult.resolvedPlaceholders || {},
+                    assistantFinalText: execResult.reply,
+                    metrics: chatMetrics,
+                }).catch(() => {});
 
                 // Only record turn as 'success' AFTER verified frontend execution (Section 7)
                 recordVerifiedTurn({
@@ -404,7 +563,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                     setIsMinimized(false);
                 }
 
-                speakReply(execResult.reply);
+                speakReply(execResult.reply, { messageId: replyMsg.id });
             } catch (error) {
                 appendMessage(
                     createMessage('assistant', `No pude completar la consulta: ${error.message}`, {
@@ -520,8 +679,9 @@ export const VoiceAssistantProvider = ({ children }) => {
 
     const stopAudio = useCallback(() => {
         stopSpeaking();
+        stopTypingStream();
         setStatus((s) => (s === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : s));
-    }, []);
+    }, [stopTypingStream]);
 
     const open = useCallback(() => {
         if (ttsSupported && ttsEnabled) unlockTTS();
@@ -559,6 +719,26 @@ export const VoiceAssistantProvider = ({ children }) => {
         setIsMinimized((prev) => !prev);
     }, [resetInactivityTimer]);
 
+    const rateMessage = useCallback((messageId, reward) => {
+        let targetTraceId = null;
+        setMessages((prev) =>
+            prev.map((m) => {
+                if (m.id === messageId) {
+                    targetTraceId = m.traceId || null;
+                    return { ...m, reward };
+                }
+                return m;
+            })
+        );
+        if (targetTraceId) {
+            recordAssistantTelemetry({
+                eventType: 'feedback',
+                traceId: targetTraceId,
+                reward,
+            }).catch(() => {});
+        }
+    }, []);
+
     const clearConversation = useCallback(() => {
         stopSpeaking();
         stopListening();
@@ -583,6 +763,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             messages,
             conversationHistory,
             submitText,
+            rateMessage,
             clearConversation,
             assistantLang,
             setAssistantLang,
@@ -619,6 +800,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             messages,
             conversationHistory,
             submitText,
+            rateMessage,
             clearConversation,
             assistantLang,
             setAssistantLang,

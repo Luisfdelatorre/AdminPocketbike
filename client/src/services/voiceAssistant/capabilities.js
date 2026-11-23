@@ -21,12 +21,14 @@ export const MODULES = Object.freeze({
         route: '/',
         label: 'Dashboard',
         labelEn: 'Dashboard',
+        description:
+            'Panel principal con KPIs globales del mes/año: recaudo total cobrado (totalRevenue), total facturado (totalInvoiced), efectividad de cobro (collectionRate), motos activas y resumen de salud eléctrica de la flota.',
         roles: ['admin', 'manager', 'viewer'],
         requiresSuperAdmin: false,
         supportsSearch: false,
         filters: {
-            month: { type: 'number', min: 1, max: 12 },
-            year: { type: 'number', min: 2024, max: 2030 },
+            month: { type: 'number', min: 1, max: 12, description: 'Mes a consultar (1=Enero..12=Diciembre)' },
+            year: { type: 'number', min: 2024, max: 2030, description: 'Año a consultar' },
         },
         aliases: ['dashboard', 'inicio', 'panel principal', 'home', 'main panel'],
     },
@@ -35,6 +37,8 @@ export const MODULES = Object.freeze({
         route: '/devices',
         label: 'Dispositivos (Motos)',
         labelEn: 'Motorcycles / Devices',
+        description:
+            'Inventario en tiempo real y estado técnico/eléctrico/GPS de la flota de motocicletas (conexión GPS, corte de motor activo, ignición, salud de batería y alternador, motos con contrato o libres).',
         roles: ['admin', 'manager', 'viewer'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -43,6 +47,16 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'offline', 'battery_issue', 'active', 'available', 'on', 'off', 'alt_issue'],
+                valueDescriptions: {
+                    all: 'Todas las motos de la flota',
+                    offline: 'Motos desconectadas / sin reportar señal GPS por más de 3 minutos',
+                    battery_issue: 'Motos con batería mala, débil, dañada o desconectada',
+                    active: 'Motos vinculadas actualmente a un contrato activo',
+                    available: 'Motos disponibles/libres sin contrato activo',
+                    on: 'Motos con el motor / switch de ignición encendido en este momento',
+                    off: 'Motos apagadas / bloqueadas / suspendidas con corte de motor activo (cutOff=true)',
+                    alt_issue: 'Motos con falla de alternador, regulador o sobrecarga de voltaje',
+                },
                 synonyms: {
                     suspended: 'off',
                     cutoff: 'off',
@@ -62,7 +76,14 @@ export const MODULES = Object.freeze({
                     todos: 'all',
                 },
             },
-            sortBy: { type: 'enum', values: ['default', 'offline'] },
+            sortBy: {
+                type: 'enum',
+                values: ['default', 'offline'],
+                valueDescriptions: {
+                    default: 'Orden predeterminado',
+                    offline: 'Ordenar por mayor tiempo desconectadas (offline)',
+                },
+            },
         },
         aliases: ['devices', 'dispositivos', 'motos', 'motocicletas', 'motorcycles', 'bikes', 'flota', 'fleet'],
     },
@@ -71,6 +92,8 @@ export const MODULES = Object.freeze({
         route: '/summary',
         label: 'Resumen de Pagos',
         labelEn: 'Payment Summary',
+        description:
+            'Matriz y tarjetas de estado de cobro mensual por moto y conductor: muestra quiénes deben (morosos / en mora con saldo pendiente unpaidTotal > 0), quiénes están al día, días pagados/pendientes del mes y corte por mora.',
         roles: ['admin', 'manager', 'viewer'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -79,6 +102,13 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'debt', 'ok', 'cutoff', 'weekly'],
+                valueDescriptions: {
+                    all: 'Todas las motos en el resumen de pagos del mes',
+                    debt: 'Motos con deuda / morosos / atrasadas con facturas pendientes de pago (unpaidTotal > 0)',
+                    ok: 'Motos al día sin deuda pendiente (unpaidTotal === 0)',
+                    cutoff: 'Motos en el resumen que tienen corte de motor activo',
+                    weekly: 'Motos con modalidad de pago semanal o quincenal (paymentFrequency > 1)',
+                },
                 synonyms: {
                     morosos: 'debt',
                     deuda: 'debt',
@@ -92,7 +122,14 @@ export const MODULES = Object.freeze({
                     todos: 'all',
                 },
             },
-            view: { type: 'enum', values: ['bike', 'matrix'] },
+            view: {
+                type: 'enum',
+                values: ['bike', 'matrix'],
+                valueDescriptions: {
+                    bike: 'Vista de tarjetas por moto',
+                    matrix: 'Vista de matriz comparativa de días del mes',
+                },
+            },
             month: { type: 'number', min: 1, max: 12 },
             year: { type: 'number', min: 2024, max: 2030 },
         },
@@ -103,6 +140,8 @@ export const MODULES = Object.freeze({
         route: '/contracts',
         label: 'Contratos',
         labelEn: 'Contracts',
+        description:
+            'Gestión de contratos de arrendamiento/venta de motocicletas: datos del cliente/conductor, fiador, tarifa diaria, plazo en días, progreso, SOAT, tarjeta de propiedad y documentos PDF/DOCX.',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -111,6 +150,13 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'active', 'weekly', 'completed', 'cancelled'],
+                valueDescriptions: {
+                    all: 'Todos los contratos',
+                    active: 'Contratos activos vigentes (ACTIVE)',
+                    weekly: 'Contratos con frecuencia de cobro semanal o quincenal',
+                    completed: 'Contratos finalizados / completados (COMPLETED)',
+                    cancelled: 'Contratos cancelados o anulados (CANCELLED)',
+                },
                 synonyms: {
                     activos: 'active',
                     activo: 'active',
@@ -130,6 +176,8 @@ export const MODULES = Object.freeze({
         route: '/payments',
         label: 'Pagos',
         labelEn: 'Payments',
+        description:
+            'Historial de transacciones de pago recibidas (Wompi, Nequi Push, QR Bancolombia, días gratis y ajustes manuales), con estado aprobado, pendiente o rechazado/fallido.',
         roles: ['admin', 'manager', 'viewer'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -138,6 +186,13 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'completed', 'pending', 'failed', 'free'],
+                valueDescriptions: {
+                    all: 'Todos los pagos registrados',
+                    completed: 'Pagos aprobados / completados exitosamente (APPROVED / COMPLETED)',
+                    pending: 'Pagos pendientes o en verificación (PENDING / VERIFYING)',
+                    failed: 'Pagos rechazados, declinados o con error (DECLINED / FAILED / ERROR)',
+                    free: 'Pagos a $0 por día libre o ajuste administrativo (FREE / ADJUSTMENT)',
+                },
                 synonyms: {
                     rejected: 'failed',
                     declined: 'failed',
@@ -158,6 +213,12 @@ export const MODULES = Object.freeze({
             datePreset: {
                 type: 'enum',
                 values: ['all', 'today', 'yesterday', 'last_7_days'],
+                valueDescriptions: {
+                    all: 'Todo el mes seleccionado',
+                    today: 'Solo pagos de hoy',
+                    yesterday: 'Solo pagos de ayer',
+                    last_7_days: 'Pagos de los últimos 7 días / última semana',
+                },
                 synonyms: {
                     hoy: 'today',
                     ayer: 'yesterday',
@@ -167,7 +228,15 @@ export const MODULES = Object.freeze({
                     'semana pasada': 'last_7_days',
                 },
             },
-            sortBy: { type: 'enum', values: ['date', 'amount', 'device'] },
+            sortBy: {
+                type: 'enum',
+                values: ['date', 'amount', 'device'],
+                valueDescriptions: {
+                    date: 'Ordenar por fecha más reciente',
+                    amount: 'Ordenar por mayor monto',
+                    device: 'Ordenar alfabéticamente por placa de moto',
+                },
+            },
             month: { type: 'number', min: 1, max: 12 },
             year: { type: 'number', min: 2024, max: 2030 },
         },
@@ -178,6 +247,8 @@ export const MODULES = Object.freeze({
         route: '/invoices',
         label: 'Facturas',
         labelEn: 'Invoices',
+        description:
+            'Facturas o cuotas diarias generadas por cada moto: cuotas pagadas (PAID), cuotas pendientes de pago (PENDING), días libres (FREE), préstamos (LOAN) o ajustes por taller/mantenimiento/accidente.',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -186,6 +257,13 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'PAID', 'PENDING', 'FREE', 'LOAN'],
+                valueDescriptions: {
+                    all: 'Todas las facturas diarias del mes',
+                    PAID: 'Facturas diarias pagadas',
+                    PENDING: 'Facturas diarias pendientes de pago (sin pagar)',
+                    FREE: 'Facturas marcadas como día libre o ajuste gratuito',
+                    LOAN: 'Facturas correspondientes a préstamos',
+                },
                 synonyms: {
                     pagadas: 'PAID',
                     pagados: 'PAID',
@@ -209,6 +287,8 @@ export const MODULES = Object.freeze({
         route: '/alerts',
         label: 'Centro de Alertas',
         labelEn: 'Alerts Center',
+        description:
+            'Centro de alertas de seguridad e incidentes telemétricos GPS/IoT de las motos: sabotaje (conducción con motor apagado/en corte), corte de energía/batería, movimiento no autorizado, ignición en corte, salida de geocerca y desconexión prolongada.',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -217,6 +297,12 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['ALL', 'ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'],
+                valueDescriptions: {
+                    ALL: 'Todas las alertas sin importar estado de atención',
+                    ACTIVE: 'Alertas activas / abiertas pendientes de atención',
+                    ACKNOWLEDGED: 'Alertas vistas / en gestión por el operador',
+                    RESOLVED: 'Alertas resueltas / cerradas',
+                },
                 synonyms: {
                     activas: 'ACTIVE',
                     abiertas: 'ACTIVE',
@@ -241,17 +327,54 @@ export const MODULES = Object.freeze({
                     'GEOFENCE_EXIT',
                     'EXTENDED_OFFLINE',
                 ],
+                valueDescriptions: {
+                    ALL: 'Todos los tipos de alerta telemétrica',
+                    UNAUTHORIZED_DRIVING:
+                        'Sabotaje: Conducción en Corte (la moto se desplaza o reporta velocidad mientras tiene orden de corte de motor activa / relé puenteado)',
+                    POWER_CUT:
+                        'Corte de Energía / Batería (desconexión de batería principal o pérdida de alimentación externa del GPS)',
+                    UNAUTHORIZED_MOVEMENT:
+                        'Movimiento No Autorizado (vibración o remolque detectado con motor bloqueado)',
+                    UNAUTHORIZED_IGNITION:
+                        'Ignición en Corte (switch de encendido abierto mientras la moto está bloqueada por corte)',
+                    GEOFENCE_EXIT: 'Salida de Geocerca (el vehículo salió del perímetro geográfico autorizado)',
+                    EXTENDED_OFFLINE: 'Offline Prolongado (vehículo sin reportar posición GPS durante un periodo extendido)',
+                },
+                synonyms: {
+                    sabotaje: 'UNAUTHORIZED_DRIVING',
+                    sabotage: 'UNAUTHORIZED_DRIVING',
+                    'conduccion en corte': 'UNAUTHORIZED_DRIVING',
+                    'unauthorized driving': 'UNAUTHORIZED_DRIVING',
+                    energia: 'POWER_CUT',
+                    'corte de energia': 'POWER_CUT',
+                    'corte de bateria': 'POWER_CUT',
+                    'power cut': 'POWER_CUT',
+                    movimiento: 'UNAUTHORIZED_MOVEMENT',
+                    'movimiento no autorizado': 'UNAUTHORIZED_MOVEMENT',
+                    ignicion: 'UNAUTHORIZED_IGNITION',
+                    'ignicion en corte': 'UNAUTHORIZED_IGNITION',
+                    geocerca: 'GEOFENCE_EXIT',
+                    'salida de geocerca': 'GEOFENCE_EXIT',
+                    geofence: 'GEOFENCE_EXIT',
+                    offline: 'EXTENDED_OFFLINE',
+                    'offline prolongado': 'EXTENDED_OFFLINE',
+                    todas: 'ALL',
+                    todos: 'ALL',
+                    all: 'ALL',
+                },
             },
             month: { type: 'number', min: 1, max: 12 },
             year: { type: 'number', min: 2024, max: 2030 },
         },
-        aliases: ['alerts', 'alertas', 'centro de alertas', 'incidentes'],
+        aliases: ['alerts', 'alertas', 'centro de alertas', 'incidentes', 'sabotaje'],
     },
     commands: {
         id: 'commands',
         route: '/commands',
         label: 'Historial de Comandos',
         labelEn: 'Command History',
+        description:
+            'Bitácora de comandos IoT GPRS enviados al relé de las motos (apagado de motor STOP, encendido/reanudación RESUME, apagado preventivo por toque de queda PREVENTIVE y comandos fallidos FAILED).',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -260,6 +383,13 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['ALL', 'STOP', 'RESUME', 'PREVENTIVE', 'FAILED'],
+                valueDescriptions: {
+                    ALL: 'Todos los comandos enviados',
+                    STOP: 'Comandos de apagado / corte de motor enviados',
+                    RESUME: 'Comandos de encendido / reanudación de motor enviados',
+                    PREVENTIVE: 'Comandos de corte preventivo (toque de queda nocturno)',
+                    FAILED: 'Comandos fallidos o sin confirmación del GPS',
+                },
                 synonyms: {
                     apagado: 'STOP',
                     corte: 'STOP',
@@ -283,6 +413,8 @@ export const MODULES = Object.freeze({
         route: '/reports',
         label: 'Reportes',
         labelEn: 'Reports',
+        description:
+            'Reporte de conciliación diaria de recaudos Wompi y transferencias bancarias Bancolombia (días conciliados vs días pendientes de conciliar).',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -291,6 +423,14 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'payments', 'bancolombia', 'reconciled', 'pending', 'selected'],
+                valueDescriptions: {
+                    all: 'Todos los días del mes',
+                    payments: 'Días con pagos registrados',
+                    bancolombia: 'Días con transferencia Bancolombia',
+                    reconciled: 'Días ya conciliados',
+                    pending: 'Días pendientes por conciliar',
+                    selected: 'Días seleccionados en pantalla',
+                },
                 synonyms: {
                     conciliados: 'reconciled',
                     pendientes: 'pending',
@@ -308,6 +448,7 @@ export const MODULES = Object.freeze({
         route: '/company-invoices',
         label: 'Facturación Empresas',
         labelEn: 'Company Invoices',
+        description: 'Facturación mensual B2B de comisiones de plataforma emitida a las empresas aliadas.',
         roles: ['admin'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -316,6 +457,11 @@ export const MODULES = Object.freeze({
             status: {
                 type: 'enum',
                 values: ['all', 'completed', 'pending'],
+                valueDescriptions: {
+                    all: 'Todas las facturas a empresas',
+                    completed: 'Facturas de empresa pagadas',
+                    pending: 'Facturas de empresa pendientes de pago',
+                },
             },
         },
         aliases: ['company-invoices', 'facturacion empresas', 'facturas de empresas'],
@@ -325,6 +471,7 @@ export const MODULES = Object.freeze({
         route: '/settings',
         label: 'Configuración',
         labelEn: 'Settings',
+        description: 'Configuración de marca, parámetros financieros de contratos, conexión GPS Traccar y llaves Wompi.',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: false,
@@ -336,6 +483,7 @@ export const MODULES = Object.freeze({
         route: '/users',
         label: 'Usuarios',
         labelEn: 'Users',
+        description: 'Administración de usuarios del panel, correos, roles (admin, manager, viewer) y empresas asignadas.',
         roles: ['admin', 'manager'],
         requiresSuperAdmin: false,
         supportsSearch: true,
@@ -348,6 +496,7 @@ export const MODULES = Object.freeze({
         route: '/companies',
         label: 'Empresas',
         labelEn: 'Companies',
+        description: 'Administración global multiempresa (exclusivo SuperAdmin), tareas cron del sistema, tipos de ajuste y plantillas OCR.',
         roles: ['admin'],
         requiresSuperAdmin: true,
         supportsSearch: false,
@@ -399,6 +548,19 @@ export const TOOLS = Object.freeze({
         params: {
             module: { type: 'enum', required: false, values: MODULE_IDS },
             status: { type: 'string', required: false, maxLength: 40 },
+            alertType: {
+                type: 'enum',
+                required: false,
+                values: [
+                    'ALL',
+                    'UNAUTHORIZED_DRIVING',
+                    'POWER_CUT',
+                    'UNAUTHORIZED_MOVEMENT',
+                    'UNAUTHORIZED_IGNITION',
+                    'GEOFENCE_EXIT',
+                    'EXTENDED_OFFLINE',
+                ],
+            },
             datePreset: { type: 'enum', required: false, values: ['all', 'today', 'yesterday', 'last_7_days'] },
             month: { type: 'number', required: false, min: 1, max: 12 },
             year: { type: 'number', required: false, min: 2024, max: 2030 },
@@ -467,6 +629,8 @@ export const PLACEHOLDERS = Object.freeze([
     'summary.count',
     'summary.debtorsCount',
     'summary.debtTotal',
+    'summary.weeklyDebtorsCount',
+    'summary.weeklyDebtTotal',
     'invoices.count',
     'invoices.unpaidCount',
     'invoices.totalAmount',
@@ -512,6 +676,23 @@ export const normalizeDatePreset = (rawPreset) => {
     const presets = MODULES.payments.filters.datePreset;
     if (presets.values.includes(clean)) return clean;
     if (presets.synonyms && clean in presets.synonyms) return presets.synonyms[clean];
+    return null;
+};
+
+export const normalizeAlertType = (rawAlertType) => {
+    if (!rawAlertType) return null;
+    const alertTypeDef = MODULES.alerts.filters.alertType;
+    const clean = String(rawAlertType).trim();
+    const exact = alertTypeDef.values.find((v) => v.toLowerCase() === clean.toLowerCase());
+    if (exact) return exact;
+
+    const lowerKey = clean
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    if (alertTypeDef.synonyms && lowerKey in alertTypeDef.synonyms) {
+        return alertTypeDef.synonyms[lowerKey];
+    }
     return null;
 };
 
@@ -605,10 +786,20 @@ export const serializeCatalogForPrompt = (roleVariant = 'admin') => {
             route: m.route,
             label: m.label,
             labelEn: m.labelEn,
+            description: m.description || '',
             supportsSearch: m.supportsSearch,
             searchableFields: m.searchableFields || [],
             filters: Object.entries(m.filters || {}).reduce((acc, [k, v]) => {
-                acc[k] = v.type === 'enum' ? v.values : `${v.type}(${v.min}..${v.max})`;
+                acc[k] =
+                    v.type === 'enum'
+                        ? {
+                              allowedValues: v.values,
+                              meaningOfValues: v.valueDescriptions || {},
+                          }
+                        : {
+                              type: `${v.type}(${v.min}..${v.max})`,
+                              description: v.description || '',
+                          };
                 return acc;
             }, {}),
         };

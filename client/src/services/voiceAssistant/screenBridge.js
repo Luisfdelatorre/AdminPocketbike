@@ -3,12 +3,6 @@
  *
  * Pages register their live filters, search handler, detail opener, loading status,
  * and safe summary metrics (`count`, `total`, `isPaginated`, `selectedItem`).
- *
- * The Action Dispatcher uses this bridge to:
- *  1. Wait for a screen to mount after `navigate(route)` without arbitrary fixed delays.
- *  2. Execute `applyFilter`, `search`, `clearFilters`, `openDetail` directly on the real page state.
- *  3. Wait until `loading === false` after a filter/search triggers a server reload.
- *  4. Expose safe, read-only metrics to Local Response Resolvers (`resolvers.js`).
  */
 
 const activeScreens = new Map();
@@ -34,21 +28,6 @@ const flushReadyWaiters = (moduleId, bridge) => {
     list.forEach((resolve) => resolve(bridge));
 };
 
-/**
- * Registers or updates a screen bridge for `moduleId`.
- * @param {string} moduleId
- * @param {{
- *   loading?: boolean,
- *   activeFilters?: object,
- *   metrics?: object,
- *   selectedItem?: string|null,
- *   singleMatchItem?: string|null,
- *   applyFilter?: (params: object) => Promise<boolean>|boolean,
- *   search?: (query: string) => Promise<boolean>|boolean,
- *   clearFilters?: () => Promise<boolean>|boolean,
- *   openDetail?: (params: object) => Promise<boolean>|boolean,
- * }} bridgeConfig
- */
 export const registerScreenBridge = (moduleId, bridgeConfig) => {
     if (!moduleId) return () => {};
 
@@ -58,6 +37,7 @@ export const registerScreenBridge = (moduleId, bridgeConfig) => {
         loading: Boolean(bridgeConfig?.loading),
         activeFilters: bridgeConfig?.activeFilters || {},
         metrics: bridgeConfig?.metrics || {},
+        cardsData: bridgeConfig?.cardsData || null,
         selectedItem: bridgeConfig?.selectedItem || null,
         singleMatchItem: bridgeConfig?.singleMatchItem || null,
         applyFilter: bridgeConfig?.applyFilter || null,
@@ -68,14 +48,12 @@ export const registerScreenBridge = (moduleId, bridgeConfig) => {
 
     activeScreens.set(moduleId, entry);
 
-    // Resolve any pending mount waiters
     const mWaiters = mountWaiters.get(moduleId);
     if (mWaiters && mWaiters.length > 0) {
         mountWaiters.delete(moduleId);
         mWaiters.forEach((resolve) => resolve(entry));
     }
 
-    // Resolve any pending data-readiness waiters when loading is false
     flushReadyWaiters(moduleId, entry);
     notifyListeners();
 
@@ -97,10 +75,7 @@ export const subscribeScreenBridge = (callback) => {
     return () => listeners.delete(callback);
 };
 
-/**
- * Waits until `moduleId` registers its bridge (e.g., right after React Router navigation).
- */
-export const waitForScreenMount = (moduleId, timeoutMs = 2500) => {
+export const waitForScreenMount = (moduleId, timeoutMs = 4000) => {
     const existing = activeScreens.get(moduleId);
     if (existing) return Promise.resolve(existing);
 
@@ -126,11 +101,12 @@ export const waitForScreenMount = (moduleId, timeoutMs = 2500) => {
 };
 
 /**
- * Waits until the registered screen reports `loading === false` after a state update.
+ * Waits until the registered screen finishes any pending React state updates
+ * and reports `loading === false`.
  */
-export const waitForScreenDataReady = (moduleId, timeoutMs = 3500) => {
+export const waitForScreenDataReady = (moduleId, timeoutMs = 6000) => {
     return new Promise((resolve) => {
-        // Yield one microtask/frame so React state transitions (e.g. setLoading(true)) settle first
+        // Give React 80ms to commit state changes (e.g. setFilter, setSearchQuery, setLoading(true))
         setTimeout(() => {
             const current = activeScreens.get(moduleId);
             if (current && !current.loading) {
@@ -149,13 +125,14 @@ export const waitForScreenDataReady = (moduleId, timeoutMs = 3500) => {
 
             const onReady = (bridge) => {
                 clearTimeout(timer);
-                resolve(bridge);
+                // Wait one extra frame after loading turns false so memoized metrics are fresh
+                setTimeout(() => resolve(activeScreens.get(moduleId) || bridge), 40);
             };
 
             const list = readyWaiters.get(moduleId) || [];
             list.push(onReady);
             readyWaiters.set(moduleId, list);
-        }, 35);
+        }, 80);
     });
 };
 

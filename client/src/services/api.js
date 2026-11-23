@@ -41,6 +41,8 @@ export const createDeviceAccess = (data) => api.post('/device-access/create', da
 export const assistantQuery = (data) => api.post('/assistant/query', data);
 export const assistantChat = (data) => api.post('/ai/chat', data);
 export const getAssistantDiagnostics = () => api.get('/ai/diagnostics');
+export const recordAssistantTelemetry = (data) => api.post('/ai/telemetry', data);
+export const getAssistantTelemetry = (params) => api.get('/ai/telemetry', { params });
 
 // --- Commands History ---
 export const getCommandHistory = (params) => api.get('/commands', { params });

@@ -180,7 +180,7 @@ export const stopSpeaking = () => {
  */
 export const speakText = (
     text,
-    { onStart, onEnd, onError, voiceURI = null, styleId = 'normal', rate, pitch } = {}
+    { onStart, onBoundary, onEnd, onError, voiceURI = null, styleId = 'normal', rate, pitch } = {}
 ) => {
     if (!isTTSSupported() || !text || !String(text).trim()) {
         onEnd?.();
@@ -213,7 +213,8 @@ export const speakText = (
                 synth.resume();
             }
 
-            const utterance = new window.SpeechSynthesisUtterance(String(text).trim());
+            const cleanText = String(text).trim();
+            const utterance = new window.SpeechSynthesisUtterance(cleanText);
             const voice = pickVoice(voiceURI);
             if (voice) {
                 utterance.voice = voice;
@@ -230,6 +231,16 @@ export const speakText = (
             activeUtterance = utterance;
 
             utterance.onstart = () => onStart?.();
+            if (typeof onBoundary === 'function') {
+                utterance.onboundary = (event) => {
+                    if (typeof event?.charIndex === 'number') {
+                        onBoundary({
+                            charIndex: event.charIndex,
+                            charLength: event.charLength || 0,
+                        });
+                    }
+                };
+            }
             utterance.onend = () => {
                 if (activeUtterance === utterance) activeUtterance = null;
                 onEnd?.();

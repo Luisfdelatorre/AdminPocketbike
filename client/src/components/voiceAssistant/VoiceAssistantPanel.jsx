@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Sparkles, X, Send, RotateCcw, Loader2, Volume2, VolumeX, Square,
     Mic, MicOff, AlertCircle, ChevronUp, ChevronDown, SlidersHorizontal,
+    ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 import { useVoiceAssistant, ASSISTANT_STATUS, STATUS_LABELS } from '../../context/VoiceAssistantContext';
+import { useAuth } from '../../context/AuthContext';
 import { getCapability, SUGGESTED_CAPABILITY_IDS } from '../../services/voiceAssistant/capabilities';
 import './VoiceAssistantPanel.css';
 
@@ -43,10 +45,11 @@ const AssistantData = ({ data }) => {
 };
 
 const VoiceAssistantPanel = () => {
+    const { user } = useAuth();
     const {
         isOpen, toggle, close,
         isMinimized, setIsMinimized, toggleMinimized,
-        status, messages, submitText, clearConversation,
+        status, messages, submitText, rateMessage, clearConversation,
         ttsSupported, ttsEnabled, toggleTts, stopAudio,
         availableVoices, selectedVoiceURI, selectVoice,
         voiceStyle, selectVoiceStyle, voiceStyles,
@@ -291,7 +294,11 @@ const VoiceAssistantPanel = () => {
                                             <h2>Asistente</h2>
                                             <span className={`va-status-pill va-status-pill--${status}`}>{statusLabel}</span>
                                         </div>
-                                        <span className="va-demo-badge">Demo · datos de ejemplo</span>
+                                        <span className="va-demo-badge">
+                                            {user?.companyName && user.companyName !== 'System'
+                                                ? `${user.companyName} · Datos en vivo`
+                                                : 'UPay · Datos en vivo'}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="va-header-actions">
@@ -451,10 +458,40 @@ const VoiceAssistantPanel = () => {
                         <div className="va-messages" ref={listRef} aria-live="polite">
                             {messages.map((message) => (
                                 <div key={message.id} className={`va-msg va-msg--${message.role} ${message.error ? 'is-error' : ''}`}>
-                                    <p>{message.text}</p>
+                                    <p className={message.isTyping ? 'va-typing-text' : undefined}>
+                                        {message.streamedText !== undefined ? message.streamedText : message.text}
+                                    </p>
                                     {message.role === 'assistant' && <AssistantData data={message.data} />}
-                                    {message.role === 'assistant' && message.source === 'local' && (
-                                        <span className="va-msg-meta">Resuelto localmente</span>
+                                    {message.role === 'assistant' && (message.source === 'local' || message.traceId) && (
+                                        <div className="va-msg-footer">
+                                            {message.source === 'local' ? (
+                                                <span className="va-msg-meta">Resuelto localmente</span>
+                                            ) : (
+                                                <span className="va-msg-meta">Capturado · RL</span>
+                                            )}
+                                            {message.traceId && (
+                                                <div className="va-feedback-btns" role="group" aria-label="Calificar respuesta">
+                                                    <button
+                                                        type="button"
+                                                        className={`va-fb-btn ${message.reward === 1 ? 'is-positive' : ''}`}
+                                                        onClick={() => rateMessage(message.id, 1)}
+                                                        aria-label="Respuesta útil"
+                                                        title="Marcar como buena respuesta (+1)"
+                                                    >
+                                                        <ThumbsUp size={12} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`va-fb-btn ${message.reward === -1 ? 'is-negative' : ''}`}
+                                                        onClick={() => rateMessage(message.id, -1)}
+                                                        aria-label="Respuesta por mejorar"
+                                                        title="Marcar para ajuste (-1)"
+                                                    >
+                                                        <ThumbsDown size={12} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             ))}

@@ -26,7 +26,10 @@ import {
     waitForScreenMount,
     waitForScreenDataReady,
 } from './screenBridge.js';
-import { resolveTemplatePlaceholders } from './resolvers.js';
+import {
+    resolveTemplatePlaceholders,
+    resolveTemplateWithLiveData,
+} from './resolvers.js';
 
 const UNKNOWN_REPLY_ES =
     'No entendí la solicitud. Prueba con "Muéstrame los pagos rechazados", "Motos apagadas" o "Abre contratos".';
@@ -323,20 +326,33 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         }
     }
 
-    // 3. Resolve placeholders AFTER actions and screen state settle
+    // 3. Resolve placeholders AFTER actions and screen state settle (with live API fallback & visual cards)
     const rawTemplate =
         helpOverrideReply ||
         plan.responseTemplate ||
         (lang === 'en-US' ? 'Done.' : 'Listo.');
 
-    const resolved = resolveTemplatePlaceholders(rawTemplate, {
+    const lastFilterAction = [...executedActions]
+        .reverse()
+        .find((a) => a.name === 'applyFilter' || a.name === 'search');
+    const activeFiltersHint = lastFilterAction?.params || {};
+
+    const resolved = await resolveTemplateWithLiveData(rawTemplate, {
+        targetModule: activeModule,
+        activeFilters: activeFiltersHint,
         user: ctx.user || null,
         lang,
         metricsOverride: ctx.metricsOverride || null,
     });
 
     const primaryActionType =
-        executedActions.find((a) => a.name === 'navigate' || a.name === 'applyFilter' || a.name === 'search' || a.name === 'openDetail')
+        executedActions.find(
+            (a) =>
+                a.name === 'navigate' ||
+                a.name === 'applyFilter' ||
+                a.name === 'search' ||
+                a.name === 'openDetail'
+        )
             ? 'navigate'
             : executedActions[0]?.name || null;
 
@@ -349,7 +365,7 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         failedAction: null,
         reply: resolved.text,
         resolvedPlaceholders: resolved.resolvedPlaceholders,
-        data: rawPlan.data || null,
+        data: rawPlan.data || resolved.cardsData || null,
         action: didNavigate ? { type: 'navigate', module: activeModule } : { type: primaryActionType },
     };
 }

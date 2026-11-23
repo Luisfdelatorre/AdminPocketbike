@@ -430,6 +430,23 @@ describe('18.5 Multi-Turn Conversation & Expected Final Behavior (Section 21)', 
         });
         assert.equal(p8.actions[0].name, 'navigate');
         assert.equal(p8.actions[0].params.module, 'payments');
+
+        // Turn 9: "Dame la lista de las motos con sabotaje" -> must target /alerts with alertType=UNAUTHORIZED_DRIVING
+        const p9 = planContextualFallback({
+            text: 'Dame la lista de las motos con sabotaje',
+            lang: 'es-CO',
+            applicationContext: {
+                currentRoute: '/payments',
+                currentModule: 'payments',
+                activeFilters: {},
+            },
+            conversationHistory: history,
+        });
+        assert.equal(p9.targetModule, 'alerts');
+        assert.equal(p9.actions[0].name, 'navigate');
+        assert.equal(p9.actions[0].params.module, 'alerts');
+        assert.equal(p9.actions[1].name, 'applyFilter');
+        assert.equal(p9.actions[1].params.alertType, 'UNAUTHORIZED_DRIVING');
     });
 
     it('trims conversation history to at most 5 turns in validateChatRequest', () => {

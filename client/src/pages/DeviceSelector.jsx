@@ -295,7 +295,7 @@ const DeviceManagement = () => {
             availableCount,
         },
         singleMatchItem:
-            sortedDevices.length === 1
+            Boolean(searchQuery || filter !== 'all') && sortedDevices.length === 1
                 ? sortedDevices[0]?.name || sortedDevices[0]?.deviceName || null
                 : null,
         applyFilter: (params = {}) => {

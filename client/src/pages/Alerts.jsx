@@ -182,13 +182,17 @@ const Alerts = () => {
             year: selectedYear,
         },
         metrics: {
-            filteredCount: alerts.length,
+            filteredCount: Number(pagination.total || alerts.length),
             totalCount: Number(stats.total || 0),
             activeCount: Number(stats.active || 0),
             criticalCount: Number(stats.critical || 0),
         },
         selectedItem: selectedAlertId,
         applyFilter: (params = {}) => {
+            if (params.alertType) {
+                setFilter(params.alertType);
+                setCurrentPage(1);
+            }
             if (params.status) {
                 setStatusFilter(params.status);
                 setCurrentPage(1);

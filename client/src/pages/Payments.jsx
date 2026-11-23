@@ -414,7 +414,11 @@ const Payments = () => {
             globalTotalCount: Number(pagination.total || payments.length),
             isPaginated: Number(pagination.totalPages || 1) > 1,
         },
-        singleMatchItem: sortedPayments.length === 1 ? sortedPayments[0]?.deviceId || null : null,
+        singleMatchItem:
+            Boolean(searchQuery || filter !== 'all' || datePreset !== 'all') &&
+            sortedPayments.length === 1
+                ? sortedPayments[0]?.deviceId || null
+                : null,
         applyFilter: (params = {}) => {
             if (params.status) setFilter(params.status);
             if (params.datePreset) setDatePreset(params.datePreset);

@@ -311,6 +311,28 @@ const PaymentSummary = () => {
         [filteredSummaryData]
     );
 
+    const weeklyDebtorsCount = useMemo(
+        () =>
+            summaryData.filter(
+                (item) =>
+                    (item.device?.paymentFrequency || 1) > 1 &&
+                    (item.device?.unpaidTotal || 0) > 0
+            ).length,
+        [summaryData]
+    );
+
+    const weeklyDebtTotal = useMemo(
+        () =>
+            summaryData
+                .filter(
+                    (item) =>
+                        (item.device?.paymentFrequency || 1) > 1 &&
+                        (item.device?.unpaidTotal || 0) > 0
+                )
+                .reduce((sum, item) => sum + (Number(item.device?.unpaidTotal) || 0), 0),
+        [summaryData]
+    );
+
     useAssistantScreenBridge('summary', {
         loading,
         activeFilters: {
@@ -326,9 +348,11 @@ const PaymentSummary = () => {
             okCount,
             cutoffCount,
             filteredDebtTotal,
+            weeklyDebtorsCount,
+            weeklyDebtTotal,
         },
         singleMatchItem:
-            filteredSummaryData.length === 1
+            Boolean(searchQuery || statusFilter !== 'all') && filteredSummaryData.length === 1
                 ? filteredSummaryData[0]?.device?.name || filteredSummaryData[0]?.device?.deviceId || null
                 : null,
         applyFilter: (params = {}) => {
