@@ -1,13 +1,21 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { assistantChat, assistantQuery, recordAssistantTelemetry } from '../services/api';
-import { ROUTE_TO_MODULE } from '../services/voiceAssistant/capabilities';
+import {
+    assistantChat,
+    assistantChatStream,
+    assistantQuery,
+    recordAssistantTelemetry,
+    resetAssistantSession,
+} from '../services/api';
+import { MODULES, ROUTE_TO_MODULE } from '../services/voiceAssistant/capabilities';
 import { MAX_CONVERSATION_TURNS } from '../services/voiceAssistant/schemaValidator';
 import { dispatchActionPlan } from '../services/voiceAssistant/dispatcher';
 import { MATCH_STATUS, matchLocalIntent } from '../services/voiceAssistant/matcher';
 import { getScreenBridge } from '../services/voiceAssistant/screenBridge';
 import { resolveLocalDemoQuery } from '../services/voiceAssistant/demoData';
+import AssistantWsClient from '../services/voiceAssistant/wsClient';
+import AudioStreamQueue from '../services/voiceAssistant/audioQueue';
 import {
     VOICE_STYLES,
     getAvailableVoices,
@@ -48,7 +56,36 @@ const VOICE_STYLE_STORAGE_KEY = 'va_voice_style';
 const SPEAK_AMOUNTS_STORAGE_KEY = 'va_speak_amounts';
 const SPEAK_NAMES_STORAGE_KEY = 'va_speak_names';
 const ASSISTANT_LANG_STORAGE_KEY = 'va_lang';
+const NEURAL_TTS_STORAGE_KEY = 'va_neural_tts';
+const STREAMING_STORAGE_KEY = 'va_streaming_enabled';
+const DEBUG_LOGS_STORAGE_KEY = 'va_debug_logs';
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes (Section 13)
+
+const logTurn = (...args) => {
+    if (typeof window === 'undefined') return;
+    try {
+        if (localStorage.getItem(DEBUG_LOGS_STORAGE_KEY) === 'false') return;
+    } catch {
+        // Ignore storage errors
+    }
+    console.log('[UPay AI]', ...args);
+};
+
+const getStoredAuthToken = (contextToken = null) => {
+    if (contextToken) return contextToken;
+    if (typeof window === 'undefined') return null;
+    try {
+        return (
+            localStorage.getItem('auth_token') ||
+            sessionStorage.getItem('auth_token') ||
+            localStorage.getItem('token') ||
+            localStorage.getItem('adminToken') ||
+            null
+        );
+    } catch {
+        return null;
+    }
+};
 
 let messageSeq = 0;
 const createMessage = (role, text, extra = {}) => ({
@@ -78,7 +115,10 @@ export const applySpeechPrivacyFilter = (
     if (!speakAmounts) {
         const replacement =
             lang === 'en-US' ? 'the amount shown on screen' : 'el monto mostrado en pantalla';
-        output = output.replace(/\$\s?\d[\d.,]*(?:\s?(?:COP|mil|millones|M|k))?/gi, replacement);
+        output = output
+            .replace(/\$\s?\d[\d.,]*(?:\s?(?:COP|mil|millones|M|k))?(?:\s+de\s+pesos|\s+pesos)?/gi, replacement)
+            .replace(/\b\d[\d.,]*\s*(?:mil|millones(?:\s+de)?)\s+(?:pesos|COP)\b/gi, replacement)
+            .replace(/\b\d[\d.,]{2,}\s*(?:pesos|COP)\b/gi, replacement);
     }
 
     if (!speakCustomerNames) {
@@ -95,11 +135,12 @@ export const applySpeechPrivacyFilter = (
 export const VoiceAssistantProvider = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, token: authToken } = useAuth();
 
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [status, setStatus] = useState(ASSISTANT_STATUS.IDLE);
+    const [progressNote, setProgressNote] = useState(null);
     const [messages, setMessages] = useState([WELCOME]);
     // Ephemeral in-memory 5-turn conversation history (never persisted to localStorage)
     const [conversationHistory, setConversationHistory] = useState([]);
@@ -117,6 +158,18 @@ export const VoiceAssistantProvider = ({ children }) => {
         const saved = localStorage.getItem(TTS_STORAGE_KEY);
         return saved === null ? true : saved === 'true';
     });
+    const [neuralTtsEnabled, setNeuralTtsEnabled] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        const saved = localStorage.getItem(NEURAL_TTS_STORAGE_KEY);
+        return saved === null ? true : saved === 'true';
+    });
+    const [streamingEnabled, setStreamingEnabled] = useState(() => {
+        const envDefault = import.meta.env?.VITE_AI_STREAMING !== 'false';
+        if (typeof window === 'undefined') return envDefault;
+        const saved = localStorage.getItem(STREAMING_STORAGE_KEY);
+        return saved === null ? envDefault : saved === 'true';
+    });
+    const [wsStatus, setWsStatus] = useState('disconnected');
     const [availableVoices, setAvailableVoices] = useState(() => getAvailableVoices());
     const [selectedVoiceURI, setSelectedVoiceURI] = useState(() => {
         if (typeof window === 'undefined') return '';
@@ -141,8 +194,26 @@ export const VoiceAssistantProvider = ({ children }) => {
     });
 
     const busyRef = useRef(false);
+    const activeTurnIdRef = useRef(null);
+    const activeHttpAbortRef = useRef(null);
+    const wsClientRef = useRef(null);
+    const audioQueueRef = useRef(null);
     const inactivityTimerRef = useRef(null);
     const typingIntervalRef = useRef(null);
+
+    if (!wsClientRef.current) {
+        wsClientRef.current = new AssistantWsClient();
+    }
+    if (!audioQueueRef.current) {
+        audioQueueRef.current = new AudioStreamQueue({
+            onSpeakingChange: (speaking) => {
+                setStatus((prev) => {
+                    if (speaking) return ASSISTANT_STATUS.SPEAKING;
+                    return prev === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : prev;
+                });
+            },
+        });
+    }
 
     const stopTypingStream = useCallback((finalizeMessageId = null) => {
         if (typingIntervalRef.current) {
@@ -165,18 +236,59 @@ export const VoiceAssistantProvider = ({ children }) => {
     const currentRoute = location.pathname || '/';
     const currentModule = ROUTE_TO_MODULE[currentRoute] || 'dashboard';
 
-    // Clear conversation memory whenever the authenticated user or company changes / logs out (Section 7 & 17)
+    // Clear conversation memory whenever the authenticated user or company changes / logs out (Req. 6 & Section 17)
+    // Note: transient WebSocket reconnects with the SAME sessionKey preserve conversationHistory intact!
     const sessionKey = user ? `${user.userId || user.email || 'u'}:${user.companyId || 'default'}` : 'logged_out';
+    const effectiveToken = user ? getStoredAuthToken(authToken) : null;
     const prevSessionKeyRef = useRef(sessionKey);
+
+    const cancelActiveTurn = useCallback(() => {
+        const currentTurnId = activeTurnIdRef.current;
+        activeTurnIdRef.current = null;
+        if (currentTurnId) {
+            wsClientRef.current?.cancelTurn(currentTurnId);
+        }
+        if (activeHttpAbortRef.current) {
+            try {
+                activeHttpAbortRef.current.abort(new Error('TURN_CANCELLED'));
+            } catch {
+                // Ignore abort errors
+            }
+            activeHttpAbortRef.current = null;
+        }
+        audioQueueRef.current?.stop();
+        stopSpeaking();
+        stopTypingStream();
+        setProgressNote(null);
+        busyRef.current = false;
+    }, [stopTypingStream]);
+
     useEffect(() => {
+        if (!wsClientRef.current) return undefined;
+        setWsStatus(wsClientRef.current.connectionStatus || 'disconnected');
+        return wsClientRef.current.onStatusChange((nextStatus) => {
+            setWsStatus(nextStatus);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (streamingEnabled) {
+            wsClientRef.current?.syncSession({
+                token: effectiveToken,
+                sessionKey: user ? sessionKey : null,
+            });
+        } else {
+            wsClientRef.current?.disconnect();
+        }
+
         if (prevSessionKeyRef.current !== sessionKey) {
             prevSessionKeyRef.current = sessionKey;
-            stopSpeaking();
+            cancelActiveTurn();
             setConversationHistory([]);
             setMessages([WELCOME]);
             setStatus(ASSISTANT_STATUS.IDLE);
         }
-    }, [sessionKey]);
+    }, [sessionKey, effectiveToken, user, cancelActiveTurn, streamingEnabled]);
 
     useEffect(() => {
         const unsub = onVoicesUpdated(() => {
@@ -184,6 +296,8 @@ export const VoiceAssistantProvider = ({ children }) => {
         });
         return () => {
             unsub();
+            wsClientRef.current?.disconnect();
+            audioQueueRef.current?.stop();
             stopSpeaking();
         };
     }, []);
@@ -421,39 +535,78 @@ export const VoiceAssistantProvider = ({ children }) => {
     const submitText = useCallback(
         async (rawText, { viaVoice = false } = {}) => {
             const text = (rawText || '').trim();
-            if (!text || busyRef.current) return;
+            if (!text) return;
+
+            // Turn-scoped interruption (Req. 10): submitting a new utterance cancels any previous turn/audio immediately
+            if (busyRef.current || activeTurnIdRef.current || status === ASSISTANT_STATUS.SPEAKING) {
+                cancelActiveTurn();
+            }
 
             busyRef.current = true;
-            stopSpeaking();
             if (ttsSupported && ttsEnabled) {
                 unlockTTS();
             }
 
+            const turnId = `tr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            activeTurnIdRef.current = turnId;
+            if (ttsEnabled && neuralTtsEnabled) {
+                audioQueueRef.current?.beginTurn(turnId);
+            }
+
             appendMessage(createMessage('user', text, { viaVoice }));
+            setProgressNote(assistantLang === 'en-US' ? 'Analyzing request…' : 'Analizando consulta…');
             setStatus(ASSISTANT_STATUS.PROCESSING);
 
             const appCtx = getApplicationContext();
-            const traceId = `tr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            const turnT0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            const elapsedMs = () =>
+                Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - turnT0);
+
+            logTurn(`▶ Turno iniciado (${turnId})`, {
+                texto: text,
+                viaVoice,
+                moduloActual: appCtx.currentModule,
+                rutaActual: appCtx.currentRoute,
+                filtrosActivos: appCtx.activeFilters,
+                historialTurnos: conversationHistoryRef.current.length,
+                streaming: streamingEnabled,
+                vozHd: Boolean(streamingEnabled && ttsEnabled && neuralTtsEnabled),
+            });
+
+            let streamingMsgId = null;
+            let accumulatedStreamText = '';
+            let textDeltaCount = 0;
+            let audioChunkCount = 0;
+            let sawAnyServerEvent = false;
+            let audioStreamed = false;
+
+            const isStaleTurn = () => activeTurnIdRef.current !== turnId;
 
             try {
-                // 1. Deterministic local command matcher first (Section 10)
+                // 1. Deterministic local command matcher first (0 network calls)
                 const localMatch = matchLocalIntent(text, {
                     currentModule: appCtx.currentModule,
                     lang: assistantLang,
                 });
+                logTurn(`[+${elapsedMs()}ms] 1. LocalMatcher -> ${localMatch.status}`, {
+                    capabilityId: localMatch.capabilityId || null,
+                    plan: localMatch.plan || null,
+                });
 
                 if (localMatch.status === MATCH_STATUS.AMBIGUOUS) {
+                    if (isStaleTurn()) return;
                     const clarifyText =
                         localMatch.clarificationPrompt ||
                         '¿Podrías especificar a qué sección o registro te refieres?';
                     const clarifyMsg = createMessage('assistant', clarifyText, {
-                        traceId,
+                        traceId: turnId,
                         source: 'local',
                         needsClarification: true,
                     });
+                    setProgressNote(null);
                     appendMessage(clarifyMsg);
                     recordAssistantTelemetry({
-                        traceId,
+                        traceId: turnId,
                         viaVoice,
                         lang: assistantLang,
                         userText: text,
@@ -476,46 +629,293 @@ export const VoiceAssistantProvider = ({ children }) => {
                 if (localMatch.status === MATCH_STATUS.MATCH && localMatch.plan) {
                     actionPlan = localMatch.plan;
                 } else {
-                    // 2. Send to backend `/api/v1/ai/chat` with current context + 5-turn memory
-                    try {
-                        const chatRes = await assistantChat({
-                            traceId,
-                            viaVoice,
-                            text,
-                            lang: assistantLang,
-                            applicationContext: appCtx,
-                            conversationHistory: conversationHistoryRef.current,
-                        });
-                        actionPlan = chatRes?.data?.plan || null;
-                        source = chatRes?.data?.source || 'api';
-                        chatMetrics = chatRes?.data?.metrics || null;
-                    } catch {
-                        // Offline fallback if backend is unreachable
-                        if (localMatch.capabilityId) {
-                            const demoAns = resolveLocalDemoQuery({
-                                capabilityId: localMatch.capabilityId,
-                                text,
-                            });
-                            const fallbackMsg = createMessage('assistant', demoAns.reply, {
-                                traceId,
-                                data: demoAns.data,
-                                capabilityId: demoAns.capabilityId,
-                                source: 'local',
-                            });
-                            appendMessage(fallbackMsg);
-                            speakReply(demoAns.reply, { messageId: fallbackMsg.id });
-                            return;
+                    // 2. Streaming Path (`streamingEnabled === true`):
+                    //    2a. Authenticated WebSocket (`/api/v1/ai/ws`)
+                    //    2b. Streaming SSE over `POST /api/v1/ai/chat` (`Accept: text/event-stream`)
+                    //    2c. Classic Non-Streaming JSON `POST /api/v1/ai/chat` (also used directly when `streamingEnabled === false`, Req. 13)
+                    let usedClassicJsonFallback = !streamingEnabled;
+                    let clientChannel = streamingEnabled ? 'ws' : 'http_json';
+
+                    const turnPayload = {
+                        traceId: turnId,
+                        viaVoice,
+                        text,
+                        lang: assistantLang,
+                        companyId: user?.companyId || null,
+                        applicationContext: appCtx,
+                        conversationHistory: conversationHistoryRef.current,
+                        tts: {
+                            enabled: Boolean(streamingEnabled && ttsEnabled && neuralTtsEnabled),
+                            neural: Boolean(streamingEnabled && ttsEnabled && neuralTtsEnabled),
+                            speakAmounts,
+                            speakCustomerNames,
+                        },
+                    };
+
+                    const handleStreamEnvelope = (env) => {
+                        if (isStaleTurn()) return;
+                        sawAnyServerEvent = true;
+
+                        switch (env.type) {
+                            case 'turn_started': {
+                                logTurn(`[+${elapsedMs()}ms] ⚡ Evento #${env.sequence} turn_started`, env.payload);
+                                setProgressNote(
+                                    assistantLang === 'en-US'
+                                        ? 'Analyzing request…'
+                                        : 'Analizando tu consulta…'
+                                );
+                                break;
+                            }
+                            case 'tool_started': {
+                                logTurn(`[+${elapsedMs()}ms] 🔍 Evento #${env.sequence} tool_started`, env.payload);
+                                const modId = env.payload?.module;
+                                const modLabel =
+                                    assistantLang === 'en-US'
+                                        ? MODULES[modId]?.labelEn || modId || 'records'
+                                        : (MODULES[modId]?.label || modId || 'registros').toLowerCase();
+                                setProgressNote(
+                                    assistantLang === 'en-US'
+                                        ? `Checking ${modLabel}…`
+                                        : `Consultando ${modLabel}…`
+                                );
+                                break;
+                            }
+                            case 'tool_completed': {
+                                logTurn(`[+${elapsedMs()}ms] ✅ Evento #${env.sequence} tool_completed`, env.payload);
+                                setProgressNote(
+                                    assistantLang === 'en-US'
+                                        ? 'Preparing verified answer…'
+                                        : 'Preparando respuesta con datos verificados…'
+                                );
+                                break;
+                            }
+                            case 'text_delta': {
+                                const delta = String(env.payload?.delta || '');
+                                if (!delta) break;
+                                textDeltaCount += 1;
+                                if (textDeltaCount === 1) {
+                                    logTurn(`[+${elapsedMs()}ms] ✍️ Primer text_delta recibido`, { delta });
+                                }
+                                accumulatedStreamText += delta;
+                                setProgressNote(null);
+                                if (!streamingMsgId) {
+                                    const liveMsg = createMessage('assistant', accumulatedStreamText, {
+                                        traceId: turnId,
+                                        streamedText: accumulatedStreamText,
+                                        isTyping: true,
+                                    });
+                                    streamingMsgId = liveMsg.id;
+                                    appendMessage(liveMsg);
+                                } else {
+                                    const currentSnap = accumulatedStreamText;
+                                    setMessages((prev) =>
+                                        prev.map((m) =>
+                                            m.id === streamingMsgId
+                                                ? {
+                                                      ...m,
+                                                      text: currentSnap,
+                                                      streamedText: currentSnap,
+                                                      isTyping: true,
+                                                  }
+                                                : m
+                                        )
+                                    );
+                                }
+                                break;
+                            }
+                            case 'audio_chunk': {
+                                audioChunkCount += 1;
+                                if (audioChunkCount === 1 || env.payload?.isFinalChunk) {
+                                    logTurn(
+                                        `[+${elapsedMs()}ms] 🔊 audio_chunk #${audioChunkCount} (oración ${env.payload?.sentenceIndex ?? 0})`
+                                    );
+                                }
+                                if (ttsEnabled && neuralTtsEnabled) {
+                                    const accepted = audioQueueRef.current?.enqueueChunk(
+                                        turnId,
+                                        env.payload
+                                    );
+                                    if (accepted && env.payload?.audioBase64) {
+                                        audioStreamed = true;
+                                    }
+                                }
+                                break;
+                            }
+                            case 'turn_completed': {
+                                logTurn(`[+${elapsedMs()}ms] 🏁 Evento #${env.sequence} turn_completed`, {
+                                    source: env.payload?.source,
+                                    textDeltas: textDeltaCount,
+                                    audioChunks: audioChunkCount,
+                                    plan: env.payload?.plan,
+                                    metrics: env.payload?.metrics,
+                                });
+                                break;
+                            }
+                            default:
+                                break;
                         }
-                        throw new Error(
-                            assistantLang === 'en-US'
-                                ? 'Assistant service is temporarily unavailable.'
-                                : 'El servicio del asistente no está disponible en este momento.'
-                        );
+                    };
+
+                    if (streamingEnabled) {
+                        let streamResult = null;
+                        let needHttpSseFallback = false;
+
+                        if (wsClientRef.current?.isSupported() && effectiveToken) {
+                            try {
+                                logTurn(`[+${elapsedMs()}ms] 2a. Enviando turno por WebSocket (/api/v1/ai/ws)…`);
+                                wsClientRef.current.syncSession({
+                                    token: effectiveToken,
+                                    sessionKey,
+                                });
+                                streamResult = await wsClientRef.current.startTurn({
+                                    turnId,
+                                    payload: turnPayload,
+                                    onEvent: handleStreamEnvelope,
+                                });
+                                clientChannel = 'ws';
+                            } catch (wsErr) {
+                                if (isStaleTurn() || wsErr?.code === 'TURN_CANCELLED') {
+                                    logTurn(`[+${elapsedMs()}ms] ⏹ Turno WS cancelado (${turnId})`);
+                                    return;
+                                }
+                                const isConnectFailure =
+                                    !sawAnyServerEvent &&
+                                    /^WS_(UNAVAILABLE|CONNECT_TIMEOUT|CONNECTION_ERROR|CLOSED_BEFORE_OPEN)/.test(
+                                        String(wsErr?.message || '')
+                                    );
+                                if (isConnectFailure) {
+                                    logTurn(
+                                        `[+${elapsedMs()}ms] ⚠️ WS no disponible (${wsErr?.message}) -> cambiando a SSE POST /api/v1/ai/chat`
+                                    );
+                                    needHttpSseFallback = true;
+                                } else {
+                                    throw wsErr;
+                                }
+                            }
+                        } else {
+                            needHttpSseFallback = true;
+                        }
+
+                        // 2b. Streaming SSE over `POST /api/v1/ai/chat` (`Accept: text/event-stream`)
+                        if (needHttpSseFallback) {
+                            const httpAbort = new AbortController();
+                            activeHttpAbortRef.current = httpAbort;
+                            try {
+                                logTurn(`[+${elapsedMs()}ms] 2b. Enviando turno por SSE (POST /api/v1/ai/chat stream=true)…`);
+                                streamResult = await assistantChatStream({
+                                    payload: turnPayload,
+                                    signal: httpAbort.signal,
+                                    onEvent: handleStreamEnvelope,
+                                });
+                                clientChannel = 'http_sse';
+                            } catch (sseErr) {
+                                if (
+                                    isStaleTurn() ||
+                                    httpAbort.signal.aborted ||
+                                    sseErr?.name === 'AbortError' ||
+                                    sseErr?.code === 'TURN_CANCELLED'
+                                ) {
+                                    logTurn(`[+${elapsedMs()}ms] ⏹ Turno SSE cancelado (${turnId})`);
+                                    return;
+                                }
+                                if (!sawAnyServerEvent) {
+                                    logTurn(
+                                        `[+${elapsedMs()}ms] ⚠️ SSE falló antes de eventos (${sseErr?.message}) -> fallback HTTP JSON clásico`
+                                    );
+                                    usedClassicJsonFallback = true;
+                                    clientChannel = 'http_json';
+                                } else {
+                                    throw sseErr;
+                                }
+                            } finally {
+                                if (activeHttpAbortRef.current === httpAbort) {
+                                    activeHttpAbortRef.current = null;
+                                }
+                            }
+                        }
+
+                        if (streamResult) {
+                            actionPlan = streamResult?.plan || null;
+                            source = streamResult?.source || 'ws_stream';
+                            chatMetrics = streamResult?.metrics
+                                ? {
+                                      ...streamResult.metrics,
+                                      client_channel: clientChannel,
+                                      streaming_enabled: true,
+                                  }
+                                : { client_channel: clientChannel, streaming_enabled: true };
+                            if (streamResult?.audioStreamed) {
+                                audioStreamed = true;
+                            }
+                        }
+                    }
+
+                    // 2c. Non-streaming HTTP JSON (`POST /api/v1/ai/chat`, Req. 13 & `Streaming: OFF`)
+                    if (usedClassicJsonFallback) {
+                        try {
+                            logTurn(
+                                `[+${elapsedMs()}ms] 2c. Enviando turno por HTTP JSON clásico (POST /api/v1/ai/chat, Streaming=${streamingEnabled ? 'ON-fallback' : 'OFF'})…`
+                            );
+                            const chatRes = await assistantChat({
+                                traceId: turnId,
+                                viaVoice,
+                                text,
+                                lang: assistantLang,
+                                applicationContext: appCtx,
+                                conversationHistory: conversationHistoryRef.current,
+                            });
+                            if (isStaleTurn()) return;
+                            actionPlan = chatRes?.data?.plan || null;
+                            source = chatRes?.data?.source || 'api';
+                            chatMetrics = chatRes?.data?.metrics
+                                ? {
+                                      ...chatRes.data.metrics,
+                                      client_channel: 'http_json',
+                                      streaming_enabled: Boolean(streamingEnabled),
+                                  }
+                                : {
+                                      client_channel: 'http_json',
+                                      streaming_enabled: Boolean(streamingEnabled),
+                                  };
+                        } catch {
+                            if (isStaleTurn()) return;
+                            if (localMatch.capabilityId) {
+                                const demoAns = resolveLocalDemoQuery({
+                                    capabilityId: localMatch.capabilityId,
+                                    text,
+                                });
+                                setProgressNote(null);
+                                const fallbackMsg = createMessage('assistant', demoAns.reply, {
+                                    traceId: turnId,
+                                    data: demoAns.data,
+                                    capabilityId: demoAns.capabilityId,
+                                    source: 'local',
+                                });
+                                appendMessage(fallbackMsg);
+                                speakReply(demoAns.reply, { messageId: fallbackMsg.id });
+                                return;
+                            }
+                            throw new Error(
+                                assistantLang === 'en-US'
+                                    ? 'Assistant service is temporarily unavailable.'
+                                    : 'El servicio del asistente no está disponible en este momento.'
+                            );
+                        }
                     }
                 }
 
+                if (isStaleTurn()) return;
+
                 // 3. Execute validated plan via Action Dispatcher & Local Resolvers
+                if (Array.isArray(actionPlan?.actions) && actionPlan.actions.length > 0) {
+                    setProgressNote(
+                        assistantLang === 'en-US'
+                            ? 'Applying action on screen…'
+                            : 'Aplicando en pantalla…'
+                    );
+                }
                 setStatus(ASSISTANT_STATUS.EXECUTING);
+
                 const execResult = await dispatchActionPlan(actionPlan, {
                     navigate,
                     query,
@@ -525,17 +925,52 @@ export const VoiceAssistantProvider = ({ children }) => {
                     selectedItem: appCtx.selectedItem,
                 });
 
-                const replyMsg = createMessage('assistant', execResult.reply, {
-                    traceId,
-                    data: execResult.data,
-                    source: source === 'local_matcher' ? 'local' : source,
-                    error: !execResult.ok,
+                if (isStaleTurn()) return;
+                setProgressNote(null);
+
+                logTurn(`[+${elapsedMs()}ms] ✔ Turno finalizado (${turnId})`, {
+                    source,
+                    canal: chatMetrics?.client_channel || 'local',
+                    ok: execResult.ok,
+                    accionesEjecutadas: execResult.executedActions || [],
+                    placeholdersResueltos: execResult.resolvedPlaceholders || {},
+                    respuestaFinal: execResult.reply,
+                    metricas: chatMetrics,
                 });
-                appendMessage(replyMsg);
+
+                const finalSource = source === 'local_matcher' ? 'local' : source;
+                let targetMsgId = streamingMsgId;
+
+                if (streamingMsgId) {
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === streamingMsgId
+                                ? {
+                                      ...m,
+                                      text: execResult.reply,
+                                      streamedText: execResult.reply,
+                                      isTyping: false,
+                                      data: execResult.data,
+                                      source: finalSource,
+                                      error: !execResult.ok,
+                                  }
+                                : m
+                        )
+                    );
+                } else {
+                    const replyMsg = createMessage('assistant', execResult.reply, {
+                        traceId: turnId,
+                        data: execResult.data,
+                        source: finalSource,
+                        error: !execResult.ok,
+                    });
+                    targetMsgId = replyMsg.id;
+                    appendMessage(replyMsg);
+                }
 
                 // Record full post-execution trace for fine-tuning / RLHF dataset
                 recordAssistantTelemetry({
-                    traceId,
+                    traceId: turnId,
                     viaVoice,
                     lang: assistantLang,
                     userText: text,
@@ -563,14 +998,26 @@ export const VoiceAssistantProvider = ({ children }) => {
                 if (execResult.ok && execResult.action?.type === 'navigate') {
                     setIsMinimized(true);
                 } else if (!execResult.ok) {
+                    audioQueueRef.current?.stop();
                     setStatus(ASSISTANT_STATUS.ERROR);
                     return;
                 } else {
                     setIsMinimized(false);
                 }
 
-                speakReply(execResult.reply, { messageId: replyMsg.id });
+                // If neural TTS audio chunks are already playing for this turn, keep ordered queue running;
+                // otherwise use browser speechSynthesis fallback (`speakReply`)!
+                if (audioStreamed && audioQueueRef.current?.isPlaying) {
+                    setStatus(ASSISTANT_STATUS.SPEAKING);
+                } else if (!audioStreamed) {
+                    speakReply(execResult.reply, { messageId: targetMsgId });
+                } else {
+                    setStatus(ASSISTANT_STATUS.IDLE);
+                }
             } catch (error) {
+                if (isStaleTurn() || error?.code === 'TURN_CANCELLED') return;
+                setProgressNote(null);
+                audioQueueRef.current?.stop();
                 appendMessage(
                     createMessage('assistant', `No pude completar la consulta: ${error.message}`, {
                         error: true,
@@ -578,17 +1025,27 @@ export const VoiceAssistantProvider = ({ children }) => {
                 );
                 setStatus(ASSISTANT_STATUS.ERROR);
             } finally {
-                busyRef.current = false;
+                if (activeTurnIdRef.current === turnId) {
+                    busyRef.current = false;
+                }
             }
         },
         [
             appendMessage,
             assistantLang,
+            cancelActiveTurn,
+            effectiveToken,
             getApplicationContext,
             navigate,
+            neuralTtsEnabled,
             query,
             recordVerifiedTurn,
+            sessionKey,
+            speakAmounts,
+            speakCustomerNames,
             speakReply,
+            status,
+            streamingEnabled,
             ttsEnabled,
             ttsSupported,
             user,
@@ -607,7 +1064,7 @@ export const VoiceAssistantProvider = ({ children }) => {
     } = useSpeechRecognition({
         lang: assistantLang,
         onStart: () => {
-            stopSpeaking();
+            cancelActiveTurn();
             setStatus(ASSISTANT_STATUS.LISTENING);
         },
         onFinalTranscript: (transcript) => {
@@ -655,22 +1112,22 @@ export const VoiceAssistantProvider = ({ children }) => {
     }, [isOpen, messages, status, isListening, resetInactivityTimer]);
 
     const toggleListening = useCallback(() => {
-        if (busyRef.current) return;
         resetInactivityTimer();
         if (isListening) {
             stopListening();
             setStatus(ASSISTANT_STATUS.IDLE);
         } else {
-            stopSpeaking();
+            cancelActiveTurn();
             if (ttsSupported && ttsEnabled) unlockTTS();
             startListening();
         }
-    }, [isListening, resetInactivityTimer, startListening, stopListening, ttsSupported, ttsEnabled]);
+    }, [cancelActiveTurn, isListening, resetInactivityTimer, startListening, stopListening, ttsSupported, ttsEnabled]);
 
     const toggleTts = useCallback(() => {
         setTtsEnabled((prev) => {
             const next = !prev;
             if (!next) {
+                audioQueueRef.current?.stop();
                 stopSpeaking();
                 setStatus((s) => (s === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : s));
             }
@@ -683,11 +1140,41 @@ export const VoiceAssistantProvider = ({ children }) => {
         });
     }, []);
 
+    const toggleNeuralTts = useCallback(() => {
+        setNeuralTtsEnabled((prev) => {
+            const next = !prev;
+            if (!next) {
+                audioQueueRef.current?.stop();
+            }
+            try {
+                localStorage.setItem(NEURAL_TTS_STORAGE_KEY, String(next));
+            } catch {
+                // Ignore
+            }
+            return next;
+        });
+    }, []);
+
+    const toggleStreaming = useCallback(() => {
+        setStreamingEnabled((prev) => {
+            const next = !prev;
+            if (!next) {
+                audioQueueRef.current?.stop();
+                wsClientRef.current?.disconnect();
+            }
+            try {
+                localStorage.setItem(STREAMING_STORAGE_KEY, String(next));
+            } catch {
+                // Ignore
+            }
+            return next;
+        });
+    }, []);
+
     const stopAudio = useCallback(() => {
-        stopSpeaking();
-        stopTypingStream();
-        setStatus((s) => (s === ASSISTANT_STATUS.SPEAKING ? ASSISTANT_STATUS.IDLE : s));
-    }, [stopTypingStream]);
+        cancelActiveTurn();
+        setStatus((s) => (s === ASSISTANT_STATUS.SPEAKING || s === ASSISTANT_STATUS.PROCESSING ? ASSISTANT_STATUS.IDLE : s));
+    }, [cancelActiveTurn]);
 
     const open = useCallback(() => {
         if (ttsSupported && ttsEnabled) unlockTTS();
@@ -697,17 +1184,17 @@ export const VoiceAssistantProvider = ({ children }) => {
     }, [ttsSupported, ttsEnabled]);
 
     const close = useCallback(() => {
-        stopSpeaking();
+        cancelActiveTurn();
         stopListening();
         setStatus(ASSISTANT_STATUS.IDLE);
         setIsMinimized(false);
         setIsOpen(false);
-    }, [stopListening]);
+    }, [cancelActiveTurn, stopListening]);
 
     const toggle = useCallback(() => {
         setIsOpen((prev) => {
             if (prev) {
-                stopSpeaking();
+                cancelActiveTurn();
                 stopListening();
                 setStatus(ASSISTANT_STATUS.IDLE);
                 setIsMinimized(false);
@@ -718,7 +1205,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             }
             return !prev;
         });
-    }, [stopListening, ttsSupported, ttsEnabled]);
+    }, [cancelActiveTurn, stopListening, ttsSupported, ttsEnabled]);
 
     const toggleMinimized = useCallback(() => {
         resetInactivityTimer();
@@ -746,14 +1233,18 @@ export const VoiceAssistantProvider = ({ children }) => {
     }, []);
 
     const clearConversation = useCallback(() => {
-        stopSpeaking();
+        cancelActiveTurn();
         stopListening();
         clearSpeechError();
+        const sentViaWs = wsClientRef.current?.resetConversation?.();
+        if (!sentViaWs && effectiveToken) {
+            resetAssistantSession().catch(() => {});
+        }
         setConversationHistory([]);
         setMessages([WELCOME]);
         setIsMinimized(false);
         setStatus(ASSISTANT_STATUS.IDLE);
-    }, [clearSpeechError, stopListening]);
+    }, [cancelActiveTurn, clearSpeechError, effectiveToken, stopListening]);
 
     const value = useMemo(
         () => ({
@@ -766,6 +1257,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             toggleMinimized,
             status,
             setStatus,
+            progressNote,
             messages,
             conversationHistory,
             submitText,
@@ -776,6 +1268,11 @@ export const VoiceAssistantProvider = ({ children }) => {
             ttsSupported,
             ttsEnabled,
             toggleTts,
+            neuralTtsEnabled,
+            toggleNeuralTts,
+            streamingEnabled,
+            toggleStreaming,
+            wsStatus,
             stopAudio,
             availableVoices,
             selectedVoiceURI,
@@ -803,6 +1300,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             isMinimized,
             toggleMinimized,
             status,
+            progressNote,
             messages,
             conversationHistory,
             submitText,
@@ -813,6 +1311,11 @@ export const VoiceAssistantProvider = ({ children }) => {
             ttsSupported,
             ttsEnabled,
             toggleTts,
+            neuralTtsEnabled,
+            toggleNeuralTts,
+            streamingEnabled,
+            toggleStreaming,
+            wsStatus,
             stopAudio,
             availableVoices,
             selectedVoiceURI,
