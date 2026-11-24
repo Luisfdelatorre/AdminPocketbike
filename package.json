@@ -35,6 +35,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@openai/agents": "^0.22.0",
         "axios": "^1.13.4",
         "axios-cookiejar-support": "^5.0.5",
         "bcryptjs": "^3.0.3",
@@ -69,7 +70,9 @@
         "recharts": "^3.6.0",
         "simple-node-logger": "^21.8.12",
         "socket.io-client": "^4.6.0",
-        "tough-cookie": "^5.1.2"
+        "tough-cookie": "^5.1.2",
+        "ws": "^8.18.0",
+        "zod": "^4.6.7"
     },
     "devDependencies": {
         "@babel/core": "^7.28.0",

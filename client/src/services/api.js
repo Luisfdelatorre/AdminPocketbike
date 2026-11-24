@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { validateWsEventEnvelope } from './voiceAssistant/schemaValidator';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -37,12 +38,101 @@ export const switchCompany = (targetCompanyId) => api.post('/auth/switch-company
 export const verifyDevicePin = (data) => api.post('/auth/pin-login', data);
 export const createDeviceAccess = (data) => api.post('/device-access/create', data);
 
-// --- Voice Assistant (demo) ---
+// --- Voice Assistant (demo & streaming) ---
 export const assistantQuery = (data) => api.post('/assistant/query', data);
 export const assistantChat = (data) => api.post('/ai/chat', data);
+export const resetAssistantSession = () => api.post('/ai/session/reset');
 export const getAssistantDiagnostics = () => api.get('/ai/diagnostics');
 export const recordAssistantTelemetry = (data) => api.post('/ai/telemetry', data);
 export const getAssistantTelemetry = (params) => api.get('/ai/telemetry', { params });
+
+/**
+ * Streams an assistant turn over `POST /api/v1/ai/chat` (`Accept: text/event-stream`)
+ * using the exact same typed event envelope protocol as the WebSocket channel.
+ */
+export const assistantChatStream = async ({ payload, signal, onEvent }) => {
+    const token =
+        localStorage.getItem('auth_token') ||
+        sessionStorage.getItem('auth_token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('adminToken');
+
+    const response = await fetch(`${API_URL}/ai/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ...payload, stream: true }),
+        signal,
+    });
+
+    if (!response.ok || !response.body) {
+        let errMessage = `HTTP ${response.status}`;
+        try {
+            const errJson = await response.json();
+            if (errJson?.error) errMessage = errJson.error;
+        } catch {
+            // Ignore non-JSON body
+        }
+        throw new Error(errMessage);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let lastSeq = 0;
+    let finalResult = null;
+
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sepIndex;
+        while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
+            const rawBlock = buffer.slice(0, sepIndex);
+            buffer = buffer.slice(sepIndex + 2);
+
+            for (const line of rawBlock.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+                const dataStr = trimmed.slice(5).trim();
+                if (!dataStr || dataStr === '[DONE]') continue;
+
+                let parsed;
+                try {
+                    parsed = JSON.parse(dataStr);
+                } catch {
+                    continue;
+                }
+
+                const check = validateWsEventEnvelope(parsed);
+                if (!check.success) continue;
+                const env = check.data;
+                if (env.sequence <= lastSeq) continue;
+                lastSeq = env.sequence;
+
+                onEvent?.(env);
+
+                if (env.type === 'turn_completed') {
+                    finalResult = env.payload;
+                } else if (env.type === 'turn_failed') {
+                    const failErr = new Error(env.payload?.message || 'Assistant stream failed');
+                    failErr.code = env.payload?.code || 'TURN_FAILED';
+                    throw failErr;
+                }
+            }
+        }
+    }
+
+    if (!finalResult) {
+        throw new Error('SSE_STREAM_INCOMPLETE');
+    }
+
+    return finalResult;
+};
 
 // --- Commands History ---
 export const getCommandHistory = (params) => api.get('/commands', { params });

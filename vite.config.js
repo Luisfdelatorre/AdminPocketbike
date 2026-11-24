@@ -19,6 +19,7 @@ export default defineConfig({
             '/api': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
+                ws: true,
                 configure: (proxy) => {
                     proxy.on('error', (err) => {
                         if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return;
@@ -29,6 +30,8 @@ export default defineConfig({
             '/apinode': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
+                ws: true,
+                rewrite: (p) => p.replace(/^\/apinode/, '/api/v1'),
                 configure: (proxy) => {
                     proxy.on('error', (err) => {
                         if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return;
@@ -68,6 +71,8 @@ export default defineConfig({
             '/apinode': {
                 target: 'http://127.0.0.1:8084',
                 changeOrigin: true,
+                ws: true,
+                rewrite: (p) => p.replace(/^\/apinode/, '/api/v1'),
             },
             '^/p(/|$)': {
                 target: 'http://127.0.0.1:8084',

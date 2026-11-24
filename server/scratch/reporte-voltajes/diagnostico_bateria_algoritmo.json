@@ -1,0 +1,2402 @@
+[
+  {
+    "imei": "865468052808220",
+    "score": 0,
+    "healthStatus": "CRÍTICO",
+    "stats": {
+      "samplesTotal": 120,
+      "samplesResting": 99,
+      "samplesRunning": 21,
+      "samplesMoving": 12,
+      "minV": 6.4,
+      "maxV": 15.3,
+      "avgV": 11.08
+    },
+    "alerts": [
+      {
+        "code": "WARN_HIGH_VOLTAGE",
+        "severity": "HIGH",
+        "title": "Sobrevoltaje / Regulador Defectuoso",
+        "description": "El alternador genera voltajes excesivos (15.3V >= 15.0V). El regulador-rectificador no está recortando el voltaje.",
+        "evidence": {
+          "maxVoltage": 15.3,
+          "count": 2
+        }
+      },
+      {
+        "code": "ERR_LOOSE_TERMINAL",
+        "severity": "HIGH",
+        "title": "Borne Suelto o Falso Contacto",
+        "description": "Se detectaron 2 oscilaciones drásticas entre voltaje normal y micro-desconexiones (< 7V / 0V). Inspeccionar bornes de batería, masa de chasis y portafusible.",
+        "evidence": {
+          "microDisconnects": 2,
+          "zeroVoltCount": 0
+        }
+      },
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 10.71V (mínimo 9.5V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 10.71,
+          "minRestingVoltage": 9.5,
+          "samplesResting": 99
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468053668763",
+    "score": 5,
+    "healthStatus": "CRÍTICO",
+    "stats": {
+      "samplesTotal": 214,
+      "samplesResting": 145,
+      "samplesRunning": 69,
+      "samplesMoving": 16,
+      "minV": 0,
+      "maxV": 14.9,
+      "avgV": 7.2
+    },
+    "alerts": [
+      {
+        "code": "ERR_LOOSE_TERMINAL",
+        "severity": "HIGH",
+        "title": "Borne Suelto o Falso Contacto",
+        "description": "Se detectaron 101 oscilaciones drásticas entre voltaje normal y micro-desconexiones (< 7V / 0V). Inspeccionar bornes de batería, masa de chasis y portafusible.",
+        "evidence": {
+          "microDisconnects": 101,
+          "zeroVoltCount": 56
+        }
+      },
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 4.6V (mínimo 0V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 4.6,
+          "minRestingVoltage": 0,
+          "samplesResting": 145
+        }
+      },
+      {
+        "code": "WARN_PARASITIC_DRAIN",
+        "severity": "MEDIUM",
+        "title": "Descarga Parásita en Reposo",
+        "description": "La batería se descargó de 6.60V a 5.26V (caída de 1.34V) mientras el vehículo estuvo apagado.",
+        "evidence": {
+          "initialRestVoltage": 6.6,
+          "finalRestVoltage": 5.26,
+          "drop": 1.34
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052755504",
+    "score": 5,
+    "healthStatus": "CRÍTICO",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 88,
+      "samplesRunning": 42,
+      "samplesMoving": 10,
+      "minV": 7.5,
+      "maxV": 14.4,
+      "avgV": 9.06
+    },
+    "alerts": [
+      {
+        "code": "ERR_ALTERNATOR_ACTIVE_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Alternador Muerto: Descarga Sucesiva Activa en Marcha",
+        "description": "Confirmada secuencia continua de pérdida de energía durante 21 minutos de operación (3 muestras sucesivas). El voltaje cayó de 8.3V a 7.6V (pérdida de 0.7V). El alternador no suministra corriente y la moto consumió la batería hasta la descarga total.",
+        "evidence": {
+          "samples": 3,
+          "durationMin": 21,
+          "vStart": 8.3,
+          "vEnd": 7.6,
+          "deltaV": -0.7,
+          "sequence": [
+            8.3,
+            7.5,
+            7.6
+          ],
+          "times": [
+            "2026-11-17 13:53:46",
+            "2026-11-17 14:15:07"
+          ]
+        }
+      },
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 8.84V (mínimo 7.8V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 8.84,
+          "minRestingVoltage": 7.8,
+          "samplesResting": 88
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052755249",
+    "score": 5,
+    "healthStatus": "CRÍTICO",
+    "stats": {
+      "samplesTotal": 115,
+      "samplesResting": 19,
+      "samplesRunning": 96,
+      "samplesMoving": 28,
+      "minV": 4.9,
+      "maxV": 14.2,
+      "avgV": 11.55
+    },
+    "alerts": [
+      {
+        "code": "ERR_ALTERNATOR_ACTIVE_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Alternador Muerto: Descarga Sucesiva Activa en Marcha",
+        "description": "Confirmada secuencia continua de pérdida de energía durante 530 minutos de operación (49 muestras sucesivas). El voltaje cayó de 12.7V a 7.6V (pérdida de 5.1V). El alternador no suministra corriente y la moto consumió la batería hasta la descarga total.",
+        "evidence": {
+          "samples": 49,
+          "durationMin": 530,
+          "vStart": 12.7,
+          "vEnd": 7.6,
+          "deltaV": -5.1,
+          "sequence": [
+            12.7,
+            12.7,
+            12.6,
+            12.6,
+            12.6,
+            12.6,
+            12.6,
+            12.5
+          ],
+          "times": [
+            "2026-11-17 00:13:06",
+            "2026-11-17 09:03:24"
+          ]
+        }
+      },
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 6.68V (mínimo 4.9V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 6.68,
+          "minRestingVoltage": 4.9,
+          "samplesResting": 19
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052825414",
+    "score": 40,
+    "healthStatus": "CRÍTICO",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 111,
+      "samplesRunning": 17,
+      "samplesMoving": 11,
+      "minV": 10.5,
+      "maxV": 15,
+      "avgV": 11.22
+    },
+    "alerts": [
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 10.9V (mínimo 10.5V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 10.9,
+          "minRestingVoltage": 10.5,
+          "samplesResting": 111
+        }
+      },
+      {
+        "code": "WARN_PARASITIC_DRAIN",
+        "severity": "MEDIUM",
+        "title": "Descarga Parásita en Reposo",
+        "description": "La batería se descargó de 11.32V a 10.66V (caída de 0.66V) mientras el vehículo estuvo apagado.",
+        "evidence": {
+          "initialRestVoltage": 11.32,
+          "finalRestVoltage": 10.66,
+          "drop": 0.66
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052807941",
+    "score": 40,
+    "healthStatus": "CRÍTICO",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 133,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 11,
+      "maxV": 12.1,
+      "avgV": 11.65
+    },
+    "alerts": [
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 11.65V (mínimo 11V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 11.65,
+          "minRestingVoltage": 11,
+          "samplesResting": 133
+        }
+      },
+      {
+        "code": "WARN_PARASITIC_DRAIN",
+        "severity": "MEDIUM",
+        "title": "Descarga Parásita en Reposo",
+        "description": "La batería se descargó de 12.04V a 11.00V (caída de 1.04V) mientras el vehículo estuvo apagado.",
+        "evidence": {
+          "initialRestVoltage": 12.04,
+          "finalRestVoltage": 11,
+          "drop": 1.04
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468053668557",
+    "score": 50,
+    "healthStatus": "ADVERTENCIA",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 7,
+      "samplesRunning": 120,
+      "samplesMoving": 12,
+      "minV": 11.8,
+      "maxV": 14.1,
+      "avgV": 12.64
+    },
+    "alerts": [
+      {
+        "code": "ERR_ALTERNATOR_ACTIVE_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Alternador Muerto: Descarga Sucesiva Activa en Marcha",
+        "description": "Confirmada secuencia continua de pérdida de energía durante 350 minutos de operación (33 muestras sucesivas). El voltaje cayó de 12.4V a 12.1V (pérdida de 0.3V). El alternador no suministra corriente y la moto consumió la batería hasta la descarga total.",
+        "evidence": {
+          "samples": 33,
+          "durationMin": 350,
+          "vStart": 12.4,
+          "vEnd": 12.1,
+          "deltaV": -0.3,
+          "sequence": [
+            12.4,
+            12.4,
+            12.4,
+            12.4,
+            12.4,
+            12.4,
+            12.4,
+            12.4
+          ],
+          "times": [
+            "2026-11-17 00:09:12",
+            "2026-11-17 05:59:32"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052744177",
+    "score": 55,
+    "healthStatus": "ADVERTENCIA",
+    "stats": {
+      "samplesTotal": 129,
+      "samplesResting": 115,
+      "samplesRunning": 14,
+      "samplesMoving": 8,
+      "minV": 10.4,
+      "maxV": 14.5,
+      "avgV": 11.08
+    },
+    "alerts": [
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 10.69V (mínimo 10.4V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 10.69,
+          "minRestingVoltage": 10.4,
+          "samplesResting": 115
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468053666254",
+    "score": 55,
+    "healthStatus": "ADVERTENCIA",
+    "stats": {
+      "samplesTotal": 118,
+      "samplesResting": 92,
+      "samplesRunning": 26,
+      "samplesMoving": 18,
+      "minV": 10.6,
+      "maxV": 14.9,
+      "avgV": 11.52
+    },
+    "alerts": [
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 10.9V (mínimo 10.7V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 10.9,
+          "minRestingVoltage": 10.7,
+          "samplesResting": 92
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052794461",
+    "score": 55,
+    "healthStatus": "ADVERTENCIA",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 134,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 10.2,
+      "maxV": 12.3,
+      "avgV": 11.72
+    },
+    "alerts": [
+      {
+        "code": "ERR_BATTERY_DEAD_OR_DEEP_DISCHARGE",
+        "severity": "CRITICAL",
+        "title": "Batería Muerta o Descarga Profunda",
+        "description": "En reposo con switch apagado, el voltaje promedio fue de 11.72V (mínimo 10.2V). Batería sulfatada o celda comunicada.",
+        "evidence": {
+          "avgRestingVoltage": 11.72,
+          "minRestingVoltage": 10.2,
+          "samplesResting": 134
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052790410",
+    "score": 70,
+    "healthStatus": "ADVERTENCIA",
+    "stats": {
+      "samplesTotal": 132,
+      "samplesResting": 125,
+      "samplesRunning": 7,
+      "samplesMoving": 4,
+      "minV": 12.1,
+      "maxV": 12.7,
+      "avgV": 12.49
+    },
+    "alerts": [
+      {
+        "code": "WARN_ALTERNATOR_NO_CHARGE",
+        "severity": "HIGH",
+        "title": "Alternador Inoperativo (Sin Elevación de Carga)",
+        "description": "Racha continua de 32 minutos encendida sin ninguna elevación de carga (secuencia: 12.6V -> 12.6V -> 12.6V -> 12.5V). El alternador no supera los 12.7V (esperado >= 13.8V).",
+        "evidence": {
+          "samples": 4,
+          "durationMin": 32,
+          "vStart": 12.6,
+          "vEnd": 12.5,
+          "deltaV": -0.1,
+          "sequence": [
+            12.6,
+            12.6,
+            12.6,
+            12.5
+          ],
+          "times": [
+            "2026-11-17 15:14:35",
+            "2026-11-17 15:46:49"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052738633",
+    "score": 70,
+    "healthStatus": "ADVERTENCIA",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 93,
+      "samplesRunning": 33,
+      "samplesMoving": 10,
+      "minV": 12.2,
+      "maxV": 14.5,
+      "avgV": 12.97
+    },
+    "alerts": [
+      {
+        "code": "WARN_ALTERNATOR_NO_CHARGE",
+        "severity": "HIGH",
+        "title": "Alternador Inoperativo (Sin Elevación de Carga)",
+        "description": "Racha continua de 73 minutos encendida sin ninguna elevación de carga (secuencia: 12.6V -> 12.6V -> 12.6V -> 12.6V -> 12.5V -> 12.5V -> 12.5V -> 12.5V). El alternador no supera los 12.7V (esperado >= 13.8V).",
+        "evidence": {
+          "samples": 8,
+          "durationMin": 73,
+          "vStart": 12.6,
+          "vEnd": 12.5,
+          "deltaV": -0.1,
+          "sequence": [
+            12.6,
+            12.6,
+            12.6,
+            12.6,
+            12.5,
+            12.5,
+            12.5,
+            12.5
+          ],
+          "times": [
+            "2026-11-17 07:52:29",
+            "2026-11-17 09:05:55"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "imei": "865468052786749",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 132,
+      "samplesResting": 123,
+      "samplesRunning": 9,
+      "samplesMoving": 4,
+      "minV": 12.4,
+      "maxV": 14,
+      "avgV": 12.7
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052743922",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 133,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.4,
+      "maxV": 12.6,
+      "avgV": 12.58
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670280",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 114,
+      "samplesResting": 75,
+      "samplesRunning": 39,
+      "samplesMoving": 30,
+      "minV": 13,
+      "maxV": 14.1,
+      "avgV": 13.33
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053665447",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 105,
+      "samplesRunning": 23,
+      "samplesMoving": 17,
+      "minV": 12.1,
+      "maxV": 14.2,
+      "avgV": 12.75
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052737916",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 137,
+      "samplesResting": 137,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.6,
+      "maxV": 12.8,
+      "avgV": 12.75
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670389",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 124,
+      "samplesResting": 110,
+      "samplesRunning": 14,
+      "samplesMoving": 9,
+      "minV": 12.8,
+      "maxV": 14.4,
+      "avgV": 13.07
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053665330",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 119,
+      "samplesResting": 74,
+      "samplesRunning": 45,
+      "samplesMoving": 31,
+      "minV": 12.7,
+      "maxV": 14.8,
+      "avgV": 13.46
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052586347",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 112,
+      "samplesRunning": 19,
+      "samplesMoving": 11,
+      "minV": 12.1,
+      "maxV": 14.2,
+      "avgV": 12.89
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825851",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 118,
+      "samplesRunning": 10,
+      "samplesMoving": 7,
+      "minV": 12.5,
+      "maxV": 14.3,
+      "avgV": 12.82
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052804294",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 139,
+      "samplesResting": 139,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.6,
+      "maxV": 12.7,
+      "avgV": 12.69
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052806190",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 108,
+      "samplesRunning": 20,
+      "samplesMoving": 14,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 12.97
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052804575",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 126,
+      "samplesRunning": 7,
+      "samplesMoving": 6,
+      "minV": 12.7,
+      "maxV": 14.5,
+      "avgV": 13
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052736207",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 128,
+      "samplesRunning": 6,
+      "samplesMoving": 3,
+      "minV": 12,
+      "maxV": 14.2,
+      "avgV": 12.37
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666288",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 111,
+      "samplesResting": 68,
+      "samplesRunning": 43,
+      "samplesMoving": 27,
+      "minV": 12.7,
+      "maxV": 14.8,
+      "avgV": 13.65
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053664515",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 121,
+      "samplesRunning": 9,
+      "samplesMoving": 2,
+      "minV": 12.6,
+      "maxV": 13.9,
+      "avgV": 12.88
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052806133",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 115,
+      "samplesRunning": 13,
+      "samplesMoving": 11,
+      "minV": 12.5,
+      "maxV": 14.3,
+      "avgV": 12.87
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755470",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 131,
+      "samplesRunning": 3,
+      "samplesMoving": 2,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 12.65
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052740449",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 108,
+      "samplesRunning": 18,
+      "samplesMoving": 15,
+      "minV": 12.1,
+      "maxV": 14,
+      "avgV": 12.88
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053662659",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 86,
+      "samplesResting": 53,
+      "samplesRunning": 33,
+      "samplesMoving": 25,
+      "minV": 11.7,
+      "maxV": 14.1,
+      "avgV": 12.51
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052741256",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 119,
+      "samplesRunning": 11,
+      "samplesMoving": 8,
+      "minV": 12.5,
+      "maxV": 14.2,
+      "avgV": 12.86
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053665405",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 112,
+      "samplesResting": 62,
+      "samplesRunning": 50,
+      "samplesMoving": 28,
+      "minV": 11.9,
+      "maxV": 14.2,
+      "avgV": 13.02
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052799213",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 114,
+      "samplesResting": 80,
+      "samplesRunning": 34,
+      "samplesMoving": 19,
+      "minV": 12.3,
+      "maxV": 14,
+      "avgV": 13.06
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052808386",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 108,
+      "samplesResting": 74,
+      "samplesRunning": 34,
+      "samplesMoving": 23,
+      "minV": 12.5,
+      "maxV": 14.3,
+      "avgV": 13.24
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825505",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 134,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.4,
+      "maxV": 12.6,
+      "avgV": 12.5
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670470",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 132,
+      "samplesResting": 121,
+      "samplesRunning": 11,
+      "samplesMoving": 7,
+      "minV": 12.5,
+      "maxV": 14,
+      "avgV": 12.72
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052733980",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 129,
+      "samplesResting": 120,
+      "samplesRunning": 9,
+      "samplesMoving": 4,
+      "minV": 12.1,
+      "maxV": 14.5,
+      "avgV": 12.7
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052754176",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 132,
+      "samplesRunning": 2,
+      "samplesMoving": 0,
+      "minV": 12.2,
+      "maxV": 14,
+      "avgV": 12.63
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805143",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 124,
+      "samplesResting": 110,
+      "samplesRunning": 14,
+      "samplesMoving": 10,
+      "minV": 12.1,
+      "maxV": 13,
+      "avgV": 12.62
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052580167",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 94,
+      "samplesRunning": 32,
+      "samplesMoving": 20,
+      "minV": 12.4,
+      "maxV": 14.6,
+      "avgV": 13.24
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053664416",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 124,
+      "samplesResting": 100,
+      "samplesRunning": 24,
+      "samplesMoving": 18,
+      "minV": 12.7,
+      "maxV": 14.3,
+      "avgV": 13.11
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825554",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 130,
+      "samplesRunning": 3,
+      "samplesMoving": 2,
+      "minV": 12.2,
+      "maxV": 14.1,
+      "avgV": 12.43
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805333",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 121,
+      "samplesResting": 97,
+      "samplesRunning": 24,
+      "samplesMoving": 17,
+      "minV": 12.2,
+      "maxV": 14.3,
+      "avgV": 13.03
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052745646",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 109,
+      "samplesResting": 73,
+      "samplesRunning": 36,
+      "samplesMoving": 31,
+      "minV": 12.7,
+      "maxV": 14.3,
+      "avgV": 13.26
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052734269",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 126,
+      "samplesRunning": 8,
+      "samplesMoving": 8,
+      "minV": 12.6,
+      "maxV": 14.7,
+      "avgV": 13.04
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052585257",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 106,
+      "samplesRunning": 24,
+      "samplesMoving": 19,
+      "minV": 12.5,
+      "maxV": 14.6,
+      "avgV": 13.22
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053662535",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 100,
+      "samplesRunning": 28,
+      "samplesMoving": 15,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 13.06
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053669712",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 109,
+      "samplesResting": 78,
+      "samplesRunning": 31,
+      "samplesMoving": 21,
+      "minV": 12.6,
+      "maxV": 14.2,
+      "avgV": 13.12
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053664457",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 109,
+      "samplesRunning": 18,
+      "samplesMoving": 17,
+      "minV": 12.7,
+      "maxV": 14.4,
+      "avgV": 13.06
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670298",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 123,
+      "samplesResting": 104,
+      "samplesRunning": 19,
+      "samplesMoving": 14,
+      "minV": 12,
+      "maxV": 14.4,
+      "avgV": 13.01
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052740555",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 118,
+      "samplesResting": 91,
+      "samplesRunning": 27,
+      "samplesMoving": 21,
+      "minV": 12.4,
+      "maxV": 14.5,
+      "avgV": 13.15
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805648",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 125,
+      "samplesResting": 94,
+      "samplesRunning": 31,
+      "samplesMoving": 22,
+      "minV": 12.6,
+      "maxV": 14.7,
+      "avgV": 13.18
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670058",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 115,
+      "samplesRunning": 19,
+      "samplesMoving": 16,
+      "minV": 12.5,
+      "maxV": 13.7,
+      "avgV": 12.94
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052729590",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 114,
+      "samplesRunning": 13,
+      "samplesMoving": 10,
+      "minV": 12.6,
+      "maxV": 14.3,
+      "avgV": 12.9
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052786426",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 107,
+      "samplesRunning": 19,
+      "samplesMoving": 13,
+      "minV": 12.5,
+      "maxV": 14.2,
+      "avgV": 13.09
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805457",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 130,
+      "samplesRunning": 4,
+      "samplesMoving": 0,
+      "minV": 12.4,
+      "maxV": 13.5,
+      "avgV": 12.63
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052806166",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 112,
+      "samplesRunning": 14,
+      "samplesMoving": 10,
+      "minV": 12.6,
+      "maxV": 14.3,
+      "avgV": 13.01
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052736686",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 122,
+      "samplesResting": 100,
+      "samplesRunning": 22,
+      "samplesMoving": 13,
+      "minV": 12.5,
+      "maxV": 14.5,
+      "avgV": 13.1
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053662642",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 126,
+      "samplesRunning": 8,
+      "samplesMoving": 5,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 12.71
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052738799",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 132,
+      "samplesResting": 103,
+      "samplesRunning": 29,
+      "samplesMoving": 26,
+      "minV": 12.5,
+      "maxV": 14.7,
+      "avgV": 13.13
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052729665",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 118,
+      "samplesRunning": 13,
+      "samplesMoving": 11,
+      "minV": 12,
+      "maxV": 14.5,
+      "avgV": 13.12
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052808279",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 136,
+      "samplesResting": 136,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.6,
+      "maxV": 12.8,
+      "avgV": 12.75
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052806240",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 128,
+      "samplesRunning": 3,
+      "samplesMoving": 1,
+      "minV": 12.7,
+      "maxV": 14.2,
+      "avgV": 12.89
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755025",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 137,
+      "samplesResting": 115,
+      "samplesRunning": 22,
+      "samplesMoving": 19,
+      "minV": 12.1,
+      "maxV": 14.4,
+      "avgV": 12.99
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052580035",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 132,
+      "samplesResting": 83,
+      "samplesRunning": 49,
+      "samplesMoving": 44,
+      "minV": 12,
+      "maxV": 14.3,
+      "avgV": 13.19
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052587451",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 95,
+      "samplesRunning": 38,
+      "samplesMoving": 26,
+      "minV": 12.7,
+      "maxV": 13.9,
+      "avgV": 13.12
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666304",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 121,
+      "samplesResting": 97,
+      "samplesRunning": 24,
+      "samplesMoving": 15,
+      "minV": 12.4,
+      "maxV": 14.7,
+      "avgV": 13.18
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052799171",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 139,
+      "samplesResting": 139,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12,
+      "maxV": 12.3,
+      "avgV": 12.2
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755108",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 134,
+      "samplesResting": 123,
+      "samplesRunning": 11,
+      "samplesMoving": 8,
+      "minV": 12.5,
+      "maxV": 14.4,
+      "avgV": 12.94
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052799254",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 112,
+      "samplesResting": 90,
+      "samplesRunning": 22,
+      "samplesMoving": 20,
+      "minV": 12.8,
+      "maxV": 14.5,
+      "avgV": 13.34
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053668656",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 113,
+      "samplesResting": 80,
+      "samplesRunning": 33,
+      "samplesMoving": 25,
+      "minV": 12.2,
+      "maxV": 14,
+      "avgV": 13.02
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053665280",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 112,
+      "samplesResting": 63,
+      "samplesRunning": 49,
+      "samplesMoving": 40,
+      "minV": 12.4,
+      "maxV": 14.7,
+      "avgV": 13.56
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052804807",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 118,
+      "samplesResting": 81,
+      "samplesRunning": 37,
+      "samplesMoving": 28,
+      "minV": 12.3,
+      "maxV": 14.3,
+      "avgV": 13.14
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053668631",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 124,
+      "samplesResting": 104,
+      "samplesRunning": 20,
+      "samplesMoving": 9,
+      "minV": 12.2,
+      "maxV": 14.2,
+      "avgV": 12.81
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052806109",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 86,
+      "samplesRunning": 40,
+      "samplesMoving": 31,
+      "minV": 12.4,
+      "maxV": 14.5,
+      "avgV": 13.06
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052739151",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 125,
+      "samplesResting": 113,
+      "samplesRunning": 12,
+      "samplesMoving": 7,
+      "minV": 12.5,
+      "maxV": 14.1,
+      "avgV": 12.79
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666213",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 117,
+      "samplesResting": 85,
+      "samplesRunning": 32,
+      "samplesMoving": 28,
+      "minV": 12.2,
+      "maxV": 14.3,
+      "avgV": 12.92
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825349",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 110,
+      "samplesResting": 64,
+      "samplesRunning": 46,
+      "samplesMoving": 37,
+      "minV": 12.5,
+      "maxV": 14.1,
+      "avgV": 13.15
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805259",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 119,
+      "samplesRunning": 8,
+      "samplesMoving": 2,
+      "minV": 12.3,
+      "maxV": 14.3,
+      "avgV": 12.59
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666395",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 125,
+      "samplesResting": 105,
+      "samplesRunning": 20,
+      "samplesMoving": 13,
+      "minV": 12.8,
+      "maxV": 14,
+      "avgV": 13.08
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053662626",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 129,
+      "samplesResting": 122,
+      "samplesRunning": 7,
+      "samplesMoving": 7,
+      "minV": 12.5,
+      "maxV": 14,
+      "avgV": 12.85
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053669878",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 124,
+      "samplesResting": 81,
+      "samplesRunning": 43,
+      "samplesMoving": 33,
+      "minV": 12,
+      "maxV": 14.8,
+      "avgV": 13.51
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053669688",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 85,
+      "samplesRunning": 41,
+      "samplesMoving": 31,
+      "minV": 12.3,
+      "maxV": 14.3,
+      "avgV": 12.83
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052806042",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 122,
+      "samplesResting": 82,
+      "samplesRunning": 40,
+      "samplesMoving": 31,
+      "minV": 12.7,
+      "maxV": 14.3,
+      "avgV": 13.25
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666221",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 125,
+      "samplesResting": 114,
+      "samplesRunning": 11,
+      "samplesMoving": 7,
+      "minV": 12.5,
+      "maxV": 14,
+      "avgV": 13.02
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805614",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 119,
+      "samplesRunning": 12,
+      "samplesMoving": 8,
+      "minV": 12.5,
+      "maxV": 14.2,
+      "avgV": 12.83
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825067",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 119,
+      "samplesResting": 96,
+      "samplesRunning": 23,
+      "samplesMoving": 18,
+      "minV": 12.7,
+      "maxV": 14.2,
+      "avgV": 13.11
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805986",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 116,
+      "samplesResting": 82,
+      "samplesRunning": 34,
+      "samplesMoving": 29,
+      "minV": 11.9,
+      "maxV": 14,
+      "avgV": 13.09
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755322",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 122,
+      "samplesResting": 105,
+      "samplesRunning": 17,
+      "samplesMoving": 10,
+      "minV": 12.4,
+      "maxV": 14.6,
+      "avgV": 13.06
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052754671",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 111,
+      "samplesResting": 82,
+      "samplesRunning": 29,
+      "samplesMoving": 15,
+      "minV": 12.2,
+      "maxV": 14.1,
+      "avgV": 12.88
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825109",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 116,
+      "samplesRunning": 17,
+      "samplesMoving": 5,
+      "minV": 12.8,
+      "maxV": 14,
+      "avgV": 13.11
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666247",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 115,
+      "samplesRunning": 12,
+      "samplesMoving": 5,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 12.83
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825760",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 125,
+      "samplesRunning": 5,
+      "samplesMoving": 4,
+      "minV": 12.5,
+      "maxV": 14.1,
+      "avgV": 12.81
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052807933",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 104,
+      "samplesRunning": 23,
+      "samplesMoving": 17,
+      "minV": 12.5,
+      "maxV": 14.3,
+      "avgV": 13.08
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053665272",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 130,
+      "samplesRunning": 1,
+      "samplesMoving": 1,
+      "minV": 12.3,
+      "maxV": 14.3,
+      "avgV": 12.44
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825687",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 120,
+      "samplesResting": 103,
+      "samplesRunning": 17,
+      "samplesMoving": 9,
+      "minV": 12.6,
+      "maxV": 14.2,
+      "avgV": 12.96
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053677046",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 119,
+      "samplesResting": 102,
+      "samplesRunning": 17,
+      "samplesMoving": 12,
+      "minV": 12.5,
+      "maxV": 14,
+      "avgV": 13.01
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052825869",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 118,
+      "samplesRunning": 8,
+      "samplesMoving": 6,
+      "minV": 12.6,
+      "maxV": 14.3,
+      "avgV": 12.94
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670454",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 112,
+      "samplesResting": 75,
+      "samplesRunning": 37,
+      "samplesMoving": 22,
+      "minV": 12.4,
+      "maxV": 14.3,
+      "avgV": 13.12
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670017",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 116,
+      "samplesRunning": 12,
+      "samplesMoving": 9,
+      "minV": 12.5,
+      "maxV": 14.7,
+      "avgV": 12.88
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755215",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 109,
+      "samplesRunning": 17,
+      "samplesMoving": 11,
+      "minV": 12.1,
+      "maxV": 14,
+      "avgV": 12.49
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052790691",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 121,
+      "samplesResting": 101,
+      "samplesRunning": 20,
+      "samplesMoving": 15,
+      "minV": 12.6,
+      "maxV": 14.1,
+      "avgV": 13.05
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666270",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 132,
+      "samplesResting": 132,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.8,
+      "maxV": 12.9,
+      "avgV": 12.89
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666163",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 129,
+      "samplesResting": 120,
+      "samplesRunning": 9,
+      "samplesMoving": 7,
+      "minV": 12.8,
+      "maxV": 14.1,
+      "avgV": 12.92
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052740324",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 119,
+      "samplesRunning": 9,
+      "samplesMoving": 8,
+      "minV": 12.6,
+      "maxV": 14.3,
+      "avgV": 12.83
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052586180",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 133,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.1,
+      "maxV": 12.7,
+      "avgV": 12.27
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805242",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 117,
+      "samplesResting": 91,
+      "samplesRunning": 26,
+      "samplesMoving": 22,
+      "minV": 12.4,
+      "maxV": 14.3,
+      "avgV": 12.87
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666106",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 123,
+      "samplesResting": 101,
+      "samplesRunning": 22,
+      "samplesMoving": 15,
+      "minV": 12.5,
+      "maxV": 14.3,
+      "avgV": 13.05
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755611",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 117,
+      "samplesResting": 97,
+      "samplesRunning": 20,
+      "samplesMoving": 15,
+      "minV": 12.2,
+      "maxV": 14.1,
+      "avgV": 12.75
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052795328",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 135,
+      "samplesResting": 129,
+      "samplesRunning": 6,
+      "samplesMoving": 1,
+      "minV": 12.4,
+      "maxV": 14.3,
+      "avgV": 12.69
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052786079",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 81,
+      "samplesResting": 73,
+      "samplesRunning": 8,
+      "samplesMoving": 5,
+      "minV": 12.5,
+      "maxV": 14.3,
+      "avgV": 12.91
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755207",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 129,
+      "samplesRunning": 2,
+      "samplesMoving": 1,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 12.61
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052795401",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 128,
+      "samplesRunning": 5,
+      "samplesMoving": 1,
+      "minV": 12.5,
+      "maxV": 13.9,
+      "avgV": 12.77
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052744748",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 115,
+      "samplesRunning": 15,
+      "samplesMoving": 12,
+      "minV": 12.9,
+      "maxV": 14.7,
+      "avgV": 13.34
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052740910",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 131,
+      "samplesResting": 127,
+      "samplesRunning": 4,
+      "samplesMoving": 0,
+      "minV": 12.2,
+      "maxV": 12.8,
+      "avgV": 12.6
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052587956",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 49,
+      "samplesRunning": 79,
+      "samplesMoving": 77,
+      "minV": 12,
+      "maxV": 14.6,
+      "avgV": 13.02
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053662618",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 125,
+      "samplesResting": 106,
+      "samplesRunning": 19,
+      "samplesMoving": 11,
+      "minV": 12.8,
+      "maxV": 14.7,
+      "avgV": 13.14
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052587899",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 113,
+      "samplesResting": 83,
+      "samplesRunning": 30,
+      "samplesMoving": 21,
+      "minV": 12.2,
+      "maxV": 14.3,
+      "avgV": 13.11
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052800912",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 128,
+      "samplesResting": 123,
+      "samplesRunning": 5,
+      "samplesMoving": 3,
+      "minV": 12.1,
+      "maxV": 14.1,
+      "avgV": 12.62
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052744300",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 114,
+      "samplesResting": 79,
+      "samplesRunning": 35,
+      "samplesMoving": 23,
+      "minV": 12.7,
+      "maxV": 14.3,
+      "avgV": 13.37
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805564",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 122,
+      "samplesRunning": 5,
+      "samplesMoving": 4,
+      "minV": 12,
+      "maxV": 14.1,
+      "avgV": 12.73
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052794941",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 118,
+      "samplesResting": 88,
+      "samplesRunning": 30,
+      "samplesMoving": 21,
+      "minV": 12.8,
+      "maxV": 14,
+      "avgV": 13.2
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755702",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 120,
+      "samplesResting": 87,
+      "samplesRunning": 33,
+      "samplesMoving": 24,
+      "minV": 12.1,
+      "maxV": 14.3,
+      "avgV": 12.9
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053665314",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 125,
+      "samplesResting": 112,
+      "samplesRunning": 13,
+      "samplesMoving": 10,
+      "minV": 12.1,
+      "maxV": 14.2,
+      "avgV": 12.75
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053669977",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 129,
+      "samplesResting": 124,
+      "samplesRunning": 5,
+      "samplesMoving": 4,
+      "minV": 12.4,
+      "maxV": 14.5,
+      "avgV": 12.7
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053671254",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 117,
+      "samplesResting": 84,
+      "samplesRunning": 33,
+      "samplesMoving": 23,
+      "minV": 12.3,
+      "maxV": 13.9,
+      "avgV": 12.92
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670066",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 130,
+      "samplesResting": 120,
+      "samplesRunning": 10,
+      "samplesMoving": 4,
+      "minV": 12.3,
+      "maxV": 14.7,
+      "avgV": 13.1
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053666296",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 118,
+      "samplesResting": 100,
+      "samplesRunning": 18,
+      "samplesMoving": 14,
+      "minV": 12.1,
+      "maxV": 14.2,
+      "avgV": 12.98
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052808204",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 118,
+      "samplesResting": 105,
+      "samplesRunning": 13,
+      "samplesMoving": 10,
+      "minV": 12.4,
+      "maxV": 14.2,
+      "avgV": 12.78
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053670884",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 126,
+      "samplesResting": 117,
+      "samplesRunning": 9,
+      "samplesMoving": 7,
+      "minV": 12.5,
+      "maxV": 13.9,
+      "avgV": 12.78
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052755389",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 119,
+      "samplesResting": 79,
+      "samplesRunning": 40,
+      "samplesMoving": 32,
+      "minV": 12.8,
+      "maxV": 14.4,
+      "avgV": 13.4
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805036",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 136,
+      "samplesResting": 136,
+      "samplesRunning": 0,
+      "samplesMoving": 0,
+      "minV": 12.4,
+      "maxV": 12.6,
+      "avgV": 12.5
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052754085",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 98,
+      "samplesRunning": 35,
+      "samplesMoving": 20,
+      "minV": 11.8,
+      "maxV": 14.1,
+      "avgV": 12.93
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052805846",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 127,
+      "samplesResting": 118,
+      "samplesRunning": 9,
+      "samplesMoving": 6,
+      "minV": 12.4,
+      "maxV": 14.5,
+      "avgV": 12.9
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053668714",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 133,
+      "samplesResting": 125,
+      "samplesRunning": 8,
+      "samplesMoving": 4,
+      "minV": 11.5,
+      "maxV": 14.1,
+      "avgV": 12.69
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052750406",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 120,
+      "samplesResting": 98,
+      "samplesRunning": 22,
+      "samplesMoving": 18,
+      "minV": 12.6,
+      "maxV": 14.4,
+      "avgV": 12.98
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052804401",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 129,
+      "samplesResting": 126,
+      "samplesRunning": 3,
+      "samplesMoving": 2,
+      "minV": 12.5,
+      "maxV": 13,
+      "avgV": 12.63
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468053663996",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 111,
+      "samplesResting": 71,
+      "samplesRunning": 40,
+      "samplesMoving": 31,
+      "minV": 13.3,
+      "maxV": 14.8,
+      "avgV": 13.85
+    },
+    "alerts": []
+  },
+  {
+    "imei": "865468052738104",
+    "score": 100,
+    "healthStatus": "EXCELENTE",
+    "stats": {
+      "samplesTotal": 83,
+      "samplesResting": 79,
+      "samplesRunning": 4,
+      "samplesMoving": 4,
+      "minV": 12.6,
+      "maxV": 12.9,
+      "avgV": 12.79
+    },
+    "alerts": []
+  }
+]

@@ -537,19 +537,36 @@ export const fetchSanitizedModuleRecords = async ({
         typeof rawQuery === 'string' && rawQuery !== 'null' && rawQuery.trim()
             ? rawQuery.trim().toUpperCase()
             : null;
+    const escapedSearchQuery = searchQuery
+        ? searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        : null;
 
     const now = new Date();
-    const month =
-        Number.isInteger(Number(rawMonth)) && Number(rawMonth) >= 1 && Number(rawMonth) <= 12
+    const explicitAllYear =
+        rawMonth === 0 ||
+        rawMonth === '0' ||
+        rawMonth === '' ||
+        rawMonth === 'all' ||
+        rawMonth === 'all_year';
+    const parsedMonthNum =
+        rawMonth !== null && rawMonth !== undefined && rawMonth !== ''
             ? Number(rawMonth)
+            : NaN;
+    const month =
+        Number.isInteger(parsedMonthNum) && parsedMonthNum >= 1 && parsedMonthNum <= 12
+            ? parsedMonthNum
             : now.getMonth() + 1;
     const year =
         Number.isInteger(Number(rawYear)) && Number(rawYear) >= 2024 && Number(rawYear) <= 2030
             ? Number(rawYear)
             : now.getFullYear();
 
-    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const startOfMonth = explicitAllYear
+        ? new Date(year, 0, 1, 0, 0, 0, 0)
+        : new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = explicitAllYear
+        ? new Date(year, 11, 31, 23, 59, 59, 999)
+        : new Date(year, month, 0, 23, 59, 59, 999);
     const parsedFromDay =
         Number.isInteger(Number(rawFromDay)) && Number(rawFromDay) >= 1 && Number(rawFromDay) <= 31
             ? Number(rawFromDay)
@@ -569,6 +586,40 @@ export const fetchSanitizedModuleRecords = async ({
 
     // Offline / disconnected unit-test fallback
     if (mongoose.connection.readyState !== 1) {
+        if (targetModule === 'dashboard') {
+            return {
+                module: 'dashboard',
+                authorized: true,
+                demo: true,
+                appliedFilters: {
+                    month: explicitAllYear ? null : month,
+                    year,
+                    periodScope: explicitAllYear ? 'full_year' : 'single_month',
+                },
+                totalMatching: 1,
+                scopeMetadata: {
+                    isCompleteCount: true,
+                    isCompleteTotal: true,
+                    periodScope: explicitAllYear ? 'full_year' : 'single_month',
+                },
+                records: [
+                    {
+                        period: explicitAllYear
+                            ? `${year} (año completo enero-diciembre)`
+                            : `${year}-${String(month).padStart(2, '0')}`,
+                        collectionRate: '86.4%',
+                        collectionRateNumeric: 86.4,
+                        totalRevenue: formatCOP(explicitAllYear ? 148500000 : 18450000),
+                        totalInvoiced: formatCOP(explicitAllYear ? 171875000 : 21350000),
+                        totalPaidInvoices: formatCOP(explicitAllYear ? 148500000 : 18450000),
+                        collectionGap: formatCOP(explicitAllYear ? 23375000 : 2900000),
+                        pendingInvoicesCount: explicitAllYear ? 42 : 9,
+                        activeDevices: 15,
+                        activeContracts: 14,
+                    },
+                ],
+            };
+        }
         if (targetModule === 'reports') {
             const pad2 = (n) => String(n).padStart(2, '0');
             const demoReportRows = Array.from({ length: 7 }, (_, idx) => {
@@ -704,6 +755,75 @@ export const fetchSanitizedModuleRecords = async ({
             };
         }
 
+        if (targetModule === 'devices') {
+            const demoOfflineDevices = [
+                {
+                    plate: 'DMO-332',
+                    online: false,
+                    neverReported: false,
+                    minutesSinceReport: 4380,
+                    hoursOffline: 73,
+                    daysOffline: 3,
+                    lastReportLocal: '21/11/2026, 03:10 p. m.',
+                    engineCutOff: true,
+                    ignitionOn: false,
+                    hasActiveContract: true,
+                },
+                {
+                    plate: 'DMO-101',
+                    online: false,
+                    neverReported: false,
+                    minutesSinceReport: 1620,
+                    hoursOffline: 27,
+                    daysOffline: 1,
+                    lastReportLocal: '23/11/2026, 01:00 p. m.',
+                    engineCutOff: true,
+                    ignitionOn: false,
+                    hasActiveContract: true,
+                },
+                {
+                    plate: 'DMO-214',
+                    online: false,
+                    neverReported: false,
+                    minutesSinceReport: 45,
+                    hoursOffline: 0.8,
+                    daysOffline: 0,
+                    lastReportLocal: '24/11/2026, 03:45 p. m.',
+                    engineCutOff: false,
+                    ignitionOn: false,
+                    hasActiveContract: true,
+                },
+            ];
+            return {
+                module: 'devices',
+                authorized: true,
+                demo: true,
+                appliedFilters: { status: normalizedStatus || 'offline', query: searchQuery },
+                totalMatching: demoOfflineDevices.length,
+                offlineSummary: {
+                    totalFleetCount: DEMO_DATA.fleet.total,
+                    totalOfflineCount: demoOfflineDevices.length,
+                    confirmedOneOrMoreDaysOfflineCount: 2,
+                    neverReportedCount: 0,
+                    totalOneOrMoreDaysOrNeverCount: 2,
+                    under24HoursOfflineCount: 1,
+                    platesWithDaysOffline: [
+                        { plate: 'DMO-332', daysOffline: 3, lastReportLocal: '21/11/2026, 03:10 p. m.' },
+                        { plate: 'DMO-101', daysOffline: 1, lastReportLocal: '23/11/2026, 01:00 p. m.' },
+                    ],
+                    platesNeverReported: [],
+                },
+                scopeMetadata: {
+                    isCompleteCount: true,
+                    isCompleteTotal: true,
+                    recordsReturned: demoOfflineDevices.slice(0, maxItems).length,
+                    totalMatching: demoOfflineDevices.length,
+                    isPartialSample: false,
+                },
+                records: demoOfflineDevices.slice(0, maxItems),
+            };
+        }
+
         const alertRecords = [
             {
                 plate: 'DMO-118',
@@ -801,7 +921,7 @@ export const fetchSanitizedModuleRecords = async ({
                     filter.alertType = String(rawAlertType).toUpperCase();
                 }
                 if (searchQuery) {
-                    filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
+                    filter.deviceIdName = { $regex: escapedSearchQuery, $options: 'i' };
                 }
 
                 const [totalMatching, docs] = await Promise.all([
@@ -853,7 +973,7 @@ export const fetchSanitizedModuleRecords = async ({
                     isDeleted: { $ne: true },
                 };
                 if (searchQuery) {
-                    filter.name = { $regex: searchQuery, $options: 'i' };
+                    filter.name = { $regex: escapedSearchQuery, $options: 'i' };
                 }
 
                 const allDevices = await Device.find(filter)
@@ -870,6 +990,12 @@ export const fetchSanitizedModuleRecords = async ({
                     const minutesSinceReport = lastUp
                         ? Math.round((nowMs - lastUp) / 60000)
                         : null;
+                    const hoursOffline =
+                        minutesSinceReport !== null
+                            ? Number((minutesSinceReport / 60).toFixed(1))
+                            : null;
+                    const daysOffline =
+                        minutesSinceReport !== null ? Math.floor(minutesSinceReport / 1440) : null;
                     const isOffline = !lastUp || nowMs - lastUp >= 3 * 60 * 1000;
                     const cutOff = Boolean(d.telemetry?.cutOff);
                     const ignition = Boolean(d.telemetry?.ignition);
@@ -878,7 +1004,10 @@ export const fetchSanitizedModuleRecords = async ({
                     return {
                         plate: d.name,
                         online: !isOffline,
+                        neverReported: !lastUp,
                         minutesSinceReport,
+                        hoursOffline,
+                        daysOffline,
                         lastReportLocal: formatLocalTimeEsCO(d.telemetry?.lastUpdate),
                         engineCutOff: cutOff,
                         ignitionOn: ignition,
@@ -888,6 +1017,18 @@ export const fetchSanitizedModuleRecords = async ({
                         dailyRate: d.dailyRate ? formatCOP(d.dailyRate) : null,
                     };
                 });
+
+                const allOffline = enriched.filter((i) => !i.online);
+                const confirmedDaysOffline = allOffline
+                    .filter((i) => typeof i.daysOffline === 'number' && i.daysOffline >= 1)
+                    .sort((a, b) => (b.minutesSinceReport || 0) - (a.minutesSinceReport || 0));
+                const neverReportedDevices = allOffline.filter((i) => i.neverReported);
+                const under24hOffline = allOffline.filter(
+                    (i) =>
+                        !i.neverReported &&
+                        typeof i.minutesSinceReport === 'number' &&
+                        i.minutesSinceReport < 1440
+                );
 
                 const filtered = enriched.filter((item) => {
                     if (!normalizedStatus || normalizedStatus === 'all') return true;
@@ -908,12 +1049,45 @@ export const fetchSanitizedModuleRecords = async ({
                     return true;
                 });
 
+                // When inspecting offline devices, sort longest-disconnected first so multi-day offline bikes appear at top
+                if (normalizedStatus === 'offline') {
+                    filtered.sort((a, b) => {
+                        const aScore = a.neverReported ? Number.MAX_SAFE_INTEGER : a.minutesSinceReport || 0;
+                        const bScore = b.neverReported ? Number.MAX_SAFE_INTEGER : b.minutesSinceReport || 0;
+                        return bScore - aScore;
+                    });
+                }
+
+                const slicedRecords = filtered.slice(0, maxItems);
+
                 return {
                     module: 'devices',
                     authorized: true,
                     appliedFilters: { status: normalizedStatus || 'all', query: searchQuery },
                     totalMatching: filtered.length,
-                    records: filtered.slice(0, maxItems),
+                    offlineSummary: {
+                        totalFleetCount: enriched.length,
+                        totalOfflineCount: allOffline.length,
+                        confirmedOneOrMoreDaysOfflineCount: confirmedDaysOffline.length,
+                        neverReportedCount: neverReportedDevices.length,
+                        totalOneOrMoreDaysOrNeverCount:
+                            confirmedDaysOffline.length + neverReportedDevices.length,
+                        under24HoursOfflineCount: under24hOffline.length,
+                        platesWithDaysOffline: confirmedDaysOffline.slice(0, 15).map((d) => ({
+                            plate: d.plate,
+                            daysOffline: d.daysOffline,
+                            lastReportLocal: d.lastReportLocal,
+                        })),
+                        platesNeverReported: neverReportedDevices.slice(0, 10).map((d) => d.plate),
+                    },
+                    scopeMetadata: {
+                        isCompleteCount: true,
+                        isCompleteTotal: true,
+                        recordsReturned: slicedRecords.length,
+                        totalMatching: filtered.length,
+                        isPartialSample: filtered.length > slicedRecords.length,
+                    },
+                    records: slicedRecords,
                 };
             }
 
@@ -928,8 +1102,8 @@ export const fetchSanitizedModuleRecords = async ({
                 }
                 if (searchQuery) {
                     filter.$or = [
-                        { deviceIdName: { $regex: searchQuery, $options: 'i' } },
-                        { contractId: { $regex: searchQuery, $options: 'i' } },
+                        { deviceIdName: { $regex: escapedSearchQuery, $options: 'i' } },
+                        { contractId: { $regex: escapedSearchQuery, $options: 'i' } },
                     ];
                 }
 
@@ -1101,8 +1275,8 @@ export const fetchSanitizedModuleRecords = async ({
 
                 if (searchQuery) {
                     filter.$or = [
-                        { deviceIdName: { $regex: searchQuery, $options: 'i' } },
-                        { reference: { $regex: searchQuery, $options: 'i' } },
+                        { deviceIdName: { $regex: escapedSearchQuery, $options: 'i' } },
+                        { reference: { $regex: escapedSearchQuery, $options: 'i' } },
                     ];
                 }
 
@@ -1192,7 +1366,7 @@ export const fetchSanitizedModuleRecords = async ({
                     filter.dayType = 'FREE';
                 }
                 if (searchQuery) {
-                    filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
+                    filter.deviceIdName = { $regex: escapedSearchQuery, $options: 'i' };
                 }
 
                 const [aggStats, docs] = await Promise.all([
@@ -1264,7 +1438,7 @@ export const fetchSanitizedModuleRecords = async ({
                     }
                 }
                 if (searchQuery) {
-                    filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
+                    filter.deviceIdName = { $regex: escapedSearchQuery, $options: 'i' };
                 }
 
                 const [totalMatching, docs] = await Promise.all([
@@ -1383,29 +1557,40 @@ export const fetchSanitizedModuleRecords = async ({
 
             case 'dashboard':
             default: {
-                const [payments, devicesCount, activeContractsCount] = await Promise.all([
-                    Payment.find({
-                        ...companyObjFilter,
-                        status: { $in: ['APPROVED', 'COMPLETED'] },
-                        created_at: { $gte: startOfMonth, $lte: endOfMonth },
-                    })
-                        .select('amount')
-                        .lean(),
-                    Device.countDocuments({ ...companyStrFilter, isDeleted: { $ne: true } }),
+                const { getDashboardData } = await import('./dashboardService.js');
+                const periodScope = explicitAllYear ? { year } : { month, year };
+                const [dashData, activeContractsCount] = await Promise.all([
+                    getDashboardData(companyId, periodScope),
                     Contract.countDocuments({ ...companyObjFilter, status: 'ACTIVE' }),
                 ]);
-                const totalRevenue = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+                const stats = dashData?.stats || {};
                 return {
                     module: 'dashboard',
                     authorized: true,
-                    appliedFilters: { month, year },
+                    appliedFilters: {
+                        month: explicitAllYear ? null : month,
+                        year,
+                        periodScope: explicitAllYear ? 'full_year' : 'single_month',
+                    },
                     totalMatching: 1,
+                    scopeMetadata: {
+                        isCompleteCount: true,
+                        isCompleteTotal: true,
+                        periodScope: explicitAllYear ? 'full_year' : 'single_month',
+                    },
                     records: [
                         {
-                            period: `${year}-${String(month).padStart(2, '0')}`,
-                            totalRevenue: formatCOP(totalRevenue),
-                            approvedPaymentsCount: payments.length,
-                            totalFleet: devicesCount,
+                            period: explicitAllYear
+                                ? `${year} (año completo enero-diciembre)`
+                                : `${year}-${String(month).padStart(2, '0')}`,
+                            collectionRate: `${stats.collectionRate ?? 100}%`,
+                            collectionRateNumeric: stats.collectionRate ?? 100,
+                            totalRevenue: formatCOP(stats.totalRevenue || 0),
+                            totalInvoiced: formatCOP(stats.totalInvoiced || 0),
+                            totalPaidInvoices: formatCOP(stats.totalPaidInvoices || 0),
+                            collectionGap: formatCOP(stats.collectionGap || 0),
+                            pendingInvoicesCount: stats.pendingPayments || 0,
+                            activeDevices: stats.activeDevices || 0,
                             activeContracts: activeContractsCount,
                         },
                     ],

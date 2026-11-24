@@ -33,6 +33,12 @@ const optionalVerifyTokenInDev = (req, res, next) => {
 router.get('/diagnostics', optionalVerifyTokenInDev, assistantController.getAssistantDiagnostics);
 
 /**
+ * POST /api/v1/ai/session/reset
+ * Clears the authenticated user's Agents SDK conversation session.
+ */
+router.post('/session/reset', verifyToken, assistantController.resetAssistantSession);
+
+/**
  * GET & POST /api/v1/ai/telemetry
  * Capture and inspect interaction traces & RLHF feedback for fine-tuning.
  */

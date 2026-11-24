@@ -25,6 +25,7 @@ import systemJobsRoutes from '../routes/systemJobsRoutes.js';
 import commandsRouter from '../routes/commandsRoutes.js';
 import alertsRouter from '../routes/alertsRoutes.js';
 import assistantRouter from '../routes/assistantRoutes.js';
+import { attachAssistantWebSocketServer } from '../ws/assistantWsServer.js';
 
 import deviceServices from '../services/deviceServices.js';
 import seedSuperAdmin from '../utils/seedSuperAdmin.js';
@@ -114,7 +115,7 @@ async function startServer() {
         await seedSuperAdmin();
         await jobRegistry.loadJobs();
 
-        app.listen(PORT, async () => {
+        const httpServer = app.listen(PORT, async () => {
             console.log('');
             console.log('🚀 Pocketbike API Server Started');
             console.log('================================');
@@ -124,6 +125,7 @@ async function startServer() {
 
             await deviceServices.initializeGpsUpdates();
         });
+        attachAssistantWebSocketServer(httpServer);
     } catch (error) {
         console.error('❌ Failed to start API server:', error);
         process.exit(1);

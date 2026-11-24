@@ -447,12 +447,149 @@ export const ChatRequestSchema = Object.freeze({
     safeParse: (body) => validateChatRequest(body),
 });
 
+export const WS_SERVER_EVENT_TYPES = Object.freeze([
+    'turn_started',
+    'tool_started',
+    'tool_completed',
+    'text_delta',
+    'audio_chunk',
+    'turn_completed',
+    'turn_failed',
+]);
+
+export const WS_CLIENT_EVENT_TYPES = Object.freeze([
+    'start_turn',
+    'cancel_turn',
+    'reset_conversation',
+    'ping',
+]);
+
+/**
+ * Validates complete `fetch_module_records` tool-call arguments BEFORE execution (Req. 7).
+ * Rejects non-objects, partial/malformed JSON strings, unsupported modules, and unauthorized roles.
+ */
+export const validateFetchModuleRecordsArgs = (rawArgs, { currentModule = 'dashboard', user = null } = {}) => {
+    let parsed = rawArgs;
+    if (typeof rawArgs === 'string') {
+        const trimmed = rawArgs.trim();
+        if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+            return { success: false, error: 'Incomplete or malformed tool argument JSON' };
+        }
+        try {
+            parsed = JSON.parse(trimmed);
+        } catch {
+            return { success: false, error: 'Failed to parse complete tool argument JSON' };
+        }
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { success: false, error: 'Tool arguments must be a JSON object' };
+    }
+
+    const targetModule = parsed.module || currentModule || 'dashboard';
+    if (!MODULE_IDS.includes(targetModule)) {
+        return { success: false, error: `Unsupported module "${String(targetModule)}"` };
+    }
+
+    if (user && !canUserAccessModule(targetModule, user)) {
+        return {
+            success: false,
+            error: `Role not authorized to inspect module "${targetModule}"`,
+            code: 'UNAUTHORIZED_MODULE',
+        };
+    }
+
+    const clean = { module: targetModule };
+
+    if (parsed.status !== undefined && parsed.status !== null && parsed.status !== '' && parsed.status !== 'null') {
+        clean.status = normalizeFilterStatus(targetModule, parsed.status) || String(parsed.status).slice(0, 40);
+    }
+    if (parsed.alertType !== undefined && parsed.alertType !== null && parsed.alertType !== '' && parsed.alertType !== 'null') {
+        const normAlert = normalizeAlertType(parsed.alertType);
+        if (normAlert) clean.alertType = normAlert;
+    }
+    if (parsed.datePreset !== undefined && parsed.datePreset !== null && parsed.datePreset !== '' && parsed.datePreset !== 'null') {
+        const normPreset = normalizeDatePreset(parsed.datePreset);
+        if (normPreset) clean.datePreset = normPreset;
+    }
+    if (typeof parsed.query === 'string' && parsed.query.trim() && parsed.query !== 'null') {
+        clean.query = parsed.query.trim().slice(0, 80);
+    }
+
+    const validOptionalInt = (val, min, max) => {
+        if (val === undefined || val === null || val === '' || val === 'null' || val === 0 || val === '0') {
+            return null;
+        }
+        const n = Number(val);
+        // Treat out-of-range placeholder numbers emitted under strict JSON schemas (e.g. -1 or 9999 on
+        // modules without year/month filters like /contracts or /devices) as omitted instead of failing the tool call.
+        if (!Number.isInteger(n) || n < min || n > max) return null;
+        return n;
+    };
+
+    const m = validOptionalInt(parsed.month, 1, 12);
+    if (m !== null) clean.month = m;
+
+    const y = validOptionalInt(parsed.year, 2024, 2030);
+    if (y !== null) clean.year = y;
+
+    const fd = validOptionalInt(parsed.fromDay, 1, 31);
+    if (fd !== null) clean.fromDay = fd;
+
+    const td = validOptionalInt(parsed.toDay, 1, 31);
+    if (td !== null) clean.toDay = td;
+
+    const lim = validOptionalInt(parsed.limit, 1, 12);
+    clean.limit = !Number.isNaN(lim) && lim !== null ? lim : 8;
+
+    return { success: true, data: clean };
+};
+
+export const FetchModuleRecordsArgsSchema = Object.freeze({
+    safeParse: (args, ctx) => validateFetchModuleRecordsArgs(args, ctx),
+});
+
+/**
+ * Validates a typed server->client WebSocket event envelope (Req. 4):
+ * `{ turnId, sequence, type, timestamp, payload }`.
+ */
+export const validateWsEventEnvelope = (envelope) => {
+    if (!envelope || typeof envelope !== 'object') {
+        return { success: false, error: 'WS event must be an object' };
+    }
+    const { turnId, sequence, type, timestamp, payload } = envelope;
+    if (typeof turnId !== 'string' || !turnId.trim() || turnId.length > 80) {
+        return { success: false, error: 'Invalid turnId' };
+    }
+    if (!Number.isInteger(sequence) || sequence < 1) {
+        return { success: false, error: 'sequence must be a positive integer' };
+    }
+    if (!WS_SERVER_EVENT_TYPES.includes(type)) {
+        return { success: false, error: `Unsupported WS event type "${String(type)}"` };
+    }
+    if (typeof timestamp !== 'string' || Number.isNaN(Date.parse(timestamp))) {
+        return { success: false, error: 'Invalid ISO timestamp' };
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return { success: false, error: 'payload must be an object' };
+    }
+    return {
+        success: true,
+        data: { turnId, sequence, type, timestamp, payload },
+    };
+};
+
 export default {
     validateAction,
     validateActionPlan,
     validateChatRequest,
+    validateFetchModuleRecordsArgs,
+    validateWsEventEnvelope,
     ActionPlanSchema,
     ChatRequestSchema,
+    FetchModuleRecordsArgsSchema,
+    WS_SERVER_EVENT_TYPES,
+    WS_CLIENT_EVENT_TYPES,
     MAX_ACTIONS_PER_PLAN,
     MAX_CONVERSATION_TURNS,
     MAX_UTTERANCE_LENGTH,

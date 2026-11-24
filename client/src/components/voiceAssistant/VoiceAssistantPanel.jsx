@@ -49,7 +49,9 @@ const VoiceAssistantPanel = () => {
     const {
         isOpen, toggle, close,
         isMinimized, setIsMinimized, toggleMinimized,
-        status, messages, submitText, rateMessage, clearConversation,
+        status, progressNote, neuralTtsEnabled, toggleNeuralTts,
+        streamingEnabled, toggleStreaming, wsStatus,
+        messages, submitText, rateMessage, clearConversation,
         ttsSupported, ttsEnabled, toggleTts, stopAudio,
         availableVoices, selectedVoiceURI, selectVoice,
         voiceStyle, selectVoiceStyle, voiceStyles,
@@ -296,8 +298,14 @@ const VoiceAssistantPanel = () => {
                                         </div>
                                         <span className="va-demo-badge">
                                             {user?.companyName && user.companyName !== 'System'
-                                                ? `${user.companyName} · Datos en vivo`
-                                                : 'UPay · Datos en vivo'}
+                                                ? user.companyName
+                                                : 'UPay'}
+                                            {' · '}
+                                            {!streamingEnabled
+                                                ? 'Modo clásico'
+                                                : wsStatus === 'connected'
+                                                ? 'WS en vivo'
+                                                : 'Streaming'}
                                         </span>
                                     </div>
                                 </div>
@@ -430,6 +438,33 @@ const VoiceAssistantPanel = () => {
                                         >
                                             Clientes: {speakCustomerNames ? 'ON' : 'OFF'}
                                         </button>
+                                        {typeof toggleStreaming === 'function' && (
+                                            <button
+                                                type="button"
+                                                className={`va-voice-pill ${streamingEnabled ? 'is-selected' : ''}`}
+                                                onClick={toggleStreaming}
+                                                aria-pressed={streamingEnabled}
+                                                title="Activar respuestas en tiempo real (WebSocket / SSE) o modo clásico JSON"
+                                            >
+                                                Streaming: {streamingEnabled ? 'ON' : 'OFF'}
+                                            </button>
+                                        )}
+                                        {typeof toggleNeuralTts === 'function' && (
+                                            <button
+                                                type="button"
+                                                className={`va-voice-pill ${streamingEnabled && neuralTtsEnabled ? 'is-selected' : ''}`}
+                                                onClick={toggleNeuralTts}
+                                                aria-pressed={Boolean(streamingEnabled && neuralTtsEnabled)}
+                                                disabled={!streamingEnabled}
+                                                title={
+                                                    streamingEnabled
+                                                        ? 'Usar voz neuronal en streaming cuando esté disponible'
+                                                        : 'Activa Streaming: ON para usar Voz HD neuronal'
+                                                }
+                                            >
+                                                Voz HD: {streamingEnabled && neuralTtsEnabled ? 'ON' : 'OFF'}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -503,7 +538,7 @@ const VoiceAssistantPanel = () => {
                             {isThinking && (
                                 <div className="va-msg va-msg--assistant va-msg--thinking">
                                     <Loader2 size={14} className="va-spin" />
-                                    <span>Pensando…</span>
+                                    <span>{progressNote || 'Pensando…'}</span>
                                 </div>
                             )}
                         </div>

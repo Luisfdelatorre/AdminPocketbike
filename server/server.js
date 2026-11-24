@@ -28,6 +28,7 @@ import systemJobsRoutes from './routes/systemJobsRoutes.js';
 import commandsRouter from './routes/commandsRoutes.js';
 import alertsRouter from './routes/alertsRoutes.js';
 import assistantRouter from './routes/assistantRoutes.js';
+import { attachAssistantWebSocketServer } from './ws/assistantWsServer.js';
 import cron from "./cron-server/cron.js";
 import jobRegistry from "./cron-server/jobRegistry.js";
 import syncDailyKm, { syncYesterdayKm } from './cron-server/jobs/syncDailyKm.js';
@@ -186,7 +187,7 @@ async function startServer() {
         await jobRegistry.loadJobs();
 
         // Start Express server
-        app.listen(config.server.port, async () => {
+        const httpServer = app.listen(config.server.port, async () => {
             console.log('');
             console.log('🚀 Payments-Wompi Server Started');
             console.log('================================');
@@ -201,6 +202,7 @@ async function startServer() {
             // Start MegaRastreo Auto Update via Device Service
             await deviceServices.initializeGpsUpdates();
         });
+        attachAssistantWebSocketServer(httpServer);
     } catch (error) {
         console.error('❌ Failed to start server:', error);
         process.exit(1);

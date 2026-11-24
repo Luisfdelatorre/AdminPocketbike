@@ -1,0 +1,2679 @@
+[
+  {
+    "imei": "865468052786749",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 12.84,
+    "runV": 13.93,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886133000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052743922",
+    "finalState": "HEALTHY",
+    "restV": 12.54,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.004,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886252000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053670280",
+    "finalState": "HEALTHY",
+    "restV": 13,
+    "stopV": 13.21,
+    "runV": 13.9,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886119000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468053665447",
+    "finalState": "HEALTHY",
+    "restV": 12.5,
+    "stopV": 12.8,
+    "runV": 14.07,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 3,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885871000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.4
+      }
+    ]
+  },
+  {
+    "imei": "865468052737916",
+    "finalState": "HEALTHY",
+    "restV": 12.73,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.003,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885734000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053670389",
+    "finalState": "HEALTHY",
+    "restV": 12.98,
+    "stopV": 13.02,
+    "runV": 14.22,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886264000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053665330",
+    "finalState": "HEALTHY",
+    "restV": 13,
+    "stopV": 13.34,
+    "runV": 14.43,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886291000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.1
+      }
+    ]
+  },
+  {
+    "imei": "865468052586347",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 12.85,
+    "runV": 13.87,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886139000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052825851",
+    "finalState": "HEALTHY",
+    "restV": 12.82,
+    "stopV": 12.84,
+    "runV": 13.93,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885717000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052804294",
+    "finalState": "HEALTHY",
+    "restV": 12.68,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.001,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885952000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052806190",
+    "finalState": "HEALTHY",
+    "restV": 12.77,
+    "stopV": 13.02,
+    "runV": 14.05,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885769000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052755504",
+    "finalState": "DAMAGED",
+    "restV": 8.04,
+    "stopV": 11.96,
+    "runV": 13.67,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794874271000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 8.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052804575",
+    "finalState": "HEALTHY",
+    "restV": 12.98,
+    "stopV": 13,
+    "runV": 14.33,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885968000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052736207",
+    "finalState": "HEALTHY",
+    "restV": 12.4,
+    "stopV": 12.6,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886386000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.2
+      }
+    ]
+  },
+  {
+    "imei": "865468053666288",
+    "finalState": "HEALTHY",
+    "restV": 13.2,
+    "stopV": 13.26,
+    "runV": 14.62,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885878000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.2
+      }
+    ]
+  },
+  {
+    "imei": "865468053664515",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": null,
+    "runV": 13.9,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886436000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052806133",
+    "finalState": "HEALTHY",
+    "restV": 12.74,
+    "stopV": 12.94,
+    "runV": 14.14,
+    "drain": false,
+    "slopeVph": -0.011,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885982000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052755470",
+    "finalState": "HEALTHY",
+    "restV": 12.57,
+    "stopV": null,
+    "runV": 13.65,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886307000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052740449",
+    "finalState": "HEALTHY",
+    "restV": 12.72,
+    "stopV": 12.92,
+    "runV": 13.86,
+    "drain": false,
+    "slopeVph": -0.008,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886174000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468053662659",
+    "finalState": "WEAK",
+    "restV": 12.58,
+    "stopV": 12.6,
+    "runV": 12.58,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886176000,
+        "from": "UNKNOWN",
+        "to": "WEAK",
+        "v": 12.1
+      }
+    ]
+  },
+  {
+    "imei": "865468052741256",
+    "finalState": "HEALTHY",
+    "restV": 12.77,
+    "stopV": 13.23,
+    "runV": 14.17,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885999000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052744177",
+    "finalState": "DAMAGED",
+    "restV": 10.69,
+    "stopV": 10.95,
+    "runV": 14.47,
+    "drain": false,
+    "slopeVph": -0.018,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886054000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 10.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053665405",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 12.85,
+    "runV": 13.91,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886313000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052799213",
+    "finalState": "HEALTHY",
+    "restV": 12.91,
+    "stopV": 12.95,
+    "runV": 13.69,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886056000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052808386",
+    "finalState": "HEALTHY",
+    "restV": 12.91,
+    "stopV": 12.93,
+    "runV": 14.21,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794899516000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052825505",
+    "finalState": "HEALTHY",
+    "restV": 12.5,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886031000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468053670470",
+    "finalState": "HEALTHY",
+    "restV": 12.59,
+    "stopV": 12.74,
+    "runV": 13.68,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886375000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052755249",
+    "finalState": "DAMAGED",
+    "restV": 6.07,
+    "stopV": null,
+    "runV": 13.72,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794907506000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 6.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052733980",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 12.8,
+    "runV": 13.27,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886266000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052754176",
+    "finalState": "HEALTHY",
+    "restV": 12.6,
+    "stopV": 12.9,
+    "runV": null,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885996000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052805143",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": null,
+    "runV": 12.8,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794887429000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052580167",
+    "finalState": "HEALTHY",
+    "restV": 12.94,
+    "stopV": 13.07,
+    "runV": 14.08,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 4,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794887302000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468053664416",
+    "finalState": "HEALTHY",
+    "restV": 12.81,
+    "stopV": 13,
+    "runV": 14.16,
+    "drain": false,
+    "slopeVph": -0.017,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885949000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052825554",
+    "finalState": "HEALTHY",
+    "restV": 12.5,
+    "stopV": 12.64,
+    "runV": 14.05,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886113000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.3
+      }
+    ]
+  },
+  {
+    "imei": "865468052790410",
+    "finalState": "HEALTHY",
+    "restV": 12.5,
+    "stopV": null,
+    "runV": 12.57,
+    "drain": false,
+    "slopeVph": -0.003,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885946000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052805333",
+    "finalState": "HEALTHY",
+    "restV": 12.78,
+    "stopV": 13,
+    "runV": 14.11,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794891596000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052745646",
+    "finalState": "HEALTHY",
+    "restV": 12.76,
+    "stopV": 13.07,
+    "runV": 14.21,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794890531000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052734269",
+    "finalState": "HEALTHY",
+    "restV": 13.01,
+    "stopV": 12.98,
+    "runV": 14.4,
+    "drain": false,
+    "slopeVph": 0.021,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885918000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052585257",
+    "finalState": "HEALTHY",
+    "restV": 13.06,
+    "stopV": 13.16,
+    "runV": 14.26,
+    "drain": false,
+    "slopeVph": 0.003,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886192000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468053662535",
+    "finalState": "HEALTHY",
+    "restV": 12.92,
+    "stopV": 12.96,
+    "runV": 14.06,
+    "drain": false,
+    "slopeVph": -0.056,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886326000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053669712",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 13.25,
+    "runV": 14.12,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885955000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053664457",
+    "finalState": "HEALTHY",
+    "restV": 12.79,
+    "stopV": 13,
+    "runV": 14.07,
+    "drain": false,
+    "slopeVph": -0.012,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886006000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053670298",
+    "finalState": "HEALTHY",
+    "restV": 12.98,
+    "stopV": 13.09,
+    "runV": 13.95,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794889400000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052740555",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 13.04,
+    "runV": 14.16,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886020000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052805648",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 13.1,
+    "runV": 13.45,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 8,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886190000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053670058",
+    "finalState": "HEALTHY",
+    "restV": 12.93,
+    "stopV": null,
+    "runV": 13,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794900464000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052729590",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 13.05,
+    "runV": 13.7,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886484000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052786426",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 13.04,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794920435000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052805457",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886482000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052806166",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 13,
+    "runV": 14.21,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886169000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052736686",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 13.07,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886304000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053662642",
+    "finalState": "HEALTHY",
+    "restV": 12.58,
+    "stopV": 12.8,
+    "runV": 14.05,
+    "drain": false,
+    "slopeVph": -0.014,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885917000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052738799",
+    "finalState": "HEALTHY",
+    "restV": 12.85,
+    "stopV": 13.22,
+    "runV": 14.44,
+    "drain": false,
+    "slopeVph": -0.042,
+    "powerCuts": 18,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886483000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052729665",
+    "finalState": "HEALTHY",
+    "restV": 13.07,
+    "stopV": 13.15,
+    "runV": 13.74,
+    "drain": false,
+    "slopeVph": -0.06,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794885743000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052808279",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.005,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886044000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052806240",
+    "finalState": "HEALTHY",
+    "restV": 13.03,
+    "stopV": 13.1,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886057000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052808220",
+    "finalState": "DAMAGED",
+    "restV": 10.55,
+    "stopV": 11.27,
+    "runV": 14.3,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794878406000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 11.3
+      }
+    ]
+  },
+  {
+    "imei": "865468052755025",
+    "finalState": "HEALTHY",
+    "restV": 12.69,
+    "stopV": 12.92,
+    "runV": 14.25,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886019000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052580035",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 12.93,
+    "runV": 13.75,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886348000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052587451",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 13.43,
+    "runV": 13.75,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886256000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053666304",
+    "finalState": "HEALTHY",
+    "restV": 13.01,
+    "stopV": 13.17,
+    "runV": 14.36,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 3,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794887958000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052799171",
+    "finalState": "HEALTHY",
+    "restV": 12.19,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.001,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886224000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.2
+      }
+    ]
+  },
+  {
+    "imei": "865468052755108",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 13,
+    "runV": 14.3,
+    "drain": false,
+    "slopeVph": -0.037,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886637000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052799254",
+    "finalState": "HEALTHY",
+    "restV": 13.28,
+    "stopV": 13.31,
+    "runV": 14.02,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 6,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886383000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.2
+      }
+    ]
+  },
+  {
+    "imei": "865468053668656",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 12.99,
+    "runV": 13.96,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886397000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468053665280",
+    "finalState": "HEALTHY",
+    "restV": 12.73,
+    "stopV": 12.97,
+    "runV": 14.52,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 4,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794934146000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052804807",
+    "finalState": "HEALTHY",
+    "restV": 12.93,
+    "stopV": 13.01,
+    "runV": 13.71,
+    "drain": false,
+    "slopeVph": 0.058,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886129000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053668631",
+    "finalState": "HEALTHY",
+    "restV": 12.69,
+    "stopV": 12.88,
+    "runV": 14.05,
+    "drain": false,
+    "slopeVph": -0.027,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886228000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052806109",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 12.95,
+    "runV": 14.31,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886514000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052739151",
+    "finalState": "HEALTHY",
+    "restV": 12.71,
+    "stopV": 13.18,
+    "runV": 14.1,
+    "drain": false,
+    "slopeVph": -0.019,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886382000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053666213",
+    "finalState": "HEALTHY",
+    "restV": 12.4,
+    "stopV": 12.73,
+    "runV": 14.14,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794902359000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052825349",
+    "finalState": "HEALTHY",
+    "restV": 12.67,
+    "stopV": 12.89,
+    "runV": 13.96,
+    "drain": false,
+    "slopeVph": -0.763,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886369000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052825414",
+    "finalState": "DAMAGED",
+    "restV": 10.67,
+    "stopV": 11.32,
+    "runV": 14.38,
+    "drain": false,
+    "slopeVph": -0.013,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794890364000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 10.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052805259",
+    "finalState": "HEALTHY",
+    "restV": 12.6,
+    "stopV": 12.5,
+    "runV": 14.25,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794899161000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053666395",
+    "finalState": "HEALTHY",
+    "restV": 13.14,
+    "stopV": 13.08,
+    "runV": 13.67,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886158000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468053662626",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 12.98,
+    "runV": 13.83,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794887406000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053669878",
+    "finalState": "HEALTHY",
+    "restV": 13.13,
+    "stopV": 13.45,
+    "runV": 14.57,
+    "drain": false,
+    "slopeVph": 0.001,
+    "powerCuts": 5,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886194000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.1
+      }
+    ]
+  },
+  {
+    "imei": "865468053669688",
+    "finalState": "HEALTHY",
+    "restV": 12.41,
+    "stopV": 13.14,
+    "runV": 13.12,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886125000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.4
+      }
+    ]
+  },
+  {
+    "imei": "865468052806042",
+    "finalState": "HEALTHY",
+    "restV": 12.86,
+    "stopV": 13.03,
+    "runV": 14.08,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886062000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053666221",
+    "finalState": "HEALTHY",
+    "restV": 12.99,
+    "stopV": 13,
+    "runV": 13.45,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886213000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052805614",
+    "finalState": "HEALTHY",
+    "restV": 12.81,
+    "stopV": 12.81,
+    "runV": 14.16,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886463000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052825067",
+    "finalState": "HEALTHY",
+    "restV": 12.84,
+    "stopV": 13.05,
+    "runV": 14.17,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886111000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052805986",
+    "finalState": "HEALTHY",
+    "restV": 12.79,
+    "stopV": 13.07,
+    "runV": 13.9,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794890284000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052755322",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 13,
+    "runV": 14.44,
+    "drain": false,
+    "slopeVph": -0.017,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886731000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052754671",
+    "finalState": "HEALTHY",
+    "restV": 12.67,
+    "stopV": 12.77,
+    "runV": 13.99,
+    "drain": false,
+    "slopeVph": -0.111,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886518000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052825109",
+    "finalState": "HEALTHY",
+    "restV": 13.01,
+    "stopV": 13.15,
+    "runV": 13.97,
+    "drain": false,
+    "slopeVph": -0.014,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794916683000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.1
+      }
+    ]
+  },
+  {
+    "imei": "865468053666247",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 12.88,
+    "runV": 14.15,
+    "drain": false,
+    "slopeVph": 0,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886143000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052825760",
+    "finalState": "HEALTHY",
+    "restV": 12.86,
+    "stopV": 13,
+    "runV": 13.7,
+    "drain": false,
+    "slopeVph": 0.038,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886501000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052807941",
+    "finalState": "DAMAGED",
+    "restV": 11.06,
+    "stopV": null,
+    "runV": null,
+    "drain": true,
+    "slopeVph": -0.055,
+    "powerCuts": 0,
+    "transitionsCount": 2,
+    "transitions": [
+      {
+        "t": 1794886511000,
+        "from": "UNKNOWN",
+        "to": "WEAK",
+        "v": 12
+      },
+      {
+        "t": 1794922768000,
+        "from": "WEAK",
+        "to": "DAMAGED",
+        "v": 11.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052807933",
+    "finalState": "HEALTHY",
+    "restV": 12.95,
+    "stopV": 13.04,
+    "runV": 14.1,
+    "drain": false,
+    "slopeVph": -0.063,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886376000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053665272",
+    "finalState": "HEALTHY",
+    "restV": 12.52,
+    "stopV": 12.6,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.093,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886459000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.4
+      }
+    ]
+  },
+  {
+    "imei": "865468052825687",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 12.99,
+    "runV": 14.06,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886148000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468053677046",
+    "finalState": "HEALTHY",
+    "restV": 12.97,
+    "stopV": 12.99,
+    "runV": 14,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886939000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052825869",
+    "finalState": "HEALTHY",
+    "restV": 12.85,
+    "stopV": 12.96,
+    "runV": 13.95,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886725000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053670454",
+    "finalState": "HEALTHY",
+    "restV": 12.79,
+    "stopV": 12.9,
+    "runV": 14.09,
+    "drain": false,
+    "slopeVph": -0.089,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886503000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053670017",
+    "finalState": "HEALTHY",
+    "restV": 12.84,
+    "stopV": 12.96,
+    "runV": 13.78,
+    "drain": false,
+    "slopeVph": -0.045,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794894936000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052755215",
+    "finalState": "HEALTHY",
+    "restV": 12.21,
+    "stopV": 12.5,
+    "runV": 13.89,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794897699000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.2
+      }
+    ]
+  },
+  {
+    "imei": "865468052790691",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 13,
+    "runV": 14,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886569000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053666270",
+    "finalState": "HEALTHY",
+    "restV": 12.89,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.001,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886531000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053666163",
+    "finalState": "HEALTHY",
+    "restV": 12.88,
+    "stopV": 13,
+    "runV": 13.73,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886222000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052740324",
+    "finalState": "HEALTHY",
+    "restV": 12.79,
+    "stopV": 13,
+    "runV": 13.88,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886445000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052586180",
+    "finalState": "HEALTHY",
+    "restV": 12.26,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": 0.003,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886335000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.3
+      }
+    ]
+  },
+  {
+    "imei": "865468052805242",
+    "finalState": "HEALTHY",
+    "restV": 12.72,
+    "stopV": 12.89,
+    "runV": 13.28,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886705000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468053666106",
+    "finalState": "HEALTHY",
+    "restV": 12.8,
+    "stopV": 12.97,
+    "runV": 14.22,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794888025000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052755611",
+    "finalState": "HEALTHY",
+    "restV": 12.54,
+    "stopV": 12.77,
+    "runV": 13.95,
+    "drain": false,
+    "slopeVph": 0.01,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886411000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052795328",
+    "finalState": "HEALTHY",
+    "restV": 12.57,
+    "stopV": 12.7,
+    "runV": 12.7,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886223000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052786079",
+    "finalState": "HEALTHY",
+    "restV": 12.81,
+    "stopV": 12.89,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794913783000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052755207",
+    "finalState": "HEALTHY",
+    "restV": 12.51,
+    "stopV": 12.8,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886173000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052795401",
+    "finalState": "HEALTHY",
+    "restV": 12.73,
+    "stopV": 13,
+    "runV": 13.9,
+    "drain": false,
+    "slopeVph": -0.019,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886205000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052744748",
+    "finalState": "HEALTHY",
+    "restV": 13.21,
+    "stopV": 13.34,
+    "runV": 14.5,
+    "drain": false,
+    "slopeVph": -0.002,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886559000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.2
+      }
+    ]
+  },
+  {
+    "imei": "865468052740910",
+    "finalState": "HEALTHY",
+    "restV": 12.56,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886476000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052587956",
+    "finalState": "HEALTHY",
+    "restV": 13.01,
+    "stopV": 13.02,
+    "runV": 14.04,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794936394000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468053662618",
+    "finalState": "HEALTHY",
+    "restV": 12.9,
+    "stopV": 13.02,
+    "runV": 14.17,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886601000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052587899",
+    "finalState": "HEALTHY",
+    "restV": 12.79,
+    "stopV": 13.05,
+    "runV": 14.04,
+    "drain": false,
+    "slopeVph": 0.003,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886374000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052800912",
+    "finalState": "HEALTHY",
+    "restV": 12.75,
+    "stopV": 13,
+    "runV": 14,
+    "drain": false,
+    "slopeVph": 0.009,
+    "powerCuts": 0,
+    "transitionsCount": 3,
+    "transitions": [
+      {
+        "t": 1794886379000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.4
+      },
+      {
+        "t": 1794907814000,
+        "from": "HEALTHY",
+        "to": "WEAK",
+        "v": 12.2
+      },
+      {
+        "t": 1794929929000,
+        "from": "WEAK",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053666254",
+    "finalState": "DAMAGED",
+    "restV": 10.8,
+    "stopV": 11.18,
+    "runV": 13.9,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886516000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 10.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052744300",
+    "finalState": "HEALTHY",
+    "restV": 12.89,
+    "stopV": 13.48,
+    "runV": 14.2,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886506000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052805564",
+    "finalState": "HEALTHY",
+    "restV": 12.57,
+    "stopV": 12.76,
+    "runV": 14.05,
+    "drain": false,
+    "slopeVph": -0.059,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886486000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052794941",
+    "finalState": "HEALTHY",
+    "restV": 13.01,
+    "stopV": 13.17,
+    "runV": 13.74,
+    "drain": false,
+    "slopeVph": -0.028,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886263000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13
+      }
+    ]
+  },
+  {
+    "imei": "865468052755702",
+    "finalState": "HEALTHY",
+    "restV": 12.52,
+    "stopV": 12.83,
+    "runV": 14.08,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794887687000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468053665314",
+    "finalState": "HEALTHY",
+    "restV": 12.65,
+    "stopV": 12.8,
+    "runV": 13.9,
+    "drain": false,
+    "slopeVph": -0.031,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886691000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468053668557",
+    "finalState": "UNKNOWN",
+    "restV": null,
+    "stopV": null,
+    "runV": 14,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 0,
+    "transitions": []
+  },
+  {
+    "imei": "865468053669977",
+    "finalState": "HEALTHY",
+    "restV": 12.67,
+    "stopV": 12.82,
+    "runV": 14.45,
+    "drain": false,
+    "slopeVph": 0.075,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886613000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053671254",
+    "finalState": "HEALTHY",
+    "restV": 12.68,
+    "stopV": 12.78,
+    "runV": 13.46,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886495000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052794461",
+    "finalState": "DAMAGED",
+    "restV": 11.72,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.015,
+    "powerCuts": 0,
+    "transitionsCount": 2,
+    "transitions": [
+      {
+        "t": 1794886399000,
+        "from": "UNKNOWN",
+        "to": "WEAK",
+        "v": 12.1
+      },
+      {
+        "t": 1794923275000,
+        "from": "WEAK",
+        "to": "DAMAGED",
+        "v": 11.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052738633",
+    "finalState": "HEALTHY",
+    "restV": 12.85,
+    "stopV": 12.98,
+    "runV": 13.76,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886457000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468053668763",
+    "finalState": "DAMAGED",
+    "restV": 6.47,
+    "stopV": 6.75,
+    "runV": 14.52,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 58,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794874815000,
+        "from": "UNKNOWN",
+        "to": "DAMAGED",
+        "v": 6.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053670066",
+    "finalState": "HEALTHY",
+    "restV": 13,
+    "stopV": 13.22,
+    "runV": 13.6,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 3,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886480000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.1
+      }
+    ]
+  },
+  {
+    "imei": "865468053666296",
+    "finalState": "HEALTHY",
+    "restV": 12.88,
+    "stopV": 12.98,
+    "runV": 14.11,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886451000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468052808204",
+    "finalState": "HEALTHY",
+    "restV": 12.73,
+    "stopV": 12.78,
+    "runV": 13.87,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886776000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468053670884",
+    "finalState": "HEALTHY",
+    "restV": 12.58,
+    "stopV": 12.87,
+    "runV": 13.68,
+    "drain": false,
+    "slopeVph": -0.029,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886713000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052755389",
+    "finalState": "HEALTHY",
+    "restV": 12.86,
+    "stopV": 13.3,
+    "runV": 14.24,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886881000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  },
+  {
+    "imei": "865468052805036",
+    "finalState": "HEALTHY",
+    "restV": 12.44,
+    "stopV": null,
+    "runV": null,
+    "drain": false,
+    "slopeVph": -0.004,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886531000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468052754085",
+    "finalState": "HEALTHY",
+    "restV": 12.77,
+    "stopV": 12.79,
+    "runV": 13.83,
+    "drain": false,
+    "slopeVph": 0.002,
+    "powerCuts": 2,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886944000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052805846",
+    "finalState": "HEALTHY",
+    "restV": 12.88,
+    "stopV": 13,
+    "runV": 13.75,
+    "drain": false,
+    "slopeVph": -0.007,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886385000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.8
+      }
+    ]
+  },
+  {
+    "imei": "865468053668714",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": 13,
+    "runV": 13.27,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 1,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794890717000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.6
+      }
+    ]
+  },
+  {
+    "imei": "865468052750406",
+    "finalState": "HEALTHY",
+    "restV": 12.71,
+    "stopV": 12.95,
+    "runV": 14.11,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794895725000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.7
+      }
+    ]
+  },
+  {
+    "imei": "865468052804401",
+    "finalState": "HEALTHY",
+    "restV": 12.73,
+    "stopV": null,
+    "runV": 12.5,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886370000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.5
+      }
+    ]
+  },
+  {
+    "imei": "865468053663996",
+    "finalState": "HEALTHY",
+    "restV": 13.3,
+    "stopV": 13.71,
+    "runV": 14.7,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886740000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 13.3
+      }
+    ]
+  },
+  {
+    "imei": "865468052738104",
+    "finalState": "HEALTHY",
+    "restV": 12.7,
+    "stopV": null,
+    "runV": 12.9,
+    "drain": false,
+    "slopeVph": null,
+    "powerCuts": 0,
+    "transitionsCount": 1,
+    "transitions": [
+      {
+        "t": 1794886964000,
+        "from": "UNKNOWN",
+        "to": "HEALTHY",
+        "v": 12.9
+      }
+    ]
+  }
+]
