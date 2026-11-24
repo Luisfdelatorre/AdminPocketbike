@@ -27,7 +27,12 @@ import {
 } from '../../client/src/services/voiceAssistant/screenBridge.js';
 import {
     resolveTemplatePlaceholders,
+    resolveTemplateWithLiveData,
+    applyNaturalCountGrammar,
 } from '../../client/src/services/voiceAssistant/resolvers.js';
+import {
+    prepareSpokenResponse,
+} from '../../client/src/services/voiceAssistant/tts.js';
 import {
     dispatchActionPlan,
 } from '../../client/src/services/voiceAssistant/dispatcher.js';
@@ -36,7 +41,9 @@ import {
     buildDynamicSuffix,
     extractUsageMetrics,
     planContextualFallback,
+    interpretUserRequest,
     FETCH_MODULE_RECORDS_TOOL,
+    MAX_TOOL_CALLS_PER_TURN,
 } from '../services/aiAssistantService.js';
 import { fetchSanitizedModuleRecords } from '../services/assistantDemoService.js';
 
@@ -257,7 +264,7 @@ describe('18.4 Local Response Resolver Tests', () => {
         clearAllScreenBridges();
     });
 
-    it('resolves known placeholders, blocks unknown ones, and never claims 1 page = global total', () => {
+    it('resolves known placeholders with clean inline numbers, blocks unknown ones, and never claims 1 page = global total', () => {
         registerScreenBridge('payments', {
             loading: false,
             metrics: {
@@ -274,8 +281,12 @@ describe('18.4 Local Response Resolver Tests', () => {
             { lang: 'en-US' }
         );
 
-        assert.match(res.text, /7 in the currently loaded page \(50 of 180 monthly records loaded\)/);
-        assert.match(res.text, /\(across the 50 loaded payments\)/);
+        // Numerical placeholders stay clean inline (no descriptive prose stuffed mid-sentence)
+        assert.match(res.text, /^Count: 7, Total: \$/);
+        assert.equal(res.resolvedPlaceholders['payments.count'], '7');
+        assert.equal(res.hasPartialScope, true);
+        assert.equal(res.resolvedData['payments.count'].isComplete, false);
+        assert.match(res.text, /50 currently loaded records out of 180 monthly records/);
         assert.match(res.text, /\[unavailable\]/);
     });
 
@@ -550,5 +561,349 @@ describe('18.6 Prompt Caching Architecture Tests', () => {
         });
         assert.equal(deniedSample.authorized, false);
         assert.deepEqual(deniedSample.records, []);
+    });
+});
+
+describe('18.7 Natural Conversational Response Generation & Trace Regressions', () => {
+    beforeEach(() => {
+        clearAllScreenBridges();
+    });
+
+    it('produces short natural confirmations for navigation and clearFilters without extra OpenAI calls', async () => {
+        const navMatch = matchLocalIntent('Abre contratos', { lang: 'es-CO' });
+        assert.equal(navMatch.status, MATCH_STATUS.MATCH);
+        assert.equal(navMatch.plan.responseTemplate, 'Listo, ya te muestro los contratos.');
+
+        const motoMatch = matchLocalIntent('Ir a dispositivos', { lang: 'es-CO' });
+        assert.equal(motoMatch.status, MATCH_STATUS.MATCH);
+        assert.equal(motoMatch.plan.responseTemplate, 'Listo, ya te muestro las motos.');
+        assert.equal(motoMatch.plan.responseTemplate.includes('('), false);
+
+        const clearMatch = matchLocalIntent('Quita los filtros', {
+            currentModule: 'payments',
+            lang: 'es-CO',
+        });
+        assert.equal(clearMatch.status, MATCH_STATUS.MATCH);
+        assert.equal(clearMatch.plan.responseTemplate, 'Quité los filtros.');
+    });
+
+    it('replaces robotic filter responses (Trace tr_1795460701922_49xci) and makes only 1 OpenAI call on Path A', async () => {
+        let openAiCalls = 0;
+        const mockOpenAi = {
+            responses: {
+                create: async (payload) => {
+                    openAiCalls += 1;
+                    assert.ok(payload.prompt_cache_key.startsWith('upay_admin_'));
+                    return {
+                        id: 'resp_path_a_1',
+                        output: [],
+                        output_text: JSON.stringify({
+                            scope: 'other_screen',
+                            targetModule: 'payments',
+                            actions: [
+                                { name: 'navigate', params: { module: 'payments' } },
+                                { name: 'applyFilter', params: { module: 'payments', status: 'failed' } },
+                            ],
+                            responseTemplate: 'Listo, ya te filtré los pagos rechazados.',
+                            needsClarification: false,
+                        }),
+                        usage: { input_tokens: 3100, input_tokens_details: { cached_tokens: 2944 }, output_tokens: 46 },
+                    };
+                },
+            },
+        };
+
+        const interpreted = await interpretUserRequest({
+            text: 'Muéstrame los pagos rechazados.',
+            lang: 'es-CO',
+            applicationContext: { currentRoute: '/', currentModule: 'dashboard', activeFilters: { month: 11, year: 2026 } },
+            conversationHistory: [],
+            user: { role: 'admin', companyId: '69bfc6a83024eb08afb9493f' },
+            openaiClient: mockOpenAi,
+        });
+
+        // Path A must NOT make a second OpenAI call
+        assert.equal(openAiCalls, 1);
+        assert.equal(interpreted.source, 'openai_responses');
+
+        registerScreenBridge('payments', {
+            loading: false,
+            activeFilters: { status: 'failed' },
+            metrics: {
+                filteredCount: 1,
+                filteredTotal: 225000,
+                loadedCount: 3,
+                globalTotalCount: 205,
+                isPaginated: true,
+            },
+            applyFilter: () => true,
+        });
+
+        const dispatched = await dispatchActionPlan(interpreted.plan, {
+            navigate: () => {},
+            currentModule: 'dashboard',
+            lang: 'es-CO',
+        });
+
+        assert.equal(dispatched.ok, true);
+        assert.equal(dispatched.reply, 'Listo, ya te filtré los pagos rechazados.');
+        // Regression guard against "Mostrando 1 en las páginas cargadas (3 de 205 registros del mes) pagos rechazados."
+        assert.equal(dispatched.reply.includes('en las páginas cargadas'), false);
+        assert.equal(dispatched.reply.includes('Mostrando'), false);
+    });
+
+    it('handles Spanish singular, plural, and zero grammar naturally without "1 pagos" or "1 registros"', () => {
+        assert.equal(
+            applyNaturalCountGrammar('Hay 1 pagos rechazados.', 'es-CO'),
+            'Hay un pago rechazado.'
+        );
+        assert.equal(
+            applyNaturalCountGrammar('Hay 1 motos apagadas.', 'es-CO'),
+            'Hay una moto apagada.'
+        );
+        assert.equal(
+            applyNaturalCountGrammar('Hay 1 alertas activas.', 'es-CO'),
+            'Hay una alerta activa.'
+        );
+        assert.equal(
+            applyNaturalCountGrammar('Hay 3 pagos rechazados.', 'es-CO'),
+            'Hay 3 pagos rechazados.'
+        );
+        assert.equal(
+            applyNaturalCountGrammar('Hay 0 pagos rechazados.', 'es-CO'),
+            'No hay pagos rechazados en este momento.'
+        );
+    });
+
+    it('distinguishes partial vs complete result sets and never states a partial sum as the complete total', () => {
+        // Partial paginated screen (Trace tr_1795460701922_49xci: 1 rejected in 3 loaded out of 205 monthly)
+        registerScreenBridge('payments', {
+            loading: false,
+            metrics: {
+                filteredCount: 1,
+                filteredTotal: 210000,
+                loadedCount: 3,
+                globalTotalCount: 205,
+                isPaginated: true,
+            },
+        });
+
+        const partialCount = resolveTemplatePlaceholders('Hay {{payments.count}} pagos rechazados.', {
+            lang: 'es-CO',
+        });
+        assert.match(partialCount.text, /Por ahora veo un pago rechazado entre los registros cargados/);
+        assert.match(partialCount.text, /Todavía no tengo el total completo/);
+        assert.equal(partialCount.text.includes('1 pagos'), false);
+
+        const partialSum = resolveTemplatePlaceholders('Los pagos rechazados suman {{payments.total}}.', {
+            lang: 'es-CO',
+        });
+        assert.match(partialSum.text, /todavía no tengo el total completo/i);
+        assert.equal(partialSum.hasPartialScope, true);
+
+        // Complete non-paginated dataset: states exact count and sum concisely
+        clearAllScreenBridges();
+        registerScreenBridge('payments', {
+            loading: false,
+            metrics: {
+                filteredCount: 2,
+                filteredTotal: 450000,
+                loadedCount: 18,
+                globalTotalCount: 18,
+                isPaginated: false,
+            },
+        });
+
+        const completeCount = resolveTemplatePlaceholders('Hay {{payments.count}} pagos rechazados.', {
+            lang: 'es-CO',
+        });
+        assert.equal(completeCount.text, 'Hay 2 pagos rechazados.');
+        assert.equal(completeCount.hasPartialScope, false);
+
+        const completeSum = resolveTemplatePlaceholders('Los pagos rechazados suman {{payments.total}}.', {
+            lang: 'es-CO',
+        });
+        assert.match(completeSum.text, /^Los pagos rechazados suman \$[\s\u00a0]?450\.000\.$/);
+    });
+
+    it('never fabricates 0 or $0 when screen metrics are missing or still loading', async () => {
+        registerScreenBridge('payments', {
+            loading: true,
+            metrics: {},
+        });
+
+        const missingRes = resolveTemplatePlaceholders('Hay {{payments.count}} pagos rechazados.', {
+            lang: 'es-CO',
+        });
+        assert.equal(missingRes.hasMissingMetrics, true);
+        assert.equal(missingRes.text.includes('0 pagos'), false);
+        assert.match(missingRes.text, /Todavía no tengo los datos cargados/i);
+
+        // Also ensure resolveTemplateWithLiveData does not append unrequested summarySentence to clarifications
+        const clarifyRes = await resolveTemplateWithLiveData(
+            '¿A qué moto te refieres? Indícame la placa.',
+            { targetModule: 'devices', lang: 'es-CO' }
+        );
+        assert.equal(clarifyRes.text, '¿A qué moto te refieres? Indícame la placa.');
+    });
+
+    it('executes Path B analytical tool flow with capped tool calls, grounded facts vs hypotheses, and follow-up context', async () => {
+        const calls = [];
+        let toolExecutions = 0;
+
+        const mockOpenAi = {
+            responses: {
+                create: async (payload) => {
+                    calls.push(payload);
+                    if (calls.length === 1) {
+                        // Emit 4 tool calls to verify MAX_TOOL_CALLS_PER_TURN cap enforces <= 2 executions
+                        return {
+                            id: 'resp_analytical_step1',
+                            output: [
+                                {
+                                    type: 'function_call',
+                                    call_id: 'call_1',
+                                    name: 'fetch_module_records',
+                                    arguments: JSON.stringify({ module: 'payments', status: 'failed' }),
+                                },
+                                {
+                                    type: 'function_call',
+                                    call_id: 'call_2',
+                                    name: 'fetch_module_records',
+                                    arguments: JSON.stringify({ module: 'payments', status: 'pending' }),
+                                },
+                                {
+                                    type: 'function_call',
+                                    call_id: 'call_3',
+                                    name: 'fetch_module_records',
+                                    arguments: JSON.stringify({ module: 'devices', status: 'off' }),
+                                },
+                            ],
+                            output_text: '',
+                            usage: { input_tokens: 3200, input_tokens_details: { cached_tokens: 3072 }, output_tokens: 40 },
+                        };
+                    }
+                    // Step 2: verify previous_response_id and sanitized tool outputs with scopeMetadata
+                    assert.equal(payload.previous_response_id, 'resp_analytical_step1');
+                    assert.equal(payload.input.length, MAX_TOOL_CALLS_PER_TURN);
+                    const parsedToolData = JSON.parse(payload.input[0].output);
+                    assert.equal(parsedToolData.scopeMetadata.isCompleteTotal, true);
+                    assert.equal(parsedToolData.scopeMetadata.exactRejectionCauseStoredInDb, false);
+
+                    return {
+                        id: 'resp_analytical_step2',
+                        output: [],
+                        output_text: JSON.stringify({
+                            scope: 'conversation_context',
+                            targetModule: 'payments',
+                            actions: [],
+                            responseTemplate:
+                                'Veo 2 pagos rechazados que suman 450 mil pesos (placas PMQ44I y NIJ19I por Nequi). Aparecen en estado declinado, aunque el sistema no guarda el motivo exacto del banco; suele deberse a fondos insuficientes o a un error de autorización.',
+                            needsClarification: false,
+                        }),
+                        usage: { input_tokens: 3650, input_tokens_details: { cached_tokens: 3072 }, output_tokens: 72 },
+                    };
+                },
+            },
+        };
+
+        const res = await interpretUserRequest({
+            text: '¿Por qué están rechazados y cuánto suman?',
+            lang: 'es-CO',
+            applicationContext: {
+                currentRoute: '/payments',
+                currentModule: 'payments',
+                activeFilters: { status: 'failed', month: 11, year: 2026 },
+            },
+            conversationHistory: [
+                {
+                    userText: 'Muéstrame los pagos rechazados',
+                    assistantText: 'Listo, ya te filtré los pagos rechazados.',
+                    targetModule: 'payments',
+                    intent: 'applyFilter',
+                    executedActions: [{ name: 'applyFilter', params: { module: 'payments', status: 'failed' } }],
+                    executionStatus: 'success',
+                },
+            ],
+            user: { role: 'admin', companyId: 'demo-company' },
+            openaiClient: mockOpenAi,
+            toolExecutor: async (args) => {
+                toolExecutions += 1;
+                return fetchSanitizedModuleRecords(args);
+            },
+        });
+
+        assert.equal(calls.length, 2);
+        assert.equal(toolExecutions, MAX_TOOL_CALLS_PER_TURN);
+        assert.equal(res.source, 'openai_responses_with_data');
+        assert.equal(res.plan.onDemandDataUsed, true);
+        assert.match(res.plan.responseTemplate, /450 mil pesos/);
+        assert.match(res.plan.responseTemplate, /no guarda el motivo exacto/);
+    });
+
+    it('never confirms failed filter actions or zero-result searches as found (Traces tr_1795470363875_hdddw & tr_1795470468415_kxv87)', async () => {
+        registerScreenBridge('payments', {
+            loading: false,
+            metrics: { filteredCount: 5, filteredTotal: 175000 },
+            applyFilter: () => false, // Simulate screen rejecting filter
+        });
+
+        const failedFilter = await dispatchActionPlan(
+            {
+                scope: 'current_screen',
+                targetModule: 'payments',
+                actions: [{ name: 'applyFilter', params: { module: 'payments', status: 'failed' } }],
+                responseTemplate: 'Listo, ya te filtré los pagos rechazados.',
+                needsClarification: false,
+            },
+            { navigate: () => {}, currentModule: 'payments', lang: 'es-CO' }
+        );
+
+        assert.equal(failedFilter.ok, false);
+        assert.equal(failedFilter.executionStatus, 'failed');
+        assert.equal(failedFilter.reply.includes('Listo'), false);
+        assert.match(failedFilter.reply, /No pude aplicar ese filtro/);
+
+        // Simulate a search that completes with 0 matching records in the active screen
+        clearAllScreenBridges();
+        registerScreenBridge('contracts', {
+            loading: false,
+            metrics: { filteredCount: 0, filteredTotalValue: 0 },
+            search: () => true,
+        });
+
+        const zeroSearch = await dispatchActionPlan(
+            {
+                scope: 'current_screen',
+                targetModule: 'contracts',
+                actions: [{ name: 'search', params: { module: 'contracts', query: 'QBD29I' } }],
+                responseTemplate: 'Ya encontré el contrato de QBD29I.',
+                needsClarification: false,
+            },
+            { navigate: () => {}, currentModule: 'contracts', lang: 'es-CO' }
+        );
+
+        assert.equal(zeroSearch.ok, true);
+        assert.match(zeroSearch.reply, /no aparece ningún registro/i);
+        assert.equal(zeroSearch.reply.includes('Se muestran 0 contratos'), false);
+    });
+
+    it('cleans technical artifacts and shortens overly long responses in prepareSpokenResponse for TTS', () => {
+        const withArtifacts =
+            'Listo, **PMQ44I** tiene `1` alerta activa. {"debug":"raw_json"} Revisé el reporte.';
+        const cleanShort = prepareSpokenResponse(withArtifacts, { lang: 'es-CO' });
+        assert.equal(cleanShort.includes('**'), false);
+        assert.equal(cleanShort.includes('`'), false);
+        assert.equal(cleanShort.includes('raw_json'), false);
+        assert.match(cleanShort, /Listo, PMQ44I tiene 1 alerta activa\./);
+
+        const longDetailed =
+            'Encontré 8 alertas activas de conducción en corte durante la mañana. ' +
+            'La primera ocurrió en MWY10I a las 08:12 a. m. con 14 km/h reportados. ' +
+            'La segunda ocurrió en FPZ45I a las 08:40 a. m. con 19 km/h reportados. ' +
+            'La tercera ocurrió en IFN20I a las 09:05 a. m. con 11 km/h reportados, además de NHO78I, NIJ17I, NHO79I y QBK45I con eventos adicionales registrados en la bitácora.';
+        const shortened = prepareSpokenResponse(longDetailed, { lang: 'es-CO', maxLength: 200 });
+        assert.ok(shortened.length < longDetailed.length);
+        assert.match(shortened, /Puedes ver el detalle completo en pantalla\.$/);
     });
 });
