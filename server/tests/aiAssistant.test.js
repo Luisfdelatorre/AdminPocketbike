@@ -786,7 +786,9 @@ describe('18.7 Natural Conversational Response Generation & Trace Regressions', 
                     // Step 2: verify previous_response_id, tool_choice: 'none' (prevents empty output_text JSON error), and sanitized tool outputs
                     assert.equal(payload.previous_response_id, 'resp_analytical_step1');
                     assert.equal(payload.tool_choice, 'none');
-                    assert.equal(payload.input.length, MAX_TOOL_CALLS_PER_TURN);
+                    // All 3 function_call items must receive a function_call_output (2 executed + 1 skipped) so OpenAI never returns 400
+                    assert.equal(payload.input.length, 3);
+                    assert.equal(JSON.parse(payload.input[2].output).skipped, true);
                     const parsedToolData = JSON.parse(payload.input[0].output);
                     assert.equal(parsedToolData.scopeMetadata.isCompleteTotal, true);
                     assert.equal(parsedToolData.scopeMetadata.exactRejectionCauseStoredInDb, false);
