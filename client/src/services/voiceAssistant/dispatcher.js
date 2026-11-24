@@ -108,7 +108,14 @@ const executeSingleAction = async (action, ctx) => {
             if (bridge?.applyFilter) {
                 const applied = await bridge.applyFilter(params);
                 if (applied === false) {
-                    return { ok: false, action, error: `Filter rejected by module "${targetModule}"` };
+                    return {
+                        ok: false,
+                        action,
+                        error:
+                            ctx.lang === 'en-US'
+                                ? 'I could not apply that filter right now.'
+                                : 'No pude aplicar ese filtro en este momento.',
+                    };
                 }
                 await waitForScreenDataReady(targetModule, 3000);
                 return { ok: true, action, targetModule };
@@ -133,7 +140,14 @@ const executeSingleAction = async (action, ctx) => {
             if (bridge?.search) {
                 const searched = await bridge.search(params.query);
                 if (searched === false) {
-                    return { ok: false, action, error: `Search failed on "${targetModule}"` };
+                    return {
+                        ok: false,
+                        action,
+                        error:
+                            ctx.lang === 'en-US'
+                                ? 'I could not run that search on this screen.'
+                                : 'No pude hacer esa búsqueda en esta pantalla.',
+                    };
                 }
                 await waitForScreenDataReady(targetModule, 3000);
                 return { ok: true, action, targetModule };
@@ -268,8 +282,8 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
                         ? 'You do not have permission to access that section.'
                         : 'Tu usuario no tiene permisos para acceder a esa sección.'
                     : lang === 'en-US'
-                    ? `Could not execute action: ${validation.error}`
-                    : `No se pudo ejecutar la acción: ${validation.error}`,
+                    ? 'I could not complete that action with the requested filters.'
+                    : 'No pude completar esa acción con los parámetros solicitados.',
             data: null,
             action: null,
         };
@@ -326,10 +340,28 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         }
     }
 
-    // 3. Resolve placeholders AFTER actions and screen state settle (with live API fallback & visual cards)
+    // 3. Resolve placeholders AFTER actions and screen state settle (never confirm unverified findings)
+    const lastSearchOnly =
+        !plan.onDemandDataUsed &&
+        executedActions.length > 0 &&
+        executedActions[executedActions.length - 1]?.name === 'search'
+            ? executedActions[executedActions.length - 1]
+            : null;
+    const mountedBridgeAfterExec = getScreenBridge(activeModule);
+    const searchFoundZero =
+        lastSearchOnly &&
+        mountedBridgeAfterExec &&
+        !mountedBridgeAfterExec.loading &&
+        typeof mountedBridgeAfterExec.metrics?.filteredCount === 'number' &&
+        mountedBridgeAfterExec.metrics.filteredCount === 0;
+
     const rawTemplate =
         helpOverrideReply ||
-        plan.responseTemplate ||
+        (searchFoundZero
+            ? lang === 'en-US'
+                ? `I searched for "${lastSearchOnly.params.query}", but no matching records appear in this view.`
+                : `Busqué ${lastSearchOnly.params.query}, pero no aparece ningún registro con ese criterio en esta vista.`
+            : plan.responseTemplate) ||
         (lang === 'en-US' ? 'Done.' : 'Listo.');
 
     const lastFilterAction = [...executedActions]

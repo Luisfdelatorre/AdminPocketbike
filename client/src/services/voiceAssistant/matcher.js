@@ -103,6 +103,22 @@ const HELP_PATTERNS = [
     'opciones',
 ];
 
+const NATURAL_MODULE_TARGET_ES = Object.freeze({
+    dashboard: 'el panel principal',
+    devices: 'las motos',
+    summary: 'el resumen de pagos',
+    contracts: 'los contratos',
+    payments: 'los pagos',
+    invoices: 'las facturas',
+    alerts: 'las alertas',
+    commands: 'el historial de comandos',
+    reports: 'los reportes',
+    'company-invoices': 'la facturación de empresas',
+    settings: 'la configuración',
+    users: 'los usuarios',
+    companies: 'las empresas',
+});
+
 const MODULE_NAV_MAP = [
     { module: 'dashboard', phrases: ['dashboard', 'the dashboard', 'el dashboard', 'inicio', 'panel principal', 'home'] },
     { module: 'devices', phrases: ['devices', 'motorcycles', 'dispositivos', 'motos', 'motocicletas', 'lista de motos', 'pagina de motos', 'flota'] },
@@ -230,7 +246,7 @@ export const matchLocalIntent = (text = '', { currentModule = 'dashboard', lang 
                 scope: 'current_screen',
                 targetModule: currentModule,
                 actions: [{ name: 'clearFilters', params: { module: currentModule } }],
-                responseTemplate: isEn ? 'Filters cleared.' : 'Filtros restablecidos.',
+                responseTemplate: isEn ? 'Done, I cleared the filters.' : 'Quité los filtros.',
                 needsClarification: false,
             },
             capabilityId: 'clearFilters',
@@ -263,6 +279,7 @@ export const matchLocalIntent = (text = '', { currentModule = 'dashboard', lang 
                 label: modDef.label,
             };
             const scope = targetMod === currentModule ? 'current_screen' : 'other_screen';
+            const naturalTargetEs = NATURAL_MODULE_TARGET_ES[targetMod] || modDef.label.toLowerCase();
 
             return {
                 status: MATCH_STATUS.MATCH,
@@ -271,8 +288,8 @@ export const matchLocalIntent = (text = '', { currentModule = 'dashboard', lang 
                     targetModule: targetMod,
                     actions: [{ name: 'navigate', params: { module: targetMod } }],
                     responseTemplate: isEn
-                        ? `Opening ${modDef.labelEn}.`
-                        : `Listo, abriendo ${modDef.label}.`,
+                        ? `Done, showing ${modDef.labelEn.toLowerCase()}.`
+                        : `Listo, ya te muestro ${naturalTargetEs}.`,
                     needsClarification: false,
                 },
                 capabilityId: cap.id,

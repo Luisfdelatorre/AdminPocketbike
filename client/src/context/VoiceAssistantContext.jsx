@@ -13,6 +13,7 @@ import {
     getAvailableVoices,
     onVoicesUpdated,
     isTTSSupported,
+    prepareSpokenResponse,
     speakText,
     stopSpeaking,
     unlockTTS,
@@ -215,18 +216,23 @@ export const VoiceAssistantProvider = ({ children }) => {
     const speakReply = useCallback(
         (replyText, overrides = {}) => {
             const msgId = overrides.messageId || null;
-            const spokenText = applySpeechPrivacyFilter(replyText, {
+            const privacyFilteredText = applySpeechPrivacyFilter(replyText, {
                 speakAmounts,
                 speakCustomerNames,
                 lang: assistantLang,
             });
 
-            if (msgId && spokenText && spokenText !== replyText) {
-                // Keep chat text identical to what is being read aloud when privacy filter modifies it
+            if (msgId && privacyFilteredText && privacyFilteredText !== replyText) {
+                // Keep chat text identical to privacy-redacted text when privacy toggles are OFF
                 setMessages((prev) =>
-                    prev.map((m) => (m.id === msgId ? { ...m, text: spokenText } : m))
+                    prev.map((m) => (m.id === msgId ? { ...m, text: privacyFilteredText } : m))
                 );
             }
+
+            const spokenText = prepareSpokenResponse(privacyFilteredText, {
+                lang: assistantLang,
+                keepFullList: Boolean(overrides.keepFullList),
+            });
 
             if (!ttsSupported || !ttsEnabled || !spokenText) {
                 if (msgId) stopTypingStream(msgId);
@@ -247,7 +253,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                         m.id === msgId
                             ? {
                                   ...m,
-                                  text: spokenText,
+                                  text: privacyFilteredText,
                                   streamedText: words.slice(0, wordIdx).join(''),
                                   isTyping: wordIdx < words.length,
                               }

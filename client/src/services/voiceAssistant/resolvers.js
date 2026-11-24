@@ -29,204 +29,344 @@ export const sanitizePlainText = (val) =>
         .replace(/</g, '‹')
         .replace(/>/g, '›');
 
+const isPaginatedPartial = (metrics = {}) =>
+    Boolean(
+        metrics.isPaginated &&
+            typeof metrics.globalTotalCount === 'number' &&
+            typeof metrics.loadedCount === 'number' &&
+            metrics.globalTotalCount > metrics.loadedCount
+    );
+
+const buildCountResolution = (value, metrics = {}) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    const partial = isPaginatedPartial(metrics);
+    return {
+        value,
+        formatted: String(value),
+        kind: 'count',
+        isComplete: !partial,
+        loadedCount: typeof metrics.loadedCount === 'number' ? metrics.loadedCount : null,
+        globalTotalCount:
+            typeof metrics.globalTotalCount === 'number' ? metrics.globalTotalCount : null,
+    };
+};
+
+const buildCurrencyResolution = (value, metrics = {}) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+    const partial = isPaginatedPartial(metrics);
+    return {
+        value,
+        formatted: formatCOP(value),
+        kind: 'currency',
+        isComplete: !partial,
+        loadedCount: typeof metrics.loadedCount === 'number' ? metrics.loadedCount : null,
+        globalTotalCount:
+            typeof metrics.globalTotalCount === 'number' ? metrics.globalTotalCount : null,
+    };
+};
+
+/**
+ * Normalizes Spanish & English singular/plural and zero-count phrasing after numeric substitution
+ * so templates never output "1 pagos rechazados", "1 registros", or "There are 1 payments".
+ */
+export const applyNaturalCountGrammar = (text = '', lang = 'es-CO') => {
+    let out = String(text || '');
+    if (!out) return '';
+
+    if (lang === 'en-US') {
+        out = out.replace(/\bThere are 1\b/gi, (m) =>
+            m[0] === 'T' ? 'There is 1' : 'there is 1'
+        );
+        out = out.replace(
+            /\b1\s+((?:rejected|approved|pending|active|suspended|offline|critical|failed|overdue)\s+)?(payments|records|motorcycles|devices|contracts|alerts|invoices|commands)\b/gi,
+            (_, adj = '', noun) => {
+                const singular = noun.replace(/s$/i, '');
+                return `1 ${adj || ''}${singular}`;
+            }
+        );
+        out = out.replace(/^There are 0 ([^.]+)\.$/i, 'There are no $1 right now.');
+        return out;
+    }
+
+    // Zero-count natural phrasing for standalone count answers
+    out = out.replace(
+        /^(?:Hay|Existen|Veo|Se encontraron)\s+0\s+([^.]+)\.$/i,
+        'No hay $1 en este momento.'
+    );
+
+    // Feminine singular nouns ("1 motos apagadas" -> "una moto apagada", "1 alertas activas" -> "una alerta activa")
+    const femRules = [
+        [/\b1\s+motos\s+apagadas\b/gi, 'una moto apagada'],
+        [/\b1\s+motos\s+desconectadas\b/gi, 'una moto desconectada'],
+        [/\b1\s+motos\s+activas\b/gi, 'una moto activa'],
+        [/\b1\s+motos\s+disponibles\b/gi, 'una moto disponible'],
+        [/\b1\s+motos\s+encendidas\b/gi, 'una moto encendida'],
+        [/\b1\s+motos\s+filtradas\b/gi, 'una moto filtrada'],
+        [/\b1\s+motos\b/gi, 'una moto'],
+        [/\b1\s+alertas\s+activas\b/gi, 'una alerta activa'],
+        [/\b1\s+alertas\s+cr[ií]ticas\b/gi, 'una alerta crítica'],
+        [/\b1\s+alertas\b/gi, 'una alerta'],
+        [/\b1\s+facturas\s+pendientes\b/gi, 'una factura pendiente'],
+        [/\b1\s+facturas\s+pagadas\b/gi, 'una factura pagada'],
+        [/\b1\s+facturas\b/gi, 'una factura'],
+    ];
+    for (const [pattern, replacement] of femRules) {
+        out = out.replace(pattern, replacement);
+    }
+
+    // Masculine singular nouns ("1 pagos rechazados" -> "un pago rechazado", "1 registros" -> "un registro")
+    const mascRules = [
+        [/\b1\s+pagos\s+rechazados\b/gi, 'un pago rechazado'],
+        [/\b1\s+pagos\s+aprobados\b/gi, 'un pago aprobado'],
+        [/\b1\s+pagos\s+pendientes\b/gi, 'un pago pendiente'],
+        [/\b1\s+pagos\s+fallidos\b/gi, 'un pago fallido'],
+        [/\b1\s+pagos\b/gi, 'un pago'],
+        [/\b1\s+contratos\s+activos\b/gi, 'un contrato activo'],
+        [/\b1\s+contratos\s+finalizados\b/gi, 'un contrato finalizado'],
+        [/\b1\s+contratos\s+cancelados\b/gi, 'un contrato cancelado'],
+        [/\b1\s+contratos\s+semanales\b/gi, 'un contrato semanal'],
+        [/\b1\s+contratos\b/gi, 'un contrato'],
+        [/\b1\s+comandos\s+fallidos\b/gi, 'un comando fallido'],
+        [/\b1\s+comandos\s+enviados\b/gi, 'un comando enviado'],
+        [/\b1\s+comandos\b/gi, 'un comando'],
+        [/\b1\s+registros\s+encontrados\b/gi, 'un registro encontrado'],
+        [/\b1\s+registros\b/gi, 'un registro'],
+    ];
+    for (const [pattern, replacement] of mascRules) {
+        out = out.replace(pattern, replacement);
+    }
+
+    return out;
+};
+
 /**
  * Canonical Resolver Registry.
+ * Every resolver supplies structured numerical/currency data without injecting descriptive
+ * strings into numerical placeholders.
  */
 export const RESOLVER_REGISTRY = Object.freeze({
     'payments.count': {
         module: 'payments',
         isGlobal: false,
-        resolve: (metrics, lang) => {
-            if (typeof metrics.filteredCount !== 'number') return null;
-            if (metrics.isPaginated && metrics.globalTotalCount > metrics.loadedCount) {
-                return lang === 'en-US'
-                    ? `${metrics.filteredCount} in the currently loaded page (${metrics.loadedCount} of ${metrics.globalTotalCount} monthly records loaded)`
-                    : `${metrics.filteredCount} en las páginas cargadas (${metrics.loadedCount} de ${metrics.globalTotalCount} registros del mes)`;
-            }
-            return String(metrics.filteredCount);
-        },
-        fallback: (lang) =>
-            lang === 'en-US'
-                ? 'not available from the currently loaded data'
-                : 'no disponible en los datos cargados actualmente',
+        resolveStructured: (metrics) => buildCountResolution(metrics.filteredCount, metrics),
+        resolve: (metrics) =>
+            typeof metrics.filteredCount === 'number' ? String(metrics.filteredCount) : null,
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'payments.total': {
         module: 'payments',
         isGlobal: false,
-        resolve: (metrics, lang) => {
-            if (typeof metrics.filteredTotal !== 'number') return null;
-            const formatted = formatCOP(metrics.filteredTotal);
-            if (metrics.isPaginated && metrics.globalTotalCount > metrics.loadedCount) {
-                return lang === 'en-US'
-                    ? `${formatted} (across the ${metrics.loadedCount} loaded payments)`
-                    : `${formatted} (en los ${metrics.loadedCount} pagos cargados en pantalla)`;
-            }
-            return formatted;
-        },
-        fallback: (lang) =>
-            lang === 'en-US'
-                ? 'not available from the currently loaded data'
-                : 'no disponible en los datos cargados actualmente',
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.filteredTotal, metrics),
+        resolve: (metrics) =>
+            typeof metrics.filteredTotal === 'number' ? formatCOP(metrics.filteredTotal) : null,
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'payments.globalTotalCount': {
         module: 'payments',
         isGlobal: true,
+        resolveStructured: (metrics) =>
+            typeof metrics.globalTotalCount === 'number'
+                ? {
+                      value: metrics.globalTotalCount,
+                      formatted: String(metrics.globalTotalCount),
+                      kind: 'count',
+                      isComplete: true,
+                  }
+                : null,
         resolve: (metrics) =>
             typeof metrics.globalTotalCount === 'number' ? String(metrics.globalTotalCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'devices.count': {
         module: 'devices',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.filteredCount),
         resolve: (metrics) =>
             typeof metrics.filteredCount === 'number' ? String(metrics.filteredCount) : null,
-        fallback: (lang) => (lang === 'en-US' ? '0' : '0'),
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'devices.offlineCount': {
         module: 'devices',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.offlineCount),
         resolve: (metrics) =>
             typeof metrics.offlineCount === 'number' ? String(metrics.offlineCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'devices.cutoffCount': {
         module: 'devices',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.cutoffCount),
         resolve: (metrics) =>
             typeof metrics.cutoffCount === 'number' ? String(metrics.cutoffCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'contracts.count': {
         module: 'contracts',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.filteredCount),
         resolve: (metrics) =>
             typeof metrics.filteredCount === 'number' ? String(metrics.filteredCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'contracts.totalValue': {
         module: 'contracts',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.filteredTotalValue),
         resolve: (metrics) =>
             typeof metrics.filteredTotalValue === 'number' ? formatCOP(metrics.filteredTotalValue) : null,
-        fallback: () => '$ 0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'summary.count': {
         module: 'summary',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.filteredCount),
         resolve: (metrics) =>
             typeof metrics.filteredCount === 'number' ? String(metrics.filteredCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'summary.debtorsCount': {
         module: 'summary',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.debtorsCount),
         resolve: (metrics) =>
             typeof metrics.debtorsCount === 'number' ? String(metrics.debtorsCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'summary.debtTotal': {
         module: 'summary',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.filteredDebtTotal),
         resolve: (metrics) =>
             typeof metrics.filteredDebtTotal === 'number' ? formatCOP(metrics.filteredDebtTotal) : null,
-        fallback: () => '$ 0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'summary.weeklyDebtorsCount': {
         module: 'summary',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.weeklyDebtorsCount),
         resolve: (metrics) =>
             typeof metrics.weeklyDebtorsCount === 'number' ? String(metrics.weeklyDebtorsCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'summary.weeklyDebtTotal': {
         module: 'summary',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.weeklyDebtTotal),
         resolve: (metrics) =>
             typeof metrics.weeklyDebtTotal === 'number' ? formatCOP(metrics.weeklyDebtTotal) : null,
-        fallback: () => '$ 0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'invoices.count': {
         module: 'invoices',
         isGlobal: false,
+        resolveStructured: (metrics) =>
+            buildCountResolution(
+                typeof metrics.filteredCount === 'number' ? metrics.filteredCount : metrics.totalCount,
+                metrics
+            ),
         resolve: (metrics) =>
             typeof metrics.filteredCount === 'number'
                 ? String(metrics.filteredCount)
                 : typeof metrics.totalCount === 'number'
                 ? String(metrics.totalCount)
                 : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'invoices.unpaidCount': {
         module: 'invoices',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.unpaidCount),
         resolve: (metrics) =>
             typeof metrics.unpaidCount === 'number' ? String(metrics.unpaidCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'invoices.totalAmount': {
         module: 'invoices',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.totalAmount),
         resolve: (metrics) =>
             typeof metrics.totalAmount === 'number' ? formatCOP(metrics.totalAmount) : null,
-        fallback: () => '$ 0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'alerts.count': {
         module: 'alerts',
         isGlobal: false,
+        resolveStructured: (metrics) =>
+            buildCountResolution(
+                typeof metrics.filteredCount === 'number' ? metrics.filteredCount : metrics.totalCount,
+                metrics
+            ),
         resolve: (metrics) =>
             typeof metrics.filteredCount === 'number'
                 ? String(metrics.filteredCount)
                 : typeof metrics.totalCount === 'number'
                 ? String(metrics.totalCount)
                 : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'alerts.activeCount': {
         module: 'alerts',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.activeCount),
         resolve: (metrics) =>
             typeof metrics.activeCount === 'number' ? String(metrics.activeCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'alerts.criticalCount': {
         module: 'alerts',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.criticalCount),
         resolve: (metrics) =>
             typeof metrics.criticalCount === 'number' ? String(metrics.criticalCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'commands.count': {
         module: 'commands',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.totalCount),
         resolve: (metrics) =>
             typeof metrics.totalCount === 'number' ? String(metrics.totalCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'commands.failedCount': {
         module: 'commands',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCountResolution(metrics.failedCount),
         resolve: (metrics) =>
             typeof metrics.failedCount === 'number' ? String(metrics.failedCount) : null,
-        fallback: () => '0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'dashboard.totalRevenue': {
         module: 'dashboard',
         isGlobal: true,
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.totalRevenue),
         resolve: (metrics) =>
             typeof metrics.totalRevenue === 'number' ? formatCOP(metrics.totalRevenue) : null,
-        fallback: () => '$ 0',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
     'dashboard.collectionRate': {
         module: 'dashboard',
         isGlobal: true,
+        resolveStructured: (metrics) =>
+            typeof metrics.collectionRate === 'number'
+                ? {
+                      value: Math.round(metrics.collectionRate),
+                      formatted: `${Math.round(metrics.collectionRate)}%`,
+                      kind: 'percent',
+                      isComplete: true,
+                  }
+                : null,
         resolve: (metrics) =>
             typeof metrics.collectionRate === 'number' ? `${Math.round(metrics.collectionRate)}%` : null,
-        fallback: () => '0%',
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
 });
 
 /**
  * Synchronous placeholder resolver (used when `metricsOverride` or `ScreenBridge` is already ready).
+ * Separates numerical placeholder values from partial-scope explanations and never fabricates 0
+ * when metrics are missing.
  */
 export const resolveTemplatePlaceholders = (
     template = '',
@@ -234,50 +374,136 @@ export const resolveTemplatePlaceholders = (
 ) => {
     const cleanTemplate = sanitizePlainText(template);
     if (!cleanTemplate.includes('{{')) {
-        return { text: cleanTemplate, resolvedPlaceholders: {}, hasUnresolved: false };
+        return {
+            text: cleanTemplate,
+            resolvedPlaceholders: {},
+            resolvedData: {},
+            hasUnresolved: false,
+            hasPartialScope: false,
+            hasMissingMetrics: false,
+        };
     }
 
     const resolvedPlaceholders = {};
+    const resolvedData = {};
     let hasUnresolved = false;
+    let hasUnknownOrRestricted = false;
+    let hasMissingMetrics = false;
+    let partialMeta = null;
 
-    const text = cleanTemplate.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, rawKey) => {
+    const rawReplaced = cleanTemplate.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, rawKey) => {
         const key = String(rawKey).trim();
         const def = RESOLVER_REGISTRY[key];
 
         if (!def) {
             hasUnresolved = true;
+            hasUnknownOrRestricted = true;
             return lang === 'en-US' ? '[unavailable]' : '[no disponible]';
         }
 
         if (user && !canUserAccessModule(def.module, user)) {
             hasUnresolved = true;
+            hasUnknownOrRestricted = true;
             return lang === 'en-US' ? '[restricted]' : '[restringido]';
         }
 
         const bridge = getScreenBridge(def.module);
         const override = metricsOverride && metricsOverride[def.module];
-        const metrics = override || bridge?.metrics || {};
-        if (!override && bridge?.loading) {
+        const metrics = override || bridge?.metrics || null;
+        if ((!override && bridge?.loading) || !metrics || Object.keys(metrics).length === 0) {
             hasUnresolved = true;
-            return def.fallback(lang);
+            hasMissingMetrics = true;
+            return sanitizePlainText(def.fallback(lang));
         }
 
         try {
-            const value = def.resolve(metrics, lang);
-            if (value === null || value === undefined || value === '') {
+            const structured = def.resolveStructured
+                ? def.resolveStructured(metrics, lang)
+                : (() => {
+                      const v = def.resolve(metrics, lang);
+                      return v !== null && v !== undefined && v !== ''
+                          ? { value: v, formatted: String(v), kind: 'count', isComplete: true }
+                          : null;
+                  })();
+
+            if (!structured || structured.formatted === '') {
                 hasUnresolved = true;
+                hasMissingMetrics = true;
                 return sanitizePlainText(def.fallback(lang));
             }
-            const safeVal = sanitizePlainText(value);
+
+            const safeVal = sanitizePlainText(structured.formatted);
             resolvedPlaceholders[key] = safeVal;
+            resolvedData[key] = structured;
+
+            if (!structured.isComplete && !partialMeta) {
+                partialMeta = structured;
+            }
             return safeVal;
         } catch {
             hasUnresolved = true;
+            hasMissingMetrics = true;
             return sanitizePlainText(def.fallback(lang));
         }
     });
 
-    return { text, resolvedPlaceholders, hasUnresolved };
+    // If metrics were missing and there were no security markers to surface, explain naturally instead of fabricating 0
+    if (hasMissingMetrics && !hasUnknownOrRestricted && Object.keys(resolvedPlaceholders).length === 0) {
+        const missingMsg =
+            lang === 'en-US'
+                ? "I don't have the complete data loaded on screen yet to confirm that figure."
+                : 'Todavía no tengo los datos cargados en pantalla para confirmarte ese valor con exactitud.';
+        return {
+            text: missingMsg,
+            resolvedPlaceholders,
+            resolvedData,
+            hasUnresolved,
+            hasPartialScope: false,
+            hasMissingMetrics: true,
+        };
+    }
+
+    let text = applyNaturalCountGrammar(rawReplaced, lang);
+
+    // Handle partial/paginated scope naturally OUTSIDE the numerical placeholder slot
+    if (partialMeta) {
+        const allEntries = Object.values(resolvedData);
+        const onlyPartialCurrency =
+            allEntries.length === 1 &&
+            allEntries[0].kind === 'currency' &&
+            !allEntries[0].isComplete;
+
+        if (onlyPartialCurrency) {
+            // Do not state a partial page sum as a complete total (Section 2)
+            text =
+                lang === 'en-US'
+                    ? `Right now only ${partialMeta.loadedCount} of ${partialMeta.globalTotalCount} monthly records are loaded (${partialMeta.formatted} in that sample), so I don't have the complete total yet.`
+                    : `Por ahora solo tengo cargados ${partialMeta.loadedCount} de los ${partialMeta.globalTotalCount} registros del mes (${partialMeta.formatted} en esa muestra), así que todavía no tengo el total completo.`;
+        } else if (lang === 'es-CO' && /^Hay\s+(.+)\.$/i.test(text)) {
+            const inner = text.replace(/^Hay\s+/i, '').replace(/\.$/, '');
+            text = `Por ahora veo ${inner} entre los registros cargados (${partialMeta.loadedCount} de ${partialMeta.globalTotalCount} del mes). Todavía no tengo el total completo.`;
+        } else if (lang === 'es-CO' && /^No hay\s+(.+)\s+en este momento\.$/i.test(text)) {
+            const inner = text
+                .replace(/^No hay\s+/i, '')
+                .replace(/\s+en este momento\.$/i, '');
+            text = `Por ahora no veo ${inner} entre los ${partialMeta.loadedCount} registros cargados (de ${partialMeta.globalTotalCount} del mes). Todavía no tengo el total completo.`;
+        } else {
+            const scopeExplanation =
+                lang === 'en-US'
+                    ? `This reflects ${partialMeta.loadedCount} currently loaded records out of ${partialMeta.globalTotalCount} monthly records; the full total is not loaded yet.`
+                    : `Por ahora esto corresponde a ${partialMeta.loadedCount} registros cargados de ${partialMeta.globalTotalCount} en el mes; todavía no tengo el total completo.`;
+            text = `${text.replace(/\.*\s*$/, '.')} ${scopeExplanation}`;
+        }
+    }
+
+    return {
+        text,
+        resolvedPlaceholders,
+        resolvedData,
+        hasUnresolved,
+        hasPartialScope: Boolean(partialMeta),
+        hasMissingMetrics,
+    };
 };
 
 /**
@@ -768,18 +994,15 @@ export const resolveTemplateWithLiveData = async (
             }
         }
 
-        // Fetch live data from the API if the bridge is still loading, not mounted,
-        // or when we want rich list/stats cards and spoken data summary for the target module
-        if (!hasLoadedBridge || (modId === targetModule && (!cardsData || !hadPlaceholders))) {
+        // Fetch live data from the API ONLY when placeholders need metrics that are not yet mounted in ScreenBridge
+        if (!hasLoadedBridge && (hadPlaceholders || !template)) {
             const effectiveFilters =
                 bridge?.activeFilters && Object.keys(bridge.activeFilters).length > 0
                     ? { ...bridge.activeFilters, ...activeFilters }
                     : activeFilters;
             const live = await fetchLiveModuleData(modId, effectiveFilters);
             if (live?.metrics) {
-                if (!hasLoadedBridge) {
-                    combinedOverrides[modId] = live.metrics;
-                }
+                combinedOverrides[modId] = live.metrics;
                 if (modId === targetModule) {
                     if (live.cardsData) cardsData = live.cardsData;
                     if (live.summarySentence) targetSummarySentence = live.summarySentence;
@@ -794,15 +1017,9 @@ export const resolveTemplateWithLiveData = async (
         metricsOverride: combinedOverrides,
     });
 
-    // If the model's responseTemplate didn't contain a placeholder (e.g. "He navegado a motos apagadas."),
-    // append the live data summary sentence so the written chat message and TTS voice both include the real numbers!
-    // Skip appending if OpenAI already inspected real records on-demand (`onDemandDataUsed === true`).
-    let finalText = resolved.text;
-    if (!hadPlaceholders && !onDemandDataUsed && targetSummarySentence) {
-        finalText = finalText
-            ? `${finalText.replace(/\.*\s*$/, '.')} ${targetSummarySentence}`
-            : targetSummarySentence;
-    }
+    // Do NOT mechanically append summarySentence statistics onto non-empty confirmations,
+    // analytical answers, or clarification prompts (Path A / Path B conversational rule).
+    const finalText = resolved.text || (!onDemandDataUsed && targetSummarySentence ? targetSummarySentence : '');
 
     return {
         ...resolved,
@@ -813,6 +1030,7 @@ export const resolveTemplateWithLiveData = async (
 
 export default {
     RESOLVER_REGISTRY,
+    applyNaturalCountGrammar,
     resolveTemplatePlaceholders,
     resolveTemplateWithLiveData,
     fetchLiveModuleData,
