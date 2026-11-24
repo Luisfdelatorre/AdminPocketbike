@@ -783,8 +783,9 @@ describe('18.7 Natural Conversational Response Generation & Trace Regressions', 
                             usage: { input_tokens: 3200, input_tokens_details: { cached_tokens: 3072 }, output_tokens: 40 },
                         };
                     }
-                    // Step 2: verify previous_response_id and sanitized tool outputs with scopeMetadata
+                    // Step 2: verify previous_response_id, tool_choice: 'none' (prevents empty output_text JSON error), and sanitized tool outputs
                     assert.equal(payload.previous_response_id, 'resp_analytical_step1');
+                    assert.equal(payload.tool_choice, 'none');
                     assert.equal(payload.input.length, MAX_TOOL_CALLS_PER_TURN);
                     const parsedToolData = JSON.parse(payload.input[0].output);
                     assert.equal(parsedToolData.scopeMetadata.isCompleteTotal, true);
@@ -905,5 +906,118 @@ describe('18.7 Natural Conversational Response Generation & Trace Regressions', 
         const shortened = prepareSpokenResponse(longDetailed, { lang: 'es-CO', maxLength: 200 });
         assert.ok(shortened.length < longDetailed.length);
         assert.match(shortened, /Puedes ver el detalle completo en pantalla\.$/);
+    });
+
+    it('supports /reports day-range accumulation and ignores empty/zero year or month values (Trace tr_1795490700149_ua7z4)', async () => {
+        // 1. Validator ignores year: 0 / year: "" / month: 0 instead of throwing validation_error
+        const validatedPlan = validateActionPlan(
+            {
+                scope: 'current_screen',
+                targetModule: 'reports',
+                actions: [
+                    {
+                        name: 'applyFilter',
+                        params: {
+                            module: 'reports',
+                            status: 'selected',
+                            month: 0,
+                            year: 0,
+                            fromDay: 15,
+                            toDay: 21,
+                        },
+                    },
+                ],
+                responseTemplate: 'Listo, seleccioné del 15 al 21.',
+                needsClarification: false,
+            },
+            { currentModule: 'reports' }
+        );
+        assert.equal(validatedPlan.success, true);
+        assert.equal(validatedPlan.data.actions[0].params.fromDay, 15);
+        assert.equal(validatedPlan.data.actions[0].params.toDay, 21);
+        assert.equal(validatedPlan.data.actions[0].params.year, undefined);
+
+        // 2. fetchSanitizedModuleRecords computes exact accumulated totals for reports day range 15..21
+        const reportSample = await fetchSanitizedModuleRecords({
+            module: 'reports',
+            fromDay: 15,
+            toDay: 21,
+            month: 11,
+            year: 2026,
+            auth: { role: 'admin', companyId: 'demo-company' },
+        });
+        assert.equal(reportSample.authorized, true);
+        assert.equal(reportSample.module, 'reports');
+        assert.equal(reportSample.accumulatedTotals.daysCount, 7);
+        assert.ok(reportSample.accumulatedTotals.totalBancolombiaFormatted.startsWith('$'));
+
+        // 3. ScreenBridge on Reports selects matching range and updates UI state
+        let appliedRange = null;
+        registerScreenBridge('reports', {
+            loading: false,
+            activeFilters: { status: 'all', month: 11, year: 2026 },
+            metrics: { filteredCount: 7, totalCount: 30 },
+            applyFilter: (params) => {
+                appliedRange = params;
+                return true;
+            },
+        });
+        const disp = await dispatchActionPlan(validatedPlan.data, {
+            navigate: () => {},
+            currentModule: 'reports',
+            lang: 'es-CO',
+        });
+        assert.equal(disp.ok, true);
+        assert.equal(appliedRange.fromDay, 15);
+        assert.equal(appliedRange.toDay, 21);
+
+        // 4. Contextual fallback from dashboard ("muestrame el la lista de recaudos desde el 15 al 25 de este mes", Trace tr_1795491889783_cl9o9)
+        const fromDashboardFallback = planContextualFallback({
+            text: 'muestrame el la lista de recaudos desde el 15 al 25 de este mes',
+            lang: 'es-CO',
+            applicationContext: { currentRoute: '/', currentModule: 'dashboard', activeFilters: { month: 11, year: 2026 } },
+            conversationHistory: [],
+        });
+        assert.equal(fromDashboardFallback.targetModule, 'reports');
+        assert.equal(fromDashboardFallback.needsClarification, false);
+        assert.equal(fromDashboardFallback.actions[0].name, 'navigate');
+        assert.equal(fromDashboardFallback.actions[1].params.fromDay, 15);
+        assert.equal(fromDashboardFallback.actions[1].params.toDay, 25);
+    });
+
+    it('blocks unverified zero/count hallucinations when OpenAI skips fetch_module_records (Trace tr_1795486833528_pj1pq)', async () => {
+        const mockHallucinatingOpenAi = {
+            responses: {
+                create: async () => ({
+                    id: 'resp_hallucinated_zero',
+                    output: [],
+                    output_text: JSON.stringify({
+                        scope: 'conversation_context',
+                        targetModule: 'payments',
+                        actions: [],
+                        responseTemplate: 'No veo pagos rechazados en este momento.',
+                        needsClarification: false,
+                    }),
+                    usage: { input_tokens: 3100, input_tokens_details: { cached_tokens: 2944 }, output_tokens: 36 },
+                }),
+            },
+        };
+
+        const guarded = await interpretUserRequest({
+            text: 'clases son de hoy',
+            lang: 'es-CO',
+            applicationContext: {
+                currentRoute: '/payments',
+                currentModule: 'payments',
+                activeFilters: { status: 'failed', month: 11, year: 2026 },
+            },
+            conversationHistory: [],
+            user: { role: 'admin', companyId: 'demo-company' },
+            openaiClient: mockHallucinatingOpenAi,
+        });
+
+        assert.equal(guarded.plan.needsClarification, true);
+        assert.equal(guarded.plan.responseTemplate.includes('No veo pagos'), false);
+        assert.match(guarded.plan.responseTemplate, /confirmas qué filtro o período/i);
     });
 });
