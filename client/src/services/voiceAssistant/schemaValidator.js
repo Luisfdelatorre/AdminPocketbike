@@ -137,7 +137,15 @@ export const validateAction = (action, { currentModule = 'dashboard', user = nul
                 }
             }
 
-            if (params.month !== undefined && params.month !== null) {
+            const isProvidedNum = (val) =>
+                val !== undefined &&
+                val !== null &&
+                val !== '' &&
+                val !== 'null' &&
+                val !== 0 &&
+                val !== '0';
+
+            if (isProvidedNum(params.month)) {
                 const m = Number(params.month);
                 if (!Number.isInteger(m) || m < 1 || m > 12) {
                     return { success: false, error: 'month must be an integer between 1 and 12' };
@@ -148,13 +156,35 @@ export const validateAction = (action, { currentModule = 'dashboard', user = nul
                 }
             }
 
-            if (params.year !== undefined && params.year !== null) {
+            if (isProvidedNum(params.year)) {
                 const y = Number(params.year);
                 if (!Number.isInteger(y) || y < 2024 || y > 2030) {
                     return { success: false, error: 'year must be an integer between 2024 and 2030' };
                 }
                 if (mod?.filters?.year) {
                     cleanParams.year = y;
+                    hasAnyFilter = true;
+                }
+            }
+
+            if (isProvidedNum(params.fromDay)) {
+                const fd = Number(params.fromDay);
+                if (!Number.isInteger(fd) || fd < 1 || fd > 31) {
+                    return { success: false, error: 'fromDay must be an integer between 1 and 31' };
+                }
+                if (mod?.filters?.fromDay) {
+                    cleanParams.fromDay = fd;
+                    hasAnyFilter = true;
+                }
+            }
+
+            if (isProvidedNum(params.toDay)) {
+                const td = Number(params.toDay);
+                if (!Number.isInteger(td) || td < 1 || td > 31) {
+                    return { success: false, error: 'toDay must be an integer between 1 and 31' };
+                }
+                if (mod?.filters?.toDay) {
+                    cleanParams.toDay = td;
                     hasAnyFilter = true;
                 }
             }

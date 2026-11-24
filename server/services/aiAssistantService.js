@@ -35,9 +35,9 @@ import {
 import { fetchSanitizedModuleRecords } from './assistantDemoService.js';
 
 const DEFAULT_MODEL = process.env.OPENAI_ASSISTANT_MODEL || 'gpt-4o-mini';
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 420;
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 900;
 const DAILY_TOKEN_CAP = Number(process.env.AI_DAILY_TOKEN_CAP) || 200000;
-const REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS) || 16000;
+const REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS) || 18000;
 export const MAX_TOOL_CALLS_PER_TURN = Math.min(
     Math.max(Number(process.env.AI_MAX_TOOL_CALLS) || 2, 1),
     4
@@ -58,6 +58,9 @@ const MAX_MEMORY_TRACES = 200;
  * for fine-tuning / reinforcement learning evaluation.
  */
 export const recordTrainingTrace = (traceInput = {}) => {
+    if (traceInput.skipDiskWrite) {
+        return null;
+    }
     try {
         if (!fs.existsSync(RL_DATASET_DIR)) {
             fs.mkdirSync(RL_DATASET_DIR, { recursive: true });
@@ -205,9 +208,12 @@ Your job is to understand the user's request in context, choose the right read-o
      * Call the read-only function tool "fetch_module_records" with the appropriate module and active/contextual filters ("module", "status", "alertType", "datePreset", "query", "month", "year", "limit"). Inherit filters from "activeFilters" and "conversationHistory" for follow-up questions ("¿cuántos hay?", "¿cuánto suman?", "¿por qué?").
      * After receiving the tool output, generate a natural conversational answer grounded strictly in the returned data and "scopeMetadata":
        - NEVER use "{{placeholders}}" when you have "fetch_module_records" results; write the verified figures directly in natural prose (e.g., "Los pagos rechazados suman 450 mil pesos." or "Hay un pago rechazado este mes por $225.000.").
+       - Answer ONLY the metric requested: if the user only asks "¿cuántos son?", report the count concisely without volunteering the total sum unless asked; avoid redundant phrasing like "suman un total de" (prefer "suman $X").
        - Only state a definitive count or total when "scopeMetadata.isCompleteCount" / "scopeMetadata.isCompleteTotal" is true. If data is partial or incomplete, say so transparently (e.g., "Por ahora veo un pago rechazado entre los registros cargados, pero todavía no tengo el total completo.").
-       - NEVER fabricate counts, amounts, causes, plates, timestamps, or contract statuses.
-       - Distinguish confirmed findings from hypotheses: for rejected payments ("DECLINED", "ERROR"), if "recordedFailureReason" is null ("exactRejectionCauseStoredInDb": false), report what IS confirmed (plate, amount, method like Nequi/Bancolombia, status, timestamp) and frame bank decline causes as likely possibilities rather than confirmed facts (e.g., "Veo que el pago de PMQ44I por $225.000 por Nequi quedó declinado, aunque el sistema no guarda la causal exacta del banco; normalmente se debe a fondos insuficientes, vencimiento de la notificación o rechazo de autorización.").
+       - NEVER fabricate counts, amounts, zero-results ("No veo...", "No hay..."), causes, plates, timestamps, or contract statuses. You are STRICTLY FORBIDDEN from claiming there are 0 records unless you called "fetch_module_records" in this turn and verified "totalMatching === 0".
+       - Distinguish confirmed findings from hypotheses: for rejected payments ("DECLINED", "ERROR"), if "recordedFailureReason" is null ("exactRejectionCauseStoredInDb": false), report what IS confirmed (plate, amount, method like Nequi/Bancolombia, status, timestamp) and frame bank decline causes as likely possibilities rather than confirmed facts.
+     * REPORTS DAY-RANGE ACCUMULATION ("/reports"): Whenever the user asks (from ANY screen, including "dashboard") for daily collections/recaudos or an accumulated total across a specific day-of-month range (e.g., "genera un acumulado de los días desde el 15 hasta el 21", "muéstrame la lista de recaudos desde el 15 al 25 de este mes"), target module="reports": emit "navigate" (if not already on "reports") + "applyFilter" with {"module":"reports","fromDay":15,"toDay":25,"status":"selected"} AND call "fetch_module_records" with {"module":"reports","fromDay":15,"toDay":25} in Step 1. Because the UI table already displays every selected day row on screen, keep "responseTemplate" concise (state the accumulated totals "totalPaymentsFormatted", "totalCommissionFormatted", "totalBancolombiaFormatted" and how many days had activity rather than writing out a huge day-by-day list).
+     * VOICE & TYPO TOLERANCE: Users often dictate via speech-to-text or type quickly (e.g., "clases son de hoy" = "¿cuáles son de hoy?"). Infer clear phonetic/typing slips from the active screen context (e.g., apply datePreset="today" + call "fetch_module_records"), or if genuinely uncertain, set "needsClarification": true and ask a short natural question — never guess "No veo registros".
    - FAST-PATH PLACEHOLDERS: Reserve "{{placeholders}}" ONLY when you intentionally answer a general overview metric in 1 turn without calling "fetch_module_records" and the placeholder represents a clean single figure.
 4. CONVERSATIONAL STYLE (es-CO):
    - Sound natural, warm, concise, and direct in Colombian Spanish.
@@ -306,6 +312,8 @@ export const ACTION_PLAN_JSON_SCHEMA = Object.freeze({
                                 'datePreset',
                                 'month',
                                 'year',
+                                'fromDay',
+                                'toDay',
                                 'sortBy',
                                 'view',
                                 'query',
@@ -335,6 +343,8 @@ export const ACTION_PLAN_JSON_SCHEMA = Object.freeze({
                                 },
                                 month: { type: ['integer', 'null'] },
                                 year: { type: ['integer', 'null'] },
+                                fromDay: { type: ['integer', 'null'] },
+                                toDay: { type: ['integer', 'null'] },
                                 sortBy: { type: ['string', 'null'] },
                                 view: { type: ['string', 'null'], enum: ['bike', 'matrix', null] },
                                 query: { type: ['string', 'null'] },
@@ -417,6 +427,14 @@ export const FETCH_MODULE_RECORDS_TOOL = Object.freeze({
             year: {
                 type: 'integer',
                 description: 'Optional year (2024-2030).',
+            },
+            fromDay: {
+                type: 'integer',
+                description: 'Optional starting day of the month (1-31) when module="reports".',
+            },
+            toDay: {
+                type: 'integer',
+                description: 'Optional ending day of the month (1-31) when module="reports".',
             },
             limit: {
                 type: 'integer',
@@ -858,6 +876,36 @@ export const planContextualFallback = ({
             responseTemplate: isEn
                 ? `Opening the contract for ${identifier}.`
                 : `Abriendo el contrato de ${identifier}.`,
+        };
+    }
+
+    // 7b. Day-range collections / report accumulation from any screen ("lista de recaudos desde el 15 al 25", "acumulado desde el 15 hasta el 21")
+    const dayRangeMatch = clean.match(
+        /\b(?:desde el|del|entre el)\s+(\d{1,2})\s+(?:hasta el|al|y el)\s+(\d{1,2})\b/
+    );
+    if (
+        dayRangeMatch &&
+        (currentModule === 'reports' ||
+            /\b(reporte|reportes|conciliacion|acumulado|recaudo|recaudos|ingresos|cobros|dias)\b/.test(clean))
+    ) {
+        const d1 = Math.min(31, Math.max(1, Number(dayRangeMatch[1])));
+        const d2 = Math.min(31, Math.max(1, Number(dayRangeMatch[2])));
+        const fromDay = Math.min(d1, d2);
+        const toDay = Math.max(d1, d2);
+        const scope = currentModule === 'reports' ? 'current_screen' : 'other_screen';
+        return {
+            scope,
+            targetModule: 'reports',
+            actions: actionsWithNav('reports', [
+                {
+                    name: 'applyFilter',
+                    params: { module: 'reports', fromDay, toDay, status: 'selected' },
+                },
+            ]),
+            needsClarification: false,
+            responseTemplate: isEn
+                ? `Done, I opened Reports and selected days ${fromDay} through ${toDay} so you can see the daily breakdown and accumulated total.`
+                : `Listo, seleccioné del día ${fromDay} al ${toDay} en reportes para mostrarte la lista y el acumulado.`,
         };
     }
 
@@ -1340,6 +1388,9 @@ export const interpretUserRequest = async ({
                         query: parsedArgs.query ?? activeFilters.searchQuery ?? null,
                         month: parsedArgs.month ?? activeFilters.month ?? null,
                         year: parsedArgs.year ?? activeFilters.year ?? null,
+                        fromDay: parsedArgs.fromDay ?? activeFilters.fromDay ?? null,
+                        toDay: parsedArgs.toDay ?? activeFilters.toDay ?? null,
+                        companyId: activeFilters.companyId ?? null,
                         limit: Math.min(Math.max(Number(parsedArgs.limit) || 8, 1), 12),
                         auth: user,
                     };
@@ -1353,6 +1404,8 @@ export const interpretUserRequest = async ({
                             alertType: fetchArgs.alertType,
                             datePreset: fetchArgs.datePreset,
                             query: fetchArgs.query,
+                            fromDay: fetchArgs.fromDay,
+                            toDay: fetchArgs.toDay,
                             limit: fetchArgs.limit,
                         },
                         recordsReturned: Array.isArray(toolResult?.records)
@@ -1369,12 +1422,16 @@ export const interpretUserRequest = async ({
                 }
 
                 const secondStart = performance.now();
+                // Force tool_choice: 'none' on synthesis step so inherited tools from previous_response_id
+                // cannot emit a second function_call with empty output_text ("Unexpected end of JSON input")
                 response = await openai.responses.create(
                     {
                         model: DEFAULT_MODEL,
                         instructions: prefixInfo.stablePrefix,
                         previous_response_id: response.id,
                         input: toolOutputs,
+                        tools: [FETCH_MODULE_RECORDS_TOOL],
+                        tool_choice: 'none',
                         text: {
                             format: { type: 'json_object' },
                         },
@@ -1416,15 +1473,47 @@ export const interpretUserRequest = async ({
                 user,
             });
 
+            const skipDiskWrite = Boolean(openaiClient);
+
             if (validated.success) {
+                let verifiedData = validated.data;
+                const tpl = verifiedData.responseTemplate || '';
+                const hasPlaceholders = /\{\{\s*[a-zA-Z0-9_.-]+\s*\}\}/.test(tpl);
+                const isSecurityOrOffTopic =
+                    /\b(solo lectura|read-only|no puedo ayudar|no tengo permiso|permission)\b/i.test(tpl);
+                const unverifiedDataClaim =
+                    /\b(?:no veo|no hay|no encontr[eé]|ning[uú]n|there are no|i see \d+|hay \d+\s+(?:pagos?|motos?|alertas?|contratos?|facturas?|comandos?|registros?)|suman\s+\$?[\d.,]+)/i.test(
+                        tpl
+                    ) || /\$\s?\d[\d.,]+/.test(tpl);
+
+                // Hard guard: never let an unverified count, amount, or zero-claim slip through if OpenAI skipped tool calling
+                if (
+                    !onDemandToolCalls &&
+                    !hasPlaceholders &&
+                    !isSecurityOrOffTopic &&
+                    verifiedData.actions.length === 0 &&
+                    !verifiedData.needsClarification &&
+                    unverifiedDataClaim
+                ) {
+                    const isEn = lang === 'en-US';
+                    verifiedData = {
+                        ...verifiedData,
+                        needsClarification: true,
+                        responseTemplate: isEn
+                            ? 'Could you confirm what filter or period you want me to check on this screen?'
+                            : '¿Me confirmas qué filtro o período quieres revisar en esta pantalla para darte el dato exacto?',
+                    };
+                }
+
                 const finalPlan = onDemandToolCalls
-                    ? { ...validated.data, onDemandDataUsed: true }
-                    : validated.data;
+                    ? { ...verifiedData, onDemandDataUsed: true }
+                    : verifiedData;
                 const plannerSource = onDemandToolCalls
                     ? 'openai_responses_with_data'
                     : 'openai_responses';
 
                 recordTrainingTrace({
+                    skipDiskWrite,
                     traceId: activeTraceId,
                     viaVoice,
                     lang,

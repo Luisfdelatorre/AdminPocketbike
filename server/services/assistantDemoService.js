@@ -510,6 +510,9 @@ export const fetchSanitizedModuleRecords = async ({
     query: rawQuery = null,
     month: rawMonth = null,
     year: rawYear = null,
+    fromDay: rawFromDay = null,
+    toDay: rawToDay = null,
+    companyId: rawCompanyId = null,
     limit: rawLimit = 10,
     auth = null,
 } = {}) => {
@@ -547,9 +550,83 @@ export const fetchSanitizedModuleRecords = async ({
 
     const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const parsedFromDay =
+        Number.isInteger(Number(rawFromDay)) && Number(rawFromDay) >= 1 && Number(rawFromDay) <= 31
+            ? Number(rawFromDay)
+            : null;
+    const parsedToDay =
+        Number.isInteger(Number(rawToDay)) && Number(rawToDay) >= 1 && Number(rawToDay) <= 31
+            ? Number(rawToDay)
+            : null;
+    const minDay =
+        parsedFromDay || parsedToDay
+            ? Math.min(parsedFromDay || parsedToDay, parsedToDay || parsedFromDay)
+            : null;
+    const maxDay =
+        parsedFromDay || parsedToDay
+            ? Math.max(parsedFromDay || parsedToDay, parsedToDay || parsedFromDay)
+            : null;
 
     // Offline / disconnected unit-test fallback
     if (mongoose.connection.readyState !== 1) {
+        if (targetModule === 'reports') {
+            const pad2 = (n) => String(n).padStart(2, '0');
+            const demoReportRows = Array.from({ length: 7 }, (_, idx) => {
+                const day = 15 + idx;
+                const payments = 350000;
+                const commission = 12465;
+                const bancolombia = payments - commission;
+                return {
+                    date: `${year}-${pad2(month)}-${pad2(day)}`,
+                    day,
+                    payments,
+                    commission,
+                    bancolombia,
+                    reconciled: day <= 17,
+                };
+            });
+            const inRange = demoReportRows.filter((r) => {
+                if (minDay !== null && r.day < minDay) return false;
+                if (maxDay !== null && r.day > maxDay) return false;
+                return true;
+            });
+            const sumPayments = inRange.reduce((s, r) => s + r.payments, 0);
+            const sumCommission = inRange.reduce((s, r) => s + r.commission, 0);
+            const sumBancolombia = inRange.reduce((s, r) => s + r.bancolombia, 0);
+            return {
+                module: 'reports',
+                authorized: true,
+                demo: true,
+                appliedFilters: {
+                    status: normalizedStatus || 'all',
+                    month,
+                    year,
+                    fromDay: minDay,
+                    toDay: maxDay,
+                },
+                totalMatching: inRange.length,
+                accumulatedTotals: {
+                    daysCount: inRange.length,
+                    totalPaymentsFormatted: formatCOP(sumPayments),
+                    totalCommissionFormatted: formatCOP(sumCommission),
+                    totalBancolombiaFormatted: formatCOP(sumBancolombia),
+                },
+                scopeMetadata: {
+                    isCompleteCount: true,
+                    isCompleteTotal: true,
+                    recordsReturned: inRange.slice(0, maxItems).length,
+                    totalMatching: inRange.length,
+                    isPartialSample: inRange.length > maxItems,
+                },
+                records: inRange.slice(0, maxItems).map((r) => ({
+                    date: r.date,
+                    payments: formatCOP(r.payments),
+                    commission: formatCOP(r.commission),
+                    bancolombia: formatCOP(r.bancolombia),
+                    reconciled: r.reconciled,
+                })),
+            };
+        }
         if (targetModule === 'payments') {
             const demoPayments =
                 normalizedStatus === 'failed'
@@ -1221,6 +1298,85 @@ export const fetchSanitizedModuleRecords = async ({
                         year,
                     },
                     totalMatching,
+                    records,
+                };
+            }
+
+            case 'reports': {
+                const { default: paymentService } = await import('./paymentService.js');
+                const isSystemAdmin =
+                    auth?.isSuperAdmin ||
+                    (auth?.role === 'admin' && (auth?.companyName === 'System' || !auth?.companyId));
+                const targetCompanyId = !isSystemAdmin
+                    ? auth?.companyId || null
+                    : rawCompanyId && rawCompanyId !== 'all'
+                    ? rawCompanyId
+                    : null;
+
+                const reportRes = await paymentService.getDailyReconciliationReport({
+                    month,
+                    year,
+                    companyId: targetCompanyId,
+                });
+                const rawRows = Array.isArray(reportRes?.report) ? reportRes.report : [];
+                const reconciledMap = reportRes?.reconciledDates || {};
+
+                const filteredRows = rawRows.filter((row) => {
+                    const dayNum = Number(String(row.date || '').split('-')[2]);
+                    if (minDay !== null && (!Number.isInteger(dayNum) || dayNum < minDay)) return false;
+                    if (maxDay !== null && (!Number.isInteger(dayNum) || dayNum > maxDay)) return false;
+                    if (searchQuery && !String(row.date || '').includes(searchQuery)) return false;
+
+                    const isRec = Boolean(
+                        reconciledMap[row.date]?.reconciled || reconciledMap[row.date] === true
+                    );
+                    if (normalizedStatus === 'payments') return (row.payments || 0) > 0;
+                    if (normalizedStatus === 'bancolombia') return (row.bancolombia || 0) > 0;
+                    if (normalizedStatus === 'reconciled') return isRec;
+                    if (normalizedStatus === 'pending') return !isRec && (row.payments || 0) > 0;
+                    return true;
+                });
+
+                const sumPayments = filteredRows.reduce((s, r) => s + (Number(r.payments) || 0), 0);
+                const sumCommission = filteredRows.reduce((s, r) => s + (Number(r.commission) || 0), 0);
+                const sumBancolombia = filteredRows.reduce((s, r) => s + (Number(r.bancolombia) || 0), 0);
+                const daysWithPayments = filteredRows.filter((r) => (Number(r.payments) || 0) > 0).length;
+
+                const records = filteredRows.slice(0, maxItems).map((r) => ({
+                    date: r.date,
+                    payments: formatCOP(r.payments || 0),
+                    commission: formatCOP(r.commission || 0),
+                    bancolombia: formatCOP(r.bancolombia || 0),
+                    reconciled: Boolean(
+                        reconciledMap[r.date]?.reconciled || reconciledMap[r.date] === true
+                    ),
+                }));
+
+                return {
+                    module: 'reports',
+                    authorized: true,
+                    appliedFilters: {
+                        status: normalizedStatus || 'all',
+                        month,
+                        year,
+                        fromDay: minDay,
+                        toDay: maxDay,
+                    },
+                    totalMatching: filteredRows.length,
+                    accumulatedTotals: {
+                        daysCount: filteredRows.length,
+                        daysWithPayments,
+                        totalPaymentsFormatted: formatCOP(sumPayments),
+                        totalCommissionFormatted: formatCOP(sumCommission),
+                        totalBancolombiaFormatted: formatCOP(sumBancolombia),
+                    },
+                    scopeMetadata: {
+                        isCompleteCount: true,
+                        isCompleteTotal: true,
+                        recordsReturned: records.length,
+                        totalMatching: filteredRows.length,
+                        isPartialSample: filteredRows.length > records.length,
+                    },
                     records,
                 };
             }

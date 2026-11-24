@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getDailyReconciliationReport, toggleReconciliation, getAllCompanies } from '../services/api';
@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import StatCard from '../components/StatCard';
 import useIsMobile from '../hooks/useIsMobile';
+import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import { useAuth } from '../context/AuthContext';
 import './Reports.css';
 
@@ -29,6 +30,26 @@ const Reports = () => {
     const [copiedTotal, setCopiedTotal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | payments | bancolombia | reconciled | pending | selected
+    const pendingDayRangeRef = useRef(null);
+
+    const selectDatesInDayRange = useCallback((rows, fromDay, toDay) => {
+        const d1 = Number(fromDay) || Number(toDay);
+        const d2 = Number(toDay) || Number(fromDay);
+        if (!d1 || !d2) return [];
+        const minDay = Math.min(d1, d2);
+        const maxDay = Math.max(d1, d2);
+        const matched = (rows || [])
+            .filter((row) => {
+                const dayPart = Number(String(row.date || '').split('-')[2]);
+                return Number.isInteger(dayPart) && dayPart >= minDay && dayPart <= maxDay;
+            })
+            .map((row) => row.date);
+        setSelectedDates(matched);
+        if (matched.length > 0) {
+            setStatusFilter('selected');
+        }
+        return matched;
+    }, []);
 
     const isSystemAdmin = user?.isSuperAdmin || (user?.role === 'admin' && (user?.companyName === 'System' || !user?.companyId));
 
@@ -112,7 +133,13 @@ const Reports = () => {
             const res = await getDailyReconciliationReport(month, year, selectedCompany);
             if (res.success) {
                 setReportData(res.data);
-                setSelectedDates([]);
+                if (pendingDayRangeRef.current) {
+                    const { fromDay, toDay } = pendingDayRangeRef.current;
+                    pendingDayRangeRef.current = null;
+                    selectDatesInDayRange(res.data, fromDay, toDay);
+                } else {
+                    setSelectedDates([]);
+                }
                 if (res.reconciledDates) {
                     setReconciledDates(res.reconciledDates);
                 }
@@ -260,6 +287,70 @@ const Reports = () => {
     const activeRow = reportData.find(row => row.date === activePromptDate);
     const activeAmount = activeRow ? activeRow.bancolombia : 0;
     const activeFormattedDate = activePromptDate ? activePromptDate.split('-').reverse().join('/') : '';
+
+    const selectedPaymentsTotal = selectedRows.reduce((acc, row) => acc + (row.payments || 0), 0);
+    const selectedCommissionTotal = selectedRows.reduce((acc, row) => acc + (row.commission || 0), 0);
+
+    useAssistantScreenBridge('reports', {
+        loading,
+        activeFilters: {
+            status: statusFilter,
+            searchQuery,
+            month,
+            year,
+            ...(selectedCompany && selectedCompany !== 'all' ? { companyId: selectedCompany } : {}),
+        },
+        metrics: {
+            filteredCount: filteredReportData.length,
+            totalCount: reportData.length,
+            totalPayments,
+            totalCommission,
+            totalBancolombia,
+            selectedCount: selectedDates.length,
+            selectedPaymentsTotal,
+            selectedCommissionTotal,
+            selectedBancolombiaTotal: selectedTotal,
+        },
+        applyFilter: (params = {}) => {
+            const nextMonth = params.month ? Number(params.month) : month;
+            const nextYear = params.year ? Number(params.year) : year;
+            const willReload = nextMonth !== month || nextYear !== year;
+
+            if (params.month) setMonth(nextMonth);
+            if (params.year) setYear(nextYear);
+
+            if (params.fromDay || params.toDay) {
+                if (willReload) {
+                    pendingDayRangeRef.current = {
+                        fromDay: params.fromDay || params.toDay,
+                        toDay: params.toDay || params.fromDay,
+                    };
+                } else {
+                    selectDatesInDayRange(
+                        reportData,
+                        params.fromDay || params.toDay,
+                        params.toDay || params.fromDay
+                    );
+                }
+                return true;
+            }
+
+            if (params.status) {
+                setStatusFilter(params.status);
+            }
+            return true;
+        },
+        search: (q = '') => {
+            setSearchQuery(String(q || ''));
+            return true;
+        },
+        clearFilters: () => {
+            setSearchQuery('');
+            setStatusFilter('all');
+            setSelectedDates([]);
+            return true;
+        },
+    });
 
     const handleDownloadReport = () => {
         if (!reportData || reportData.length === 0) return;
