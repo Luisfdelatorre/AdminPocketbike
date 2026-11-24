@@ -550,6 +550,109 @@ export const fetchSanitizedModuleRecords = async ({
 
     // Offline / disconnected unit-test fallback
     if (mongoose.connection.readyState !== 1) {
+        if (targetModule === 'payments') {
+            const demoPayments =
+                normalizedStatus === 'failed'
+                    ? [
+                          {
+                              reference: 'PMQ44I-2026-11-22-BR',
+                              plate: 'PMQ44I',
+                              amount: formatCOP(225000),
+                              rawAmount: 225000,
+                              status: 'DECLINED',
+                              method: 'NEQUI',
+                              invoiceId: 'PMQ44I-2026-11-22',
+                              createdAtLocal: '22/11/2026, 02:50 p. m.',
+                              finalizedAtLocal: '22/11/2026, 02:51 p. m.',
+                              exactCauseStored: false,
+                              recordedFailureReason: null,
+                          },
+                          {
+                              reference: 'NIJ19I-2026-11-23-UF',
+                              plate: 'NIJ19I',
+                              amount: formatCOP(225000),
+                              rawAmount: 225000,
+                              status: 'DECLINED',
+                              method: 'NEQUI',
+                              invoiceId: 'NIJ19I-2026-11-23',
+                              createdAtLocal: '23/11/2026, 09:20 a. m.',
+                              finalizedAtLocal: '23/11/2026, 10:05 a. m.',
+                              exactCauseStored: false,
+                              recordedFailureReason: null,
+                          },
+                      ]
+                    : [
+                          {
+                              reference: 'DMO101-2026-11-23-OK',
+                              plate: 'DMO-101',
+                              amount: formatCOP(35000),
+                              rawAmount: 35000,
+                              status: 'APPROVED',
+                              method: 'NEQUI',
+                              invoiceId: 'DMO-101-2026-11-23',
+                              createdAtLocal: '23/11/2026, 08:15 a. m.',
+                              finalizedAtLocal: '23/11/2026, 08:16 a. m.',
+                          },
+                      ];
+            const filteredDemo = searchQuery
+                ? demoPayments.filter(
+                      (p) =>
+                          p.plate.includes(searchQuery) || p.reference.includes(searchQuery)
+                  )
+                : demoPayments;
+            const totalRaw = filteredDemo.reduce((s, p) => s + (p.rawAmount || 0), 0);
+            const sliced = filteredDemo.slice(0, maxItems).map(({ rawAmount, ...rest }) => rest);
+            return {
+                module: 'payments',
+                authorized: true,
+                demo: true,
+                appliedFilters: {
+                    status: normalizedStatus || 'all',
+                    datePreset: normalizedDatePreset || 'all',
+                    query: searchQuery,
+                    month,
+                    year,
+                },
+                totalMatching: filteredDemo.length,
+                totalAmountFormatted: formatCOP(totalRaw),
+                scopeMetadata: {
+                    isCompleteCount: true,
+                    isCompleteTotal: true,
+                    recordsReturned: sliced.length,
+                    totalMatching: filteredDemo.length,
+                    isPartialSample: filteredDemo.length > sliced.length,
+                    exactRejectionCauseStoredInDb: false,
+                },
+                records: sliced,
+            };
+        }
+
+        const alertRecords = [
+            {
+                plate: 'DMO-118',
+                alertType: rawAlertType || 'UNAUTHORIZED_DRIVING',
+                title: 'Conducción en corte (Sabotaje)',
+                severity: 'CRITICAL',
+                status: 'ACTIVE',
+                timestampLocal: '23/11/2026, 10:02 a. m.',
+                reason: 'Velocidad reportada de 14 km/h con motor en corte activo',
+                speedKmh: 14,
+                cutOffActive: true,
+            },
+            {
+                plate: 'DMO-205',
+                alertType: rawAlertType || 'UNAUTHORIZED_DRIVING',
+                title: 'Conducción en corte (Sabotaje)',
+                severity: 'CRITICAL',
+                status: 'ACTIVE',
+                timestampLocal: '23/11/2026, 09:48 a. m.',
+                reason: 'Velocidad reportada de 9 km/h con motor en corte activo',
+                speedKmh: 9,
+                cutOffActive: true,
+            },
+        ];
+        const fallbackRecords =
+            targetModule === 'alerts' ? alertRecords : DEMO_DATA.cutOffDevices.slice(0, maxItems);
         return {
             module: targetModule,
             authorized: true,
@@ -562,34 +665,15 @@ export const fetchSanitizedModuleRecords = async ({
                 month,
                 year,
             },
-            totalMatching: 2,
-            records:
-                targetModule === 'alerts'
-                    ? [
-                          {
-                              plate: 'DMO-118',
-                              alertType: rawAlertType || 'UNAUTHORIZED_DRIVING',
-                              title: 'Conducción en corte (Sabotaje)',
-                              severity: 'CRITICAL',
-                              status: 'ACTIVE',
-                              timestampLocal: '23/11/2026, 10:02 a. m.',
-                              reason: 'Velocidad reportada de 14 km/h con motor en corte activo',
-                              speedKmh: 14,
-                              cutOffActive: true,
-                          },
-                          {
-                              plate: 'DMO-205',
-                              alertType: rawAlertType || 'UNAUTHORIZED_DRIVING',
-                              title: 'Conducción en corte (Sabotaje)',
-                              severity: 'CRITICAL',
-                              status: 'ACTIVE',
-                              timestampLocal: '23/11/2026, 09:48 a. m.',
-                              reason: 'Velocidad reportada de 9 km/h con motor en corte activo',
-                              speedKmh: 9,
-                              cutOffActive: true,
-                          },
-                      ]
-                    : DEMO_DATA.cutOffDevices.slice(0, maxItems),
+            totalMatching: fallbackRecords.length,
+            scopeMetadata: {
+                isCompleteCount: true,
+                isCompleteTotal: true,
+                recordsReturned: fallbackRecords.length,
+                totalMatching: fallbackRecords.length,
+                isPartialSample: false,
+            },
+            records: fallbackRecords,
         };
     }
 
@@ -772,8 +856,17 @@ export const fetchSanitizedModuleRecords = async ({
                     ];
                 }
 
-                const [totalMatching, docs] = await Promise.all([
-                    Contract.countDocuments(filter),
+                const [aggStats, docs] = await Promise.all([
+                    Contract.aggregate([
+                        { $match: filter },
+                        {
+                            $group: {
+                                _id: null,
+                                count: { $sum: 1 },
+                                totalValue: { $sum: { $ifNull: ['$totalAmount', 0] } },
+                            },
+                        },
+                    ]),
                     Contract.find(filter)
                         .sort({ createdAt: -1 })
                         .limit(maxItems)
@@ -782,6 +875,8 @@ export const fetchSanitizedModuleRecords = async ({
                         )
                         .lean(),
                 ]);
+                const totalMatching = aggStats[0]?.count ?? 0;
+                const totalValueRaw = aggStats[0]?.totalValue ?? 0;
 
                 const records = docs.map((c) => ({
                     contractId: c.contractId,
@@ -805,6 +900,14 @@ export const fetchSanitizedModuleRecords = async ({
                     authorized: true,
                     appliedFilters: { status: normalizedStatus || 'all', query: searchQuery },
                     totalMatching,
+                    totalValueFormatted: formatCOP(totalValueRaw),
+                    scopeMetadata: {
+                        isCompleteCount: true,
+                        isCompleteTotal: true,
+                        recordsReturned: records.length,
+                        totalMatching,
+                        isPartialSample: totalMatching > records.length,
+                    },
                     records,
                 };
             }
@@ -926,27 +1029,54 @@ export const fetchSanitizedModuleRecords = async ({
                     ];
                 }
 
-                const [totalMatching, docs] = await Promise.all([
-                    Payment.countDocuments(filter),
+                const [aggStats, docs] = await Promise.all([
+                    Payment.aggregate([
+                        { $match: filter },
+                        {
+                            $group: {
+                                _id: null,
+                                count: { $sum: 1 },
+                                totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+                            },
+                        },
+                    ]),
                     Payment.find(filter)
                         .sort({ created_at: -1 })
                         .limit(maxItems)
                         .select(
-                            'reference deviceIdName amount status type payment_method_type adjustmentType created_at finalized_at invoiceId'
+                            'reference deviceIdName amount status type payment_method_type paymentMethod adjustmentType created_at finalized_at invoiceId'
                         )
                         .lean(),
                 ]);
+                const totalMatching = aggStats[0]?.count ?? 0;
+                const totalAmountRaw = aggStats[0]?.totalAmount ?? 0;
 
-                const records = docs.map((p) => ({
-                    reference: p.reference,
-                    plate: p.deviceIdName,
-                    amount: formatCOP(p.amount || 0),
-                    status: p.status,
-                    method: p.payment_method_type || p.type,
-                    invoiceId: p.invoiceId,
-                    createdAtLocal: formatLocalTimeEsCO(p.created_at),
-                    finalizedAtLocal: formatLocalTimeEsCO(p.finalized_at),
-                }));
+                const records = docs.map((p) => {
+                    const st = String(p.status || '').toUpperCase();
+                    const isFailedStatus = [
+                        'DECLINED',
+                        'REJECTED',
+                        'ERROR',
+                        'FAILED',
+                        'VOIDED',
+                    ].includes(st);
+                    return {
+                        reference: p.reference,
+                        plate: p.deviceIdName,
+                        amount: formatCOP(p.amount || 0),
+                        status: p.status,
+                        method: p.payment_method_type || p.paymentMethod || p.type,
+                        invoiceId: p.invoiceId,
+                        createdAtLocal: formatLocalTimeEsCO(p.created_at),
+                        finalizedAtLocal: formatLocalTimeEsCO(p.finalized_at),
+                        ...(isFailedStatus
+                            ? {
+                                  exactCauseStored: false,
+                                  recordedFailureReason: null,
+                              }
+                            : {}),
+                    };
+                });
 
                 return {
                     module: 'payments',
@@ -959,6 +1089,15 @@ export const fetchSanitizedModuleRecords = async ({
                         year,
                     },
                     totalMatching,
+                    totalAmountFormatted: formatCOP(totalAmountRaw),
+                    scopeMetadata: {
+                        isCompleteCount: true,
+                        isCompleteTotal: true,
+                        recordsReturned: records.length,
+                        totalMatching,
+                        isPartialSample: totalMatching > records.length,
+                        exactRejectionCauseStoredInDb: false,
+                    },
                     records,
                 };
             }
@@ -979,14 +1118,25 @@ export const fetchSanitizedModuleRecords = async ({
                     filter.deviceIdName = { $regex: searchQuery, $options: 'i' };
                 }
 
-                const [totalMatching, docs] = await Promise.all([
-                    Invoice.countDocuments(filter),
+                const [aggStats, docs] = await Promise.all([
+                    Invoice.aggregate([
+                        { $match: filter },
+                        {
+                            $group: {
+                                _id: null,
+                                count: { $sum: 1 },
+                                totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+                            },
+                        },
+                    ]),
                     Invoice.find(filter)
                         .sort({ date: -1 })
                         .limit(maxItems)
                         .select('invoiceId deviceIdName date amount paidAmount paid dayType cutOff')
                         .lean(),
                 ]);
+                const totalMatching = aggStats[0]?.count ?? 0;
+                const totalAmountRaw = aggStats[0]?.totalAmount ?? 0;
 
                 const records = docs.map((inv) => ({
                     invoiceId: inv.invoiceId,
@@ -1008,6 +1158,14 @@ export const fetchSanitizedModuleRecords = async ({
                         year,
                     },
                     totalMatching,
+                    totalAmountFormatted: formatCOP(totalAmountRaw),
+                    scopeMetadata: {
+                        isCompleteCount: true,
+                        isCompleteTotal: true,
+                        recordsReturned: records.length,
+                        totalMatching,
+                        isPartialSample: totalMatching > records.length,
+                    },
                     records,
                 };
             }

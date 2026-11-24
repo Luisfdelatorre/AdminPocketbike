@@ -165,6 +165,55 @@ export const stopSpeaking = () => {
 };
 
 /**
+ * Cleans and optionally shortens conversational text for speech synthesis (`speechSynthesis`).
+ *  - Strips technical metadata, raw JSON blocks, markdown formatting (`**`, `` ` ``, `#`),
+ *    and internal enum codes so TTS never reads machine artifacts aloud.
+ *  - Optionally shortens multi-item lists or overly long responses unless `keepFullList` is true.
+ */
+export const prepareSpokenResponse = (
+    text = '',
+    { lang = 'es-CO', maxLength = 340, keepFullList = false } = {}
+) => {
+    let clean = String(text || '').trim();
+    if (!clean) return '';
+
+    // Remove fenced code/JSON blocks or inline raw JSON objects if any ever appear
+    clean = clean
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/\{[\s\S]*?"[a-zA-Z0-9_]+"[\s\S]*?\}/g, ' ')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/^#+\s+/gm, '')
+        .replace(/\s*\n+\s*/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    if (keepFullList || clean.length <= maxLength) {
+        return clean;
+    }
+
+    // Shorten long spoken explanations at a natural sentence boundary
+    const sentences = clean.match(/[^.!?]+[.!?]+/g);
+    if (sentences && sentences.length > 2) {
+        let acc = '';
+        for (const s of sentences) {
+            if ((acc + s).length > maxLength && acc.length > 0) break;
+            acc += s;
+        }
+        const trimmed = acc.trim();
+        if (trimmed && trimmed.length < clean.length) {
+            const suffix =
+                lang === 'en-US'
+                    ? ' You can check the full detail on screen.'
+                    : ' Puedes ver el detalle completo en pantalla.';
+            return `${trimmed}${suffix}`;
+        }
+    }
+
+    return clean;
+};
+
+/**
  * Speaks `text` aloud and triggers lifecycle callbacks.
  * @param {string} text
  * @param {{
@@ -281,6 +330,7 @@ export default {
     getAvailableVoices,
     onVoicesUpdated,
     isTTSSupported,
+    prepareSpokenResponse,
     speakText,
     stopSpeaking,
     unlockTTS,
