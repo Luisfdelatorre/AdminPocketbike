@@ -115,6 +115,8 @@ const AiTelemetry = () => {
     const computedStats = useMemo(() => {
         let totalInput = 0;
         let totalCached = 0;
+        let totalCostUSD = 0;
+        let totalSavingsUSD = 0;
         let latencySum = 0;
         let latencyCount = 0;
         let openAiCount = 0;
@@ -131,8 +133,12 @@ const AiTelemetry = () => {
             } else if (t.plannerSource === 'contextual_planner') fallbackCount += 1;
 
             const m = t.metrics || {};
-            if (typeof m.input_tokens === 'number') totalInput += m.input_tokens;
-            if (typeof m.cached_tokens === 'number') totalCached += m.cached_tokens;
+            const inTok = typeof m.inputTokens === 'number' ? m.inputTokens : m.input_tokens;
+            const cTok = typeof m.cachedTokens === 'number' ? m.cachedTokens : m.cached_tokens;
+            if (typeof inTok === 'number') totalInput += inTok;
+            if (typeof cTok === 'number') totalCached += cTok;
+            if (typeof m.estimatedCostUSD === 'number') totalCostUSD += m.estimatedCostUSD;
+            if (typeof m.estimatedSavingsUSD === 'number') totalSavingsUSD += m.estimatedSavingsUSD;
             if (typeof m.latency_ms === 'number' && m.latency_ms > 0) {
                 latencySum += m.latency_ms;
                 latencyCount += 1;
@@ -148,6 +154,8 @@ const AiTelemetry = () => {
         return {
             totalInput,
             totalCached,
+            totalCostUSD,
+            totalSavingsUSD,
             cacheHitPct,
             avgLatencyMs,
             openAiCount,
@@ -264,6 +272,15 @@ const AiTelemetry = () => {
                             {computedStats.totalCached.toLocaleString()} /{' '}
                             {computedStats.totalInput.toLocaleString()} tokens cacheados
                         </span>
+                        {computedStats.totalCostUSD > 0 && (
+                            <>
+                                <span>·</span>
+                                <span style={{ color: '#0f766e', fontWeight: 600 }}>
+                                    Costo: ${computedStats.totalCostUSD.toFixed(4)} (ahorro: $
+                                    {computedStats.totalSavingsUSD.toFixed(4)})
+                                </span>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -629,12 +646,50 @@ const AiTelemetry = () => {
                                             <>
                                                 <span className="ait-metric-item">
                                                     Tokens In: <strong>{m.input_tokens}</strong> (
-                                                    Cached: <strong>{m.cached_tokens ?? 0}</strong>)
+                                                    Cached: <strong>{m.cached_tokens ?? 0}</strong>
+                                                    {typeof m.uncachedTokens === 'number' && (
+                                                        <>
+                                                            {' '}
+                                                            · Uncached:{' '}
+                                                            <strong>{m.uncachedTokens}</strong>
+                                                        </>
+                                                    )}
+                                                    )
                                                 </span>
                                                 <span className="ait-metric-item">
                                                     Tokens Out: <strong>{m.output_tokens}</strong>
                                                 </span>
                                             </>
+                                        )}
+
+                                        {m.promptVersion && (
+                                            <span className="ait-metric-item">
+                                                Prompt: <strong>{m.promptVersion}</strong>
+                                            </span>
+                                        )}
+
+                                        {typeof m.estimatedCostUSD === 'number' &&
+                                            m.estimatedCostUSD > 0 && (
+                                                <span className="ait-metric-item">
+                                                    Costo:{' '}
+                                                    <strong>
+                                                        ${m.estimatedCostUSD.toFixed(6)}
+                                                    </strong>
+                                                    {typeof m.estimatedSavingsUSD === 'number' &&
+                                                        m.estimatedSavingsUSD > 0 && (
+                                                            <span style={{ color: '#059669' }}>
+                                                                {' '}
+                                                                (-$
+                                                                {m.estimatedSavingsUSD.toFixed(6)})
+                                                            </span>
+                                                        )}
+                                                </span>
+                                            )}
+
+                                        {m.responsePath && (
+                                            <span className="ait-metric-item">
+                                                Ruta: <strong>{m.responsePath}</strong>
+                                            </span>
                                         )}
 
                                         {cacheRatioPct !== null && (
