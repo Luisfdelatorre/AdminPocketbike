@@ -48,6 +48,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **24** | Estandarización de Cabecera, Filtros y Stats en Alertas (`Alerts.jsx`) | 🧪 En validación | Migración de la cabecera desktop a `PageHeader.Desktop` con `MonthYearSelector` y botón SSE, cabecera móvil con `datePicker`, tarjeta consolidada `.mobile-metrics-card` en móvil, cuadrícula de 4 `StatCard` (`.devices-stats-ios.payments-stats-grid`) en escritorio, y filtros unificados en `.mobile-filter-section` y `SearchAndFilterBar`. |
 | **25** | Estandarización de Cabecera, Filtros y Stats en Comandos (`CommandHistory.jsx`) | 🧪 En validación | Adición de breadcrumbs en `PageHeader.Desktop`, `datePicker` en `PageHeader.Mobile`, tarjeta reutilizable `MobileMetricsCard` en móvil, cuadrícula de 3 `StatCard` (`.devices-stats-ios`) en escritorio arriba de los filtros, y filtros unificados en `.mobile-filter-section` y `SearchAndFilterBar`. |
 | **26** | Panel Bottom Sheet del Asistente de Voz (demo) (`VoiceAssistantPanel.jsx`) | 🧪 En validación | FAB teal y tarjeta estilo Bottom Sheet (`height: 84dvh` en móvil) sobre backdrop con `backdrop-filter: blur(10px)` a pantalla completa (`z-index: 1350`), cubriendo la barra de navegación inferior (`MobileBottomNav`) y dejando una franja superior desenfocada visible; gestos táctiles de **Swipe Up / Swipe Down** en vivo sobre el tirador y cabecera (deslizar abajo reduce a modo compacto o cierra; deslizar arriba desde modo compacto vuelve a expandir); se reduce automáticamente a modo compacto (`~27dvh`, sin blur ni bloqueo de fondo) al navegar a una sección; selector integrado de Modo de voz y Voz/Acento; sin auto-focus ni `<form>` en móvil/iOS. Pendiente aprobación visual. |
+| **27** | Filtro «Pendientes» de Facturas no coincide con su contador (`Invoices.jsx`) | 🧪 En validación | El chip mostraba `stats.unpaid` (`paid: false`) pero filtraba `dayType === 'PENDING'` (sólo reservas de pago en curso), mostrando 0–1 facturas. Ahora «Pendientes» filtra `paid: false` en servidor (`invoiceServices.js`) y cliente, coherente con el contador. Pendiente validación con datos reales. |
 
 ---
 
@@ -570,3 +571,18 @@ La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba diverge
 
 
 
+
+---
+
+## 27. Filtro «Pendientes» de Facturas no coincide con su contador
+
+### El Problema
+* En [Invoices.jsx](client/src/pages/Invoices.jsx) el chip «Pendientes» mostraba como contador `stats.unpaid` (todas las facturas con `paid: false`), pero al activarlo el servidor filtraba `dayType === 'PENDING'`.
+* En el modelo, `dayType: 'PENDING'` sólo indica una reserva temporal de pago en curso (`Invoice.reserve`); las facturas sin pagar nacen y permanecen como `DEBT` (o `FREEPASS`). Resultado: el contador decía, por ejemplo, 40 pendientes y la lista mostraba 0 o 1.
+* En móvil no existía forma de listar las facturas sin pagar, porque el filtro «Deudas» sólo aparece en escritorio.
+
+### Solución Implementada
+* «Pendientes» significa ahora **toda factura no pagada** (`paid: false`), la misma regla que `stats.unpaid` y que la herramienta de datos del asistente.
+* Servidor: `getAllInvoices` en `server/services/invoiceServices.js` traduce `status=PENDING` a `{ paid: false }` y expone `paid` en cada factura.
+* Cliente: el filtrado local de `Invoices.jsx` aplica `paid === false` para `PENDING`; el resto de filtros sigue comparando `dayType` / `adjustmentType`.
+* «Deudas» (`DEBT`, escritorio) se mantiene como subconjunto de facturas vencidas.
