@@ -252,7 +252,7 @@ const resources = {
                 filterUnpaid: 'Unpaid',
                 filterPending: 'Pending',
                 stats: {
-                    total: 'Total',
+                    collected: 'Collected',
                     paid: 'Paid',
                     unpaid: 'Debts',
                     invoices: 'Invoices'
@@ -684,7 +684,7 @@ const resources = {
                 filterUnpaid: 'Pendientes',
                 filterPending: 'En Proceso',
                 stats: {
-                    total: 'Total',
+                    collected: 'Recaudado',
                     paid: 'Pagadas',
                     unpaid: 'Deudas',
                     invoices: 'Facturas'

@@ -585,7 +585,7 @@ const Invoices = () => {
             ) : (
                 <div className="payment-stats">
                     <StatCard
-                        title={t('invoices.stats.total')}
+                        title={t('invoices.stats.collected')}
                         value={formatCurrency(stats.totalAmount)}
                         iconBg="var(--brand-teal)"
                     />

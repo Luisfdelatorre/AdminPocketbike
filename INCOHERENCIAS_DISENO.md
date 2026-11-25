@@ -49,6 +49,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **25** | Estandarización de Cabecera, Filtros y Stats en Comandos (`CommandHistory.jsx`) | 🧪 En validación | Adición de breadcrumbs en `PageHeader.Desktop`, `datePicker` en `PageHeader.Mobile`, tarjeta reutilizable `MobileMetricsCard` en móvil, cuadrícula de 3 `StatCard` (`.devices-stats-ios`) en escritorio arriba de los filtros, y filtros unificados en `.mobile-filter-section` y `SearchAndFilterBar`. |
 | **26** | Panel Bottom Sheet del Asistente de Voz (demo) (`VoiceAssistantPanel.jsx`) | 🧪 En validación | FAB teal y tarjeta estilo Bottom Sheet (`height: 84dvh` en móvil) sobre backdrop con `backdrop-filter: blur(10px)` a pantalla completa (`z-index: 1350`), cubriendo la barra de navegación inferior (`MobileBottomNav`) y dejando una franja superior desenfocada visible; gestos táctiles de **Swipe Up / Swipe Down** en vivo sobre el tirador y cabecera (deslizar abajo reduce a modo compacto o cierra; deslizar arriba desde modo compacto vuelve a expandir); se reduce automáticamente a modo compacto (`~27dvh`, sin blur ni bloqueo de fondo) al navegar a una sección; selector integrado de Modo de voz y Voz/Acento; sin auto-focus ni `<form>` en móvil/iOS. Pendiente aprobación visual. |
 | **27** | Filtro «Pendientes» de Facturas no coincide con su contador (`Invoices.jsx`) | 🧪 En validación | El chip mostraba `stats.unpaid` (`paid: false`) pero filtraba `dayType === 'PENDING'` (sólo reservas de pago en curso), mostrando 0–1 facturas. Ahora «Pendientes» filtra `paid: false` en servidor (`invoiceServices.js`) y cliente, coherente con el contador. Pendiente validación con datos reales. |
+| **28** | Tarjeta «Total» de Facturas muestra lo recaudado (`Invoices.jsx`) | 🧪 En validación | La StatCard de escritorio titulada «Total» mostraba `stats.totalAmount`, que es la suma de `paidAmount` (lo ya cobrado). Ahora se titula «Recaudado» / «Collected» (`invoices.stats.collected`). Pendiente aprobación visual. |
 
 ---
 
@@ -586,3 +587,13 @@ La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba diverge
 * Servidor: `getAllInvoices` en `server/services/invoiceServices.js` traduce `status=PENDING` a `{ paid: false }` y expone `paid` en cada factura.
 * Cliente: el filtrado local de `Invoices.jsx` aplica `paid === false` para `PENDING`; el resto de filtros sigue comparando `dayType` / `adjustmentType`.
 * «Deudas» (`DEBT`, escritorio) se mantiene como subconjunto de facturas vencidas.
+
+---
+
+## 28. Tarjeta «Total» de Facturas muestra lo recaudado
+
+### El Problema
+* En escritorio, la primera `StatCard` de [Invoices.jsx](client/src/pages/Invoices.jsx) se titulaba «Total» pero mostraba `stats.totalAmount`, calculado en `invoiceRepository.getInvoiceStats` como la suma de `paidAmount`: lo ya recaudado del mes, no el total facturado ni el pendiente.
+
+### Solución Implementada
+* La tarjeta se titula «Recaudado» (es) / «Collected» (en) mediante la nueva clave `invoices.stats.collected` en `client/src/i18n.js`; el valor no cambia.
