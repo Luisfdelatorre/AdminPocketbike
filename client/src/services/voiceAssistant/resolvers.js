@@ -102,12 +102,17 @@ export const applyNaturalCountGrammar = (text = '', lang = 'es-CO') => {
         [/\b1\s+motos\s+disponibles\b/gi, 'una moto disponible'],
         [/\b1\s+motos\s+encendidas\b/gi, 'una moto encendida'],
         [/\b1\s+motos\s+filtradas\b/gi, 'una moto filtrada'],
+        [/\b1\s+motos\s+en\s+deuda\b/gi, 'una moto en deuda'],
+        [/\b1\s+motos\s+con\s+deuda\b/gi, 'una moto con deuda'],
+        [/\b1\s+motos\s+en\s+mora\b/gi, 'una moto en mora'],
+        [/\b1\s+motos\s+con\s+falla\b/gi, 'una moto con falla'],
         [/\b1\s+motos\b/gi, 'una moto'],
         [/\b1\s+alertas\s+activas\b/gi, 'una alerta activa'],
         [/\b1\s+alertas\s+cr[ií]ticas\b/gi, 'una alerta crítica'],
         [/\b1\s+alertas\b/gi, 'una alerta'],
         [/\b1\s+facturas\s+pendientes\b/gi, 'una factura pendiente'],
         [/\b1\s+facturas\s+pagadas\b/gi, 'una factura pagada'],
+        [/\b1\s+facturas\s+sin\s+pagar\b/gi, 'una factura sin pagar'],
         [/\b1\s+facturas\b/gi, 'una factura'],
     ];
     for (const [pattern, replacement] of femRules) {
@@ -125,6 +130,8 @@ export const applyNaturalCountGrammar = (text = '', lang = 'es-CO') => {
         [/\b1\s+contratos\s+finalizados\b/gi, 'un contrato finalizado'],
         [/\b1\s+contratos\s+cancelados\b/gi, 'un contrato cancelado'],
         [/\b1\s+contratos\s+semanales\b/gi, 'un contrato semanal'],
+        [/\b1\s+contratos\s+en\s+deuda\b/gi, 'un contrato en deuda'],
+        [/\b1\s+contratos\s+en\s+mora\b/gi, 'un contrato en mora'],
         [/\b1\s+contratos\b/gi, 'un contrato'],
         [/\b1\s+comandos\s+fallidos\b/gi, 'un comando fallido'],
         [/\b1\s+comandos\s+enviados\b/gi, 'un comando enviado'],
@@ -281,6 +288,14 @@ export const RESOLVER_REGISTRY = Object.freeze({
             typeof metrics.unpaidCount === 'number' ? String(metrics.unpaidCount) : null,
         fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
     },
+    'invoices.unpaidAmount': {
+        module: 'invoices',
+        isGlobal: true,
+        resolveStructured: (metrics) => buildCurrencyResolution(metrics.unpaidAmount),
+        resolve: (metrics) =>
+            typeof metrics.unpaidAmount === 'number' ? formatCOP(metrics.unpaidAmount) : null,
+        fallback: (lang) => (lang === 'en-US' ? 'unavailable' : 'no disponible'),
+    },
     'invoices.totalAmount': {
         module: 'invoices',
         isGlobal: true,
@@ -370,7 +385,7 @@ export const RESOLVER_REGISTRY = Object.freeze({
  */
 export const resolveTemplatePlaceholders = (
     template = '',
-    { user = null, lang = 'es-CO', metricsOverride = null } = {}
+    { user = null, lang = 'es-CO', metricsOverride = null, hasUiActions = false } = {}
 ) => {
     const cleanTemplate = sanitizePlainText(template);
     if (!cleanTemplate.includes('{{')) {
@@ -391,7 +406,7 @@ export const resolveTemplatePlaceholders = (
     let hasMissingMetrics = false;
     let partialMeta = null;
 
-    const rawReplaced = cleanTemplate.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, rawKey) => {
+    const rawReplaced = cleanTemplate.replace(/\{\{([^{}]*)\}\}/g, (_, rawKey) => {
         const key = String(rawKey).trim();
         const def = RESOLVER_REGISTRY[key];
 
@@ -447,12 +462,16 @@ export const resolveTemplatePlaceholders = (
         }
     });
 
-    // If metrics were missing and there were no security markers to surface, explain naturally instead of fabricating 0
-    if (hasMissingMetrics && !hasUnknownOrRestricted && Object.keys(resolvedPlaceholders).length === 0) {
-        const missingMsg =
-            lang === 'en-US'
-                ? "I don't have the complete data loaded on screen yet to confirm that figure."
-                : 'Todavía no tengo los datos cargados en pantalla para confirmarte ese valor con exactitud.';
+    // If ANY required metric was missing and there were no security markers to surface,
+    // use a clean safe fallback instead of fabricating 0 or leaking "no disponible" mid-sentence.
+    if (hasMissingMetrics && !hasUnknownOrRestricted) {
+        const missingMsg = hasUiActions
+            ? lang === 'en-US'
+                ? 'Here is the filtered view on screen.'
+                : 'Ya apliqué el filtro en pantalla.'
+            : lang === 'en-US'
+            ? "I don't have the complete data loaded on screen yet to confirm that figure."
+            : 'Todavía no tengo los datos cargados en pantalla para confirmarte ese valor con exactitud.';
         return {
             text: missingMsg,
             resolvedPlaceholders,
@@ -495,6 +514,9 @@ export const resolveTemplatePlaceholders = (
             text = `${text.replace(/\.*\s*$/, '.')} ${scopeExplanation}`;
         }
     }
+
+    // Hard guarantee (Section 11): never expose any residual `{{` or `}}` marker to the user
+    text = text.replace(/\{\{[^{}]*\}\}/g, lang === 'en-US' ? '[unavailable]' : '[no disponible]');
 
     return {
         text,
@@ -690,15 +712,38 @@ export const fetchLiveModuleData = async (moduleId, activeFilters = {}) => {
                     globalTotalCount,
                     isPaginated: Number(pagination.totalPages || 1) > 1,
                 };
+                const paymentStatusEs = (raw) => {
+                    const st = String(raw || '').toUpperCase();
+                    if (st === 'APPROVED' || st === 'COMPLETED') return 'Aprobado';
+                    if (st === 'PENDING' || st === 'VERIFYING') return 'Pendiente';
+                    if (st === 'DECLINED' || st === 'FAILED' || st === 'REJECTED') return 'Rechazado';
+                    if (st === 'ERROR') return 'Error';
+                    return raw || '';
+                };
                 const cardsData =
                     filtered.length > 0
                         ? {
                               kind: 'list',
-                              items: filtered.slice(0, 5).map((p) => ({
-                                  title: p.deviceId || p.deviceIdName || 'Pago',
-                                  subtitle: p.invoiceId || p.paymentReference || p.status || '',
-                                  value: formatCOP(p.amount || 0),
-                              })),
+                              items: filtered.slice(0, 5).map((p) => {
+                                  const dateShort = p.createdAt
+                                      ? new Date(p.createdAt).toLocaleDateString('es-CO', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                        })
+                                      : '';
+                                  const sub = [
+                                      paymentStatusEs(p.status),
+                                      p.paymentMethod || p.type || '',
+                                      dateShort,
+                                  ]
+                                      .filter(Boolean)
+                                      .join(' · ');
+                                  return {
+                                      title: p.deviceId || p.deviceIdName || 'Pago',
+                                      subtitle: sub || p.invoiceId || p.paymentReference || '',
+                                      value: formatCOP(p.amount || 0),
+                                  };
+                              }),
                           }
                         : null;
                 return { metrics, summarySentence, cardsData };
@@ -795,7 +840,11 @@ export const fetchLiveModuleData = async (moduleId, activeFilters = {}) => {
                 const filteredTotalValue = filtered.reduce((s, c) => s + (Number(c.totalAmount) || 0), 0);
                 const activeCount = contracts.filter((c) => c.status === 'ACTIVE').length;
                 const completedCount = contracts.filter((c) => c.status === 'COMPLETED').length;
-                const summarySentence = `Se muestran ${filtered.length} contratos (${activeCount} activos y ${completedCount} finalizados de ${contracts.length} totales) por un valor de ${formatCOP(filteredTotalValue)}.`;
+                const statusBreakdown =
+                    completedCount > 0
+                        ? `${activeCount} activos y ${completedCount} finalizados`
+                        : `${activeCount} activos`;
+                const summarySentence = `Tienes ${filtered.length} contratos (${statusBreakdown}) por un valor total de ${formatCOP(filteredTotalValue)}.`;
                 const metrics = {
                     filteredCount: filtered.length,
                     filteredTotalValue,
@@ -825,6 +874,7 @@ export const fetchLiveModuleData = async (moduleId, activeFilters = {}) => {
                     paidCount: Number(st.paid || 0),
                     unpaidCount: Number(st.unpaid || 0),
                     totalAmount: Number(st.totalAmount || 0),
+                    unpaidAmount: Number(st.unpaidAmount || 0),
                 };
                 const summarySentence = `En el mes hay ${metrics.totalCount} facturas diarias: ${metrics.paidCount} pagadas y ${metrics.unpaidCount} pendientes, por un monto total de ${formatCOP(metrics.totalAmount)}.`;
                 const cardsData = {
@@ -943,6 +993,62 @@ export const fetchLiveModuleData = async (moduleId, activeFilters = {}) => {
 };
 
 /**
+ * Verifies that a mounted `ScreenBridge` matches the expected tenant (`companyId`)
+ * and requested filter scope (`status`, `alertType`, `datePreset`, `month`, `year`, `query`)
+ * before trusting its cached `metrics` for local placeholder enrichment.
+ */
+export const doesBridgeMatchScope = (bridge, { activeFilters = {}, user = null } = {}) => {
+    if (!bridge || bridge.loading || !bridge.metrics || Object.keys(bridge.metrics).length === 0) {
+        return false;
+    }
+
+    const userCompanyId = user?.companyId ? String(user.companyId) : null;
+    const bridgeCompanyId =
+        bridge.companyId || bridge.activeFilters?.companyId
+            ? String(bridge.companyId || bridge.activeFilters.companyId)
+            : null;
+    if (userCompanyId && bridgeCompanyId && userCompanyId !== bridgeCompanyId) {
+        return false;
+    }
+
+    const bridgeFilters = bridge.activeFilters || {};
+    const requested = activeFilters || {};
+
+    const compareStringKey = (reqVal, bridgeVal) => {
+        if (reqVal === undefined || reqVal === null || reqVal === '') return true;
+        if (bridgeVal === undefined || bridgeVal === null || bridgeVal === '') return true;
+        return String(reqVal).trim().toLowerCase() === String(bridgeVal).trim().toLowerCase();
+    };
+
+    if (!compareStringKey(requested.status, bridgeFilters.status)) return false;
+    if (!compareStringKey(requested.alertType, bridgeFilters.alertType)) return false;
+    if (!compareStringKey(requested.datePreset, bridgeFilters.datePreset)) return false;
+    if (!compareStringKey(requested.query, bridgeFilters.searchQuery ?? bridgeFilters.query)) {
+        return false;
+    }
+    if (
+        requested.month !== undefined &&
+        requested.month !== null &&
+        bridgeFilters.month !== undefined &&
+        bridgeFilters.month !== null &&
+        Number(requested.month) !== Number(bridgeFilters.month)
+    ) {
+        return false;
+    }
+    if (
+        requested.year !== undefined &&
+        requested.year !== null &&
+        bridgeFilters.year !== undefined &&
+        bridgeFilters.year !== null &&
+        Number(requested.year) !== Number(bridgeFilters.year)
+    ) {
+        return false;
+    }
+
+    return true;
+};
+
+/**
  * Asynchronous resolver that inspects all `{{module.key}}` placeholders in `template`
  * (plus the target module of the executed plan), fetches any missing live data from the API,
  * and returns both the resolved text and real visual `cardsData`.
@@ -956,6 +1062,7 @@ export const resolveTemplateWithLiveData = async (
         lang = 'es-CO',
         metricsOverride = null,
         onDemandDataUsed = false,
+        hasUiActions = false,
     } = {}
 ) => {
     const combinedOverrides = { ...(metricsOverride || {}) };
@@ -981,29 +1088,29 @@ export const resolveTemplateWithLiveData = async (
         if (combinedOverrides[modId]) continue;
 
         const bridge = getScreenBridge(modId);
-        const hasLoadedBridge =
-            bridge &&
-            !bridge.loading &&
-            bridge.metrics &&
-            Object.keys(bridge.metrics).length > 0;
+        const isTargetMod = modId === targetModule;
+        const hasValidBridge = doesBridgeMatchScope(bridge, {
+            activeFilters: isTargetMod ? activeFilters : {},
+            user,
+        });
 
-        if (hasLoadedBridge) {
+        if (hasValidBridge) {
             combinedOverrides[modId] = bridge.metrics;
-            if (modId === targetModule && bridge.cardsData) {
+            if (isTargetMod && bridge.cardsData) {
                 cardsData = bridge.cardsData;
             }
         }
 
-        // Fetch live data from the API ONLY when placeholders need metrics that are not yet mounted in ScreenBridge
-        if (!hasLoadedBridge && (hadPlaceholders || !template)) {
+        // Fetch live data from the API when placeholders need metrics not mounted or stale in ScreenBridge
+        if (!hasValidBridge && (hadPlaceholders || !template)) {
             const effectiveFilters =
-                bridge?.activeFilters && Object.keys(bridge.activeFilters).length > 0
-                    ? { ...bridge.activeFilters, ...activeFilters }
-                    : activeFilters;
+                isTargetMod && Object.keys(activeFilters || {}).length > 0
+                    ? { ...(bridge?.activeFilters || {}), ...activeFilters }
+                    : bridge?.activeFilters || {};
             const live = await fetchLiveModuleData(modId, effectiveFilters);
             if (live?.metrics) {
                 combinedOverrides[modId] = live.metrics;
-                if (modId === targetModule) {
+                if (isTargetMod) {
                     if (live.cardsData) cardsData = live.cardsData;
                     if (live.summarySentence) targetSummarySentence = live.summarySentence;
                 }
@@ -1015,6 +1122,7 @@ export const resolveTemplateWithLiveData = async (
         user,
         lang,
         metricsOverride: combinedOverrides,
+        hasUiActions,
     });
 
     // Do NOT mechanically append summarySentence statistics onto non-empty confirmations,
@@ -1031,6 +1139,7 @@ export const resolveTemplateWithLiveData = async (
 export default {
     RESOLVER_REGISTRY,
     applyNaturalCountGrammar,
+    doesBridgeMatchScope,
     resolveTemplatePlaceholders,
     resolveTemplateWithLiveData,
     fetchLiveModuleData,

@@ -31,8 +31,16 @@ import {
     setTracingDisabled,
 } from '@openai/agents';
 import { z } from 'zod';
-import { MODULE_IDS } from '../../client/src/services/voiceAssistant/capabilities.js';
-import { FetchModuleRecordsArgsSchema } from '../../client/src/services/voiceAssistant/schemaValidator.js';
+import {
+    MODULES,
+    MODULE_IDS,
+    canUserAccessModule,
+    normalizeFilterStatus,
+} from '../../client/src/services/voiceAssistant/capabilities.js';
+import {
+    validateActionPlan,
+    FetchModuleRecordsArgsSchema,
+} from '../../client/src/services/voiceAssistant/schemaValidator.js';
 
 if (process.env.OPENAI_AGENTS_TRACING !== 'true') {
     setTracingDisabled(true);
@@ -60,10 +68,20 @@ const ACTION_PARAM_KEYS = Object.freeze([
 ]);
 
 export const ActionParamsZodSchema = z.object({
-    module: z.string().nullable(),
+    module: z.enum(MODULE_IDS).nullable(),
     status: z.string().nullable(),
-    alertType: z.string().nullable(),
-    datePreset: z.string().nullable(),
+    alertType: z
+        .enum([
+            'ALL',
+            'UNAUTHORIZED_DRIVING',
+            'POWER_CUT',
+            'UNAUTHORIZED_MOVEMENT',
+            'UNAUTHORIZED_IGNITION',
+            'GEOFENCE_EXIT',
+            'EXTENDED_OFFLINE',
+        ])
+        .nullable(),
+    datePreset: z.enum(['all', 'today', 'yesterday', 'last_7_days']).nullable(),
     month: z.number().int().nullable(),
     year: z.number().int().nullable(),
     fromDay: z.number().int().nullable(),
@@ -71,7 +89,7 @@ export const ActionParamsZodSchema = z.object({
     sortBy: z.string().nullable(),
     view: z.string().nullable(),
     query: z.string().nullable(),
-    targetType: z.string().nullable(),
+    targetType: z.enum(['contract', 'device_contract', 'alert']).nullable(),
     identifier: z.string().nullable(),
     topic: z.string().nullable(),
 });
@@ -117,6 +135,35 @@ export const FetchModuleRecordsZodSchema = z.object({
     fromDay: z.number().int().nullable(),
     toDay: z.number().int().nullable(),
     limit: z.number().int().nullable(),
+});
+
+export const FETCH_TOOL_DESCRIPTION_V1 =
+    'Fetches up to 12 sanitized live records plus complete count/sum metadata from an authorized UPay module when the user asks an analytical or data question ("¿cuántos hay?", "¿cuánto suman?", "¿por qué están rechazados?", "¿a qué hora fueron?", telemetry causes, voltages, plates, or contract/invoice details). Do NOT call this tool for simple Path A navigation, filter, or clear-filter commands.';
+
+export const FETCH_TOOL_DESCRIPTION_V2 =
+    'Fetch up to 12 live records and verified count/sum metadata from an authorized UPay module ONLY when local {{placeholders}} cannot answer (specific plates, failure causes, timestamps, day ranges, >=24h offline, or cross-module checks). Never call for UI-only navigation/filtering.';
+
+export const OUTPUT_SCHEMA_JSON = JSON.stringify({
+    type: 'json_schema',
+    name: 'final_output',
+    strict: true,
+    schema: z.toJSONSchema(ActionPlanZodSchema),
+});
+
+export const FETCH_TOOL_DEFINITION_JSON_V1 = JSON.stringify({
+    type: 'function',
+    name: 'fetch_module_records',
+    description: FETCH_TOOL_DESCRIPTION_V1,
+    parameters: z.toJSONSchema(FetchModuleRecordsZodSchema),
+    strict: true,
+});
+
+export const FETCH_TOOL_DEFINITION_JSON_V2 = JSON.stringify({
+    type: 'function',
+    name: 'fetch_module_records',
+    description: FETCH_TOOL_DESCRIPTION_V2,
+    parameters: z.toJSONSchema(FetchModuleRecordsZodSchema),
+    strict: true,
 });
 
 // --- Tenant-Isolated Conversation Session Store ---
@@ -237,9 +284,52 @@ export const getAgentSessionStats = () => {
  * Trims a `MemorySession` strictly at user-turn boundaries so `function_call` and
  * `function_call_output` items are never separated.
  */
+const compactHistoricalToolItem = (item) => {
+    if (!item || (item.type !== 'function_call_result' && item.type !== 'function_call_output')) {
+        return { item, changed: false };
+    }
+    const isTextObject = typeof item.output?.text === 'string';
+    const rawStr =
+        typeof item.output === 'string'
+            ? item.output
+            : isTextObject
+            ? item.output.text
+            : null;
+    if (!rawStr || rawStr.length < 700) {
+        return { item, changed: false };
+    }
+    try {
+        const parsed = JSON.parse(rawStr);
+        if (
+            !parsed ||
+            typeof parsed !== 'object' ||
+            parsed._compactedHistory === true ||
+            !Array.isArray(parsed.records) ||
+            parsed.records.length <= 2
+        ) {
+            return { item, changed: false };
+        }
+        const compactPayload = JSON.stringify({
+            ...parsed,
+            records: parsed.records.slice(0, 2),
+            _compactedHistory: true,
+        });
+        return {
+            changed: true,
+            item: {
+                ...item,
+                output: isTextObject ? { ...item.output, text: compactPayload } : compactPayload,
+            },
+        };
+    } catch {
+        return { item, changed: false };
+    }
+};
+
 export const trimMemorySessionSafely = async (
     session,
-    maxUserTurns = MAX_SESSION_USER_TURNS
+    maxUserTurns = MAX_SESSION_USER_TURNS,
+    { compactOlderToolOutputs = true } = {}
 ) => {
     if (!session) return;
     const items = await session.getItems();
@@ -253,12 +343,34 @@ export const trimMemorySessionSafely = async (
         }
     }
 
-    if (userIndices.length <= maxUserTurns) return;
+    const cutIndex =
+        userIndices.length > maxUserTurns
+            ? Math.max(0, userIndices[userIndices.length - maxUserTurns])
+            : 0;
+    let kept = cutIndex > 0 ? items.slice(cutIndex) : items.slice();
+    let mutated = cutIndex > 0;
 
-    const cutIndex = userIndices[userIndices.length - maxUserTurns];
-    if (cutIndex <= 0) return;
+    // Preserve full raw tool records for the latest 2 user turns; compact older tool outputs to prevent O(N) bloat
+    if (compactOlderToolOutputs) {
+        const keptUserIndices = [];
+        for (let i = 0; i < kept.length; i++) {
+            const it = kept[i];
+            if (it?.role === 'user' || (it?.type === 'message' && it?.role === 'user')) {
+                keptUserIndices.push(i);
+            }
+        }
+        if (keptUserIndices.length > 2) {
+            const recentBoundary = keptUserIndices[keptUserIndices.length - 2];
+            kept = kept.map((it, idx) => {
+                if (idx >= recentBoundary) return it;
+                const res = compactHistoricalToolItem(it);
+                if (res.changed) mutated = true;
+                return res.item;
+            });
+        }
+    }
 
-    const kept = items.slice(cutIndex);
+    if (!mutated) return;
     await session.clearSession();
     await session.addItems(kept);
 };
@@ -568,12 +680,61 @@ const wrapStreamIteratorForAgents = async function* (rawIter) {
     }
 };
 
+const summarizeOpenAiResponseForLog = (res = {}) => {
+    const out = Array.isArray(res?.output) ? res.output : [];
+    const toolCalls = out
+        .filter((it) => it?.type === 'function_call')
+        .map((tc) => ({
+            call_id: tc.call_id || tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+        }));
+    const u = res?.usage || null;
+    const inTok = u?.input_tokens ?? u?.prompt_tokens ?? null;
+    const cachedTok =
+        u?.input_tokens_details?.cached_tokens ??
+        u?.prompt_tokens_details?.cached_tokens ??
+        u?.cached_tokens ??
+        0;
+    const outTok = u?.output_tokens ?? u?.completion_tokens ?? null;
+    return {
+        responseId: res?.id || null,
+        ...(toolCalls.length > 0 ? { toolCalls } : {}),
+        ...(res?.output_text ? { outputText: res.output_text } : {}),
+        usage: u
+            ? {
+                  input_tokens: inTok,
+                  cached_tokens: cachedTok,
+                  uncached_tokens:
+                      typeof inTok === 'number' ? Math.max(0, inTok - cachedTok) : null,
+                  output_tokens: outTok,
+              }
+            : null,
+    };
+};
+
 const wrapOpenAIClientForAgents = (openai, turnTracker) => {
     if (!openai?.responses?.create) return openai;
     const proxy = Object.create(openai);
     proxy.responses = {
         ...openai.responses,
         create: async (params, options) => {
+            const callNum = (turnTracker.openaiCallSeq = (turnTracker.openaiCallSeq || 0) + 1);
+            const t0 = performance.now();
+            turnTracker.onLog?.(`  ├─ 📤 OpenAI ronda ${callNum} · petición`, {
+                model: params?.model,
+                stream: Boolean(params?.stream),
+                previous_response_id: params?.previous_response_id || null,
+                tool_choice: params?.tool_choice || 'auto',
+                prompt_cache_key: params?.prompt_cache_key || null,
+                instructionsChars:
+                    typeof params?.instructions === 'string' ? params.instructions.length : 0,
+                inputItemsCount: Array.isArray(params?.input) ? params.input.length : 1,
+                latestInput: Array.isArray(params?.input)
+                    ? params.input[params.input.length - 1]
+                    : params?.input,
+            });
+
             const rawResult = await openai.responses.create(params, options);
             if (params?.stream && rawResult && typeof rawResult[Symbol.asyncIterator] === 'function') {
                 return (async function* () {
@@ -581,6 +742,11 @@ const wrapOpenAIClientForAgents = (openai, turnTracker) => {
                         if (ev.type === 'response.completed' && ev.response?.id) {
                             turnTracker.lastResponseId = ev.response.id;
                             turnTracker.rawUsages.push(ev.response.usage || null);
+                            const elapsed = Math.round(performance.now() - t0);
+                            turnTracker.onLog?.(
+                                `  ├─ 📥 OpenAI ronda ${callNum} · respuesta (${elapsed} ms)`,
+                                summarizeOpenAiResponseForLog(ev.response)
+                            );
                         }
                         yield ev;
                     }
@@ -591,6 +757,11 @@ const wrapOpenAIClientForAgents = (openai, turnTracker) => {
                 turnTracker.lastResponseId = normalized.id;
             }
             turnTracker.rawUsages.push(normalized?.usage || null);
+            const elapsed = Math.round(performance.now() - t0);
+            turnTracker.onLog?.(
+                `  ├─ 📥 OpenAI ronda ${callNum} · respuesta (${elapsed} ms)`,
+                summarizeOpenAiResponseForLog(normalized)
+            );
             return normalized;
         },
     };
@@ -599,7 +770,7 @@ const wrapOpenAIClientForAgents = (openai, turnTracker) => {
 
 const applyTurnChainingOverrides = (turnTracker, requestData) => {
     const inputItems = Array.isArray(requestData?.input) ? requestData.input : [];
-    // Detect Round 2 synthesis step: trailing items in `input` are `function_call_output`
+    // Detect post-tool synthesis/continuation step: trailing items in `input` are `function_call_output`
     let trailingToolOutputStart = -1;
     for (let i = inputItems.length - 1; i >= 0; i--) {
         if (inputItems[i]?.type === 'function_call_output') {
@@ -611,10 +782,13 @@ const applyTurnChainingOverrides = (turnTracker, requestData) => {
 
     if (trailingToolOutputStart >= 0 && turnTracker.lastResponseId) {
         const latestOutputs = inputItems.slice(trailingToolOutputStart);
+        const forceSynthesis =
+            turnTracker.forceSynthesisAfterFirstToolRound === true ||
+            turnTracker.executedToolCalls >= (turnTracker.maxToolCallsPerTurn || 2);
         return {
             previous_response_id: turnTracker.lastResponseId,
             input: latestOutputs,
-            tool_choice: 'none',
+            ...(forceSynthesis ? { tool_choice: 'none' } : {}),
         };
     }
 
@@ -686,6 +860,10 @@ export const aggregateTurnUsage = (rawUsages = [], runResult = null) => {
         let inputTokens = 0;
         let cachedTokens = 0;
         let outputTokens = 0;
+        let reasoningTokens = 0;
+        let hasReasoning = false;
+        let cacheWriteTokens = 0;
+        let hasCacheWrite = false;
         for (const u of valid) {
             inputTokens += Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
             cachedTokens +=
@@ -696,12 +874,32 @@ export const aggregateTurnUsage = (rawUsages = [], runResult = null) => {
                         0
                 ) || 0;
             outputTokens += Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
+            const rTok =
+                u.output_tokens_details?.reasoning_tokens ??
+                u.completion_tokens_details?.reasoning_tokens ??
+                u.reasoning_tokens;
+            if (typeof rTok === 'number' && Number.isFinite(rTok)) {
+                hasReasoning = true;
+                reasoningTokens += rTok;
+            }
+            const cwTok =
+                u.input_tokens_details?.cache_creation_input_tokens ??
+                u.input_tokens_details?.cache_write_tokens ??
+                u.cache_write_tokens;
+            if (typeof cwTok === 'number' && Number.isFinite(cwTok)) {
+                hasCacheWrite = true;
+                cacheWriteTokens += cwTok;
+            }
         }
         return {
             requests: valid.length,
             input_tokens: inputTokens,
-            input_tokens_details: { cached_tokens: cachedTokens },
+            input_tokens_details: {
+                cached_tokens: cachedTokens,
+                ...(hasCacheWrite ? { cache_write_tokens: cacheWriteTokens } : {}),
+            },
             output_tokens: outputTokens,
+            ...(hasReasoning ? { output_tokens_details: { reasoning_tokens: reasoningTokens } } : {}),
             total_tokens: inputTokens + outputTokens,
         };
     }
@@ -740,12 +938,486 @@ export const aggregateTurnUsage = (rawUsages = [], runResult = null) => {
 };
 
 /**
+ * Detects whether a user utterance is an analytical, quantitative, or investigative
+ * question that requires verified business data (not just a UI filter/navigation action).
+ */
+/**
+ * Question/metric words that make an utterance analytical. Shared by `isAnalyticalQuestion`
+ * and `isPureUiViewCommand` so a turn can never be both "tool forbidden" and "tool required".
+ */
+const ANALYTICAL_CLAUSE_REGEX =
+    /\b(cuant[oa]s?|cuanto|cuatas|cuatos|how many|how much|why|which|total|suman|suma|porcentaje|efectividad|tasa|promedio|cuales|quienes|por que|porque|motivo|razon|causa|a que hora|cuando|reporte de|resumen de|dime|investiga|investigame|analiza|explicame|acumulado|mas de \d+|varios dias|dias sin|horas sin)\b/;
+// Debt topic words: analytical when asked as a question, but valid inside a pure view command
+// ("Mu\u00e9strame las motos con deuda").
+const DEBT_TOPIC_REGEX = /\b(deben|mora|deuda|deuna)\b/;
+const DAY_RANGE_REGEX = /\b(?:del|desde|entre)(?:\s+el)?\s+\d{1,2}\s+(?:al|hasta|y)\b/;
+
+export const isAnalyticalQuestion = (text = '') => {
+    const clean = String(text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    if (!clean) return false;
+
+    return (
+        ANALYTICAL_CLAUSE_REGEX.test(clean) ||
+        DEBT_TOPIC_REGEX.test(clean) ||
+        (/^\s*¿/.test(String(text || '')) && /\b(hay|tienen|estan|son|deben|pagaron|fallaron)\b/.test(clean))
+    );
+};
+
+/**
+ * Detects pure UI view/filter/search commands (e.g. "Muéstrame los pagos rechazados",
+ * "Quiero ver las motos apagadas", "Filtra contratos semanales", "Busca DRS30I") that
+ * contain NO analytical/investigative questions, day-ranges, or today-invoice checks.
+ * Passing `toolChoice: 'none'` on these guarantees 1-step navigation + filter in ~1.8s.
+ */
+export const isPureUiViewCommand = (text = '') => {
+    const raw = String(text || '').trim();
+    if (!raw || /[?¿]/.test(raw)) return false;
+    const clean = raw
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!clean) return false;
+
+    const startsWithViewVerb =
+        /^(?:muestrame|mostrar|muestra|quiero ver|dejame ver|ver|filtra|filtrar|busca|buscar|ordena|ordenar|llevame a|show me|show|filter|search)\b/.test(
+            clean
+        );
+    if (!startsWithViewVerb) return false;
+
+    if (ANALYTICAL_CLAUSE_REGEX.test(clean)) return false;
+    if (DAY_RANGE_REGEX.test(clean)) return false;
+
+    const isInvoicesToday = /\b(facturas?|invoices?)\b/.test(clean) && /\b(hoy|today)\b/.test(clean);
+    if (isInvoicesToday) return false;
+
+    return true;
+};
+
+/**
+ * Infers canonical status / alertType filter from user text for a given targetModule
+ * when the model set `targetModule` on a "Muéstrame / Ver / Filtra..." command but left `actions: []`.
+ */
+const inferFilterParamsForModule = (userText = '', targetModule = '') => {
+    const mod = MODULES[targetModule];
+    if (!mod?.filters) return null;
+    const clean = String(userText || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!clean) return null;
+
+    const params = { module: targetModule };
+    let matched = false;
+
+    if (mod.filters.alertType?.synonyms) {
+        for (const [syn, canonical] of Object.entries(mod.filters.alertType.synonyms)) {
+            if (syn === 'all' || syn === 'todas' || syn === 'todos') continue;
+            if (new RegExp(`\\b${syn}\\b`, 'i').test(clean)) {
+                params.alertType = canonical;
+                matched = true;
+                break;
+            }
+        }
+    }
+
+    if (mod.filters.status) {
+        const isUsableStatus = (s) => s && s !== 'all' && s !== 'ALL';
+        let status = null;
+
+        // 1. Negated "paid" forms ("no pagadas", "sin pagar", "no se han pagado") mean unpaid, never PAID.
+        if (/\b(?:no|sin)\s+(?:se\s+han?\s+)?(?:pagad[oa]s?|pagar|pago)\b/.test(clean)) {
+            status =
+                [normalizeFilterStatus(targetModule, 'unpaid'),
+                    normalizeFilterStatus(targetModule, 'pending'),
+                    normalizeFilterStatus(targetModule, 'debt')].find(isUsableStatus) || null;
+        }
+
+        // 2. Multi-word synonyms ("en mora", "sin conexion"), longest first.
+        if (!status && mod.filters.status.synonyms) {
+            const phrases = Object.keys(mod.filters.status.synonyms)
+                .filter((k) => k.includes(' '))
+                .sort((a, b) => b.length - a.length);
+            for (const phrase of phrases) {
+                if (clean.includes(phrase)) {
+                    const candidate = mod.filters.status.synonyms[phrase];
+                    if (isUsableStatus(candidate)) {
+                        status = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Single words, skipping any word directly negated by "no".
+        if (!status) {
+            const words = clean.split(' ');
+            for (let i = 0; i < words.length; i++) {
+                const w = words[i];
+                if (['todos', 'todas', 'all'].includes(w)) continue;
+                if (i > 0 && words[i - 1] === 'no') continue;
+                const normStatus = normalizeFilterStatus(targetModule, w);
+                if (isUsableStatus(normStatus)) {
+                    status = normStatus;
+                    break;
+                }
+            }
+        }
+
+        if (status) {
+            params.status = status;
+            matched = true;
+        }
+    }
+
+    if (mod.filters.datePreset?.synonyms) {
+        for (const [syn, canonical] of Object.entries(mod.filters.datePreset.synonyms)) {
+            if (syn === 'all') continue;
+            if (new RegExp(`\\b${syn}\\b`, 'i').test(clean)) {
+                params.datePreset = canonical;
+                matched = true;
+                break;
+            }
+        }
+    }
+
+    return matched ? params : null;
+};
+
+/**
+ * Deterministic post-plan safeguard (fixes Trace `tr_1795595026004_5z246`):
+ * When the user explicitly asks to show/view/filter a module ("Muéstrame los pagos rechazados")
+ * and the model sets `targetModule` + answer text but omits `actions` (`actions: []`),
+ * injects the missing `navigate` + `applyFilter` actions and re-validates against RBAC & schema.
+ */
+export const ensureRequestedViewActions = ({
+    userText = '',
+    plan = null,
+    currentModule = 'dashboard',
+    activeFilters = {},
+    onDemandToolCalls = null,
+    toolErrors = [],
+    user = null,
+} = {}) => {
+    if (!plan || typeof plan !== 'object' || plan.needsClarification) return plan;
+    if (Array.isArray(toolErrors) && toolErrors.length > 0) return plan;
+    if (Array.isArray(plan.actions) && plan.actions.length > 0) return plan;
+
+    const raw = String(userText || '').trim();
+    const clean = raw
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+
+    const hasExplicitViewCommand =
+        /^(?:muestrame|mostrar|muestra|quiero ver|dejame ver|ver|filtra|filtrar|abre|abrir|ir a|ir al|ve a|ve al|llevame|show me|show|filter|open|go to)\b/.test(
+            clean
+        );
+    if (!hasExplicitViewCommand) return plan;
+
+    const targetMod = plan.targetModule;
+    if (!targetMod || !MODULES[targetMod] || !canUserAccessModule(targetMod, user)) {
+        return plan;
+    }
+
+    const matchingToolCall = Array.isArray(onDemandToolCalls)
+        ? onDemandToolCalls.find((tc) => tc?.args?.module === targetMod)
+        : null;
+
+    let filterParams = null;
+    if (matchingToolCall?.args) {
+        const a = matchingToolCall.args;
+        const candidate = { module: targetMod };
+        let hasAny = false;
+        if (a.status && a.status !== 'all' && a.status !== 'ALL') {
+            candidate.status = a.status;
+            hasAny = true;
+        }
+        if (a.alertType && a.alertType !== 'ALL') {
+            candidate.alertType = a.alertType;
+            hasAny = true;
+        }
+        if (a.datePreset && a.datePreset !== 'all') {
+            candidate.datePreset = a.datePreset;
+            hasAny = true;
+        }
+        if (typeof a.fromDay === 'number' && typeof a.toDay === 'number') {
+            candidate.fromDay = a.fromDay;
+            candidate.toDay = a.toDay;
+            candidate.status = candidate.status || 'selected';
+            hasAny = true;
+        }
+        if (hasAny) filterParams = candidate;
+    }
+
+    if (!filterParams) {
+        filterParams = inferFilterParamsForModule(userText, targetMod);
+    }
+
+    const synthesizedActions = [];
+    if (targetMod !== currentModule) {
+        synthesizedActions.push({ name: 'navigate', params: { module: targetMod } });
+    }
+
+    if (matchingToolCall?.args?.query) {
+        synthesizedActions.push({
+            name: 'search',
+            params: { module: targetMod, query: matchingToolCall.args.query },
+        });
+    } else if (filterParams) {
+        const alreadySameFilterOnScreen =
+            targetMod === currentModule &&
+            (!filterParams.status || filterParams.status === activeFilters?.status) &&
+            (!filterParams.alertType || filterParams.alertType === activeFilters?.alertType) &&
+            (!filterParams.datePreset || filterParams.datePreset === activeFilters?.datePreset);
+        if (!alreadySameFilterOnScreen) {
+            synthesizedActions.push({ name: 'applyFilter', params: filterParams });
+        }
+    }
+
+    if (synthesizedActions.length === 0) return plan;
+
+    const candidatePlan = {
+        ...plan,
+        scope: targetMod !== currentModule ? 'other_screen' : plan.scope,
+        actions: synthesizedActions,
+    };
+    const rechecked = validateActionPlan(candidatePlan, { currentModule, user });
+    return rechecked.success ? { ...plan, ...rechecked.data } : plan;
+};
+
+const UNVERIFIED_DATA_CLAIM_REGEX =
+    /\b(?:no veo|no hay|no encontr[eé]|ning[uú]n|there are no|i see \d+|hay \d+\s+(?:pagos?|motos?|alertas?|contratos?|facturas?|comandos?|registros?)|suman\s+\$?[\d.,]+)/i;
+const SECURITY_OR_OFFTOPIC_REGEX =
+    /\b(solo lectura|read-only|no puedo ayudar|no tengo permiso|permission)\b/i;
+
+/**
+ * Checks whether a tenant `MemorySession` already holds at least one verified
+ * `function_call_output` from a prior turn so contextual follow-ups ("¿el del 24 se ejecutó bien?")
+ * answered directly from session memory are recognized as grounded.
+ */
+export const hasVerifiedToolOutputInSession = async (session) => {
+    if (!session || typeof session.getItems !== 'function') return false;
+    try {
+        const items = await session.getItems();
+        if (!Array.isArray(items) || items.length === 0) return false;
+        for (let i = items.length - 1; i >= 0; i--) {
+            const it = items[i];
+            if (it?.type !== 'function_call_result' && it?.type !== 'function_call_output') {
+                continue;
+            }
+            const rawOut =
+                typeof it.output === 'string'
+                    ? it.output
+                    : typeof it.output?.text === 'string'
+                    ? it.output.text
+                    : JSON.stringify(it.output || '');
+            if (!rawOut) continue;
+            try {
+                const parsed = JSON.parse(rawOut);
+                if (
+                    parsed &&
+                    typeof parsed === 'object' &&
+                    !parsed.error &&
+                    parsed.authorized !== false &&
+                    parsed.ok !== false &&
+                    parsed.skipped !== true
+                ) {
+                    return true;
+                }
+            } catch {
+                // Ignore non-JSON outputs
+            }
+        }
+    } catch {
+        // Ignore session inspection errors
+    }
+    return false;
+};
+
+/**
+ * Lightweight, SDK-compatible Goal Completion Verification (Phase 4).
+ * Verifies whether the produced ActionPlan actually satisfies the user's original intent
+ * instead of treating any UI action or ungrounded text as complete.
+ *
+ * @returns {{
+ *   status: 'complete' | 'incomplete' | 'clarification_needed' | 'failed',
+ *   reason: string,
+ *   requiresToolData: boolean,
+ *   suggestedPlanOverride: object | null,
+ * }}
+ */
+export const evaluateGoalCompletion = ({
+    userText = '',
+    plan = null,
+    onDemandToolCalls = null,
+    sessionHasVerifiedToolData = false,
+    toolErrors = [],
+    lang = 'es-CO',
+} = {}) => {
+    const isEn = lang === 'en-US';
+    if (!plan || typeof plan !== 'object') {
+        return {
+            status: 'failed',
+            reason: 'missing_plan',
+            requiresToolData: false,
+            suggestedPlanOverride: null,
+        };
+    }
+
+    const tpl = String(plan.responseTemplate || '').trim();
+    const actions = Array.isArray(plan.actions) ? plan.actions : [];
+    const hasPlaceholders = /\{\{\s*[a-zA-Z0-9_.-]+\s*\}\}/.test(tpl);
+    const hasVerifiedToolData = Array.isArray(onDemandToolCalls) && onDemandToolCalls.length > 0;
+    const hasAnyVerifiedData = hasVerifiedToolData || Boolean(sessionHasVerifiedToolData);
+    const errors = Array.isArray(toolErrors) ? toolErrors : [];
+    // A pure view command runs with toolChoice='none', so it must never be judged as requiring tool data.
+    const analytical = isAnalyticalQuestion(userText) && !isPureUiViewCommand(userText);
+    const isSecurityOrOffTopic = SECURITY_OR_OFFTOPIC_REGEX.test(tpl);
+    const hasUnverifiedClaim = UNVERIFIED_DATA_CLAIM_REGEX.test(tpl) || /\$\s?\d[\d.,]+/.test(tpl);
+
+    // 1. All attempted tool calls failed -> never invent counts/zero claims; report technical failure
+    if (errors.length > 0 && !hasVerifiedToolData) {
+        const failedMessage = isEn
+            ? 'I could not retrieve the live records needed to answer that right now. Please try again in a moment.'
+            : 'No pude consultar los registros en vivo para responderte con exactitud en este momento. Intenta de nuevo en un instante.';
+        return {
+            status: 'failed',
+            reason: 'tool_execution_failed',
+            requiresToolData: true,
+            suggestedPlanOverride: {
+                ...plan,
+                actions: [],
+                needsClarification: false,
+                responseTemplate: failedMessage,
+            },
+        };
+    }
+
+    // 2. Genuine clarification requested by the agent
+    if (plan.needsClarification) {
+        return {
+            status: 'clarification_needed',
+            reason: 'genuine_clarification',
+            requiresToolData: false,
+            suggestedPlanOverride: null,
+        };
+    }
+
+    // 3. Analytical/quantitative question answered ONLY with a UI filter/navigation action
+    //    (e.g. "¿Cuántas alertas son por batería?" -> "Listo, ya te filtré las alertas por batería.")
+    if (
+        analytical &&
+        !hasAnyVerifiedData &&
+        !hasPlaceholders &&
+        !isSecurityOrOffTopic &&
+        actions.length > 0
+    ) {
+        return {
+            status: 'incomplete',
+            reason: 'ui_action_only_for_analytical_query',
+            requiresToolData: true,
+            suggestedPlanOverride: null,
+        };
+    }
+
+    // 4. Unverified numeric/amount/zero-result claim OR diagnostic/analytical answer with zero tool data
+    if (
+        !hasAnyVerifiedData &&
+        !hasPlaceholders &&
+        !isSecurityOrOffTopic &&
+        actions.length === 0 &&
+        (hasUnverifiedClaim || (analytical && /\b(porque|tiene|está|esta|presenta|indica|debe|falla|batería|bateria|alternador|naranja|corte)\b/i.test(tpl)))
+    ) {
+        return {
+            status: 'incomplete',
+            reason: hasUnverifiedClaim
+                ? 'unverified_data_claim_without_tool'
+                : 'analytical_answer_without_tool_data',
+            requiresToolData: true,
+            suggestedPlanOverride: {
+                ...plan,
+                needsClarification: true,
+                responseTemplate: isEn
+                    ? 'Could you confirm what filter or period you want me to check on this screen?'
+                    : '¿Me confirmas qué filtro o período quieres revisar en esta pantalla para darte el dato exacto?',
+            },
+        };
+    }
+
+    // 5. Verified complete
+    if (hasVerifiedToolData) {
+        return {
+            status: 'complete',
+            reason: 'verified_tool_data',
+            requiresToolData: false,
+            suggestedPlanOverride: null,
+        };
+    }
+
+    if (sessionHasVerifiedToolData && actions.length === 0) {
+        return {
+            status: 'complete',
+            reason: 'verified_session_tool_data',
+            requiresToolData: false,
+            suggestedPlanOverride: null,
+        };
+    }
+
+    if (actions.length > 0) {
+        return {
+            status: 'complete',
+            reason: 'ui_action_planned',
+            requiresToolData: false,
+            suggestedPlanOverride: null,
+        };
+    }
+
+    return {
+        status: 'complete',
+        reason: 'conversational_response',
+        requiresToolData: false,
+        suggestedPlanOverride: null,
+    };
+};
+
+/**
+ * Builds the Phase 10 independent turn telemetry status object.
+ */
+export const buildTurnTelemetry = ({
+    routingMode = 'agents_sdk',
+    agentRunStatus = 'completed',
+    toolExecutionStatus = 'not_needed',
+    goalCompletionStatus = 'complete',
+    responseStatus = 'generated',
+    fallbackReason = null,
+} = {}) => ({
+    routingMode,
+    agentRunStatus,
+    toolExecutionStatus,
+    goalCompletionStatus,
+    responseStatus,
+    fallbackReason: fallbackReason || null,
+});
+
+/**
  * Runs a complete UPay Assistant turn using `@openai/agents` (`Runner`, `Agent`, `MemorySession`, `tool`).
  * Supports both non-streaming (`stream: false`) and real-time streaming (`stream: true`).
  */
 export const runAssistantTurnWithAgentsSdk = async ({
     openai,
     modelName = 'gpt-4o-mini',
+    promptVersion = 'v2',
     transportMode = 'http',
     stablePrefix,
     cacheKey,
@@ -759,6 +1431,7 @@ export const runAssistantTurnWithAgentsSdk = async ({
     maxOutputTokens = 900,
     temperature = 0.3,
     maxToolCallsPerTurn = 2,
+    maxAgentTurns = 3,
     ephemeralSession = false,
     stream = false,
     signal = null,
@@ -774,12 +1447,18 @@ export const runAssistantTurnWithAgentsSdk = async ({
         throw new Error('TURN_CANCELLED');
     }
 
+    const isV2 = promptVersion !== 'v1';
     const turnTracker = {
         lastResponseId: null,
         rawUsages: [],
+        openaiCallSeq: 0,
+        onLog,
         seenToolCalls: 0,
         executedToolCalls: 0,
+        maxToolCallsPerTurn,
+        forceSynthesisAfterFirstToolRound: Boolean(stream),
         onDemandToolCalls: [],
+        toolErrors: [],
         roundIndex: 0,
     };
 
@@ -787,13 +1466,17 @@ export const runAssistantTurnWithAgentsSdk = async ({
         ephemeral: ephemeralSession,
     });
     await syncClientHistoryIntoSession(sessionEntry, conversationHistory);
-    await trimMemorySessionSafely(sessionEntry.session, MAX_SESSION_USER_TURNS);
+    await trimMemorySessionSafely(sessionEntry.session, MAX_SESSION_USER_TURNS, {
+        compactOlderToolOutputs: isV2,
+    });
+    const priorSessionItems = await sessionEntry.session.getItems();
+    const sessionHasVerifiedToolData = await hasVerifiedToolOutputInSession(sessionEntry.session);
 
     let callSeq = 0;
+    const turnToolCache = new Map();
     const fetchRecordsAgentTool = tool({
         name: 'fetch_module_records',
-        description:
-            'Fetches up to 12 sanitized live records plus complete count/sum metadata from an authorized UPay module when the user asks an analytical or data question ("¿cuántos hay?", "¿cuánto suman?", "¿por qué están rechazados?", "¿a qué hora fueron?", telemetry causes, voltages, plates, or contract/invoice details). Do NOT call this tool for simple Path A navigation, filter, or clear-filter commands.',
+        description: isV2 ? FETCH_TOOL_DESCRIPTION_V2 : FETCH_TOOL_DESCRIPTION_V1,
         parameters: FetchModuleRecordsZodSchema,
         execute: async (rawArgs) => {
             if (signal?.aborted) {
@@ -802,7 +1485,10 @@ export const runAssistantTurnWithAgentsSdk = async ({
             const callId = `call_${++callSeq}`;
             turnTracker.seenToolCalls += 1;
 
-            if (turnTracker.executedToolCalls >= maxToolCallsPerTurn) {
+            if (
+                turnTracker.executedToolCalls >= maxToolCallsPerTurn ||
+                turnTracker.seenToolCalls > maxToolCallsPerTurn
+            ) {
                 return JSON.stringify({
                     skipped: true,
                     reason: 'max_tool_calls_per_turn_reached',
@@ -815,6 +1501,12 @@ export const runAssistantTurnWithAgentsSdk = async ({
             });
 
             if (!argCheck.success) {
+                turnTracker.toolErrors.push({
+                    callId,
+                    tool: 'fetch_module_records',
+                    code: 'INVALID_OR_UNAUTHORIZED_ARGS',
+                    error: argCheck.error,
+                });
                 return JSON.stringify({
                     authorized: false,
                     error: argCheck.error,
@@ -822,33 +1514,68 @@ export const runAssistantTurnWithAgentsSdk = async ({
                 });
             }
 
-            turnTracker.executedToolCalls += 1;
             const activeFilters = applicationContext?.activeFilters || {};
             const cleanArgs = argCheck.data;
+            const isSameModule =
+                cleanArgs.module === (applicationContext?.currentModule || 'dashboard');
+            // Period filters (month/year) are only inherited from the screen being queried;
+            // another module's month filter must not leak into a cross-module lookup.
             const resolvedMonth = isFullYearFn?.(rawUserText)
                 ? 0
                 : cleanArgs.month !== undefined && cleanArgs.month !== null
                 ? cleanArgs.month
+                : !isSameModule
+                ? null
                 : activeFilters.month === ''
                 ? 0
                 : activeFilters.month ?? null;
 
             const fetchArgs = {
                 module: cleanArgs.module,
-                status: cleanArgs.status ?? activeFilters.status ?? null,
-                alertType: cleanArgs.alertType ?? activeFilters.alertType ?? null,
-                datePreset: cleanArgs.datePreset ?? activeFilters.datePreset ?? null,
-                query: cleanArgs.query ?? activeFilters.searchQuery ?? null,
+                status: cleanArgs.status ?? (isSameModule ? activeFilters.status : null) ?? null,
+                alertType:
+                    cleanArgs.alertType ?? (isSameModule ? activeFilters.alertType : null) ?? null,
+                datePreset:
+                    cleanArgs.datePreset ?? (isSameModule ? activeFilters.datePreset : null) ?? null,
+                query: cleanArgs.query ?? (isSameModule ? activeFilters.searchQuery : null) ?? null,
                 month: resolvedMonth,
-                year: cleanArgs.year ?? activeFilters.year ?? null,
-                fromDay: cleanArgs.fromDay ?? activeFilters.fromDay ?? null,
-                toDay: cleanArgs.toDay ?? activeFilters.toDay ?? null,
+                year: cleanArgs.year ?? (isSameModule ? activeFilters.year : null) ?? null,
+                fromDay: cleanArgs.fromDay ?? (isSameModule ? activeFilters.fromDay : null) ?? null,
+                toDay: cleanArgs.toDay ?? (isSameModule ? activeFilters.toDay : null) ?? null,
                 companyId: activeFilters.companyId ?? null,
                 limit: cleanArgs.limit,
                 auth: user,
             };
 
-            onLog?.(`🔍 Ejecutando fetch_module_records (${callId}):`, {
+            const dedupeSignature = JSON.stringify({
+                module: fetchArgs.module,
+                status: fetchArgs.status,
+                alertType: fetchArgs.alertType,
+                datePreset: fetchArgs.datePreset,
+                query: fetchArgs.query,
+                month: fetchArgs.month,
+                year: fetchArgs.year,
+                fromDay: fetchArgs.fromDay,
+                toDay: fetchArgs.toDay,
+                limit: fetchArgs.limit,
+            });
+
+            if (isV2 && turnToolCache.has(dedupeSignature)) {
+                const cachedEntry = await turnToolCache.get(dedupeSignature);
+                onLog?.(`  ├─ ♻️ Herramienta fetch_module_records · reutiliza resultado duplicado (${callId})`, {
+                    module: fetchArgs.module,
+                });
+                return JSON.stringify({
+                    deduplicated: true,
+                    module: fetchArgs.module,
+                    totalMatching: cachedEntry?.totalMatching ?? 0,
+                    note: 'Identical query already executed in this turn; use the verified records returned in the sibling tool output.',
+                });
+            }
+
+            turnTracker.executedToolCalls += 1;
+
+            onLog?.(`  ├─ 🔧 Herramienta fetch_module_records · ejecutando (${callId}):`, {
                 module: fetchArgs.module,
                 status: fetchArgs.status,
                 month: fetchArgs.month === 0 ? 'all_year' : fetchArgs.month,
@@ -867,9 +1594,82 @@ export const runAssistantTurnWithAgentsSdk = async ({
                 module: fetchArgs.module,
             });
 
-            const toolResult = await toolExecutor(fetchArgs);
+            let resolveInFlight;
+            if (isV2) {
+                turnToolCache.set(
+                    dedupeSignature,
+                    new Promise((r) => {
+                        resolveInFlight = r;
+                    })
+                );
+            }
+
+            let toolResult;
+            try {
+                toolResult = await toolExecutor(fetchArgs);
+            } catch (err) {
+                if (isV2) {
+                    turnToolCache.delete(dedupeSignature);
+                    resolveInFlight?.(null);
+                }
+                if (signal?.aborted || err?.message === 'TURN_CANCELLED') {
+                    throw err;
+                }
+                const errMsg =
+                    typeof err?.message === 'string'
+                        ? err.message.slice(0, 140)
+                        : 'tool_execution_error';
+                turnTracker.toolErrors.push({
+                    callId,
+                    tool: 'fetch_module_records',
+                    module: fetchArgs.module,
+                    code: 'TOOL_EXECUTION_ERROR',
+                    error: errMsg,
+                });
+                onLog?.(`  ├─ ❌ Herramienta fetch_module_records · error (${fetchArgs.module}):`, errMsg);
+                onToolCompleted?.({
+                    callId,
+                    tool: 'fetch_module_records',
+                    module: fetchArgs.module,
+                    recordsReturned: 0,
+                    totalMatching: 0,
+                    isComplete: false,
+                    error: errMsg,
+                });
+                return JSON.stringify({
+                    ok: false,
+                    error: errMsg,
+                    records: [],
+                    note: 'Tool execution failed. Do NOT invent counts, amounts, or zero-result claims; explain transparently that the live query failed.',
+                });
+            }
+
             if (signal?.aborted) {
                 throw new Error('TURN_CANCELLED');
+            }
+
+            if (toolResult?.error || toolResult?.authorized === false) {
+                if (isV2) {
+                    turnToolCache.delete(dedupeSignature);
+                    resolveInFlight?.(null);
+                }
+                turnTracker.toolErrors.push({
+                    callId,
+                    tool: 'fetch_module_records',
+                    module: fetchArgs.module,
+                    code: toolResult?.authorized === false ? 'UNAUTHORIZED' : 'TOOL_ERROR',
+                    error: String(toolResult?.error || 'unauthorized'),
+                });
+                onToolCompleted?.({
+                    callId,
+                    tool: 'fetch_module_records',
+                    module: fetchArgs.module,
+                    recordsReturned: 0,
+                    totalMatching: 0,
+                    isComplete: false,
+                    error: String(toolResult?.error || 'unauthorized'),
+                });
+                return JSON.stringify(toolResult);
             }
 
             const recordsReturned = Array.isArray(toolResult?.records)
@@ -877,7 +1677,7 @@ export const runAssistantTurnWithAgentsSdk = async ({
                 : 0;
             const totalMatching = toolResult?.totalMatching ?? 0;
 
-            onLog?.(`✅ Resultado fetch_module_records (${fetchArgs.module}):`, {
+            onLog?.(`  ├─ ✅ Herramienta fetch_module_records · resultado (${fetchArgs.module}):`, {
                 recordsReturned,
                 totalMatching,
                 isCompleteTotal: Boolean(toolResult?.scopeMetadata?.isCompleteTotal ?? true),
@@ -892,6 +1692,7 @@ export const runAssistantTurnWithAgentsSdk = async ({
                 isComplete: Boolean(toolResult?.scopeMetadata?.isCompleteTotal ?? true),
             });
 
+            resolveInFlight?.({ totalMatching });
             turnTracker.onDemandToolCalls.push({
                 tool: 'fetch_module_records',
                 args: {
@@ -922,6 +1723,8 @@ export const runAssistantTurnWithAgentsSdk = async ({
         modelInstance = new UPayResponsesModel(wrappedClient, modelName, turnTracker);
     }
 
+    const forceNoToolForPureView = isV2 && isPureUiViewCommand(rawUserText);
+
     const agent = new Agent({
         name: 'UPayVoiceAssistant',
         instructions: stablePrefix,
@@ -931,6 +1734,7 @@ export const runAssistantTurnWithAgentsSdk = async ({
         modelSettings: {
             temperature,
             maxTokens: maxOutputTokens,
+            ...(forceNoToolForPureView ? { toolChoice: 'none' } : {}),
             providerData: {
                 prompt_cache_key: cacheKey,
             },
@@ -942,21 +1746,48 @@ export const runAssistantTurnWithAgentsSdk = async ({
         workflowName: 'UPay Voice Assistant',
     });
 
+    const isWsUpstream = transportMode === 'ws' && typeof openai?.baseURL === 'string';
+    if (isWsUpstream) {
+        onLog?.('  ├─ 📤 OpenAI (WebSocket) · petición', {
+            model: modelName,
+            prompt_cache_key: cacheKey,
+            instructionsChars: typeof stablePrefix === 'string' ? stablePrefix.length : 0,
+            dynamicInput: dynamicInputText,
+        });
+    }
+
+    const safeMaxTurns = Math.min(Math.max(Number(maxAgentTurns) || 3, 2), 4);
+
     if (!stream) {
         const result = await runner.run(agent, dynamicInputText, {
             session: sessionEntry.session,
-            maxTurns: 2,
+            maxTurns: safeMaxTurns,
             ...(signal ? { signal } : {}),
         });
-        await trimMemorySessionSafely(sessionEntry.session, MAX_SESSION_USER_TURNS);
+        await trimMemorySessionSafely(sessionEntry.session, MAX_SESSION_USER_TURNS, {
+            compactOlderToolOutputs: isV2,
+        });
         const aggregatedUsage = aggregateTurnUsage(turnTracker.rawUsages, result);
+        if (isWsUpstream) {
+            onLog?.('  ├─ 📥 OpenAI (WebSocket) · respuesta', {
+                finalOutput: result.finalOutput,
+                usage: aggregatedUsage,
+            });
+        }
         return {
             finalOutput: result.finalOutput,
             usage: aggregatedUsage,
             perRoundUsages: turnTracker.rawUsages.filter(Boolean),
+            priorSessionItems,
             onDemandToolCalls:
                 turnTracker.onDemandToolCalls.length > 0 ? turnTracker.onDemandToolCalls : null,
-            toolRounds: turnTracker.executedToolCalls > 0 ? 1 : 0,
+            sessionHasVerifiedToolData,
+            toolErrors: turnTracker.toolErrors,
+            toolRounds: Math.max(
+                0,
+                turnTracker.rawUsages.filter(Boolean).length - 1,
+                turnTracker.executedToolCalls > 0 ? 1 : 0
+            ),
             sessionKey: sessionEntry.sessionKey,
             sessionEntry,
         };
@@ -965,7 +1796,7 @@ export const runAssistantTurnWithAgentsSdk = async ({
     const streamedResult = await runner.run(agent, dynamicInputText, {
         session: sessionEntry.session,
         stream: true,
-        maxTurns: 2,
+        maxTurns: safeMaxTurns,
         ...(signal ? { signal } : {}),
     });
 
@@ -997,16 +1828,31 @@ export const runAssistantTurnWithAgentsSdk = async ({
     }
 
     await streamedResult.completed;
-    await trimMemorySessionSafely(sessionEntry.session, MAX_SESSION_USER_TURNS);
+    await trimMemorySessionSafely(sessionEntry.session, MAX_SESSION_USER_TURNS, {
+        compactOlderToolOutputs: isV2,
+    });
 
     const aggregatedUsage = aggregateTurnUsage(turnTracker.rawUsages, streamedResult);
+    if (isWsUpstream) {
+        onLog?.('  ├─ 📥 OpenAI (WebSocket) · respuesta', {
+            finalOutput: streamedResult.finalOutput,
+            usage: aggregatedUsage,
+        });
+    }
     return {
         finalOutput: streamedResult.finalOutput,
         usage: aggregatedUsage,
         perRoundUsages: turnTracker.rawUsages.filter(Boolean),
+        priorSessionItems,
         onDemandToolCalls:
             turnTracker.onDemandToolCalls.length > 0 ? turnTracker.onDemandToolCalls : null,
-        toolRounds: turnTracker.executedToolCalls > 0 ? 1 : 0,
+        sessionHasVerifiedToolData,
+        toolErrors: turnTracker.toolErrors,
+        toolRounds: Math.max(
+            0,
+            turnTracker.rawUsages.filter(Boolean).length - 1,
+            turnTracker.executedToolCalls > 0 ? 1 : 0
+        ),
         sessionKey: sessionEntry.sessionKey,
         sessionEntry,
     };
@@ -1023,6 +1869,9 @@ export default {
     trimMemorySessionSafely,
     syncClientHistoryIntoSession,
     markTurnSignatureSynced,
+    isAnalyticalQuestion,
+    evaluateGoalCompletion,
+    buildTurnTelemetry,
     runAssistantTurnWithAgentsSdk,
     closeSharedAgentsWSModel,
     aggregateTurnUsage,

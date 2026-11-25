@@ -317,10 +317,19 @@ export const validateActionPlan = (plan, { currentModule = 'dashboard', user = n
     for (const rawAction of rawActions) {
         const res = validateAction(rawAction, { currentModule: effectiveModule, user });
         if (!res.success) {
-            // If OpenAI's strict schema emitted an applyFilter with all-null params, skip the no-op filter safely
+            // If OpenAI's strict schema emitted a no-op applyFilter (all-null params) or no-op search (empty/null query)
+            // alongside other actions or a non-empty responseTemplate, skip the no-op action safely.
             if (
                 rawAction?.name === 'applyFilter' &&
                 res.error === 'applyFilter requires at least one valid filter parameter'
+            ) {
+                continue;
+            }
+            if (
+                rawAction?.name === 'search' &&
+                res.error === 'search requires a query string between 1 and 80 characters' &&
+                (rawAction?.params?.query === null || rawAction?.params?.query === undefined || rawAction?.params?.query === '') &&
+                (rawActions.length > 1 || (typeof plan.responseTemplate === 'string' && plan.responseTemplate.trim().length > 0))
             ) {
                 continue;
             }

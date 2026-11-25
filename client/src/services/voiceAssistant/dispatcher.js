@@ -304,7 +304,13 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         },
     };
 
-    for (const action of plan.actions) {
+    const isPureHelpPlan =
+        plan.actions.length === 1 && plan.actions[0]?.name === 'showHelp';
+    const EffectiveActions = isPureHelpPlan
+        ? plan.actions
+        : plan.actions.filter((a) => a.name !== 'showHelp');
+
+    for (const action of EffectiveActions) {
         const stepResult = await executeSingleAction(action, execCtx);
         if (!stepResult.ok) {
             return {
@@ -376,6 +382,7 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         lang,
         metricsOverride: ctx.metricsOverride || null,
         onDemandDataUsed: Boolean(plan.onDemandDataUsed),
+        hasUiActions: executedActions.length > 0,
     });
 
     const primaryActionType =

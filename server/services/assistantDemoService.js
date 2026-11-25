@@ -998,6 +998,7 @@ export const fetchSanitizedModuleRecords = async ({
                         minutesSinceReport !== null ? Math.floor(minutesSinceReport / 1440) : null;
                     const isOffline = !lastUp || nowMs - lastUp >= 3 * 60 * 1000;
                     const cutOff = Boolean(d.telemetry?.cutOff);
+                    const commandQueued = Boolean(d.telemetry?.queued);
                     const ignition = Boolean(d.telemetry?.ignition);
                     const batteryLevel = d.telemetry?.batteryLevel ?? null;
                     const powerCut = Boolean(d.telemetry?.powerCut);
@@ -1010,6 +1011,13 @@ export const fetchSanitizedModuleRecords = async ({
                         daysOffline,
                         lastReportLocal: formatLocalTimeEsCO(d.telemetry?.lastUpdate),
                         engineCutOff: cutOff,
+                        commandQueued,
+                        ...(commandQueued
+                            ? {
+                                  orangeToggleReason:
+                                      'Comando en cola esperando señal GPS (el botón aparece en naranja/ámbar porque la moto está desconectada y aún no confirma el comando)',
+                              }
+                            : {}),
                         ignitionOn: ignition,
                         batteryLevel,
                         powerCut,

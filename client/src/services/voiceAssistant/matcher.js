@@ -75,15 +75,18 @@ const AMBIGUOUS_REFERENCE_GUARD =
     /^(?:open|abre|abrir|filter|filtra|filtrar|show|muestra|mostrar)\s+(?:it|them|those|that|esto|eso|esos|esas|aquello|aquellos)$/;
 
 const NAV_VERB_PREFIX =
-    /^(?:go to|open|navigate to|take me to|show me|ir a|ve a|abre|abrir|mostrar|muestrame|llevar a|llevame a)\s+(.+)$/;
+    /^(?:go to|open|navigate to|take me to|show me|ir al|ir a|ve al|ve a|abre|abrir|mostrar|muestrame|llevar al|llevar a|llevame al|llevame a)\s+(.+)$/;
 
 const CLEAR_FILTER_PATTERNS = [
     'clear filters',
     'clear the filters',
     'clear filter',
+    'clear search',
     'reset filters',
     'limpiar filtros',
     'limpia los filtros',
+    'limpiar busqueda',
+    'limpia la busqueda',
     'quitar filtros',
     'quita los filtros',
     'borrar filtros',
@@ -176,7 +179,10 @@ const matchModuleTarget = (rawTarget) => {
  *   clarificationPrompt?: string,
  * }}
  */
-export const matchLocalIntent = (text = '', { currentModule = 'dashboard', lang = 'es-CO' } = {}) => {
+export const matchLocalIntent = (
+    text = '',
+    { currentModule = 'dashboard', lang = 'es-CO', hasConversationContext = false } = {}
+) => {
     const normalized = normalizeText(text);
     const isEn =
         lang === 'en-US' ||
@@ -205,8 +211,20 @@ export const matchLocalIntent = (text = '', { currentModule = 'dashboard', lang 
         };
     }
 
-    // 2. Detect ambiguous pronoun commands ("Open that", "Filter those")
+    // 2. Detect ambiguous pronoun commands ("Open that", "Filter those").
+    //    When active conversation context exists, delegate to the Agents SDK (`NO_MATCH`)
+    //    so it can resolve "esas", "esos", "eso" against MemorySession!
     if (AMBIGUOUS_REFERENCE_GUARD.test(normalized)) {
+        if (hasConversationContext) {
+            return {
+                status: MATCH_STATUS.NO_MATCH,
+                plan: null,
+                capabilityId: null,
+                capability: null,
+                score: 0,
+                resolvedLocally: false,
+            };
+        }
         return {
             status: MATCH_STATUS.AMBIGUOUS,
             plan: null,

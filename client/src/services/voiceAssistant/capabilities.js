@@ -649,6 +649,7 @@ export const PLACEHOLDERS = Object.freeze([
     'summary.weeklyDebtTotal',
     'invoices.count',
     'invoices.unpaidCount',
+    'invoices.unpaidAmount',
     'invoices.totalAmount',
     'alerts.count',
     'alerts.activeCount',
@@ -786,14 +787,140 @@ export const SUGGESTED_CAPABILITY_IDS = Object.freeze([
     'nav.contracts',
 ]);
 
+const V2_COMPACT_VALUE_GLOSSES = Object.freeze({
+    devices: {
+        status: {
+            offline: 'desconectadas sin señal GPS >3m',
+            battery_issue: 'batería mala/débil/desconectada',
+            active: 'con contrato activo',
+            available: 'disponibles/libres sin contrato',
+            on: 'encendidas (ignición on)',
+            off: 'apagadas/bloqueadas/suspendidas con corte (cutOff=true)',
+            alt_issue: 'falla de alternador/regulador/voltaje',
+        },
+        sortBy: { offline: 'mayor tiempo desconectadas primero' },
+    },
+    summary: {
+        status: {
+            debt: 'en deuda/mora (morosos unpaidTotal>0)',
+            ok: 'al día sin deuda (unpaidTotal=0)',
+            cutoff: 'con corte de motor activo',
+            weekly: 'modalidad semanal/quincenal',
+        },
+        view: { bike: 'tarjetas por moto', matrix: 'matriz mensual' },
+    },
+    contracts: {
+        status: {
+            active: 'activos (ACTIVE)',
+            weekly: 'semanales/quincenales',
+            completed: 'finalizados (COMPLETED)',
+            cancelled: 'cancelados (CANCELLED)',
+        },
+    },
+    payments: {
+        status: {
+            completed: 'aprobados/pagados',
+            pending: 'pendientes/en verificación',
+            failed: 'rechazados/declinados/con error',
+            free: 'día gratis/ajuste $0',
+        },
+        datePreset: {
+            all: 'todo el mes',
+            today: 'hoy',
+            yesterday: 'ayer',
+            last_7_days: 'últimos 7 días',
+        },
+    },
+    invoices: {
+        status: {
+            PAID: 'settled daily quota',
+            PENDING: 'unpaid daily quota',
+            FREE: 'free day/workshop adjustment',
+            LOAN: 'loan quota',
+        },
+    },
+    alerts: {
+        status: {
+            ACTIVE: 'open',
+            ACKNOWLEDGED: 'in progress',
+            RESOLVED: 'closed',
+        },
+    },
+    commands: {
+        status: {
+            STOP: 'engine cut',
+            RESUME: 'engine restore',
+            PREVENTIVE: 'curfew cut',
+            FAILED: 'unconfirmed/failed',
+        },
+    },
+    reports: {
+        status: {
+            payments: 'days with payments',
+            bancolombia: 'days with bank transfer',
+            reconciled: 'reconciled days',
+            pending: 'unreconciled days',
+            selected: 'day range fromDay..toDay',
+        },
+    },
+    'company-invoices': {
+        status: {
+            completed: 'paid B2B invoice',
+            pending: 'unpaid B2B invoice',
+        },
+    },
+});
+
 /**
  * Builds a deterministic, sorted JSON representation of the catalog for a role variant
  * so OpenAI Prompt Caching always sees an identical prefix across requests.
+ *
+ * - `promptVersion = 'v1'`: Original full catalog (preserves `tools`, `placeholders`, and verbose prose for A/B & rollback).
+ * - `promptVersion = 'v2'`: Compact de-duplicated registry (omits `tools` and `placeholders` already enforced via
+ *   Zod Structured Outputs & `STABLE_SYSTEM_HEADER`, and condenses verbose module prose by ~72%).
  */
-export const serializeCatalogForPrompt = (roleVariant = 'admin') => {
+export const serializeCatalogForPrompt = (roleVariant = 'admin', options = {}) => {
+    const promptVersion = options?.promptVersion === 'v2' ? 'v2' : 'v1';
     const isSuper = roleVariant === 'superadmin';
     const role = isSuper ? 'admin' : roleVariant;
     const mockUser = { role, isSuperAdmin: isSuper };
+
+    if (promptVersion === 'v2') {
+        const compactModules = MODULE_IDS.filter((id) => canUserAccessModule(id, mockUser)).map(
+            (id) => {
+                const m = MODULES[id];
+                const modGlosses = V2_COMPACT_VALUE_GLOSSES[id] || {};
+                const filters = Object.entries(m.filters || {}).reduce((acc, [k, v]) => {
+                    if (v.type === 'enum') {
+                        const gloss = modGlosses[k];
+                        acc[k] = gloss ? { values: v.values, meaning: gloss } : v.values;
+                    } else {
+                        acc[k] = `${v.type}(${v.min}..${v.max})`;
+                    }
+                    return acc;
+                }, {});
+
+                const entry = {
+                    id: m.id,
+                    route: m.route,
+                    label: m.label,
+                };
+                if (m.supportsSearch && Array.isArray(m.searchableFields) && m.searchableFields.length > 0) {
+                    entry.searchBy = m.searchableFields;
+                }
+                if (Object.keys(filters).length > 0) {
+                    entry.filters = filters;
+                }
+                return entry;
+            }
+        );
+
+        return JSON.stringify({
+            version: 'upay-voice-catalog-v2',
+            role: roleVariant,
+            modules: compactModules,
+        });
+    }
 
     const permittedModules = MODULE_IDS.filter((id) => canUserAccessModule(id, mockUser)).map((id) => {
         const m = MODULES[id];

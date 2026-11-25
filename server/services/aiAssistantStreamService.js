@@ -25,6 +25,7 @@ import {
 } from '../../client/src/services/voiceAssistant/schemaValidator.js';
 import { prepareSpokenResponse } from '../../client/src/services/voiceAssistant/tts.js';
 import {
+    getActivePromptVersion,
     buildStablePrefix,
     buildDynamicSuffix,
     extractUsageMetrics,
@@ -39,11 +40,19 @@ import {
     FETCH_MODULE_RECORDS_TOOL,
     MAX_TOOL_CALLS_PER_TURN,
 } from './aiAssistantService.js';
+import {
+    estimatePromptComponentTokens,
+    buildExtendedTokenCostTelemetry,
+} from './aiTokenTelemetry.js';
 import { fetchSanitizedModuleRecords } from './assistantDemoService.js';
 import {
     runAssistantTurnWithAgentsSdk,
     closeSharedAgentsWSModel,
     markTurnSignatureSynced,
+    isAnalyticalQuestion,
+    ensureRequestedViewActions,
+    evaluateGoalCompletion,
+    buildTurnTelemetry,
 } from './aiAssistantAgentRuntime.js';
 
 const DEFAULT_MODEL = process.env.OPENAI_ASSISTANT_MODEL || 'gpt-4o-mini';
@@ -642,6 +651,7 @@ export const streamAssistantTurn = async ({
     conversationHistory = [],
     ttsOptions = {},
     upstreamMode = undefined,
+    promptVersion = null,
     user = null,
     signal = null,
     emitEvent = () => {},
@@ -651,14 +661,17 @@ export const streamAssistantTurn = async ({
     wsFactory = undefined,
 }) => {
     const startTime = performance.now();
+    const activePromptVersion = getActivePromptVersion(promptVersion);
     const transportMode = upstreamMode === 'ws' || upstreamMode === 'http' ? upstreamMode : DEFAULT_STREAM_MODE;
     const roleVariant = getRoleVariant(user);
-    const prefixInfo = buildStablePrefix(roleVariant);
+    const prefixInfo = buildStablePrefix(roleVariant, activePromptVersion);
     const dynamicSuffix = buildDynamicSuffix({
         applicationContext,
         conversationHistory,
         text,
         lang,
+        promptVersion: activePromptVersion,
+        omitConversationHistory: activePromptVersion === 'v2',
     });
     const activeTraceId =
         typeof traceId === 'string' && traceId.trim()
@@ -678,7 +691,7 @@ export const streamAssistantTurn = async ({
         console.log(`[AI Stream ${activeTraceId} +${ms}ms]`, ...args);
     };
 
-    logStream('▶ Turno recibido:', {
+    logStream('▶ Turno iniciado (stream):', {
         userText: text,
         viaVoice,
         module: applicationContext?.currentModule || 'dashboard',
@@ -764,7 +777,11 @@ export const streamAssistantTurn = async ({
             const cacheKey = `upay_${roleVariant}_${prefixInfo.catalogHash.slice(0, 32)}`;
             let parsed = null;
             let finalUsage = null;
+            let openaiCallsCount = 1;
+            let priorSessionItems = [];
             let onDemandToolCalls = null;
+            let sessionHasVerifiedToolData = false;
+            let toolErrors = [];
             let streamedTextCount = 0;
             let syncedSessionEntry = null;
             const sentenceChunker = new SentenceChunker();
@@ -838,6 +855,7 @@ export const streamAssistantTurn = async ({
                 const agentRun = await runAssistantTurnWithAgentsSdk({
                     openai,
                     modelName: DEFAULT_MODEL,
+                    promptVersion: activePromptVersion,
                     transportMode,
                     stablePrefix: prefixInfo.stablePrefix,
                     cacheKey,
@@ -895,20 +913,45 @@ export const streamAssistantTurn = async ({
                 });
 
                 const totalSoFarMs = Math.round(performance.now() - startTime);
+                openaiCallsCount = Math.max(1, agentRun.perRoundUsages.length);
+                priorSessionItems = agentRun.priorSessionItems || [];
+                const roundBreakdown = estimatePromptComponentTokens({
+                    headerText: prefixInfo.headerText,
+                    moduleRegistryText: prefixInfo.moduleRegistryText,
+                    toolDefinitionJson: prefixInfo.toolDefinitionJson,
+                    outputSchemaJson: prefixInfo.outputSchemaJson,
+                    dynamicContextText: dynamicSuffix,
+                    conversationHistoryItems: priorSessionItems,
+                    embeddedHistoryInDynamic: activePromptVersion === 'v1',
+                });
                 for (const roundUsage of agentRun.perRoundUsages) {
-                    const sample = extractUsageMetrics(roundUsage, {
-                        catalogHash: prefixInfo.catalogHash,
-                        modelName: DEFAULT_MODEL,
-                        latencyMs: Math.round(
-                            totalSoFarMs / Math.max(1, agentRun.perRoundUsages.length)
-                        ),
+                    const roundCost = buildExtendedTokenCostTelemetry({
+                        model: DEFAULT_MODEL,
+                        promptVersion: activePromptVersion,
+                        promptHash: prefixInfo.catalogHash,
+                        componentBreakdown: roundBreakdown,
+                        usage: roundUsage,
+                        durationMs: Math.round(totalSoFarMs / openaiCallsCount),
+                        openaiCalls: 1,
+                        toolCalls: 0,
                     });
+                    const sample = {
+                        ...extractUsageMetrics(roundUsage, {
+                            catalogHash: prefixInfo.catalogHash,
+                            modelName: DEFAULT_MODEL,
+                            latencyMs: Math.round(totalSoFarMs / openaiCallsCount),
+                        }),
+                        estimatedCostUSD: roundCost.estimatedCostUSD,
+                        estimatedSavingsUSD: roundCost.estimatedSavingsUSD,
+                    };
                     recordMetricsSample(sample);
                 }
 
                 parsed = agentRun.finalOutput;
                 finalUsage = agentRun.usage;
                 onDemandToolCalls = agentRun.onDemandToolCalls;
+                sessionHasVerifiedToolData = Boolean(agentRun.sessionHasVerifiedToolData);
+                toolErrors = Array.isArray(agentRun.toolErrors) ? agentRun.toolErrors : [];
                 toolRounds = agentRun.toolRounds;
                 syncedSessionEntry = agentRun.sessionEntry;
             }
@@ -919,37 +962,48 @@ export const streamAssistantTurn = async ({
             });
 
             if (validated.success) {
-                let verifiedData = {
-                    ...validated.data,
-                    responseTemplate: humanizeAssistantText(validated.data.responseTemplate || ''),
-                };
+                let verifiedData = ensureRequestedViewActions({
+                    userText: text,
+                    plan: {
+                        ...validated.data,
+                        responseTemplate: humanizeAssistantText(
+                            validated.data.responseTemplate || ''
+                        ),
+                    },
+                    currentModule: applicationContext?.currentModule || 'dashboard',
+                    activeFilters: applicationContext?.activeFilters || {},
+                    onDemandToolCalls,
+                    toolErrors,
+                    user,
+                });
+                const goalCheck = evaluateGoalCompletion({
+                    userText: text,
+                    plan: verifiedData,
+                    onDemandToolCalls,
+                    sessionHasVerifiedToolData,
+                    toolErrors,
+                    lang,
+                });
+                if (goalCheck.suggestedPlanOverride) {
+                    verifiedData = goalCheck.suggestedPlanOverride;
+                }
                 const tpl = verifiedData.responseTemplate || '';
                 const hasPlaceholders = /\{\{\s*[a-zA-Z0-9_.-]+\s*\}\}/.test(tpl);
-                const isSecurityOrOffTopic =
-                    /\b(solo lectura|read-only|no puedo ayudar|no tengo permiso|permission)\b/i.test(tpl);
-                const unverifiedDataClaim =
-                    /\b(?:no veo|no hay|no encontr[eé]|ning[uú]n|there are no|i see \d+|hay \d+\s+(?:pagos?|motos?|alertas?|contratos?|facturas?|comandos?|registros?)|suman\s+\$?[\d.,]+)/i.test(
-                        tpl
-                    ) || /\$\s?\d[\d.,]+/.test(tpl);
 
-                // Req. 8: Block unverified facts when OpenAI skipped tool calling
-                if (
-                    !onDemandToolCalls &&
-                    !hasPlaceholders &&
-                    !isSecurityOrOffTopic &&
-                    verifiedData.actions.length === 0 &&
-                    !verifiedData.needsClarification &&
-                    unverifiedDataClaim
-                ) {
-                    verifiedData = {
-                        ...verifiedData,
-                        needsClarification: true,
-                        responseTemplate:
-                            lang === 'en-US'
-                                ? 'Could you confirm what filter or period you want me to check on this screen?'
-                                : '¿Me confirmas qué filtro o período quieres revisar en esta pantalla para darte el dato exacto?',
-                    };
-                }
+                const toolExecutionStatus =
+                    toolErrors.length > 0 && !onDemandToolCalls
+                        ? 'failed'
+                        : toolErrors.length > 0 && onDemandToolCalls
+                        ? 'partial_error'
+                        : onDemandToolCalls
+                        ? 'success'
+                        : 'not_needed';
+                const responseStatus =
+                    goalCheck.status === 'failed'
+                        ? 'error'
+                        : verifiedData.needsClarification
+                        ? 'clarification'
+                        : 'generated';
 
                 markTurnSignatureSynced(syncedSessionEntry, {
                     userText: text,
@@ -1007,12 +1061,47 @@ export const streamAssistantTurn = async ({
                     : 'openai_responses';
                 const totalLatencyMs = Math.round(performance.now() - startTime);
 
+                const componentBreakdown = estimatePromptComponentTokens({
+                    headerText: prefixInfo.headerText,
+                    moduleRegistryText: prefixInfo.moduleRegistryText,
+                    toolDefinitionJson: prefixInfo.toolDefinitionJson,
+                    outputSchemaJson: prefixInfo.outputSchemaJson,
+                    dynamicContextText: dynamicSuffix,
+                    conversationHistoryItems: priorSessionItems,
+                    embeddedHistoryInDynamic: activePromptVersion === 'v1',
+                });
+                const extendedTelemetry = buildExtendedTokenCostTelemetry({
+                    model: DEFAULT_MODEL,
+                    promptVersion: activePromptVersion,
+                    promptHash: prefixInfo.catalogHash,
+                    componentBreakdown,
+                    usage: finalUsage,
+                    durationMs: totalLatencyMs,
+                    openaiCalls: openaiCallsCount,
+                    toolCalls: onDemandToolCalls ? onDemandToolCalls.length : 0,
+                    plan: finalPlan,
+                    routingMode: 'agents_sdk',
+                    plannerSource,
+                    onDemandToolCalls,
+                    fallbackReason: null,
+                });
+
                 const metrics = {
                     ...extractUsageMetrics(finalUsage, {
                         catalogHash: prefixInfo.catalogHash,
                         modelName: DEFAULT_MODEL,
                         latencyMs: totalLatencyMs,
                     }),
+                    ...buildTurnTelemetry({
+                        routingMode: 'agents_sdk',
+                        agentRunStatus: 'completed',
+                        toolExecutionStatus,
+                        goalCompletionStatus: goalCheck.status,
+                        responseStatus,
+                        fallbackReason: null,
+                    }),
+                    ...extendedTelemetry,
+                    goal_completion_reason: goalCheck.reason,
                     transport_mode: transportMode,
                     sdk_runtime: '@openai/agents',
                     first_event_latency_ms: firstEventLatencyMs ?? totalLatencyMs,
@@ -1020,6 +1109,7 @@ export const streamAssistantTurn = async ({
                     first_audio_latency_ms: firstAudioLatencyMs,
                     tool_rounds: toolRounds,
                     ws_reconnects: sharedWsSession?.reconnectCount || 0,
+                    ...(toolErrors.length > 0 ? { tool_errors: toolErrors } : {}),
                     ...(syncedSessionEntry?.sessionKey ? { session_active: true } : {}),
                     ...(onDemandToolCalls ? { on_demand_tool_calls: onDemandToolCalls } : {}),
                 };
@@ -1036,7 +1126,7 @@ export const streamAssistantTurn = async ({
                     matcherStatus: 'NO_MATCH',
                     plannerSource,
                     plan: finalPlan,
-                    executionStatus: 'planned',
+                    executionStatus: goalCheck.status === 'failed' ? 'failed' : 'planned',
                     metrics,
                 });
 
@@ -1049,11 +1139,12 @@ export const streamAssistantTurn = async ({
                     metrics,
                 };
 
-                logStream('🏁 Turno completado:', {
+                logStream(`  └─ 🏁 Turno completado (stream) · ${openaiCallsCount} ${openaiCallsCount === 1 ? 'llamada' : 'llamadas'} a OpenAI · ${onDemandToolCalls ? onDemandToolCalls.length : 0} a herramientas:`, { openaiCalls: openaiCallsCount,
                     source: plannerSource,
                     targetModule: finalPlan.targetModule,
                     actions: finalPlan.actions,
                     responseTemplate: finalPlan.responseTemplate,
+                    goalCompletionStatus: goalCheck.status,
                     streamedText: streamedTextCount > 0,
                     audioChunks: emittedAudioChunks,
                     firstAudioLatencyMs,
@@ -1064,28 +1155,37 @@ export const streamAssistantTurn = async ({
                 return resultPayload;
             }
             streamErrorReason = `validation_error: ${validated.error || 'invalid_plan'}`;
-            logStream('⚠️ Error validando plan OpenAI:', streamErrorReason);
+            logStream('  ├─ ⚠️ Error validando plan OpenAI:', streamErrorReason);
+            // Prevent a malformed assistant output from poisoning MemorySession for future turns
+            try {
+                await syncedSessionEntry?.session?.popItem?.();
+            } catch {
+                // Ignore session rollback error
+            }
         } catch (err) {
             if (signal?.aborted || err?.message === 'TURN_CANCELLED') {
-                logStream('⏹ Turno abortado por el cliente');
+                logStream('  └─ ⏹ Turno abortado por el cliente');
                 return null;
             }
             const errName = err?.name || 'Error';
             const errStatus = err?.status ? ` (${err.status})` : '';
             const errMsg = typeof err?.message === 'string' ? err.message.slice(0, 140) : 'unknown';
-            streamErrorReason = `${errName}${errStatus}: ${errMsg}`;
-            logStream('⚠️ Excepción en flujo OpenAI -> pasando a fallback:', streamErrorReason);
+            const isTimeout = /timeout|abort|ETIMEDOUT/i.test(`${errName} ${errMsg}`);
+            streamErrorReason = isTimeout
+                ? `network_timeout: ${errMsg}`
+                : `openai_api_error: ${errName}${errStatus}: ${errMsg}`;
+            logStream('  ├─ ⚠️ Excepción en flujo OpenAI -> pasando a fallback:', streamErrorReason);
             // Fall through to deterministic contextual fallback below (Req. 13)
         }
     } else {
-        logStream('ℹ️ Usando fallback contextual directo:', {
+        logStream('  └─ ℹ️ Usando fallback contextual directo:', {
             reason: !openai ? 'no_openai_client' : 'daily_token_cap_exceeded',
         });
     }
 
     if (signal?.aborted) return null;
 
-    // Deterministic contextual fallback (offline / no API key / daily cap)
+    // Deterministic contextual fallback / quota / technical failure (Phases 5 & 7)
     const fallbackPlan = planContextualFallback({
         text,
         lang,
@@ -1110,7 +1210,58 @@ export const streamAssistantTurn = async ({
         return null;
     }
 
-    const fallbackData = validatedFallback.data;
+    const effectiveFallbackReason = capExceeded
+        ? 'daily_token_cap_exceeded'
+        : !openai
+        ? 'no_openai_client'
+        : streamErrorReason || 'contextual_fallback';
+    const isTechnicalFailure =
+        typeof effectiveFallbackReason === 'string' &&
+        (effectiveFallbackReason.startsWith('openai_api_error') ||
+            effectiveFallbackReason.startsWith('network_timeout') ||
+            effectiveFallbackReason.startsWith('validation_error'));
+    const analyticalQuery = isAnalyticalQuestion(text);
+    const canFulfillSafelyLocally =
+        validatedFallback.data.actions.length > 0 && !analyticalQuery;
+
+    let fallbackData = validatedFallback.data;
+    let fallbackSource = 'contextual_planner';
+    let agentRunStatus = capExceeded ? 'quota_exceeded' : !openai ? 'unavailable' : 'failed';
+    let goalCompletionStatus = validatedFallback.data.needsClarification
+        ? 'clarification_needed'
+        : 'complete';
+    let responseStatus = validatedFallback.data.needsClarification ? 'clarification' : 'fallback';
+
+    if (capExceeded && !canFulfillSafelyLocally) {
+        fallbackData = {
+            scope: 'current_screen',
+            targetModule: applicationContext?.currentModule || 'dashboard',
+            actions: [],
+            needsClarification: false,
+            responseTemplate:
+                lang === 'en-US'
+                    ? 'The daily AI assistant quota has been reached for today. Basic navigation and simple filters remain available.'
+                    : 'Se alcanzó la cuota diaria de consultas con IA para hoy. La navegación básica y los filtros simples siguen disponibles.',
+        };
+        fallbackSource = 'quota_guard';
+        goalCompletionStatus = 'incomplete';
+        responseStatus = 'fallback';
+    } else if (isTechnicalFailure && !canFulfillSafelyLocally) {
+        fallbackData = {
+            scope: 'current_screen',
+            targetModule: applicationContext?.currentModule || 'dashboard',
+            actions: [],
+            needsClarification: false,
+            responseTemplate:
+                lang === 'en-US'
+                    ? 'There was a temporary issue reaching the AI assistant. Please try again in a moment.'
+                    : 'Hubo un problema temporal al consultar el asistente de IA. Intenta de nuevo en un momento.',
+        };
+        fallbackSource = 'technical_error_fallback';
+        goalCompletionStatus = 'failed';
+        responseStatus = 'error';
+    }
+
     const hasPlaceholders = /\{\{\s*[a-zA-Z0-9_.-]+\s*\}\}/.test(fallbackData.responseTemplate || '');
     let fallbackStreamed = false;
 
@@ -1120,15 +1271,45 @@ export const streamAssistantTurn = async ({
     }
 
     const totalLatencyMs = Math.round(performance.now() - startTime);
+    const fallbackBreakdown = estimatePromptComponentTokens({
+        headerText: prefixInfo.headerText,
+        moduleRegistryText: prefixInfo.moduleRegistryText,
+        toolDefinitionJson: prefixInfo.toolDefinitionJson,
+        outputSchemaJson: prefixInfo.outputSchemaJson,
+        dynamicContextText: dynamicSuffix,
+        conversationHistoryItems: conversationHistory,
+        embeddedHistoryInDynamic: activePromptVersion === 'v1',
+    });
+    const fallbackExtended = buildExtendedTokenCostTelemetry({
+        model: DEFAULT_MODEL,
+        promptVersion: activePromptVersion,
+        promptHash: prefixInfo.catalogHash,
+        componentBreakdown: fallbackBreakdown,
+        usage: null,
+        durationMs: totalLatencyMs,
+        openaiCalls: 0,
+        toolCalls: 0,
+        plan: fallbackData,
+        routingMode: 'local_fallback',
+        plannerSource: fallbackSource,
+        fallbackReason: effectiveFallbackReason,
+    });
     const fallbackMetrics = {
         ...extractUsageMetrics(null, {
             catalogHash: prefixInfo.catalogHash,
             modelName: openai ? `${DEFAULT_MODEL} (fallback)` : 'local-contextual-planner',
             latencyMs: totalLatencyMs,
-            fallbackReason: capExceeded
-                ? 'daily_token_cap_exceeded'
-                : streamErrorReason || 'contextual_fallback',
+            fallbackReason: effectiveFallbackReason,
         }),
+        ...buildTurnTelemetry({
+            routingMode: 'local_fallback',
+            agentRunStatus,
+            toolExecutionStatus: 'not_needed',
+            goalCompletionStatus,
+            responseStatus,
+            fallbackReason: effectiveFallbackReason,
+        }),
+        ...fallbackExtended,
         transport_mode: transportMode,
         first_event_latency_ms: firstEventLatencyMs ?? totalLatencyMs,
         first_text_delta_ms: fallbackStreamed ? totalLatencyMs : null,
@@ -1139,7 +1320,7 @@ export const streamAssistantTurn = async ({
     const completedPayload = {
         traceId: activeTraceId,
         plan: fallbackData,
-        source: 'contextual_planner',
+        source: fallbackSource,
         streamedText: fallbackStreamed,
         audioStreamed: false,
         metrics: fallbackMetrics,
