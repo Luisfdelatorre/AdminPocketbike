@@ -1028,3 +1028,30 @@ describe('Invoices pending total ({{invoices.unpaidAmount}})', () => {
         assert.match(plan.responseTemplate, /\{\{invoices\.unpaidAmount\}\}/);
     });
 });
+
+describe('Money totals map to amount placeholders, not counts', () => {
+    it('both prompt versions instruct "total" about money to use amount placeholders', async () => {
+        const { STABLE_SYSTEM_HEADER_V1, STABLE_SYSTEM_HEADER_V2 } = await import(
+            '../services/aiAssistantService.js'
+        );
+        for (const header of [STABLE_SYSTEM_HEADER_V1, STABLE_SYSTEM_HEADER_V2]) {
+            assert.match(header, /never a count/i);
+            assert.match(header, /\{\{invoices\.unpaidAmount\}\}/);
+            assert.match(header, /\{\{payments\.total\}\}/);
+        }
+    });
+
+    it('fallback answers "dame el total de los pagos pendientes" on invoices with the unpaid amount', () => {
+        const plan = planContextualFallback({
+            text: 'dame el total de los pagos pendientes?',
+            applicationContext: {
+                currentRoute: '/invoices',
+                currentModule: 'invoices',
+                activeFilters: { status: 'PENDING', month: 11, year: 2026 },
+            },
+            user: adminUser,
+        });
+        assert.match(plan.responseTemplate, /\{\{invoices\.unpaidAmount\}\}/);
+        assert.doesNotMatch(plan.responseTemplate, /unpaidCount/);
+    });
+});
