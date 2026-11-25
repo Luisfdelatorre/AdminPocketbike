@@ -10,6 +10,8 @@
  *    and user-gesture `unlockTTS()`).
  */
 
+import { normalizeCOPForSpeech } from './speechNormalization.js';
+
 let cachedVoices = [];
 let activeUtterance = null;
 let speakTimer = null;
@@ -172,7 +174,7 @@ export const stopSpeaking = () => {
  */
 export const prepareSpokenResponse = (
     text = '',
-    { lang = 'es-CO', maxLength = 340, keepFullList = false } = {}
+    { lang = 'es-CO', maxLength = 340, keepFullList = false, normalizeCurrency = true } = {}
 ) => {
     let clean = String(text || '').trim();
     if (!clean) return '';
@@ -187,6 +189,10 @@ export const prepareSpokenResponse = (
         .replace(/\s*\n+\s*/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
+
+    if (normalizeCurrency) {
+        clean = normalizeCOPForSpeech(clean, { lang });
+    }
 
     if (keepFullList || clean.length <= maxLength) {
         return clean;

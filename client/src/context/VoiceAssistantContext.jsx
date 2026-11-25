@@ -546,6 +546,9 @@ export const VoiceAssistantProvider = ({ children }) => {
             if (ttsSupported && ttsEnabled) {
                 unlockTTS();
             }
+            if (ttsEnabled && neuralTtsEnabled) {
+                audioQueueRef.current?.unlock();
+            }
 
             const turnId = `tr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
             activeTurnIdRef.current = turnId;
@@ -587,6 +590,9 @@ export const VoiceAssistantProvider = ({ children }) => {
                 const localMatch = matchLocalIntent(text, {
                     currentModule: appCtx.currentModule,
                     lang: assistantLang,
+                    hasConversationContext:
+                        Array.isArray(conversationHistoryRef.current) &&
+                        conversationHistoryRef.current.length > 0,
                 });
                 logTurn(`[+${elapsedMs()}ms] 1. LocalMatcher -> ${localMatch.status}`, {
                     capabilityId: localMatch.capabilityId || null,
@@ -628,6 +634,22 @@ export const VoiceAssistantProvider = ({ children }) => {
 
                 if (localMatch.status === MATCH_STATUS.MATCH && localMatch.plan) {
                     actionPlan = localMatch.plan;
+                    chatMetrics = {
+                        model: 'none (local_matcher)',
+                        promptVersion: 'local',
+                        inputTokens: 0,
+                        cachedTokens: 0,
+                        uncachedTokens: 0,
+                        outputTokens: 0,
+                        cacheHitPercent: null,
+                        estimatedCostUSD: 0,
+                        estimatedSavingsUSD: 0,
+                        openaiCalls: 0,
+                        toolCalls: 0,
+                        localResolution: true,
+                        responsePath: 'local_fast_path',
+                        routingMode: 'local_fast_path',
+                    };
                 } else {
                     // 2. Streaming Path (`streamingEnabled === true`):
                     //    2a. Authenticated WebSocket (`/api/v1/ai/ws`)
@@ -757,6 +779,13 @@ export const VoiceAssistantProvider = ({ children }) => {
                     };
 
                     if (streamingEnabled) {
+                        logTurn(`[+${elapsedMs()}ms] 📤 [OpenAI API Request (Streaming)]`, {
+                            traceId: turnId,
+                            text,
+                            lang: assistantLang,
+                            applicationContext: appCtx,
+                            historyTurns: conversationHistoryRef.current.length,
+                        });
                         let streamResult = null;
                         let needHttpSseFallback = false;
 
@@ -847,6 +876,21 @@ export const VoiceAssistantProvider = ({ children }) => {
                             if (streamResult?.audioStreamed) {
                                 audioStreamed = true;
                             }
+                            logTurn(`🤖 [OpenAI API Response (${clientChannel})]`, {
+                                model: chatMetrics?.model || chatMetrics?.model_name,
+                                promptVersion: chatMetrics?.promptVersion,
+                                openaiCalls: chatMetrics?.openaiCalls ?? 1,
+                                toolCalls: chatMetrics?.on_demand_tool_calls || [],
+                                tokens: {
+                                    input: chatMetrics?.inputTokens ?? chatMetrics?.input_tokens,
+                                    cached: chatMetrics?.cachedTokens ?? chatMetrics?.cached_tokens,
+                                    uncached: chatMetrics?.uncachedTokens,
+                                    output: chatMetrics?.outputTokens ?? chatMetrics?.output_tokens,
+                                    cacheHitPercent: chatMetrics?.cacheHitPercent,
+                                },
+                                estimatedCostUSD: chatMetrics?.estimatedCostUSD,
+                                plan: actionPlan,
+                            });
                         }
                     }
 
@@ -855,6 +899,16 @@ export const VoiceAssistantProvider = ({ children }) => {
                         try {
                             logTurn(
                                 `[+${elapsedMs()}ms] 2c. Enviando turno por HTTP JSON clásico (POST /api/v1/ai/chat, Streaming=${streamingEnabled ? 'ON-fallback' : 'OFF'})…`
+                            );
+                            logTurn(
+                                `[+${elapsedMs()}ms] 📤 [OpenAI API Request (HTTP JSON)]`,
+                                {
+                                    traceId: turnId,
+                                    text,
+                                    lang: assistantLang,
+                                    applicationContext: appCtx,
+                                    historyTurns: conversationHistoryRef.current.length,
+                                }
                             );
                             const chatRes = await assistantChat({
                                 traceId: turnId,
@@ -877,6 +931,24 @@ export const VoiceAssistantProvider = ({ children }) => {
                                       client_channel: 'http_json',
                                       streaming_enabled: Boolean(streamingEnabled),
                                   };
+                            logTurn(
+                                `[+${elapsedMs()}ms] 📥 [OpenAI API Response (HTTP JSON)]`,
+                                {
+                                    model: chatMetrics?.model || chatMetrics?.model_name,
+                                    promptVersion: chatMetrics?.promptVersion,
+                                    openaiCalls: chatMetrics?.openaiCalls ?? chatMetrics?.llm_rounds,
+                                    toolCalls: chatMetrics?.on_demand_tool_calls || [],
+                                    tokens: {
+                                        input: chatMetrics?.inputTokens ?? chatMetrics?.input_tokens,
+                                        cached: chatMetrics?.cachedTokens ?? chatMetrics?.cached_tokens,
+                                        uncached: chatMetrics?.uncachedTokens,
+                                        output: chatMetrics?.outputTokens ?? chatMetrics?.output_tokens,
+                                        cacheHitPercent: chatMetrics?.cacheHitPercent,
+                                    },
+                                    estimatedCostUSD: chatMetrics?.estimatedCostUSD,
+                                    plan: actionPlan,
+                                }
+                            );
                         } catch {
                             if (isStaleTurn()) return;
                             if (localMatch.capabilityId) {
@@ -969,6 +1041,15 @@ export const VoiceAssistantProvider = ({ children }) => {
                 }
 
                 // Record full post-execution trace for fine-tuning / RLHF dataset
+                const resolvedCount = Object.keys(execResult.resolvedPlaceholders || {}).length;
+                const finalMetrics = chatMetrics
+                    ? {
+                          ...chatMetrics,
+                          durationMs: chatMetrics.durationMs ?? elapsedMs(),
+                          localResolution:
+                              Boolean(chatMetrics.localResolution) || resolvedCount > 0,
+                      }
+                    : null;
                 recordAssistantTelemetry({
                     traceId: turnId,
                     viaVoice,
@@ -982,7 +1063,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                     executedActions: execResult.executedActions || [],
                     resolvedPlaceholders: execResult.resolvedPlaceholders || {},
                     assistantFinalText: execResult.reply,
-                    metrics: chatMetrics,
+                    metrics: finalMetrics,
                 }).catch(() => {});
 
                 // Only record turn as 'success' AFTER verified frontend execution (Section 7)
@@ -1119,6 +1200,7 @@ export const VoiceAssistantProvider = ({ children }) => {
         } else {
             cancelActiveTurn();
             if (ttsSupported && ttsEnabled) unlockTTS();
+            if (ttsEnabled && neuralTtsEnabled) audioQueueRef.current?.unlock();
             startListening();
         }
     }, [cancelActiveTurn, isListening, resetInactivityTimer, startListening, stopListening, ttsSupported, ttsEnabled]);
@@ -1178,10 +1260,11 @@ export const VoiceAssistantProvider = ({ children }) => {
 
     const open = useCallback(() => {
         if (ttsSupported && ttsEnabled) unlockTTS();
+        if (ttsEnabled && neuralTtsEnabled) audioQueueRef.current?.unlock();
         setAvailableVoices(getAvailableVoices());
         setIsMinimized(false);
         setIsOpen(true);
-    }, [ttsSupported, ttsEnabled]);
+    }, [ttsSupported, ttsEnabled, neuralTtsEnabled]);
 
     const close = useCallback(() => {
         cancelActiveTurn();
@@ -1200,6 +1283,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                 setIsMinimized(false);
             } else {
                 if (ttsSupported && ttsEnabled) unlockTTS();
+                if (ttsEnabled && neuralTtsEnabled) audioQueueRef.current?.unlock();
                 setAvailableVoices(getAvailableVoices());
                 setIsMinimized(false);
             }

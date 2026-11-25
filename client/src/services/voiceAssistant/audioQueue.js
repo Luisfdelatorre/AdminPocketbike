@@ -18,17 +18,36 @@ const decodeBase64ToUint8Array = (b64 = '') => {
     return new Uint8Array(Buffer.from(b64, 'base64'));
 };
 
+const SILENT_WAV_DATA_URI =
+    'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+const getAudioContextCtor = () =>
+    typeof window !== 'undefined'
+        ? window.AudioContext || window.webkitAudioContext || null
+        : null;
+
 export class AudioStreamQueue {
     constructor({
         onSpeakingChange = null,
         onFirstAudio = null,
         onPlaybackError = null,
         AudioImpl = typeof window !== 'undefined' && typeof window.Audio === 'function' ? window.Audio : null,
+        useWebAudio = true,
     } = {}) {
         this.onSpeakingChange = onSpeakingChange;
         this.onFirstAudio = onFirstAudio;
         this.onPlaybackError = onPlaybackError;
         this.AudioImpl = AudioImpl;
+        // Prefer Web Audio API in real browsers (fixes iOS Safari blob/autoplay restrictions),
+        // while preserving custom `AudioImpl` injection for unit tests.
+        const isCustomAudioMock =
+            typeof window === 'undefined' || (AudioImpl && AudioImpl !== window.Audio);
+        this.useWebAudio = Boolean(useWebAudio && !isCustomAudioMock && getAudioContextCtor());
+
+        this.audioContext = null;
+        this.currentSourceNode = null;
+        this.sharedAudio = null;
+        this.unlocked = false;
 
         this.activeTurnId = null;
         this.sentenceBuffers = new Map(); // sentenceIndex -> { chunks: Map<chunkIndex, Uint8Array>, finalCount: number|null, mimeType }
@@ -41,7 +60,60 @@ export class AudioStreamQueue {
     }
 
     isSupported() {
-        return typeof this.AudioImpl === 'function';
+        return this.useWebAudio || typeof this.AudioImpl === 'function';
+    }
+
+    /**
+     * Must be called synchronously inside a user gesture (click/tap/submit/mic) so iOS Safari
+     * unlocks both Web Audio (`AudioContext`) and the reusable `<audio>` fallback element
+     * before async WebSocket/SSE audio chunks arrive seconds later.
+     */
+    unlock() {
+        if (this.useWebAudio) {
+            try {
+                const AudioCtx = getAudioContextCtor();
+                if (AudioCtx) {
+                    if (!this.audioContext || this.audioContext.state === 'closed') {
+                        this.audioContext = new AudioCtx();
+                    }
+                    if (this.audioContext.state === 'suspended') {
+                        this.audioContext.resume?.().catch(() => {});
+                    }
+                    if (!this.unlocked) {
+                        const silentBuf = this.audioContext.createBuffer(1, 1, 22050);
+                        const src = this.audioContext.createBufferSource();
+                        src.buffer = silentBuf;
+                        src.connect(this.audioContext.destination);
+                        src.start(0);
+                    }
+                }
+            } catch {
+                // Ignore Web Audio unlock errors and fall back to HTMLAudioElement
+            }
+        }
+
+        if (typeof this.AudioImpl === 'function' && !this.sharedAudio) {
+            try {
+                const el = new this.AudioImpl();
+                el.playsInline = true;
+                el.setAttribute?.('playsinline', '');
+                el.setAttribute?.('webkit-playsinline', '');
+                el.preload = 'auto';
+                el.src = SILENT_WAV_DATA_URI;
+                const p = el.play?.();
+                if (p && typeof p.then === 'function') {
+                    p.then(() => {
+                        el.pause?.();
+                        el.currentTime = 0;
+                    }).catch(() => {});
+                }
+                this.sharedAudio = el;
+            } catch {
+                // Ignore HTMLAudioElement unlock errors
+            }
+        }
+
+        this.unlocked = true;
     }
 
     /**
@@ -115,12 +187,25 @@ export class AudioStreamQueue {
     }
 
     _cleanupCurrentAudio() {
+        if (this.currentSourceNode) {
+            try {
+                this.currentSourceNode.onended = null;
+                this.currentSourceNode.stop?.();
+                this.currentSourceNode.disconnect?.();
+            } catch {
+                // Ignore
+            }
+            this.currentSourceNode = null;
+        }
         if (this.currentAudio) {
             try {
                 this.currentAudio.onended = null;
                 this.currentAudio.onerror = null;
                 this.currentAudio.pause?.();
-                this.currentAudio.src = '';
+                // Keep `sharedAudio` reusable on iOS instead of destroying it
+                if (this.currentAudio !== this.sharedAudio) {
+                    this.currentAudio.src = '';
+                }
             } catch {
                 // Ignore
             }
@@ -142,22 +227,7 @@ export class AudioStreamQueue {
         this.onSpeakingChange?.(flag);
     }
 
-    _drainPlayable() {
-        if (this.isPlaying || !this.activeTurnId) return;
-        const nextReady = this.readySentences.get(this.nextSentenceToPlay);
-        if (!nextReady) return;
-
-        this.readySentences.delete(this.nextSentenceToPlay);
-        this.nextSentenceToPlay += 1;
-
-        if (!this.isSupported()) {
-            this.onPlaybackError?.(new Error('AUDIO_ELEMENT_UNSUPPORTED'));
-            return;
-        }
-
-        const turnSnapshot = this.activeTurnId;
-        this._cleanupCurrentAudio();
-
+    _playViaHtmlAudio(nextReady, turnSnapshot, advance) {
         try {
             let srcUrl = '';
             if (typeof URL !== 'undefined' && typeof Blob !== 'undefined' && URL.createObjectURL) {
@@ -170,7 +240,15 @@ export class AudioStreamQueue {
                 srcUrl = `data:${nextReady.mimeType || 'audio/mpeg'};base64,${b64}`;
             }
 
-            const audio = new this.AudioImpl(srcUrl);
+            let audio;
+            if (this.sharedAudio) {
+                audio = this.sharedAudio;
+                audio.src = srcUrl;
+                audio.load?.();
+            } else {
+                audio = new this.AudioImpl(srcUrl);
+                audio.playsInline = true;
+            }
             this.currentAudio = audio;
             this._setSpeaking(true);
 
@@ -178,17 +256,6 @@ export class AudioStreamQueue {
                 this.firstAudioFired = true;
                 this.onFirstAudio?.();
             }
-
-            const advance = () => {
-                if (this.activeTurnId !== turnSnapshot) return;
-                this._cleanupCurrentAudio();
-                this.isPlaying = false;
-                if (this.readySentences.has(this.nextSentenceToPlay)) {
-                    this._drainPlayable();
-                } else {
-                    this.onSpeakingChange?.(false);
-                }
-            };
 
             audio.onended = advance;
             audio.onerror = (err) => {
@@ -208,6 +275,94 @@ export class AudioStreamQueue {
             this._setSpeaking(false);
             this.onPlaybackError?.(err);
         }
+    }
+
+    _drainPlayable() {
+        if (this.isPlaying || !this.activeTurnId) return;
+        const nextReady = this.readySentences.get(this.nextSentenceToPlay);
+        if (!nextReady) return;
+
+        this.readySentences.delete(this.nextSentenceToPlay);
+        this.nextSentenceToPlay += 1;
+
+        if (!this.isSupported()) {
+            this.onPlaybackError?.(new Error('AUDIO_ELEMENT_UNSUPPORTED'));
+            return;
+        }
+
+        const turnSnapshot = this.activeTurnId;
+        this._cleanupCurrentAudio();
+
+        const advance = () => {
+            if (this.activeTurnId !== turnSnapshot) return;
+            this._cleanupCurrentAudio();
+            this.isPlaying = false;
+            if (this.readySentences.has(this.nextSentenceToPlay)) {
+                this._drainPlayable();
+            } else {
+                this.onSpeakingChange?.(false);
+            }
+        };
+
+        // Primary browser path: Web Audio API (`AudioContext.decodeAudioData`)
+        // Bypasses iOS Safari's `blob:` URL 206 Partial Content & async `<audio>.play()` blocks.
+        if (this.useWebAudio) {
+            try {
+                const AudioCtx = getAudioContextCtor();
+                if (!this.audioContext || this.audioContext.state === 'closed') {
+                    this.audioContext = new AudioCtx();
+                }
+                const ctx = this.audioContext;
+                this._setSpeaking(true);
+
+                // Copy buffer so `decodeAudioData` (which detaches ArrayBuffer) leaves `nextReady.bytes` intact if fallback is needed
+                const arrayBuf = nextReady.bytes.buffer.slice(
+                    nextReady.bytes.byteOffset,
+                    nextReady.bytes.byteOffset + nextReady.bytes.byteLength
+                );
+
+                const startDecoded = (audioBuffer) => {
+                    if (this.activeTurnId !== turnSnapshot) return;
+                    const playBuffer = () => {
+                        if (this.activeTurnId !== turnSnapshot) return;
+                        const source = ctx.createBufferSource();
+                        source.buffer = audioBuffer;
+                        source.connect(ctx.destination);
+                        source.onended = advance;
+                        this.currentSourceNode = source;
+                        if (!this.firstAudioFired) {
+                            this.firstAudioFired = true;
+                            this.onFirstAudio?.();
+                        }
+                        source.start(0);
+                    };
+
+                    if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+                        ctx.resume().then(playBuffer).catch(() => {
+                            this._playViaHtmlAudio(nextReady, turnSnapshot, advance);
+                        });
+                    } else {
+                        playBuffer();
+                    }
+                };
+
+                const onDecodeError = () => {
+                    if (this.activeTurnId !== turnSnapshot) return;
+                    this._playViaHtmlAudio(nextReady, turnSnapshot, advance);
+                };
+
+                // Support both Promise-based and legacy callback-based Safari `decodeAudioData`
+                const maybePromise = ctx.decodeAudioData(arrayBuf, startDecoded, onDecodeError);
+                if (maybePromise && typeof maybePromise.catch === 'function') {
+                    maybePromise.catch(() => {});
+                }
+                return;
+            } catch {
+                // Fall back to HTMLAudioElement below
+            }
+        }
+
+        this._playViaHtmlAudio(nextReady, turnSnapshot, advance);
     }
 
     /**
