@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Search, DollarSign, Calendar, CreditCard, Check, X, Clock,
@@ -397,6 +397,43 @@ const Payments = () => {
 
     const filteredTotalAmount = sortedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
+    const assistantCardsData = useMemo(() => {
+        if (!sortedPayments.length) return null;
+        const fmtCop = (n) =>
+            new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                maximumFractionDigits: 0,
+            }).format(Number(n) || 0);
+        const statusEs = (raw) => {
+            const st = String(raw || '').toUpperCase();
+            if (st === 'APPROVED' || st === 'COMPLETED') return 'Aprobado';
+            if (st === 'PENDING' || st === 'VERIFYING') return 'Pendiente';
+            if (st === 'DECLINED' || st === 'FAILED' || st === 'REJECTED') return 'Rechazado';
+            if (st === 'ERROR') return 'Error';
+            if (st === 'FREE' || st === 'ADJUSTMENT') return 'Ajuste / Gratis';
+            return raw || '';
+        };
+        return {
+            kind: 'list',
+            items: sortedPayments.slice(0, 5).map((p) => {
+                const method = p.paymentMethod || p.type || '';
+                const dateLabel = p.createdAt
+                    ? new Date(p.createdAt).toLocaleDateString('es-CO', {
+                          day: '2-digit',
+                          month: 'short',
+                      })
+                    : '';
+                const subParts = [statusEs(p.status), method, dateLabel].filter(Boolean);
+                return {
+                    title: p.deviceId || p.deviceIdName || 'Pago',
+                    subtitle: subParts.join(' · '),
+                    value: fmtCop(p.amount || 0),
+                };
+            }),
+        };
+    }, [sortedPayments]);
+
     useAssistantScreenBridge('payments', {
         loading,
         activeFilters: {
@@ -414,6 +451,7 @@ const Payments = () => {
             globalTotalCount: Number(pagination.total || payments.length),
             isPaginated: Number(pagination.totalPages || 1) > 1,
         },
+        cardsData: assistantCardsData,
         singleMatchItem:
             Boolean(searchQuery || filter !== 'all' || datePreset !== 'all') &&
             sortedPayments.length === 1

@@ -629,6 +629,26 @@ const Contracts = () => {
         [filteredContracts]
     );
 
+    const assistantContractsCards = useMemo(() => {
+        if (!filteredContracts.length) return null;
+        const fmtCop = (n) =>
+            new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                maximumFractionDigits: 0,
+            }).format(Number(n) || 0);
+        const statsItems = [
+            { label: 'Mostrados', value: String(filteredContracts.length) },
+            { label: 'Activos', value: String(activeCount) },
+            ...(completedCount > 0 ? [{ label: 'Finalizados', value: String(completedCount) }] : []),
+            { label: 'Valor', value: fmtCop(filteredTotalValue) },
+        ];
+        return {
+            kind: 'stats',
+            stats: statsItems,
+        };
+    }, [filteredContracts.length, activeCount, completedCount, filteredTotalValue]);
+
     useAssistantScreenBridge('contracts', {
         loading,
         activeFilters: { status: filter, searchQuery },
@@ -639,6 +659,7 @@ const Contracts = () => {
             activeCount,
             completedCount,
         },
+        cardsData: assistantContractsCards,
         selectedItem: previewContract?.deviceId || editingContract?.deviceId || null,
         singleMatchItem:
             Boolean(searchQuery || filter !== 'all') && filteredContracts.length === 1

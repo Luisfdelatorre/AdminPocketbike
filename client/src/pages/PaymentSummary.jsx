@@ -333,6 +333,35 @@ const PaymentSummary = () => {
         [summaryData]
     );
 
+    const assistantSummaryCards = useMemo(() => {
+        const sourceList =
+            statusFilter === 'all' && !searchQuery
+                ? [...filteredSummaryData]
+                      .filter((it) => (Number(it.device?.unpaidTotal) || 0) > 0)
+                      .sort((a, b) => (Number(b.device?.unpaidTotal) || 0) - (Number(a.device?.unpaidTotal) || 0))
+                : [...filteredSummaryData].sort(
+                      (a, b) => (Number(b.device?.unpaidTotal) || 0) - (Number(a.device?.unpaidTotal) || 0)
+                  );
+        if (!sourceList.length) return null;
+        const fmtCop = (n) =>
+            new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                maximumFractionDigits: 0,
+            }).format(Number(n) || 0);
+        return {
+            kind: 'list',
+            items: sourceList.slice(0, 5).map((item) => ({
+                title: item.device?.name || item.device?.deviceId || 'Moto',
+                subtitle:
+                    item.device?.customerName ||
+                    item.device?.driverName ||
+                    (item.device?.unpaidCount ? `${item.device.unpaidCount} días pendientes` : 'Al día'),
+                value: fmtCop(item.device?.unpaidTotal || 0),
+            })),
+        };
+    }, [filteredSummaryData, statusFilter, searchQuery]);
+
     useAssistantScreenBridge('summary', {
         loading,
         activeFilters: {
@@ -351,6 +380,7 @@ const PaymentSummary = () => {
             weeklyDebtorsCount,
             weeklyDebtTotal,
         },
+        cardsData: assistantSummaryCards,
         singleMatchItem:
             Boolean(searchQuery || statusFilter !== 'all') && filteredSummaryData.length === 1
                 ? filteredSummaryData[0]?.device?.name || filteredSummaryData[0]?.device?.deviceId || null
