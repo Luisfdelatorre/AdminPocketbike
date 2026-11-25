@@ -142,22 +142,26 @@ export const recordAlert = async ({
         let targetGpsId = gpsId;
 
         // Resolve device and company if missing
-        if ((!devName || devName === 'N/A' || !targetCompanyId || !targetGpsId) && (targetGpsId || devName)) {
+        let matchedDevDoc = null;
+        if ((!devName || devName === 'N/A' || !targetCompanyId || !targetGpsId) && (targetGpsId || devName || metadata?.mongoId)) {
             let query = null;
-            if (targetGpsId) {
+            if (targetGpsId != null && targetGpsId !== '') {
                 const num = Number(targetGpsId);
                 query = !isNaN(num) ? { $or: [{ gpsId: num }, { gpsId: String(targetGpsId) }] } : { gpsId: String(targetGpsId) };
             } else if (devName && devName !== 'N/A') {
                 query = { name: devName };
+            } else if (metadata?.mongoId != null) {
+                query = { _id: metadata.mongoId };
             }
 
             if (query) {
-                const devDoc = await Device.findOne(query).lean();
-                if (devDoc) {
-                    if (!devName || devName === 'N/A') devName = devDoc.name;
-                    if (!targetCompanyId) targetCompanyId = devDoc.companyId;
-                    if (!targetDeviceId) targetDeviceId = devDoc.deviceId;
-                    if (!targetGpsId) targetGpsId = devDoc.gpsId;
+                matchedDevDoc = await Device.findOne(query).lean();
+                if (matchedDevDoc) {
+                    if (!devName || devName === 'N/A') devName = (matchedDevDoc.name || '').trim().toUpperCase();
+                    if (!targetCompanyId) targetCompanyId = matchedDevDoc.companyId;
+                    if (!targetCompanyName && matchedDevDoc.companyName) targetCompanyName = matchedDevDoc.companyName;
+                    if (!targetDeviceId) targetDeviceId = matchedDevDoc.deviceId;
+                    if (!targetGpsId) targetGpsId = matchedDevDoc.gpsId;
                 }
             }
         }
@@ -167,8 +171,30 @@ export const recordAlert = async ({
             if (compDoc) targetCompanyName = compDoc.name;
         }
 
-        if (!devName) {
-            logger.warn('[AlertService] Unable to record alert without device identifier');
+        if (!devName || devName === 'N/A') {
+            const diag = {
+                alertType: alertType || null,
+                gpsId: targetGpsId ?? null,
+                imei: matchedDevDoc?.imei ?? metadata?.imei ?? null,
+                mongoId: matchedDevDoc?._id ?? metadata?.mongoId ?? null,
+                deviceId: targetDeviceId ?? null,
+                company: targetCompanyName
+                    ? `${targetCompanyName} (${targetCompanyId})`
+                    : targetCompanyId ?? null,
+                model: matchedDevDoc?.model ?? null,
+                simCard: matchedDevDoc?.simCardNumber ?? null,
+                status: matchedDevDoc?.status ?? null,
+                isDeleted: matchedDevDoc?.isDeleted ?? null,
+                inMongoDb: Boolean(matchedDevDoc),
+                coords:
+                    location?.latitude != null && location?.longitude != null
+                        ? `${location.latitude},${location.longitude}`
+                        : null,
+                rawAlarm: metadata?.rawAlarm ?? metadata?.rawEvent?.attributes?.alarm ?? null
+            };
+            logger.warn(
+                `[AlertService] Unable to record alert without device identifier (plate) | ${JSON.stringify(diag)}`
+            );
             return null;
         }
 
@@ -682,6 +708,8 @@ export const processTelemetryAlert = async (deviceState, update, rawPos = {}) =>
             speed
         };
         const metadata = {
+            mongoId: deviceState._id ?? null,
+            imei: deviceState.imei ?? null,
             cutOff,
             ignition,
             motion,
