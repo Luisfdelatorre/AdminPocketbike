@@ -306,7 +306,11 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
     if (status && status !== 'all') {
         const statusKey = String(status).trim().toUpperCase();
 
-        if (adjustmentTypes[statusKey]) {
+        if (statusKey === 'PENDING') {
+            // "Pendientes" = every unpaid invoice (DEBT, FREEPASS, in-flight PENDING/VERIFYING),
+            // matching stats.unpaid. dayType 'PENDING' alone only means a payment reservation is in progress.
+            query.paid = false;
+        } else if (adjustmentTypes[statusKey]) {
             query.adjustmentType = statusKey;
         } else {
             query.dayType = statusKey;
@@ -373,6 +377,7 @@ const getAllInvoices = async (queryParams = {}, companyId = null, isSystemAdmin 
             amount: inv.amount,
             paidAmount: inv.paidAmount,
             dayType: inv.dayType,
+            paid: Boolean(inv.paid),
             paymentDate: inv.paymentDate || inv.transaction?.finalized_at || inv.createdAt || null,
             label: inv.label,
             statusClass: inv.statusClass,

@@ -703,7 +703,7 @@ export class InvoiceRepository {
     /**
      * Get aggregate invoice stats for a match filter (total, paid, unpaid, totalAmount)
      * @param {Object} matchFilter
-     * @returns {Promise<{ total: number, paid: number, unpaid: number, totalAmount: number }>}
+     * @returns {Promise<{ total: number, paid: number, unpaid: number, totalAmount: number, unpaidAmount: number }>}
      */
     async getInvoiceStats(matchFilter = {}) {
         const stats = await Invoice.aggregate([
@@ -718,6 +718,10 @@ export class InvoiceRepository {
                     },
                     unpaid: {
                         $sum: { $cond: [{ $eq: ['$paid', false] }, 1, 0] }
+                    },
+                    // Outstanding amount of unpaid invoices (same rule as the "Pendientes" filter: paid === false)
+                    unpaidAmount: {
+                        $sum: { $cond: [{ $eq: ['$paid', false] }, { $ifNull: ['$amount', 0] }, 0] }
                     }
                 }
             }
@@ -727,7 +731,8 @@ export class InvoiceRepository {
             total: 0,
             paid: 0,
             unpaid: 0,
-            totalAmount: 0
+            totalAmount: 0,
+            unpaidAmount: 0
         };
     }
 }

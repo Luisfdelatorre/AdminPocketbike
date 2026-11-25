@@ -267,7 +267,8 @@ const Invoices = () => {
         total: 0,
         paid: 0,
         unpaid: 0,
-        totalAmount: 0
+        totalAmount: 0,
+        unpaidAmount: 0
     });
 
     const [loadingMore, setLoadingMore] = useState(false);
@@ -406,7 +407,10 @@ const Invoices = () => {
     const filteredInvoices = invoices.filter(invoice => {
         if (filter !== 'all') {
             const activeFilter = String(filter).trim().toUpperCase();
-            if (invoice.dayType?.toUpperCase() !== activeFilter && invoice.adjustmentType?.toUpperCase() !== activeFilter) {
+            if (activeFilter === 'PENDING') {
+                // "Pendientes" = every unpaid invoice (paid === false), same rule as the server and stats.unpaid
+                if (invoice.paid !== false) return false;
+            } else if (invoice.dayType?.toUpperCase() !== activeFilter && invoice.adjustmentType?.toUpperCase() !== activeFilter) {
                 return false;
             }
         }
@@ -450,6 +454,7 @@ const Invoices = () => {
             paidCount: Number(stats.paid || 0),
             unpaidCount: Number(stats.unpaid || 0),
             totalAmount: Number(stats.totalAmount || 0),
+            unpaidAmount: Number(stats.unpaidAmount || 0),
         },
         applyFilter: (params = {}) => {
             if (params.status) {
