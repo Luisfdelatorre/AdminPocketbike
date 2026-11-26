@@ -31,6 +31,8 @@ Payment
 
 Es el límite principal de datos administrativos. Los demás modelos copian `companyId` y, en algunos casos, `companyName` para filtrar y mostrar sin consultas adicionales. Las consultas deben preservar este aislamiento.
 
+`Company.logo` guarda una ruta/URL o una imagen en data URI base64. El portal de pagos no incrusta el base64: `brandingService` lo sustituye por `/api/v1/branding/logo/:companyId?v=<sha1>` (`server/services/companyLogoService.js`), que decodifica la imagen en memoria (PNG, JPEG, WebP, GIF o SVG; máx. 2 MB), responde con `ETag` y caché `immutable` cuando la versión coincide, y aplica CSP `sandbox`. No escribe archivos ni modifica el documento. Solo se inyectan sin cambios rutas `/…` o URLs `http(s)`; cualquier otro valor usa el logo por defecto.
+
 ## User
 
 `User.companyId` representa la compañía activa o principal y `accessibleCompanies` enumera compañías permitidas. `isSuperAdmin`, rol y permisos complementan la autorización. La contraseña se almacena en `passwordHash` y se excluye de la serialización JSON.

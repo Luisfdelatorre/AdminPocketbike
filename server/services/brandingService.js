@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { Device } from '../models/Device.js';
 import { Company } from '../models/Company.js';
 import fs from 'fs/promises';
+import { resolveLogoUrl } from './companyLogoService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +37,8 @@ export async function getCompanyBranding(deviceName) {
 
             if (company) {
                 displayName = company.displayName || 'PocketBike';
-                logo = company.logo || '/pocketbike_60x60.jpg';
+                // Base64 logos are served by a cacheable endpoint instead of being inlined in the HTML
+                logo = resolveLogoUrl(device.companyId, company.logo);
             }
         }
 
