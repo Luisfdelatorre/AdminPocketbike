@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Download, TrendingUp, TrendingDown, DollarSign, Zap, BatteryCharging, AlertTriangle } from 'lucide-react';
-import { getDashboardStats, getAllDevices } from '../services/api';
+import { getDashboardStats, getAllDevices, getReportTemplate } from '../services/api';
+import { exportToCSV } from '../utils/helpers';
+import { buildReportRows } from '../utils/reportGenerator';
+import { showToast } from '../utils/toast';
 import PageHeader from '../components/PageHeader';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
@@ -43,6 +46,7 @@ const AdminDashboard = () => {
     const [recentPayments, setRecentPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [initialLoading, setInitialLoading] = useState(true);
+    const [downloadingReport, setDownloadingReport] = useState(false);
 
     const today = new Date();
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // Mes en curso por defecto
@@ -157,12 +161,44 @@ const AdminDashboard = () => {
         },
     });
 
+    const handleDownloadReport = async () => {
+        if (downloadingReport) return;
+        setDownloadingReport(true);
+        const period = selectedMonth
+            ? `${String(selectedMonth).padStart(2, '0')}-${selectedYear}`
+            : `${selectedYear}`;
+        try {
+            const res = await getReportTemplate('dashboard-summary');
+            if (!res?.success || !res.data) throw new Error(res?.error || 'Template unavailable');
+            const rows = buildReportRows(res.data, { period, stats, recentPayments });
+            exportToCSV(`reporte_dashboard_${period}.csv`, rows);
+        } catch (error) {
+            console.error('Error generating dashboard report:', error);
+            showToast('error', t('dashboard.report.errorTitle', 'Reporte'), t('dashboard.report.error', 'No se pudo generar el reporte'));
+        } finally {
+            setDownloadingReport(false);
+        }
+    };
+
+    const downloadLabel = t('dashboard.report.download', 'Descargar reporte');
+
     const desktopHeader = (
         <PageHeader.Desktop
             title={t('dashboard.title', 'Dashboard')}
             onRefresh={fetchDashboardData}
             loading={loading}
             refreshText="Actualizar"
+            actions={
+                <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleDownloadReport}
+                    disabled={downloadingReport || initialLoading}
+                    title={downloadLabel}
+                >
+                    <Download size={16} /> {t('dashboard.report.short', 'Reporte')}
+                </button>
+            }
             leadingActions={
                 <MonthYearSelector
                     selectedMonth={selectedMonth}
@@ -187,6 +223,18 @@ const AdminDashboard = () => {
                 includeAllMonths: true,
                 onSelect: (m) => setSelectedMonth(m)
             }}
+            actions={
+                <button
+                    type="button"
+                    className="btn-mobile-header-action"
+                    onClick={handleDownloadReport}
+                    disabled={downloadingReport || initialLoading}
+                    title={downloadLabel}
+                    aria-label={downloadLabel}
+                >
+                    <Download size={20} />
+                </button>
+            }
         />
     );
 

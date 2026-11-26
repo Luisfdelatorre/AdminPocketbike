@@ -1,0 +1,228 @@
+.rtp-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border, #E5E7EB);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+}
+
+.rtp-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.rtp-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.rtp-title svg {
+    color: var(--brand-teal-dark, #0394A3);
+}
+
+.rtp-subtitle,
+.rtp-description,
+.rtp-readonly {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: #64748B;
+}
+
+.rtp-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rtp-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #F1F5F9;
+    color: #475569;
+}
+
+.rtp-badge.custom {
+    background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.12);
+    color: var(--brand-teal-dark, #0394A3);
+}
+
+.rtp-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: -0.5rem;
+}
+
+.rtp-input,
+.rtp-select {
+    height: 2.25rem;
+    min-width: 0;
+    padding: 0 0.625rem;
+    border: 1px solid var(--card-border, #E5E7EB);
+    border-radius: 0.5rem;
+    background: #F9FAFB;
+    font-size: 0.8125rem;
+    color: #0F172A;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rtp-input:focus,
+.rtp-select:focus {
+    outline: none;
+    border-color: var(--brand-teal, #03C9D7);
+    box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb, 3, 201, 215), 0.15);
+}
+
+.rtp-input:disabled,
+.rtp-select:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.rtp-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.875rem;
+    border: 1px solid #F1F5F9;
+    border-radius: 0.75rem;
+    background: #F8FAFC;
+}
+
+.rtp-section-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rtp-section-title {
+    flex: 1;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.rtp-section-type {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #94A3B8;
+    white-space: nowrap;
+}
+
+.rtp-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.rtp-field-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 9rem auto;
+    align-items: center;
+    gap: 0.5rem;
+    animation: rtp-fade-in 0.2s ease;
+}
+
+.rtp-datakey {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    color: #64748B;
+}
+
+.rtp-row-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.rtp-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.5rem;
+    background: #FFFFFF;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rtp-icon-btn:hover:not(:disabled) {
+    background: rgba(var(--brand-teal-rgb, 3, 201, 215), 0.1);
+    color: var(--brand-teal-dark, #0394A3);
+}
+
+.rtp-icon-btn.danger:hover:not(:disabled) {
+    background: #FEF2F2;
+    color: #DC2626;
+}
+
+.rtp-icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.rtp-add {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--brand-teal-dark, #0394A3);
+}
+
+.rtp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.rtp-empty {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    color: #64748B;
+    font-size: 0.875rem;
+}
+
+@keyframes rtp-fade-in {
+    from { opacity: 0; transform: translateY(-2px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 640px) {
+    .rtp-field-row {
+        grid-template-columns: minmax(0, 1fr) 7.5rem;
+    }
+
+    .rtp-datakey {
+        grid-column: 1 / -1;
+        order: -1;
+    }
+
+    .rtp-row-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+    }
+}
