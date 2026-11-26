@@ -413,6 +413,8 @@
 
 .va-msg p {
     margin: 0;
+    /* Keep the short "- " lists of analytical answers on their own lines */
+    white-space: pre-line;
 }
 
 .va-typing-text::after {

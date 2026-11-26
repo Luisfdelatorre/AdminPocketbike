@@ -238,3 +238,12 @@ describe('Dual reply: spoken amounts', async () => {
         );
     });
 });
+
+describe('Dual reply: chat lists in speech', async () => {
+    const { prepareSpokenResponse } = await import('../../client/src/services/voiceAssistant/tts.js');
+
+    it('reads short chat lists as a phrase without dash markers', () => {
+        const spoken = prepareSpokenResponse('Resumen del mes:\n- 12 pagos aprobados\n- 3 rechazados');
+        assert.equal(spoken, 'Resumen del mes: 12 pagos aprobados, 3 rechazados');
+    });
+});

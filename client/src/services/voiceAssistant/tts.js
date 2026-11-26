@@ -194,6 +194,10 @@ export const prepareSpokenResponse = (
         .replace(/\*\*([^*]+)\*\*/g, '$1')
         .replace(/`([^`]+)`/g, '$1')
         .replace(/^#+\s+/gm, '')
+        // Short chat lists ("- item") are read as a comma-separated phrase, never as "guion"
+        .replace(/\s*\n\s*[-•]\s+/g, ', ')
+        .replace(/^\s*[-•]\s+/, '')
+        .replace(/:\s*,\s*/g, ': ')
         .replace(/\s*\n+\s*/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
