@@ -352,6 +352,12 @@ export const validateActionPlan = (plan, { currentModule = 'dashboard', user = n
             ? plan.responseTemplate.trim().slice(0, 600)
             : '';
 
+    // Optional spoken variant (friendly, voice-first). Empty means "derive speech from responseTemplate".
+    const speechTemplate =
+        typeof plan.speechTemplate === 'string' && plan.speechTemplate.trim().length > 0
+            ? plan.speechTemplate.trim().slice(0, 400)
+            : '';
+
     const needsClarification = Boolean(plan.needsClarification);
     const onDemandDataUsed = Boolean(plan.onDemandDataUsed);
 
@@ -366,6 +372,7 @@ export const validateActionPlan = (plan, { currentModule = 'dashboard', user = n
             targetModule: effectiveModule,
             actions: validatedActions,
             responseTemplate,
+            ...(speechTemplate ? { speechTemplate } : {}),
             needsClarification,
             ...(onDemandDataUsed ? { onDemandDataUsed: true } : {}),
         },

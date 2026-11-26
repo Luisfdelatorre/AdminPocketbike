@@ -18,6 +18,7 @@
  *  - Enforces turn-scoped `AbortSignal` cancellation across model and TTS streams.
  */
 
+import { reconcileSpeechTemplate, applyPlanOverride } from './assistantSpeechTemplate.js';
 import crypto from 'node:crypto';
 import {
     validateActionPlan,
@@ -155,7 +156,8 @@ export class SentenceChunker {
  * whether `"actions"` is empty (`[]`) before streaming characters to the client!
  */
 export class ResponseTemplateJsonExtractor {
-    constructor() {
+    constructor(fieldName = 'responseTemplate') {
+        this.keyRegex = new RegExp(`"${fieldName}"\\s*:\\s*"`);
         this.raw = '';
         this.inTemplateValue = false;
         this.templateDone = false;
@@ -179,7 +181,7 @@ export class ResponseTemplateJsonExtractor {
         }
 
         if (!this.inTemplateValue) {
-            const keyMatch = this.raw.match(/"responseTemplate"\s*:\s*"/);
+            const keyMatch = this.raw.match(this.keyRegex);
             if (!keyMatch) return '';
             this.inTemplateValue = true;
             this.scanIndex = keyMatch.index + keyMatch[0].length;
@@ -785,6 +787,17 @@ export const streamAssistantTurn = async ({
             let streamedTextCount = 0;
             let syncedSessionEntry = null;
             const sentenceChunker = new SentenceChunker();
+            // Which text feeds neural TTS: 'speech' (speechTemplate) or 'display' (legacy, responseTemplate).
+            let ttsSource = null;
+            let speechQueued = false;
+            let displayTtsChars = 0;
+            const queueSpeechForNeuralTts = (speechText) => {
+                if (speechQueued || !speechText) return;
+                speechQueued = true;
+                const speechChunker = new SentenceChunker();
+                for (const s of speechChunker.push(speechText)) enqueueSentenceForNeuralTts(s);
+                for (const tail of speechChunker.flush()) enqueueSentenceForNeuralTts(tail);
+            };
 
             // Custom `wsFactory` test hook path (preserves direct ResponsesWS mock tests)
             if (wsFactory && transportMode === 'ws') {
@@ -835,6 +848,9 @@ export const streamAssistantTurn = async ({
             } else {
                 // Primary Path: `@openai/agents` (`Runner` + `Agent` + `MemorySession` + `zod` Structured Outputs)
                 const liveExtractor = new ResponseTemplateJsonExtractor();
+                // `speechTemplate` precedes `responseTemplate` in the schema, so the spoken reply is known
+                // before the chat text starts streaming.
+                const liveSpeechExtractor = new ResponseTemplateJsonExtractor('speechTemplate');
                 let liveStreamBlocked = false;
                 let pendingTail = '';
                 const SIGN_OFF_GUARD_CHARS = 72;
@@ -846,8 +862,11 @@ export const streamAssistantTurn = async ({
                     }
                     streamedTextCount += chunkStr.length;
                     emitEvent('text_delta', { delta: chunkStr });
-                    for (const s of sentenceChunker.push(chunkStr)) {
-                        enqueueSentenceForNeuralTts(s);
+                    if (ttsSource === 'display') {
+                        displayTtsChars += chunkStr.length;
+                        for (const s of sentenceChunker.push(chunkStr)) {
+                            enqueueSentenceForNeuralTts(s);
+                        }
                     }
                 };
 
@@ -889,6 +908,7 @@ export const streamAssistantTurn = async ({
                         // Stream live `text_delta` & Neural TTS ONLY in Round 2 (`toolsExecuted === true`)
                         // when `"actions": []` is already verified ahead of `"responseTemplate"` and no `{{placeholder}}` exists!
                         if (!toolsExecuted || liveStreamBlocked) return;
+                        liveSpeechExtractor.feed(rawDelta);
                         const tplDelta = liveExtractor.feed(rawDelta);
                         if (
                             liveExtractor.actionsKnownEmpty === false ||
@@ -897,6 +917,15 @@ export const streamAssistantTurn = async ({
                             liveStreamBlocked = true;
                             pendingTail = '';
                             return;
+                        }
+                        if (ttsSource === null && liveSpeechExtractor.templateDone) {
+                            const liveSpeech = liveSpeechExtractor.extractedTemplate.trim();
+                            ttsSource = liveSpeech ? 'speech' : 'display';
+                            // Speak right away only when there is nothing to verify against the chat text;
+                            // speech with figures or placeholders waits for the final reconciled plan.
+                            if (liveSpeech && !/[\d{}]/.test(liveSpeech)) {
+                                queueSpeechForNeuralTts(humanizeAssistantText(liveSpeech));
+                            }
                         }
                         if (liveExtractor.actionsKnownEmpty === true && tplDelta) {
                             pendingTail += tplDelta;
@@ -964,12 +993,15 @@ export const streamAssistantTurn = async ({
             if (validated.success) {
                 let verifiedData = ensureRequestedViewActions({
                     userText: text,
-                    plan: {
-                        ...validated.data,
-                        responseTemplate: humanizeAssistantText(
-                            validated.data.responseTemplate || ''
-                        ),
-                    },
+                    plan: reconcileSpeechTemplate(
+                        {
+                            ...validated.data,
+                            responseTemplate: humanizeAssistantText(
+                                validated.data.responseTemplate || ''
+                            ),
+                        },
+                        { humanize: humanizeAssistantText }
+                    ),
                     currentModule: applicationContext?.currentModule || 'dashboard',
                     activeFilters: applicationContext?.activeFilters || {},
                     onDemandToolCalls,
@@ -985,7 +1017,7 @@ export const streamAssistantTurn = async ({
                     lang,
                 });
                 if (goalCheck.suggestedPlanOverride) {
-                    verifiedData = goalCheck.suggestedPlanOverride;
+                    verifiedData = applyPlanOverride(verifiedData, goalCheck.suggestedPlanOverride);
                 }
                 const tpl = verifiedData.responseTemplate || '';
                 const hasPlaceholders = /\{\{\s*[a-zA-Z0-9_.-]+\s*\}\}/.test(tpl);
@@ -1025,13 +1057,18 @@ export const streamAssistantTurn = async ({
                             firstTextDeltaMs = Math.round(performance.now() - startTime);
                         }
                         emitEvent('text_delta', { delta: remainingText });
-                        for (const s of sentenceChunker.push(remainingText)) {
-                            enqueueSentenceForNeuralTts(s);
-                        }
                         streamedTextCount += remainingText.length;
                     }
-                    for (const tail of sentenceChunker.flush()) {
-                        enqueueSentenceForNeuralTts(tail);
+                    if (verifiedData.speechTemplate) {
+                        queueSpeechForNeuralTts(verifiedData.speechTemplate);
+                    } else if (!speechQueued) {
+                        const unspokenDisplay = verifiedData.responseTemplate.slice(displayTtsChars);
+                        for (const s of sentenceChunker.push(unspokenDisplay)) {
+                            enqueueSentenceForNeuralTts(s);
+                        }
+                        for (const tail of sentenceChunker.flush()) {
+                            enqueueSentenceForNeuralTts(tail);
+                        }
                     }
                     await ttsChain;
                 } else if (
@@ -1041,12 +1078,9 @@ export const streamAssistantTurn = async ({
                     verifiedData.responseTemplate
                 ) {
                     if (ttsOptions?.preSynthesizeActionAudio === true) {
-                        for (const s of sentenceChunker.push(verifiedData.responseTemplate)) {
-                            enqueueSentenceForNeuralTts(s);
-                        }
-                        for (const tail of sentenceChunker.flush()) {
-                            enqueueSentenceForNeuralTts(tail);
-                        }
+                        queueSpeechForNeuralTts(
+                            verifiedData.speechTemplate || verifiedData.responseTemplate
+                        );
                         await ttsChain;
                     }
                 }
@@ -1144,6 +1178,7 @@ export const streamAssistantTurn = async ({
                     targetModule: finalPlan.targetModule,
                     actions: finalPlan.actions,
                     responseTemplate: finalPlan.responseTemplate,
+                    speechTemplate: finalPlan.speechTemplate || '(sin versión hablada: se lee responseTemplate)',
                     goalCompletionStatus: goalCheck.status,
                     streamedText: streamedTextCount > 0,
                     audioChunks: emittedAudioChunks,

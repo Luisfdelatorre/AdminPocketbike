@@ -11,8 +11,8 @@
  *  2. Automatic synchronization of client-executed local matcher turns (`Abre contratos`,
  *     `Quita los filtros`) into `MemorySession` so 0-network UI turns stay in the agent's memory.
  *  3. Strict `zod` Structured Outputs (`ActionPlanZodSchema`) guaranteeing deterministic JSON
- *     key ordering (`scope` -> `targetModule` -> `actions` -> `responseTemplate` -> `needsClarification`)
- *     so `"actions"` always arrives before `"responseTemplate"` during live streaming.
+ *     key ordering (`scope` -> `targetModule` -> `actions` -> `speechTemplate` -> `responseTemplate` -> `needsClarification`)
+ *     so `"actions"` always arrives first and the spoken reply arrives before the chat text during live streaming.
  *  4. Typed `tool()` wrapper for `fetch_module_records` enforcing `FetchModuleRecordsArgsSchema`,
  *     role/tenant permissions, `MAX_TOOL_CALLS_PER_TURN`, and verified `tool_started` / `tool_completed` events.
  *  5. Safe shared `OpenAIResponsesWSModel` management without aborting concurrent users' sockets.
@@ -110,6 +110,7 @@ export const ActionPlanZodSchema = z.object({
             params: ActionParamsZodSchema,
         })
     ),
+    speechTemplate: z.string(),
     responseTemplate: z.string(),
     needsClarification: z.boolean(),
 });
@@ -468,6 +469,7 @@ const normalizePlanJsonString = (rawText = '') => {
             scope: VALID_SCOPE_SET.has(obj.scope) ? obj.scope : 'current_screen',
             targetModule: MODULE_IDS.includes(obj.targetModule) ? obj.targetModule : 'dashboard',
             actions: normalizedActions,
+            speechTemplate: typeof obj.speechTemplate === 'string' ? obj.speechTemplate : '',
             responseTemplate: typeof obj.responseTemplate === 'string' ? obj.responseTemplate : '',
             needsClarification: Boolean(obj.needsClarification),
         });

@@ -15,6 +15,7 @@
  *     so local/offline development and tests work seamlessly.
  */
 
+import { reconcileSpeechTemplate, applyPlanOverride } from './assistantSpeechTemplate.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -361,7 +362,8 @@ Respond ONLY with a raw JSON object matching this exact structure:
       "params": { ... }
     }
   ],
-  "responseTemplate": "<natural conversational response in es-CO or en-US>",
+  "speechTemplate": "<what you would SAY out loud: warm, friendly spoken reply, 1-2 short sentences>",
+  "responseTemplate": "<what the chat SHOWS: precise written reply in es-CO or en-US>",
   "needsClarification": false
 }`;
 
@@ -400,9 +402,10 @@ ACTIONS & CONTEXT
 - If targetModule !== currentModule, emit navigate BEFORE applyFilter/search. Never emit two applyFilter on one module.
 - scope: current_screen | other_screen | conversation_context. Resolve pronouns and dictation slips (deuna=deuda, cuatas=cuántas). If ambiguous, needsClarification=true, actions=[].
 
-VOICE & NATURALNESS
-- Warm Colombian colleague in 1–2 plain-text sentences. FORBIDDEN robotic phrases: "He navegado a...", "He aplicado el filtro...", "Ya estás en la sección de...", "Se muestran...", "Puedes revisar los detalles allí/en la lista". Prefer: "Aquí tienes los pagos rechazados.", "Estas son las motos apagadas.", "En Contratos hay {{contracts.count}} registros por {{contracts.totalValue}}."
-- Omit unrequested zero sub-counts ("0 finalizados"). Mention 2–3 plates only when asked which ones. Non-empty responseTemplate always.
+VOICE (never robotic: "He navegado a...", "He aplicado el filtro...", "Se muestran...")
+- speechTemplate (heard): friendly voice-call tone, warm opener ("¡Listo!"), 1–2 short sentences, just the gist; same {{placeholders}} or amounts rounded in words, never new digits; no plates, references or dates; "te dejé el detalle en pantalla" if more. At most one contextual offer, never "¿Algo más?".
+- responseTemplate (read): exact 1–3 sentences with figures/placeholders. Speech facts must also be here.
+- Omit unrequested zero sub-counts; plates only when asked. Both non-empty.
 
 LOCAL PLACEHOLDERS (only without fetch_module_records)
 Payments: {{payments.count}} filtered; {{payments.total}} filtered sum; {{payments.globalTotalCount}} [global] monthly.
@@ -431,7 +434,7 @@ export const ACTION_PLAN_JSON_SCHEMA = Object.freeze({
     schema: {
         type: 'object',
         additionalProperties: false,
-        required: ['scope', 'targetModule', 'actions', 'responseTemplate', 'needsClarification'],
+        required: ['scope', 'targetModule', 'actions', 'speechTemplate', 'responseTemplate', 'needsClarification'],
         properties: {
             scope: {
                 type: 'string',
@@ -508,6 +511,9 @@ export const ACTION_PLAN_JSON_SCHEMA = Object.freeze({
                         },
                     },
                 },
+            },
+            speechTemplate: {
+                type: 'string',
             },
             responseTemplate: {
                 type: 'string',
@@ -1764,12 +1770,15 @@ export const interpretUserRequest = async ({
                 const toolErrors = Array.isArray(agentRun.toolErrors) ? agentRun.toolErrors : [];
                 let verifiedData = ensureRequestedViewActions({
                     userText: text,
-                    plan: {
-                        ...validated.data,
-                        responseTemplate: humanizeAssistantText(
-                            validated.data.responseTemplate || ''
-                        ),
-                    },
+                    plan: reconcileSpeechTemplate(
+                        {
+                            ...validated.data,
+                            responseTemplate: humanizeAssistantText(
+                                validated.data.responseTemplate || ''
+                            ),
+                        },
+                        { humanize: humanizeAssistantText }
+                    ),
                     currentModule: applicationContext?.currentModule || 'dashboard',
                     activeFilters: applicationContext?.activeFilters || {},
                     onDemandToolCalls,
@@ -1785,7 +1794,7 @@ export const interpretUserRequest = async ({
                     lang,
                 });
                 if (goalCheck.suggestedPlanOverride) {
-                    verifiedData = goalCheck.suggestedPlanOverride;
+                    verifiedData = applyPlanOverride(verifiedData, goalCheck.suggestedPlanOverride);
                 }
 
                 const toolExecutionStatus =
@@ -1867,6 +1876,7 @@ export const interpretUserRequest = async ({
                     targetModule: finalPlan.targetModule,
                     actions: finalPlan.actions,
                     responseTemplate: finalPlan.responseTemplate,
+                    speechTemplate: finalPlan.speechTemplate || '(sin versión hablada: se lee responseTemplate)',
                     toolCalls: onDemandToolCalls ? onDemandToolCalls.length : 0,
                     inputTokens: extendedTelemetry.inputTokens,
                     cachedTokens: extendedTelemetry.cachedTokens,
