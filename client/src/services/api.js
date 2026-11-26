@@ -291,6 +291,12 @@ export const getPaymentSummary = (params) => api.get('/payments/allPayments', { 
 export const getPaymentHistory = (deviceId, params) => api.get(`/payments/history/${deviceId}`, { params });
 export const registerManualAdjustment = (data) => api.post('/payments/admin/manual', data);
 
+// --- Report Templates (per company) ---
+export const getReportTemplates = () => api.get('/report-templates');
+export const getReportTemplate = (key) => api.get(`/report-templates/${encodeURIComponent(key)}`);
+export const saveReportTemplate = (key, data) => api.put(`/report-templates/${encodeURIComponent(key)}`, data);
+export const resetReportTemplate = (key) => api.delete(`/report-templates/${encodeURIComponent(key)}`);
+
 export const exportPaymentsCSV = async (month, year, companyId = '') => {
     const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
         || localStorage.getItem('token') || localStorage.getItem('adminToken');

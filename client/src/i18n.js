@@ -157,6 +157,7 @@ const resources = {
                 title: 'Dashboard',
                 welcome: 'Welcome back, {{name}}!',
                 downloadReport: 'Download Report',
+                report: { short: 'Report', download: 'Download report (CSV)', errorTitle: 'Report', error: 'The report could not be generated' },
                 stats: {
                     totalRevenue: 'Total Revenue',
                     activeContracts: 'Active Contracts',
@@ -589,6 +590,7 @@ const resources = {
                 title: 'Panel Principal',
                 welcome: '¡Bienvenido de nuevo, {{name}}!',
                 downloadReport: 'Descargar Reporte',
+                report: { short: 'Reporte', download: 'Descargar reporte (CSV)', errorTitle: 'Reporte', error: 'No se pudo generar el reporte' },
                 stats: {
                     totalRevenue: 'Ingresos Totales',
                     activeContracts: 'Contratos Activos',

@@ -155,7 +155,11 @@ export function exportToCSV(filename, contentOrRows) {
         csvString = contentOrRows.map(row =>
             row.map(cell => {
                 if (cell === null || cell === undefined) return '""';
-                const str = String(cell);
+                let str = String(cell);
+                // Neutralize spreadsheet formulas in text cells (CSV injection)
+                if (typeof cell === 'string' && /^[=+\-@\t\r]/.test(str)) {
+                    str = `'${str}`;
+                }
                 if (str.includes(',') || str.includes('\n') || str.includes('"')) {
                     return `"${str.replace(/"/g, '""')}"`;
                 }

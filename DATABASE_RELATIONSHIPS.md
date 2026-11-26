@@ -1,6 +1,6 @@
 # Relaciones de datos
 
-Estado: referencia activa. Revisada el 2026-07-20.
+Estado: referencia activa. Revisada el 2026-11-25.
 
 La aplicación usa MongoDB y Mongoose. Varias relaciones están denormalizadas por rendimiento; no todas se expresan como referencias Mongoose.
 
@@ -12,7 +12,8 @@ Company
   ├─< Device.companyId
   ├─< Contract.companyId
   ├─< Invoice.companyId
-  └─< Payment.companyId
+  ├─< Payment.companyId
+  └─< ReportTemplate.companyId  (solo personalizaciones)
 
 Device
   ├─ activeContractId ──> Contract.contractId  (denormalizado)
@@ -56,6 +57,14 @@ La factura guarda una instantánea de la transacción aplicada en `transaction.i
 ## DeviceAccess
 
 Es un mecanismo separado de acceso temporal o permanente por dispositivo. Guarda `deviceId`, hash del PIN, expiración, límite de usos y estado. No equivale al `devicePin` del contrato, aunque ambos participan en flujos de acceso por PIN.
+
+## ReportTemplate
+
+Personalización por compañía de una plantilla de exportación CSV del catálogo `server/constants/reportTemplates.js` (hoy solo `dashboard-summary`). Índice único `{ companyId, key }`; `companyId` es `ObjectId` y siempre sale del token de sesión activo.
+
+- Los valores por defecto viven en código y nunca se escriben al leer: la colección queda vacía hasta que un admin o manager guarda una personalización, y `DELETE /report-templates/:key` restaura el valor por defecto eliminando el documento.
+- Cada sección guarda `id`, `sectionTitle` y `fields` (`label`, `dataKey`, `format`); `dataKey` debe pertenecer a la lista blanca `allowedFields` de esa sección del catálogo, que el servidor vuelve a validar en cada guardado y al servir la plantilla.
+- No requiere migración: añadir una colección nueva no altera documentos existentes; para retirarla basta con eliminar la colección.
 
 ## Reglas de evolución
 

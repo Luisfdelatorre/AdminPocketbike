@@ -7,6 +7,8 @@ import {
     Smartphone, QrCode, CheckCircle, Check, Radio, Info, Mail
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import ReportTemplatesPanel from '../components/ReportTemplatesPanel';
+import { useAuth } from '../context/AuthContext';
 import useIsMobile from '../hooks/useIsMobile';
 import { getSettings, updateSettings, syncDevices, validateTraccarConnection, getTraccarNotifications, updateTraccarNotifications } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +24,8 @@ const Settings = () => {
     const setActiveTab = setSettingsTab || setLocalActiveTab;
 
     const { t } = useTranslation();
+    const { user } = useAuth();
+    const canEditReportTemplates = Boolean(user?.isSuperAdmin || user?.role === 'admin' || user?.role === 'manager');
     const [settings, setSettings] = useState({
         currency: 'COP',
         timezone: 'America/Bogota',
@@ -1810,6 +1814,11 @@ const Settings = () => {
                                     <span className="sync-result error">✗ {syncState.error}</span>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Report Templates (per company) */}
+                        <div className="setting-item report-templates-row">
+                            <ReportTemplatesPanel canEdit={canEditReportTemplates} />
                         </div>
                     </div>
                 )}
