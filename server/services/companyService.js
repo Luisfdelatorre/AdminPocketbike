@@ -1,3 +1,4 @@
+import { invalidateCompanyLogo } from './companyLogoService.js';
 import companyRepository from '../repositories/companyRepository.js';
 import WompiAdapter from '../adapters/wompiAdapter/wompiAdapter.js';
 import MegaRastreo from '../adapters/megaRastreo/megaRastreoAdapter.js';
@@ -364,6 +365,7 @@ class CompanyService {
 
         await companyRepository.save(company);
         this.clearCache(companyId);
+        if (logo !== undefined) invalidateCompanyLogo(companyId);
 
         return {
             displayName: company.displayName,
