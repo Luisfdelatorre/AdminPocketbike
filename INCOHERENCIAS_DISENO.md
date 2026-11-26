@@ -52,6 +52,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **28** | Tarjeta «Total» de Facturas muestra lo recaudado (`Invoices.jsx`) | 🧪 En validación | La StatCard de escritorio titulada «Total» mostraba `stats.totalAmount`, que es la suma de `paidAmount` (lo ya cobrado). Ahora se titula «Recaudado» / «Collected» (`invoices.stats.collected`). Pendiente aprobación visual. |
 | **29** | Exenciones de contrato invisibles en las tarjetas de Contratos (`Contracts.jsx`) | 🧪 En validación | Un contrato exento del apagado nocturno o del apagado automático no lo indicaba en su tarjeta; había que abrir el editor. Ahora la tarjeta muestra insignias de luna tachada (toque de queda) y rayo tachado (apagado automático), con título traducido. |
 | **30** | Reporte del Dashboard sin descarga y sin plantilla editable (`AdminDashboard.jsx`, `ReportTemplatesPanel.jsx`) | 🧪 En validación | El ícono de descarga del Dashboard estaba importado pero sin botón. Ahora el header ofrece «Reporte» (CSV) y Configuración → Sistema incluye el editor de plantillas por empresa (etiquetas, orden, formato y campos permitidos). |
+| **31** | Listas del asistente se mostraban en una sola línea (`VoiceAssistantPanel.css`) | 🧪 En validación | Las respuestas analíticas del asistente pueden traer una lista corta («- » por ítem), pero la burbuja del chat unía los saltos de línea. Ahora el texto respeta los saltos (`white-space: pre-line`) y la voz lee la lista como una frase, sin decir «guion». |
 
 ---
 
@@ -624,3 +625,12 @@ La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba diverge
 * Nuevo [ReportTemplatesPanel.jsx](client/src/components/ReportTemplatesPanel.jsx) dentro de Configuración → Sistema: tarjeta glass con tokens de marca, edición en línea de etiquetas, orden, formato y campos de la lista permitida, insignia «Personalizada / Por defecto» y restauración con confirmación en dos pasos. Viewers lo ven en solo lectura.
 * En móvil las filas de campos se apilan (< 640 px) para no desbordar.
 * Portado y rediseñado desde la rama histórica `feat/report-templates-db`.
+
+## 31. Listas del asistente se mostraban en una sola línea
+
+### El Problema
+* El prompt permite listas cortas en `responseTemplate` para respuestas analíticas, pero `.va-msg p` en [VoiceAssistantPanel.css](client/src/components/voiceAssistant/VoiceAssistantPanel.css) no respetaba saltos de línea y los ítems quedaban pegados en un párrafo.
+
+### Solución Implementada
+* `.va-msg p` usa `white-space: pre-line`: conserva los saltos de línea sin alterar el ajuste normal del texto.
+* [tts.js](client/src/services/voiceAssistant/tts.js) convierte los ítems «- » en una frase separada por comas antes de hablar, para que la voz no lea los guiones.
