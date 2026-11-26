@@ -1133,6 +1133,8 @@ export const resolveTemplateWithLiveData = async (
         ...resolved,
         text: finalText,
         cardsData,
+        // Metrics already gathered for this turn, so sibling templates (speechTemplate) resolve without refetching.
+        metricsUsed: combinedOverrides,
     };
 };
 

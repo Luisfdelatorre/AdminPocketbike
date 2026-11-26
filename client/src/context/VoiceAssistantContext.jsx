@@ -343,10 +343,20 @@ export const VoiceAssistantProvider = ({ children }) => {
                 );
             }
 
-            const spokenText = prepareSpokenResponse(privacyFilteredText, {
+            // Dual reply: the chat shows `replyText`, the voice says `overrides.speechText` when the
+            // assistant provided a spoken variant; otherwise speech is derived from the chat text.
+            const speechSource = overrides.speechText
+                ? applySpeechPrivacyFilter(overrides.speechText, {
+                      speakAmounts,
+                      speakCustomerNames,
+                      lang: assistantLang,
+                  })
+                : privacyFilteredText;
+            const spokenText = prepareSpokenResponse(speechSource, {
                 lang: assistantLang,
                 keepFullList: Boolean(overrides.keepFullList),
             });
+            const displayText = privacyFilteredText || '';
 
             if (!ttsSupported || !ttsEnabled || !spokenText) {
                 if (msgId) stopTypingStream(msgId);
@@ -356,9 +366,9 @@ export const VoiceAssistantProvider = ({ children }) => {
 
             stopTypingStream();
 
-            // Progressive word-by-word typing synchronized with TTS speech
+            // Progressive word-by-word typing of the chat text, paced by TTS speech progress
             if (msgId) {
-                const words = spokenText.split(/(\s+)/);
+                const words = displayText.split(/(\s+)/);
                 let wordIdx = Math.min(2, words.length);
                 let boundarySeen = false;
 
@@ -407,15 +417,21 @@ export const VoiceAssistantProvider = ({ children }) => {
                         );
                         // Snap to end of current word
                         const nextSpace = spokenText.indexOf(' ', endIdx);
-                        const sliceEnd = nextSpace === -1 ? spokenText.length : nextSpace;
-                        const partial = spokenText.slice(0, sliceEnd);
+                        const spokenEnd = nextSpace === -1 ? spokenText.length : nextSpace;
+                        // Map spoken progress onto the chat text (they differ when a spoken variant exists)
+                        const progress = spokenText.length > 0 ? spokenEnd / spokenText.length : 1;
+                        const displayTarget = Math.round(progress * displayText.length);
+                        const displaySpace = displayText.indexOf(' ', displayTarget);
+                        const sliceEnd =
+                            progress >= 1 || displaySpace === -1 ? displayText.length : displaySpace;
+                        const partial = displayText.slice(0, sliceEnd);
                         setMessages((prev) =>
                             prev.map((m) =>
                                 m.id === msgId
                                     ? {
                                           ...m,
                                           streamedText: partial,
-                                          isTyping: sliceEnd < spokenText.length,
+                                          isTyping: sliceEnd < displayText.length,
                                       }
                                     : m
                             )
@@ -1091,7 +1107,10 @@ export const VoiceAssistantProvider = ({ children }) => {
                 if (audioStreamed && audioQueueRef.current?.isPlaying) {
                     setStatus(ASSISTANT_STATUS.SPEAKING);
                 } else if (!audioStreamed) {
-                    speakReply(execResult.reply, { messageId: targetMsgId });
+                    speakReply(execResult.reply, {
+                        messageId: targetMsgId,
+                        speechText: execResult.speech || null,
+                    });
                 } else {
                     setStatus(ASSISTANT_STATUS.IDLE);
                 }

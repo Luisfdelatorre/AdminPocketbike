@@ -385,6 +385,21 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         hasUiActions: executedActions.length > 0,
     });
 
+    // Spoken variant: only when the model's written reply is the one shown (no local override),
+    // resolved against the exact same metrics so voice and chat never disagree.
+    const usesModelReply = !helpOverrideReply && !searchFoundZero && Boolean(plan.responseTemplate);
+    let speech = null;
+    if (usesModelReply && typeof plan.speechTemplate === 'string' && plan.speechTemplate.trim()) {
+        const spoken = resolveTemplatePlaceholders(plan.speechTemplate, {
+            user: ctx.user || null,
+            lang,
+            metricsOverride: resolved.metricsUsed || ctx.metricsOverride || null,
+            hasUiActions: executedActions.length > 0,
+        });
+        // Any unresolved figure falls back to speaking the chat text instead of a vague phrase.
+        speech = spoken.hasUnresolved || spoken.hasMissingMetrics ? null : spoken.text || null;
+    }
+
     const primaryActionType =
         executedActions.find(
             (a) =>
@@ -404,6 +419,7 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         executedActions,
         failedAction: null,
         reply: resolved.text,
+        speech,
         resolvedPlaceholders: resolved.resolvedPlaceholders,
         data: rawPlan.data || resolved.cardsData || null,
         action: didNavigate ? { type: 'navigate', module: activeModule } : { type: primaryActionType },
