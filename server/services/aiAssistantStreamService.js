@@ -731,7 +731,7 @@ export const streamAssistantTurn = async ({
     let ttsChain = Promise.resolve();
     let emittedAudioChunks = 0;
 
-    const enqueueSentenceForNeuralTts = (rawSentence) => {
+    const enqueueSentenceForNeuralTts = (rawSentence, { approximateAmounts = false } = {}) => {
         if (!neuralTtsEnabled || !rawSentence || signal?.aborted) return;
         if (nextSentenceIdx >= MAX_NEURAL_TTS_SENTENCES) return;
         const humanized = humanizeAssistantText(rawSentence);
@@ -743,6 +743,7 @@ export const streamAssistantTurn = async ({
         const spokenClean = prepareSpokenResponse(privacyClean, {
             lang,
             keepFullList: false,
+            approximateAmounts,
         });
         if (!spokenClean) return;
 
@@ -791,12 +792,14 @@ export const streamAssistantTurn = async ({
             let ttsSource = null;
             let speechQueued = false;
             let displayTtsChars = 0;
-            const queueSpeechForNeuralTts = (speechText) => {
+            const queueSpeechForNeuralTts = (speechText, { approximateAmounts = true } = {}) => {
                 if (speechQueued || !speechText) return;
                 speechQueued = true;
                 const speechChunker = new SentenceChunker();
-                for (const s of speechChunker.push(speechText)) enqueueSentenceForNeuralTts(s);
-                for (const tail of speechChunker.flush()) enqueueSentenceForNeuralTts(tail);
+                // Spoken variant: amounts are rounded the way people say them (the chat keeps exact figures).
+                const speechOpts = { approximateAmounts };
+                for (const s of speechChunker.push(speechText)) enqueueSentenceForNeuralTts(s, speechOpts);
+                for (const tail of speechChunker.flush()) enqueueSentenceForNeuralTts(tail, speechOpts);
             };
 
             // Custom `wsFactory` test hook path (preserves direct ResponsesWS mock tests)
@@ -1079,7 +1082,8 @@ export const streamAssistantTurn = async ({
                 ) {
                     if (ttsOptions?.preSynthesizeActionAudio === true) {
                         queueSpeechForNeuralTts(
-                            verifiedData.speechTemplate || verifiedData.responseTemplate
+                            verifiedData.speechTemplate || verifiedData.responseTemplate,
+                            { approximateAmounts: Boolean(verifiedData.speechTemplate) }
                         );
                         await ttsChain;
                     }

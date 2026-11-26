@@ -203,3 +203,38 @@ describe('Dual reply: streaming turn', () => {
         assert.equal(/\b5\b/.test(synthesized.join(' ')), false);
     });
 });
+
+describe('Dual reply: spoken amounts', async () => {
+    const { roundCOPForSpeech, normalizeCOPForSpeech } = await import(
+        '../../client/src/services/voiceAssistant/speechNormalization.js'
+    );
+    const { prepareSpokenResponse } = await import('../../client/src/services/voiceAssistant/tts.js');
+
+    it('rounds COP amounts the way people say them', () => {
+        assert.equal(roundCOPForSpeech(67_859_000), 68_000_000);
+        assert.equal(roundCOPForSpeech(3_245_000), 3_200_000);
+        assert.equal(roundCOPForSpeech(452_300), 450_000);
+        assert.equal(roundCOPForSpeech(35_400), 35_000);
+        assert.equal(roundCOPForSpeech(950), 950);
+    });
+
+    it('speaks approximate amounts only when asked, keeping exact ones otherwise', () => {
+        assert.equal(
+            normalizeCOPForSpeech('Ya vamos en $ 67.859.000.', { approximate: true }),
+            'Ya vamos en casi sesenta y ocho millones de pesos.'
+        );
+        assert.equal(
+            normalizeCOPForSpeech('Son $ 3.245.000.', { approximate: true }),
+            'Son unos tres millones doscientos mil pesos.'
+        );
+        assert.equal(
+            normalizeCOPForSpeech('Son $ 450.000.', { approximate: true }),
+            'Son cuatrocientos cincuenta mil pesos.'
+        );
+        assert.match(normalizeCOPForSpeech('Son $ 67.859.000.'), /ochocientos cincuenta y nueve mil/);
+        assert.match(
+            prepareSpokenResponse('¡Bien! Ya vamos en $ 67.859.000.', { approximateAmounts: true }),
+            /casi sesenta y ocho millones de pesos/
+        );
+    });
+});

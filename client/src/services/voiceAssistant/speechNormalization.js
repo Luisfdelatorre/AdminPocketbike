@@ -231,6 +231,28 @@ export const formatCOPAmountForSpeech = (integerPart, centavos = 0, { lang = 'es
     return mainPhrase;
 };
 
+/**
+ * Rounds a COP amount the way people say it out loud: millions to the nearest
+ * 100k (or 1M above 10M), thousands to the nearest 10k (or 1k below 100k).
+ */
+export const roundCOPForSpeech = (amount) => {
+    const n = Math.round(Number(amount) || 0);
+    let step = 1;
+    if (n >= 10_000_000) step = 1_000_000;
+    else if (n >= 1_000_000) step = 100_000;
+    else if (n >= 100_000) step = 10_000;
+    else if (n >= 1_000) step = 1_000;
+    return Math.round(n / step) * step;
+};
+
+const formatApproxCOPForSpeech = (integerPart, centavos, { lang }) => {
+    const rounded = roundCOPForSpeech(integerPart);
+    const phrase = formatCOPAmountForSpeech(rounded, 0, { lang });
+    if (rounded === integerPart && !centavos) return phrase;
+    if (lang === 'en-US') return `about ${phrase}`;
+    return rounded > integerPart ? `casi ${phrase}` : `unos ${phrase}`;
+};
+
 // Matches explicit COP currency patterns:
 //  - "$703.000", "$ 2.216.000", "COP $35.000", "COP 35.000", "$1.500,50 COP", "$35.000 pesos"
 //  - "703.000 COP" (explicit COP suffix)
@@ -245,9 +267,13 @@ const COP_EXPLICIT_CODE_PATTERN =
  * Normalizes Colombian Peso (COP) amounts in text for natural speech synthesis.
  * Preserves dates, plates, percentages, and non-currency numbers intact.
  */
-export const normalizeCOPForSpeech = (text = '', { lang = 'es-CO' } = {}) => {
+export const normalizeCOPForSpeech = (text = '', { lang = 'es-CO', approximate = false } = {}) => {
     let output = String(text || '');
     if (!output) return '';
+    const speak = (integerPart, centavos) =>
+        approximate
+            ? formatApproxCOPForSpeech(integerPart, centavos, { lang })
+            : formatCOPAmountForSpeech(integerPart, centavos, { lang });
 
     // 1. Normalize `$...` (and optional leading/trailing COP / pesos)
     output = output.replace(COP_SYMBOL_PATTERN, (fullMatch, numPart, commaDec, dotDec) => {
@@ -258,7 +284,7 @@ export const normalizeCOPForSpeech = (text = '', { lang = 'es-CO' } = {}) => {
 
         const parsed = parseCOPAmountString(raw);
         if (!parsed) return fullMatch;
-        return formatCOPAmountForSpeech(parsed.integerPart, parsed.centavos, { lang });
+        return speak(parsed.integerPart, parsed.centavos);
     });
 
     // 2. Normalize explicit `COP 35.000` or `35.000 COP` without `$`
@@ -266,7 +292,7 @@ export const normalizeCOPForSpeech = (text = '', { lang = 'es-CO' } = {}) => {
         const raw = beforeNum || afterNum;
         const parsed = parseCOPAmountString(raw);
         if (!parsed) return fullMatch;
-        return formatCOPAmountForSpeech(parsed.integerPart, parsed.centavos, { lang });
+        return speak(parsed.integerPart, parsed.centavos);
     });
 
     return output;
@@ -276,5 +302,6 @@ export default {
     numberToSpanishWords,
     parseCOPAmountString,
     formatCOPAmountForSpeech,
+    roundCOPForSpeech,
     normalizeCOPForSpeech,
 };

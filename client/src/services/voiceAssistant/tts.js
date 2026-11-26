@@ -171,10 +171,18 @@ export const stopSpeaking = () => {
  *  - Strips technical metadata, raw JSON blocks, markdown formatting (`**`, `` ` ``, `#`),
  *    and internal enum codes so TTS never reads machine artifacts aloud.
  *  - Optionally shortens multi-item lists or overly long responses unless `keepFullList` is true.
+ *  - `approximateAmounts` rounds COP amounts the way people say them ("unos 68 millones de pesos");
+ *    used only for the spoken variant, never for the chat text.
  */
 export const prepareSpokenResponse = (
     text = '',
-    { lang = 'es-CO', maxLength = 340, keepFullList = false, normalizeCurrency = true } = {}
+    {
+        lang = 'es-CO',
+        maxLength = 340,
+        keepFullList = false,
+        normalizeCurrency = true,
+        approximateAmounts = false,
+    } = {}
 ) => {
     let clean = String(text || '').trim();
     if (!clean) return '';
@@ -191,7 +199,7 @@ export const prepareSpokenResponse = (
         .trim();
 
     if (normalizeCurrency) {
-        clean = normalizeCOPForSpeech(clean, { lang });
+        clean = normalizeCOPForSpeech(clean, { lang, approximate: approximateAmounts });
     }
 
     if (keepFullList || clean.length <= maxLength) {

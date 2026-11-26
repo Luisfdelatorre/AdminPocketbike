@@ -355,6 +355,7 @@ export const VoiceAssistantProvider = ({ children }) => {
             const spokenText = prepareSpokenResponse(speechSource, {
                 lang: assistantLang,
                 keepFullList: Boolean(overrides.keepFullList),
+                approximateAmounts: Boolean(overrides.speechText),
             });
             const displayText = privacyFilteredText || '';
 
