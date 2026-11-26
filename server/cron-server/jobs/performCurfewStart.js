@@ -11,7 +11,7 @@ const performCurfewStart = async (time, companyIds) => {
       const devices = await Device.find({
         companyId,
         hasActiveContract: true,
-        exemptFromCutOff: { $ne: true },
+        exemptFromCurfew: { $ne: true },
         'telemetry.cutOff': { $ne: true }
       }).lean();
 

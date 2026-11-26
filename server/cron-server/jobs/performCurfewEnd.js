@@ -13,7 +13,7 @@ const performCurfewEnd = async (time, companyIds) => {
       const curfewDevices = await Device.find({
         companyId,
         hasActiveContract: true,
-        exemptFromCutOff: { $ne: true },
+        exemptFromCurfew: { $ne: true },
         curfewStatus: true
       }).lean();
 
