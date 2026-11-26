@@ -11,6 +11,7 @@ import useDeviceUpdates from '../hooks/useDeviceUpdates';
 import './PaymentSummary.css';
 import BikePaymentSummary from '../components/BikePaymentSummary';
 import MatrixPaymentSummary from '../components/MatrixPaymentSummary';
+import { setDayTypesConfig } from '../utils/dayTypes';
 import MotorIcon from '../components/MotorIcon';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
@@ -130,6 +131,7 @@ const PaymentSummary = () => {
             });
 
             if (response.success && Array.isArray(response.data)) {
+                setDayTypesConfig(response.dayTypesConfig);
                 const map = {};
                 response.data.forEach(item => {
                     const devKey = String(item.device?.gpsId || item.device?.deviceId || item.device?.name || '');

@@ -8,6 +8,7 @@ import { Transaction, PAYMENTMESSAGES } from '../config/config.js';
 import helpers from '../utils/helpers.js';
 import dayjs from '../config/dayjs.js';
 import { Contract } from '../models/Contract.js';
+import { DEFAULT_DAY_TYPES_CONFIG } from '../constants/dayTypes.js';
 const { PAYMENT_STATUS, TEMPORARY_RESERVATION_TIMEOUT, DEFAULT_PAYMENT_EMAIL_DOMAIN } = Transaction;
 const { M_REQUEST_SENT } = PAYMENTMESSAGES;
 const paymentController = {
@@ -127,7 +128,7 @@ const paymentController = {
                 companyId: targetCompanyId
             });
 
-            res.json({ success: true, data: summary });
+            res.json({ success: true, data: summary, dayTypesConfig: DEFAULT_DAY_TYPES_CONFIG });
 
         } catch (error) {
             logger.error('Get payment summary error:', error.message);

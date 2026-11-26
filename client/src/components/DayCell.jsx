@@ -1,5 +1,6 @@
 import React from 'react';
 import MotorIcon from './MotorIcon';
+import { resolveDayCell } from '../utils/dayTypes';
 
 const formatCurrency = (amount) => {
     if (!amount) return '-';
@@ -25,22 +26,9 @@ const DayCell = ({ dayData, isMobile }) => {
             }
         }
 
-        if (dayData.dayType === 'LOAN') {
-            cellClass = 'status-cell loand';
-            contentStr = '--';
-        } else if (dayData.dayType === 'PAID') {
-            cellClass = 'status-cell approved';
-            contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-        } else if (dayData.dayType === 'FREE') {
-            cellClass = 'status-cell free';
-            contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '✓';
-        } else if (dayData.dayType === 'ADJUSTMENT') {
-            cellClass = 'status-cell adjusted';
-            contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '🔧';
-        } else {
-            cellClass = 'status-cell pending';
-            contentStr = dayData?.totalPaid > 0 ? formatCurrency(dayData?.totalPaid) : '-';
-        }
+        const resolved = resolveDayCell(dayData, formatCurrency);
+        cellClass = resolved.cellClass;
+        contentStr = resolved.content;
     }
 
     let content = (
