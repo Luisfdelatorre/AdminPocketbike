@@ -50,6 +50,7 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **26** | Panel Bottom Sheet del Asistente de Voz (demo) (`VoiceAssistantPanel.jsx`) | 🧪 En validación | FAB teal y tarjeta estilo Bottom Sheet (`height: 84dvh` en móvil) sobre backdrop con `backdrop-filter: blur(10px)` a pantalla completa (`z-index: 1350`), cubriendo la barra de navegación inferior (`MobileBottomNav`) y dejando una franja superior desenfocada visible; gestos táctiles de **Swipe Up / Swipe Down** en vivo sobre el tirador y cabecera (deslizar abajo reduce a modo compacto o cierra; deslizar arriba desde modo compacto vuelve a expandir); se reduce automáticamente a modo compacto (`~27dvh`, sin blur ni bloqueo de fondo) al navegar a una sección; selector integrado de Modo de voz y Voz/Acento; sin auto-focus ni `<form>` en móvil/iOS. Pendiente aprobación visual. |
 | **27** | Filtro «Pendientes» de Facturas no coincide con su contador (`Invoices.jsx`) | 🧪 En validación | El chip mostraba `stats.unpaid` (`paid: false`) pero filtraba `dayType === 'PENDING'` (sólo reservas de pago en curso), mostrando 0–1 facturas. Ahora «Pendientes» filtra `paid: false` en servidor (`invoiceServices.js`) y cliente, coherente con el contador. Pendiente validación con datos reales. |
 | **28** | Tarjeta «Total» de Facturas muestra lo recaudado (`Invoices.jsx`) | 🧪 En validación | La StatCard de escritorio titulada «Total» mostraba `stats.totalAmount`, que es la suma de `paidAmount` (lo ya cobrado). Ahora se titula «Recaudado» / «Collected» (`invoices.stats.collected`). Pendiente aprobación visual. |
+| **29** | Exenciones de contrato invisibles en las tarjetas de Contratos (`Contracts.jsx`) | 🧪 En validación | Un contrato exento del apagado nocturno o del apagado automático no lo indicaba en su tarjeta; había que abrir el editor. Ahora la tarjeta muestra insignias de luna tachada (toque de queda) y rayo tachado (apagado automático), con título traducido. |
 
 ---
 
@@ -597,3 +598,15 @@ La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba diverge
 
 ### Solución Implementada
 * La tarjeta se titula «Recaudado» (es) / «Collected» (en) mediante la nueva clave `invoices.stats.collected` en `client/src/i18n.js`; el valor no cambia.
+
+---
+
+## 29. Exenciones de contrato invisibles en las tarjetas de Contratos
+
+### El Problema
+* Las tarjetas de [Contracts.jsx](client/src/pages/Contracts.jsx) no mostraban si el contrato estaba exento del apagado nocturno (`exemptFromCurfew`) o del apagado automático por mora (`exemptFromCutOff`); la información sólo era visible en el editor.
+
+### Solución Implementada
+* Junto a la insignia de frecuencia se muestran dos insignias circulares de 20 px: luna tachada (azul) para el toque de queda y rayo tachado (rojo) para el apagado automático.
+* El `title` y el `aria-label` reutilizan las claves existentes `contracts.modal.exemptCurfew` y `contracts.modal.exemptCutoff`.
+* Portado desde la rama histórica `feat/data-driven-day-types`.

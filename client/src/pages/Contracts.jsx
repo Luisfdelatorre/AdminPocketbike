@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAllContracts, createContract, updateContract, updateContractStatus, downloadContractDocument } from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download, Clock, CalendarDays, CalendarRange } from 'lucide-react';
+import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download, Clock, CalendarDays, CalendarRange, Moon, Zap } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatPhoneNumber, formatCurrencyCOP, formatCompact, formatCompactCOP, formatDate } from '../utils/helpers';
 import { safeCalcularPrecioMoto } from '../utils/contractCalculations';
@@ -945,6 +945,26 @@ const Contracts = () => {
                                             </span>
                                         );
                                     })()}
+                                    {contract.exemptFromCurfew && (
+                                        <span
+                                            title={t('contracts.modal.exemptCurfew')}
+                                            aria-label={t('contracts.modal.exemptCurfew')}
+                                            className="relative inline-flex items-center justify-center w-5 h-5 rounded-full overflow-hidden bg-blue-100 text-blue-800 border border-blue-200"
+                                        >
+                                            <Moon size={11} strokeWidth={2.5} />
+                                            <span className="absolute w-[15px] h-[1.5px] bg-blue-800 -rotate-45 rounded-full" />
+                                        </span>
+                                    )}
+                                    {contract.exemptFromCutOff && (
+                                        <span
+                                            title={t('contracts.modal.exemptCutoff')}
+                                            aria-label={t('contracts.modal.exemptCutoff')}
+                                            className="relative inline-flex items-center justify-center w-5 h-5 rounded-full overflow-hidden bg-red-100 text-red-600 border border-red-200"
+                                        >
+                                            <Zap size={11} strokeWidth={2.5} />
+                                            <span className="absolute w-[15px] h-[1.5px] bg-red-600 -rotate-45 rounded-full" />
+                                        </span>
+                                    )}
                                     <span
                                         className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200"
                                         title="PIN de acceso"
