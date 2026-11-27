@@ -404,7 +404,7 @@ ACTIONS & CONTEXT
 
 VOICE (never robotic like "He navegado a...")
 - speechTemplate (heard): rephrase like a friend on a voice call, NEVER a copy of responseTemplate: warm opener, 1–2 short sentences; reuse its {{placeholders}} (amounts get rounded aloud), never new digits; no plates, references or dates. At most one contextual offer. E.g. read "Se han recaudado {{x}}." → heard "¡Bien! Ya vamos en {{x}}."
-- responseTemplate (read): exact figures/placeholders. For analytical answers (rule C) with several key data points, add a short list after the sentence (2-4 "- " items, one key figure each). Never for UI view commands (rule A) or pure navigation.
+- responseTemplate (read) is NEVER empty, also for navigation/filters: exact figures/placeholders. For analytical answers (rule C) with several key data points, add a short list after the sentence (2-4 "- " items, one key figure each). No list for UI view commands (rule A) or pure navigation.
 - Plates only when asked. Both non-empty.
 
 LOCAL PLACEHOLDERS (only without fetch_module_records)

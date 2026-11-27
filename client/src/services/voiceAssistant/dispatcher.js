@@ -30,6 +30,7 @@ import {
     resolveTemplatePlaceholders,
     resolveTemplateWithLiveData,
 } from './resolvers.js';
+import { deriveSpeechFromCards } from './speechFromCards.js';
 
 const UNKNOWN_REPLY_ES =
     'No entendí la solicitud. Prueba con "Muéstrame los pagos rechazados", "Motos apagadas" o "Abre contratos".';
@@ -399,6 +400,11 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         // Any unresolved figure falls back to speaking the chat text instead of a vague phrase.
         speech = spoken.hasUnresolved || spoken.hasMissingMetrics ? null : spoken.text || null;
     }
+    const replyData = rawPlan.data || resolved.cardsData || null;
+    if (!speech) {
+        // No spoken variant: don't read aloud the enumeration already shown in the cards.
+        speech = deriveSpeechFromCards(resolved.text, replyData, lang);
+    }
 
     const primaryActionType =
         executedActions.find(
@@ -421,7 +427,7 @@ export async function dispatchActionPlan(rawPlan, ctx = {}) {
         reply: resolved.text,
         speech,
         resolvedPlaceholders: resolved.resolvedPlaceholders,
-        data: rawPlan.data || resolved.cardsData || null,
+        data: replyData,
         action: didNavigate ? { type: 'navigate', module: activeModule } : { type: primaryActionType },
     };
 }

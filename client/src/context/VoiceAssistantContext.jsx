@@ -13,7 +13,6 @@ import { MAX_CONVERSATION_TURNS } from '../services/voiceAssistant/schemaValidat
 import { dispatchActionPlan } from '../services/voiceAssistant/dispatcher';
 import { MATCH_STATUS, matchLocalIntent } from '../services/voiceAssistant/matcher';
 import { getScreenBridge } from '../services/voiceAssistant/screenBridge';
-import { resolveLocalDemoQuery } from '../services/voiceAssistant/demoData';
 import AssistantWsClient from '../services/voiceAssistant/wsClient';
 import AudioStreamQueue from '../services/voiceAssistant/audioQueue';
 import {
@@ -321,9 +320,10 @@ export const VoiceAssistantProvider = ({ children }) => {
     const query = useCallback(async (payload) => {
         try {
             const response = await assistantQuery(payload);
-            return response?.data ?? resolveLocalDemoQuery(payload);
+            return response?.data ?? null;
         } catch {
-            return resolveLocalDemoQuery(payload);
+            // Never answer with demo data for a real company; callers show an "unknown" reply instead.
+            return null;
         }
     }, []);
 
@@ -968,22 +968,7 @@ export const VoiceAssistantProvider = ({ children }) => {
                             );
                         } catch {
                             if (isStaleTurn()) return;
-                            if (localMatch.capabilityId) {
-                                const demoAns = resolveLocalDemoQuery({
-                                    capabilityId: localMatch.capabilityId,
-                                    text,
-                                });
-                                setProgressNote(null);
-                                const fallbackMsg = createMessage('assistant', demoAns.reply, {
-                                    traceId: turnId,
-                                    data: demoAns.data,
-                                    capabilityId: demoAns.capabilityId,
-                                    source: 'local',
-                                });
-                                appendMessage(fallbackMsg);
-                                speakReply(demoAns.reply, { messageId: fallbackMsg.id });
-                                return;
-                            }
+                            // Never fall back to demo data: it would show invented plates as the company's live data.
                             throw new Error(
                                 assistantLang === 'en-US'
                                     ? 'Assistant service is temporarily unavailable.'

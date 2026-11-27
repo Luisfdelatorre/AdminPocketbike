@@ -247,3 +247,28 @@ describe('Dual reply: chat lists in speech', async () => {
         assert.equal(spoken, 'Resumen del mes: 12 pagos aprobados, 3 rechazados');
     });
 });
+
+describe('Dual reply: replies with cards', async () => {
+    const { deriveSpeechFromCards } = await import('../../client/src/services/voiceAssistant/speechFromCards.js');
+    const cards = {
+        kind: 'list',
+        items: [{ title: 'ABC12D' }, { title: 'XYZ98E' }, { title: 'QWE45R' }],
+    };
+
+    it('drops the enumeration already shown in the cards and points to the screen', () => {
+        assert.equal(
+            deriveSpeechFromCards('Hay 3 motos apagadas por mora: ABC12D, XYZ98E, QWE45R.', cards),
+            'Hay 3 motos apagadas por mora. Te dejé el detalle en pantalla.'
+        );
+        assert.equal(
+            deriveSpeechFromCards('There are 3 cut-off bikes: ABC12D, XYZ98E.', cards, 'en-US'),
+            'There are 3 cut-off bikes. I left the details on screen.'
+        );
+    });
+
+    it('keeps the default speech when there is nothing to shorten', () => {
+        assert.equal(deriveSpeechFromCards('Aquí tienes las motos apagadas.', cards), null);
+        assert.equal(deriveSpeechFromCards('Hora: 10:30 en punto.', cards), null);
+        assert.equal(deriveSpeechFromCards('Hay 3 motos: ABC12D.', null), null);
+    });
+});

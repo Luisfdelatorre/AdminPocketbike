@@ -10,6 +10,7 @@ import { registerScreenBridge } from '../services/voiceAssistant/screenBridge';
  *   loading?: boolean,
  *   activeFilters?: object,
  *   metrics?: object,
+ *   cardsData?: { kind: string, items?: Array<object> }|null,
  *   selectedItem?: string|null,
  *   singleMatchItem?: string|null,
  *   applyFilter?: (params: object) => Promise<boolean>|boolean,
@@ -29,6 +30,8 @@ export default function useAssistantScreenBridge(moduleId, config = {}) {
             loading: Boolean(config.loading),
             activeFilters: config.activeFilters || {},
             metrics: config.metrics || {},
+            // Cards shown under the assistant reply (previously computed by screens but never forwarded)
+            cardsData: config.cardsData || null,
             selectedItem: config.selectedItem || null,
             singleMatchItem: config.singleMatchItem || null,
             applyFilter: (params) => handlersRef.current.applyFilter?.(params),
@@ -43,6 +46,7 @@ export default function useAssistantScreenBridge(moduleId, config = {}) {
         config.loading,
         JSON.stringify(config.activeFilters || {}),
         JSON.stringify(config.metrics || {}),
+        JSON.stringify(config.cardsData || null),
         config.selectedItem,
         config.singleMatchItem,
     ]);

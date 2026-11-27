@@ -283,8 +283,28 @@ const DeviceManagement = () => {
     const availableCount = useMemo(() => devicesList.filter(d => !d.hasActiveContract && (d.isActive !== false)).length, [devicesList]);
     const cutoffDevicesCount = useMemo(() => devicesList.filter(d => Boolean(d.cutOff)).length, [devicesList]);
 
+    // Real cards for the assistant reply (same `list` shape as Payments): first 5 motos of the current view.
+    const assistantDevicesCards = useMemo(() => {
+        if (!sortedDevices.length) return null;
+        const motorState = (d) => (d.cutOff ? 'Apagada por el sistema' : d.ignition ? 'Encendida' : 'En reposo');
+        return {
+            kind: 'list',
+            items: sortedDevices.slice(0, 5).map((d) => {
+                const offline = isDeviceOffline(d);
+                const offlineLabel = d.lastUpdate ? formatOfflineTimeShort(d.lastUpdate) : 'Sin GPS';
+                return {
+                    title: d.name || d.deviceName || String(d.id || 'Moto'),
+                    subtitle: [d.hasActiveContract ? 'Con contrato' : 'Sin contrato', motorState(d)].join(' · '),
+                    value: offline ? offlineLabel || 'Sin señal' : d.cutOff ? 'Apagada' : d.ignition ? 'Encendida' : 'En línea',
+                };
+            }),
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sortedDevices]);
+
     useAssistantScreenBridge('devices', {
         loading,
+        cardsData: assistantDevicesCards,
         activeFilters: { status: filter, searchQuery, sortBy },
         metrics: {
             filteredCount: sortedDevices.length,
