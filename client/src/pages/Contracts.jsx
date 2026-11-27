@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getAllContracts, createContract, updateContract, updateContractStatus, downloadContractDocument } from '../services/api';
+import { createContract, updateContract, updateContractStatus, downloadContractDocument } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { Shield, FileText, Calendar, DollarSign, TrendingUp, Check, X, Edit, Plus, Search, MoreVertical, Camera, FileUp, Sparkles, ExternalLink, Loader2, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, User, Bike, Sliders, RefreshCw, Share2, Copy, Download, Clock, CalendarDays, CalendarRange, Moon, Zap } from 'lucide-react';
 import { showToast } from '../utils/toast';
@@ -11,6 +11,7 @@ import useAdminScrollLock from '../hooks/useAdminScrollLock';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
+import { useContractsQuery } from '../hooks/useScreenQueries';
 import ContractDocPreviewModal from '../components/modals/ContractDocPreviewModal';
 import ContractEditor from '../components/ContractEditor';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
@@ -19,14 +20,21 @@ import MobileMetricsCard from '../components/MobileMetricsCard';
 import './Contracts.css';
 import './ContractModalRestyle.css';
 
+const EMPTY_LIST = [];
+
 const Contracts = () => {
     const isMobile = useIsMobile();
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
-    const [contracts, setContracts] = useState([]);
-    const [availableDevices, setAvailableDevices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // Cached across tab switches: only the very first visit shows "Cargando…"
+    const contractsQuery = useContractsQuery();
+    const contracts = contractsQuery.data?.contracts ?? EMPTY_LIST;
+    const availableDevices = contractsQuery.data?.availableDevices ?? EMPTY_LIST;
+    const companySettings = contractsQuery.data?.settings ?? null;
+    const loading = contractsQuery.isPending;
+    const refreshing = contractsQuery.isFetching;
+    const [saving, setSaving] = useState(false);
     const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
     const [searchQuery, setSearchQuery] = useState('');
     const [searchInput, setSearchInput] = useState('');
@@ -150,8 +158,6 @@ const Contracts = () => {
         }
     });
 
-    const [companySettings, setCompanySettings] = useState(null);
-
     const totalGastosFijos = useMemo(() => {
         const fixed = companySettings?.contractDefaults?.fixedCosts;
         return (
@@ -250,7 +256,6 @@ const Contracts = () => {
     }, [isContractModalOpen, formData, editingContract]);
 
     useEffect(() => {
-        loadContracts();
         setFabPortalElement(document.body);
     }, []);
 
@@ -267,28 +272,11 @@ const Contracts = () => {
         };
     }, [activeMenu]);
 
-    const loadContracts = async () => {
-        setLoading(true);
-        try {
-            const result = await getAllContracts();
+    const loadContracts = () => contractsQuery.refetch();
 
-            if (result.success) {
-                setContracts(result.contracts || []);
-                if (result.availableDevices) {
-                    setAvailableDevices(result.availableDevices);
-                }
-                if (result.settings) {
-                    setCompanySettings(result.settings);
-                }
-            } else {
-                console.error('Failed to fetch contracts:', result.error);
-            }
-        } catch (error) {
-            console.error('Error loading contracts:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+        if (contractsQuery.error) console.error('Error loading contracts:', contractsQuery.error);
+    }, [contractsQuery.error]);
 
     const handleRefresh = async () => {
         await loadContracts();
@@ -483,7 +471,7 @@ const Contracts = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        setSaving(true);
 
         try {
             const trimmedNumber = formData.customerDocumentNumber ? String(formData.customerDocumentNumber).trim() : '';
@@ -512,7 +500,7 @@ const Contracts = () => {
             console.error('Error saving contract:', error);
             showToast(t('contracts.modal.errorSave'), 'error');
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
@@ -716,7 +704,7 @@ const Contracts = () => {
                 { label: t('contracts.title') }
             ]}
             onRefresh={handleRefresh}
-            loading={loading}
+            loading={refreshing}
             refreshText={t('payments.refresh', 'Actualizar')}
             actions={
                 <button
@@ -734,7 +722,7 @@ const Contracts = () => {
     const mobileHeader = (
         <PageHeader.Mobile
             onRefresh={handleRefresh}
-            loading={loading}
+            loading={refreshing}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
         />
@@ -749,6 +737,7 @@ const Contracts = () => {
             {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
             {isMobile ? !showFilters && (
                 <MobileMetricsCard
+                    loading={loading}
                     segments={[
                         { width: activePercentage, variant: 'completed' },
                         { width: completedPercentage, variant: 'blue' }
@@ -777,20 +766,24 @@ const Contracts = () => {
             ) : (
                 <div className="contracts-stats">
                     <StatCard
+                        loading={loading}
                         title={t('contracts.stats.total', 'TOTAL')}
                         value={totalCount}
                     />
                     <StatCard
+                        loading={loading}
                         title={t('contracts.stats.active', 'ACTIVOS')}
                         value={activeCount}
                         valueColor="#00C292"
                     />
                     <StatCard
+                        loading={loading}
                         title={t('contracts.stats.completed', 'FINALIZADOS')}
                         value={completedCount}
                         valueColor="#0070eb"
                     />
                     <StatCard
+                        loading={loading}
                         title={t('contracts.stats.totalValue', 'VALOR TOTAL')}
                         value={formatCompactCOP(contracts.reduce((sum, c) => sum + (c.totalAmount || 0), 0))}
                         fullValue={formatCurrencyCOP(contracts.reduce((sum, c) => sum + (c.totalAmount || 0), 0), true)}
@@ -1113,7 +1106,7 @@ const Contracts = () => {
                     setFormData={setFormData}
                     availableDevices={availableDevices}
                     companySettings={companySettings}
-                    loading={loading}
+                    loading={saving}
                 />
             )}
 

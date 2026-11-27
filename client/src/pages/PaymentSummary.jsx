@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw, Download, PowerOff, Power, LayoutList, Table2, Search, X, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentSummary, exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
+import { exportPaymentsCSV, cutoffDebtors, getStatusReport, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Calendar, DollarSign, Activity, FileText, Check, Zap, Filter, ArrowRight, Save, MapPin, Navigation, Smartphone, ChevronDown } from 'lucide-react';
 import MobileHeaderAction from '../components/MobileHeaderAction';
@@ -18,6 +18,7 @@ import MonthYearSelector from '../components/MonthYearSelector';
 import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
+import { usePaymentSummaryQuery, useScreenQueryClient, screenQueryKeys } from '../hooks/useScreenQueries';
 
 const InvoiceAdjustmentModal = React.lazy(() => import('../components/modals/InvoiceAdjustmentModal'));
 const CreateDayInvoiceModal = React.lazy(() => import('../components/modals/CreateDayInvoiceModal'));
@@ -34,12 +35,22 @@ const getInitialDesktopView = () => {
     }
 };
 
+const summaryKeyOf = (device) => String(device?.gpsId || device?.deviceId || device?.name || '');
+
+const buildSummaryMap = (items) => {
+    const map = {};
+    (items || []).forEach(item => {
+        const devKey = summaryKeyOf(item.device);
+        if (devKey && devKey !== 'undefined') {
+            map[devKey] = item;
+        }
+    });
+    return map;
+};
+
 const PaymentSummary = () => {
     const { user } = useAuth();
-    const [loading, setLoading] = useState(false);
     const { t } = useTranslation();
-    const [summaryDataMap, setSummaryDataMap] = useState({});
-    const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
     const [pendingCommands, setPendingCommands] = useState({});
     const isMobile = useIsMobile();
     const [desktopView, setDesktopView] = useState(getInitialDesktopView);
@@ -96,6 +107,17 @@ const PaymentSummary = () => {
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
 
+    // Cached per month/year: coming back to the tab paints the last data instantly
+    const summaryQuery = usePaymentSummaryQuery({ month: selectedMonth, year: selectedYear });
+    const { queryClient, companyKey } = useScreenQueryClient();
+    const loading = summaryQuery.isPending;
+    const refreshing = summaryQuery.isFetching;
+    const [summaryDataMap, setSummaryDataMap] = useState(() => {
+        if (summaryQuery.data?.dayTypesConfig) setDayTypesConfig(summaryQuery.data.dayTypesConfig);
+        return buildSummaryMap(summaryQuery.data?.data);
+    });
+    const summaryData = useMemo(() => Object.values(summaryDataMap), [summaryDataMap]);
+
     // Generate days 1..31 based on month
     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
     const isCurrentPeriod = selectedMonth === today.getMonth() + 1 && selectedYear === today.getFullYear();
@@ -122,45 +144,51 @@ const PaymentSummary = () => {
 
     const daysArray = Array.from({ length: lastVisibleDay }, (_, i) => i + 1);
 
-    const fetchData = async (isSilent = false) => {
-        if (!isSilent) setLoading(true);
-        try {
-            const response = await getPaymentSummary({
-                month: selectedMonth,
-                year: selectedYear
-            });
-
-            if (response.success && Array.isArray(response.data)) {
-                setDayTypesConfig(response.dayTypesConfig);
-                const map = {};
-                response.data.forEach(item => {
-                    const devKey = String(item.device?.gpsId || item.device?.deviceId || item.device?.name || '');
-                    if (devKey && devKey !== 'undefined') {
-                        map[devKey] = item;
+    // Sync the screen map from the cache. Anti-race: if the API response is older
+    // than the device state we already got through SSE, keep the SSE state.
+    useEffect(() => {
+        const response = summaryQuery.data;
+        if (!response) return;
+        if (response.dayTypesConfig) setDayTypesConfig(response.dayTypesConfig);
+        const map = buildSummaryMap(response.data);
+        setSummaryDataMap(prev => {
+            const next = { ...map };
+            Object.keys(next).forEach(key => {
+                const prevDev = prev[key]?.device;
+                const nextDev = next[key].device;
+                if (prevDev?.lastUpdate && nextDev?.lastUpdate) {
+                    if (new Date(prevDev.lastUpdate) > new Date(nextDev.lastUpdate)) {
+                        next[key] = { ...next[key], device: { ...nextDev, ...prevDev } };
                     }
-                });
+                }
+            });
+            return next;
+        });
+    }, [summaryQuery.data]);
 
-                // Anti-Race Condition: If the API response has older data than our local SSE cache, keep the local SSE device state!
-                setSummaryDataMap(prev => {
-                    const next = { ...map };
-                    Object.keys(next).forEach(key => {
-                        const prevDev = prev[key]?.device;
-                        const nextDev = next[key].device;
-                        if (prevDev?.lastUpdate && nextDev?.lastUpdate) {
-                            if (new Date(prevDev.lastUpdate) > new Date(nextDev.lastUpdate)) {
-                                next[key].device = { ...nextDev, ...prevDev };
-                            }
-                        }
-                    });
-                    return next;
-                });
-            }
-        } catch (error) {
-            console.error("Error fetching summary:", error);
-        } finally {
-            if (!isSilent) setLoading(false);
-        }
-    };
+    useEffect(() => {
+        if (summaryQuery.error) console.error('Error fetching summary:', summaryQuery.error);
+    }, [summaryQuery.error]);
+
+    const fetchData = () => summaryQuery.refetch();
+
+    // Realtime (SSE) device changes live in the local map. When leaving the tab, write
+    // them back into the cache so coming back doesn't paint older engine states. The
+    // original fetch time is kept, so the entry still goes stale on schedule.
+    const latestSummaryRef = useRef({ map: summaryDataMap, month: selectedMonth, year: selectedYear });
+    latestSummaryRef.current = { map: summaryDataMap, month: selectedMonth, year: selectedYear };
+    useEffect(() => () => {
+        const { map, month, year } = latestSummaryRef.current;
+        const key = screenQueryKeys.paymentSummary(companyKey, month, year);
+        const state = queryClient.getQueryState(key);
+        if (!state?.data) return;
+        const items = Object.values(map).map(item => {
+            if (!item?.device?.queued) return item;
+            const { queued: _queued, ...device } = item.device;
+            return { ...item, device };
+        });
+        queryClient.setQueryData(key, old => (old ? { ...old, data: items } : old), { updatedAt: state.dataUpdatedAt });
+    }, [queryClient, companyKey]);
 
     const handleExport = async () => {
         setDownloading(true);
@@ -218,10 +246,6 @@ const PaymentSummary = () => {
             });
         }
     };
-
-    useEffect(() => {
-        fetchData();
-    }, [selectedMonth, selectedYear]);
 
     const [bulkOffLoading, setBulkOffLoading] = useState(false);
     const [showBulkOffModal, setShowBulkOffModal] = useState(false);
@@ -512,7 +536,7 @@ const PaymentSummary = () => {
                 { label: t('sidebar.summary', 'Estatus de Pagos') }
             ]}
             onRefresh={fetchData}
-            loading={loading}
+            loading={refreshing}
             refreshText={t('payments.refresh', 'Actualizar')}
             leadingActions={
                 <div className="summary-header-action-group">
@@ -537,7 +561,7 @@ const PaymentSummary = () => {
     const mobileHeader = (
         <PageHeader.Mobile
             onRefresh={fetchData}
-            loading={loading}
+            loading={refreshing}
             onFilterToggle={handleFilterToggle}
             showFilters={showFilters}
             datePicker={{
@@ -586,7 +610,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'all' ? 'active' : ''}`}
                         >
                             <span>Todos</span>
-                            <span className="pill-count">{summaryData.length}</span>
+                            <span className="pill-count">{loading ? <span className="skeleton skeleton-sm" aria-hidden="true" /> : summaryData.length}</span>
                         </button>
                         <button
                             type="button"
@@ -594,7 +618,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'debt' ? 'active' : ''}`}
                         >
                             <span>Con deuda</span>
-                            <span className="pill-count pill-count--debt">{morososCount}</span>
+                            <span className="pill-count pill-count--debt">{loading ? <span className="skeleton skeleton-sm" aria-hidden="true" /> : morososCount}</span>
                         </button>
                         <button
                             type="button"
@@ -602,7 +626,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'ok' ? 'active' : ''}`}
                         >
                             <span>Al día</span>
-                            <span className="pill-count pill-count--ok">{okCount}</span>
+                            <span className="pill-count pill-count--ok">{loading ? <span className="skeleton skeleton-sm" aria-hidden="true" /> : okCount}</span>
                         </button>
                         <button
                             type="button"
@@ -610,7 +634,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'cutoff' ? 'active' : ''}`}
                         >
                             <span>Apagados</span>
-                            <span className="pill-count pill-count--cutoff">{cutoffCount}</span>
+                            <span className="pill-count pill-count--cutoff">{loading ? <span className="skeleton skeleton-sm" aria-hidden="true" /> : cutoffCount}</span>
                         </button>
                         <button
                             type="button"
@@ -618,7 +642,7 @@ const PaymentSummary = () => {
                             className={`filter-pill ${statusFilter === 'weekly' ? 'active' : ''}`}
                         >
                             <span>Semanal+</span>
-                            <span className="pill-count pill-count--weekly">{weeklyCount}</span>
+                            <span className="pill-count pill-count--weekly">{loading ? <span className="skeleton skeleton-sm" aria-hidden="true" /> : weeklyCount}</span>
                         </button>
                     </div>
                 </div>
@@ -633,11 +657,11 @@ const PaymentSummary = () => {
                     filter={statusFilter}
                     setFilter={setStatusFilter}
                     filterOptions={[
-                        { value: 'all', label: 'Todos', badge: summaryData.length, badgeType: 'all' },
-                        { value: 'debt', label: 'Con deuda', badge: morososCount, badgeType: 'debt' },
-                        { value: 'ok', label: 'Al día', badge: okCount, badgeType: 'ok' },
-                        { value: 'cutoff', label: 'Apagados', badge: cutoffCount, badgeType: 'cutoff' },
-                        { value: 'weekly', label: 'Semanal+', badge: weeklyCount, badgeType: 'weekly' }
+                        { value: 'all', label: 'Todos', badge: loading ? null : summaryData.length, badgeType: 'all' },
+                        { value: 'debt', label: 'Con deuda', badge: loading ? null : morososCount, badgeType: 'debt' },
+                        { value: 'ok', label: 'Al día', badge: loading ? null : okCount, badgeType: 'ok' },
+                        { value: 'cutoff', label: 'Apagados', badge: loading ? null : cutoffCount, badgeType: 'cutoff' },
+                        { value: 'weekly', label: 'Semanal+', badge: loading ? null : weeklyCount, badgeType: 'weekly' }
                     ]}
                     filterRowClass="summary-filter-row-ios"
                 />

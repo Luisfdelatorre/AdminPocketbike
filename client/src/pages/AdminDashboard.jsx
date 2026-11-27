@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Download, TrendingUp, TrendingDown, DollarSign, Zap, BatteryCharging, AlertTriangle } from 'lucide-react';
-import { getDashboardStats, getAllDevices, getReportTemplate } from '../services/api';
+import { getReportTemplate } from '../services/api';
+import { useDashboardQuery } from '../hooks/useScreenQueries';
 import { exportToCSV } from '../utils/helpers';
 import { buildReportRows } from '../utils/reportGenerator';
 import { showToast } from '../utils/toast';
@@ -13,113 +14,55 @@ import StatCard from '../components/StatCard';
 import useIsMobile from '../hooks/useIsMobile';
 import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import StatusBadge from '../components/StatusBadge';
-import { calculateFleetElectricalSummary } from '../utils/batteryHealthHelper';
 import './AdminDashboard.css';
+
+const EMPTY_LIST = [];
+const DEFAULT_STATS = {
+    totalRevenue: 0,
+    activeDevices: 0,
+    pendingPayments: 0,
+    totalDevices: 0,
+    totalInvoiced: 0,
+    collectionGap: 0,
+    collectionRate: 100
+};
+const DEFAULT_ELECTRICAL_SUMMARY = {
+    total: 0,
+    healthy: 0,
+    weak: 0,
+    damaged: 0,
+    powerCut: 0,
+    overvoltage: 0,
+    noCharge: 0,
+    weakCharge: 0,
+    healthPercentage: 100
+};
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { t } = useTranslation();
     const isMobile = useIsMobile();
-    const [stats, setStats] = useState({
-        totalRevenue: 0,
-        activeDevices: 0,
-        pendingPayments: 0,
-        totalDevices: 0,
-        totalInvoiced: 0,
-        collectionGap: 0,
-        collectionRate: 100
-    });
-    const [electricalSummary, setElectricalSummary] = useState({
-        total: 0,
-        healthy: 0,
-        weak: 0,
-        damaged: 0,
-        powerCut: 0,
-        overvoltage: 0,
-        noCharge: 0,
-        weakCharge: 0,
-        healthPercentage: 100
-    });
-    const [revenueData, setRevenueData] = useState([]);
-    const [deviceData, setDeviceData] = useState([]);
-    const [recentPayments, setRecentPayments] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [initialLoading, setInitialLoading] = useState(true);
     const [downloadingReport, setDownloadingReport] = useState(false);
 
     const today = new Date();
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // Mes en curso por defecto
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
 
+    // Cached across tab switches: only the very first visit shows "Cargando datos…";
+    // later visits paint the cached data and refresh in the background.
+    const dashboardQuery = useDashboardQuery({ month: selectedMonth, year: selectedYear });
+    const stats = { ...DEFAULT_STATS, ...(dashboardQuery.data?.stats || {}) };
+    const electricalSummary = dashboardQuery.data?.electricalSummary || DEFAULT_ELECTRICAL_SUMMARY;
+    const recentPayments = dashboardQuery.data?.recentPayments ?? EMPTY_LIST;
+    const initialLoading = dashboardQuery.isPending;
+    const loading = dashboardQuery.isFetching;
+
     useEffect(() => {
-        let isMounted = true;
-        setLoading(true);
+        if (dashboardQuery.error) console.error('Error fetching dashboard data:', dashboardQuery.error);
+    }, [dashboardQuery.error]);
 
-        const params = { year: selectedYear };
-        if (selectedMonth) params.month = selectedMonth;
-
-        Promise.all([
-            getDashboardStats(params),
-            getAllDevices().catch(() => ({ success: false, devices: [] }))
-        ])
-            .then(([dashResult, devResult]) => {
-                if (!isMounted) return;
-                if (dashResult.success) {
-                    setStats(dashResult.data.stats || {});
-                    setRevenueData(dashResult.data.revenueData || []);
-                    setDeviceData(dashResult.data.deviceData || []);
-                    setRecentPayments(dashResult.data.recentPayments || []);
-                } else {
-                    console.error('Failed to fetch dashboard data:', dashResult.error);
-                }
-                if (devResult.success && devResult.devices) {
-                    setElectricalSummary(calculateFleetElectricalSummary(devResult.devices));
-                }
-            })
-            .catch(error => {
-                if (isMounted) console.error('Error fetching dashboard data:', error);
-            })
-            .finally(() => {
-                if (isMounted) {
-                    setLoading(false);
-                    setInitialLoading(false);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [selectedMonth, selectedYear]);
-
-    const fetchDashboardData = async () => {
-        setLoading(true);
-        try {
-            const params = { year: selectedYear };
-            if (selectedMonth) params.month = selectedMonth;
-            const [dashResult, devResult] = await Promise.all([
-                getDashboardStats(params),
-                getAllDevices().catch(() => ({ success: false, devices: [] }))
-            ]);
-
-            if (dashResult.success) {
-                setStats(dashResult.data.stats || {});
-                setRevenueData(dashResult.data.revenueData || []);
-                setDeviceData(dashResult.data.deviceData || []);
-                setRecentPayments(dashResult.data.recentPayments || []);
-            } else {
-                console.error('Failed to fetch dashboard data:', dashResult.error);
-            }
-            if (devResult.success && devResult.devices) {
-                setElectricalSummary(calculateFleetElectricalSummary(devResult.devices));
-            }
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-        } finally {
-            setLoading(false);
-            setInitialLoading(false);
-        }
-    };
+    const fetchDashboardData = () => dashboardQuery.refetch();
 
     const formatCurrency = (value) => {
         if (!value) return '$0';

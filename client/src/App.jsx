@@ -3,29 +3,31 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SSEProvider } from './context/SSEContext';
 import { StatusConfigProvider } from './context/StatusConfigContext';
+import { pageLoaders } from './routes/pageLoaders';
 import './i18n'; // Initialize i18next
 
 // Lazy Load Pages
 const AdminLayout = lazy(() => import('./components/AdminLayout'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const DevicePinLogin = lazy(() => import('./pages/DevicePinLogin'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const DeviceSelector = lazy(() => import('./pages/DeviceSelector'));
-const Contracts = lazy(() => import('./pages/Contracts'));
-const Payments = lazy(() => import('./pages/Payments'));
-const PaymentSummary = lazy(() => import('./pages/PaymentSummary'));
-const Invoices = lazy(() => import('./pages/Invoices'));
-const Users = lazy(() => import('./pages/Users'));
-const Companies = lazy(() => import('./pages/Companies'));
-const Settings = lazy(() => import('./pages/Settings'));
+const AdminDashboard = lazy(pageLoaders.AdminDashboard);
+const DeviceSelector = lazy(pageLoaders.DeviceSelector);
+const Contracts = lazy(pageLoaders.Contracts);
+const Payments = lazy(pageLoaders.Payments);
+const PaymentSummary = lazy(pageLoaders.PaymentSummary);
+const Invoices = lazy(pageLoaders.Invoices);
+const Users = lazy(pageLoaders.Users);
+const Companies = lazy(pageLoaders.Companies);
+const Settings = lazy(pageLoaders.Settings);
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
-const Reports = lazy(() => import('./pages/Reports'));
-const CompanyInvoices = lazy(() => import('./pages/CompanyInvoices'));
-const CommandHistory = lazy(() => import('./pages/CommandHistory'));
-const Alerts = lazy(() => import('./pages/Alerts'));
-const AiTelemetry = lazy(() => import('./pages/AiTelemetry'));
+const Reports = lazy(pageLoaders.Reports);
+const CompanyInvoices = lazy(pageLoaders.CompanyInvoices);
+const CommandHistory = lazy(pageLoaders.CommandHistory);
+const Alerts = lazy(pageLoaders.Alerts);
+const AiTelemetry = lazy(pageLoaders.AiTelemetry);
 
-// Simple Loading Component
+// Full-screen loader: only for the login page and the first load of the admin layout.
+// Tab pages suspend inside AdminLayout's content area instead.
 const LoadingSpinner = () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -34,7 +36,9 @@ const LoadingSpinner = () => (
 
 function App() {
     return (
-        <HashRouter>
+        // v7_startTransition: tab navigations run in a transition, so React keeps the
+        // current tab on screen instead of flashing a loader while the next one loads.
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthProvider>
                 <SSEProvider>
                     <StatusConfigProvider>

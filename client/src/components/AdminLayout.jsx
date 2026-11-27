@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,8 @@ import MobileHeader from './MobileHeader';
 import MobileBottomNav from './MobileBottomNav';
 import VoiceAssistantPanel from './voiceAssistant/VoiceAssistantPanel';
 import { VoiceAssistantProvider } from '../context/VoiceAssistantContext';
+import ContentLoader from './ContentLoader';
+import { prefetchAdminPages } from '../routes/pageLoaders';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
@@ -33,6 +35,10 @@ const AdminLayout = () => {
     }, []);
 
     const { subscribe } = useSSE();
+
+    // Download the other tabs' code in the background so the first visit to each tab
+    // doesn't suspend (that was the "Cargando…" + flash on every first tab change).
+    useEffect(() => prefetchAdminPages(), []);
 
     useEffect(() => {
         contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -85,7 +91,10 @@ const AdminLayout = () => {
                 <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
                 <main ref={contentRef} className={`admin-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                    <Outlet key={user?.companyId || 'default'} context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
+                    {/* Tab chunks suspend here, so the header and tab bars stay on screen */}
+                    <Suspense fallback={<ContentLoader />}>
+                        <Outlet key={user?.companyId || 'default'} context={{ settingsTab, setSettingsTab, companiesTab, setCompaniesTab }} />
+                    </Suspense>
                 </main>
 
                 <MobileBottomNav

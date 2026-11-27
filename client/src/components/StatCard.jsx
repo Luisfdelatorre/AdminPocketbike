@@ -12,7 +12,8 @@ const StatCard = ({
     valueColor,
     uppercaseTitle = true,
     className = '',
-    fullValue
+    fullValue,
+    loading = false
 }) => {
     const activeColor = valueColor || color;
 
@@ -46,11 +47,19 @@ const StatCard = ({
                     <h3 className={uppercaseTitle ? 'uppercase-title-ios' : 'text-xs text-slate-500 font-semibold'}>
                         {title}
                     </h3>
-                    <div className="stat-value-container-ios">
-                        <span className="stat-value-ios" style={activeColor ? { color: activeColor } : {}}>
-                            {value}
-                        </span>
-                        {renderChange()}
+                    <div className="stat-value-container-ios" aria-busy={loading || undefined}>
+                        {loading ? (
+                            <span className="stat-value-ios">
+                                <span className="skeleton skeleton-wide" aria-hidden="true" />
+                            </span>
+                        ) : (
+                            <>
+                                <span className="stat-value-ios" style={activeColor ? { color: activeColor } : {}}>
+                                    {value}
+                                </span>
+                                {renderChange()}
+                            </>
+                        )}
                     </div>
                 </div>
                 {Icon && (

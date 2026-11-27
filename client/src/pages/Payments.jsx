@@ -17,6 +17,7 @@ import StatCard from '../components/StatCard';
 import MobileMetricsCard from '../components/MobileMetricsCard';
 import useIsMobile from '../hooks/useIsMobile';
 import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
+import { usePaymentsFirstPageQuery, PAYMENTS_PAGE_SIZE } from '../hooks/useScreenQueries';
 
 const PaymentMobileRow = ({ payment }) => {
     const status = (payment.status || '').toUpperCase();
@@ -123,25 +124,30 @@ const PaymentMobileRow = ({ payment }) => {
 const Payments = () => {
     const { t } = useTranslation();
     const isMobile = useIsMobile();
-    const [payments, setPayments] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const today = new Date();
+    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+    // Page 1 is cached per month/year: coming back to the tab paints it instantly.
+    // Later pages (infinite scroll / pagination) stay local to the screen.
+    const firstPage = usePaymentsFirstPageQuery({ month: selectedMonth, year: selectedYear });
+    const [payments, setPayments] = useState(() => firstPage.data?.payments ?? []);
+    const [pageLoading, setPageLoading] = useState(false);
+    const loading = firstPage.isPending || pageLoading;
     const [loadingMore, setLoadingMore] = useState(false);
     const [filter, setFilter] = useState('all'); // all, completed, pending, failed
     const [datePreset, setDatePreset] = useState('all'); // all, today, yesterday, last_7_days
     const [sortBy, setSortBy] = useState('date'); // date, amount, device
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const today = new Date();
-    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
-    const [pagination, setPagination] = useState({
+    const [pagination, setPagination] = useState(() => ({
         page: 1,
-        limit: 50,
+        limit: PAYMENTS_PAGE_SIZE,
         total: 0,
         totalPages: 0,
         hasNext: false,
-        hasPrev: false
-    });
+        hasPrev: false,
+        ...(firstPage.data?.pagination || {}),
+    }));
 
     // State and refs
     const [showFilters, setShowFilters] = useState(false);
@@ -233,22 +239,58 @@ const Payments = () => {
         };
     }, [isMobile]);
 
+    // Sync page 1 from the cache. A new month/year replaces the list; a background
+    // refresh of the same period only refreshes the head and keeps scrolled pages.
+    const seededRef = useRef({ data: firstPage.data, period: `${selectedMonth}-${selectedYear}` });
     useEffect(() => {
+        const data = firstPage.data;
+        if (!data || firstPage.isPlaceholderData) return;
+        const period = `${selectedMonth}-${selectedYear}`;
+        const previous = seededRef.current;
+        if (previous.data === data && previous.period === period) return;
+        seededRef.current = { data, period };
+
+        const keepScrolledPages = previous.period === period && paginationRef.current.page > 1;
+        if (keepScrolledPages) {
+            setPayments(prev => {
+                const headIds = new Set(data.payments.map(p => String(p._id || p.paymentId)));
+                return [...data.payments, ...prev.filter(p => !headIds.has(String(p._id || p.paymentId)))];
+            });
+            setPagination(prev => ({ ...prev, ...data.pagination, page: prev.page }));
+            return;
+        }
         userScrolledRef.current = false;
-        loadPayments(1, false);
-    }, [selectedMonth, selectedYear]);
+        setPayments(data.payments);
+        setPagination(prev => ({ ...prev, ...data.pagination, page: 1 }));
+    }, [firstPage.data, firstPage.isPlaceholderData, selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        if (firstPage.error) console.error('Error loading payments:', firstPage.error);
+    }, [firstPage.error]);
 
     const loadPayments = async (page = 1, append = false) => {
+        if (page === 1 && !append) {
+            userScrolledRef.current = false;
+            const result = await firstPage.refetch();
+            // Same data object (nothing changed) still has to bring the list back to page 1
+            if (result.data && paginationRef.current.page > 1) {
+                setPayments(result.data.payments);
+                setPagination(prev => ({ ...prev, ...result.data.pagination, page: 1 }));
+            }
+            return;
+        }
+        // While the previous month is still on screen (placeholder), don't append the new month's pages to it
+        if (append && firstPage.isPlaceholderData) return;
         if (append) {
             setLoadingMore(true);
         } else {
             userScrolledRef.current = false;
-            setLoading(true);
+            setPageLoading(true);
         }
         try {
             const queryParams = {
                 page,
-                limit: 50
+                limit: PAYMENTS_PAGE_SIZE
             };
             if (selectedMonth) queryParams.month = selectedMonth;
             if (selectedYear) queryParams.year = selectedYear;
@@ -276,7 +318,7 @@ const Payments = () => {
         } catch (error) {
             console.error('Error loading payments:', error);
         } finally {
-            setLoading(false);
+            setPageLoading(false);
             setLoadingMore(false);
         }
     };
@@ -538,7 +580,7 @@ const Payments = () => {
             title={t('payments.title')}
             subtitle={t('payments.subtitle')}
             onRefresh={() => loadPayments(1, false)}
-            loading={loading}
+            loading={loading || firstPage.isFetching}
             refreshText={t('payments.refresh')}
             leadingActions={
                 <MonthYearSelector
@@ -560,7 +602,7 @@ const Payments = () => {
     const mobileHeader = (
         <PageHeader.Mobile
             onRefresh={() => loadPayments(1, false)}
-            loading={loading}
+            loading={loading || firstPage.isFetching}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
             datePicker={{
@@ -582,6 +624,7 @@ const Payments = () => {
                 {/* Mobile Consolidated Metrics Card vs Desktop StatCards */}
                 {isMobile ? !showFilters && (
                     <MobileMetricsCard
+                        loading={firstPage.isPending}
                         segments={[
                             { width: completedPercentage, variant: 'completed' },
                             { width: pendingPercentage, variant: 'pending' }
@@ -611,21 +654,25 @@ const Payments = () => {
                     /* Summary Stats — Minimalist iOS style (Desktop) */
                     <div className="devices-stats-ios payments-stats-grid">
                         <StatCard
+                            loading={firstPage.isPending}
                             title={t('payments.stats.revenue', 'INGRESOS')}
                             value={<Amount value={totalAmount} />}
                             valueColor="#00C292"
                         />
                         <StatCard
+                            loading={firstPage.isPending}
                             title={t('payments.stats.completed', 'PAGADOS')}
                             value={completedCount}
                             valueColor="#0070eb"
                         />
                         <StatCard
+                            loading={firstPage.isPending}
                             title={t('payments.stats.pending', 'PENDIENTES')}
                             value={pendingCount}
                             valueColor="#FB9678"
                         />
                         <StatCard
+                            loading={firstPage.isPending}
                             title={t('payments.stats.total', 'TOTAL')}
                             value={pagination.total}
                             valueColor="#1a1c1c"

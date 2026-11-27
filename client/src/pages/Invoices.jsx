@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,7 +12,8 @@ import PageHeader from '../components/PageHeader';
 import useIsMobile from '../hooks/useIsMobile';
 import useAssistantScreenBridge from '../hooks/useAssistantScreenBridge';
 import { useStatusConfig } from '../context/StatusConfigContext';
-import { getAllInvoices, getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
+import { getInvoiceStats, exportInvoicesCSV, registerManualAdjustment } from '../services/api';
+import { useInvoicesFirstPageQuery, useScreenQueryClient, invoicesFirstPageOptions, fetchInvoicesPage } from '../hooks/useScreenQueries';
 import SearchAndFilterBar from '../components/SearchAndFilterBar';
 import MonthYearSelector from '../components/MonthYearSelector';
 import StatCard from '../components/StatCard';
@@ -197,13 +198,39 @@ const InvoiceMobileRow = ({ invoice, isPayable, openManualPayModal }) => {
     );
 };
 
+const DEFAULT_INVOICE_STATS = {
+    total: 0,
+    paid: 0,
+    unpaid: 0,
+    totalAmount: 0,
+    unpaidAmount: 0
+};
+
 const Invoices = () => {
     const { t } = useTranslation();
-    const [invoices, setInvoices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const isMobile = useIsMobile();
+    const today = new Date();
+    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [filter, setFilter] = useState('all');
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Page 1 is cached per month/year/filter/search: coming back to the tab paints it
+    // instantly. Later pages (infinite scroll / pagination) stay local to the screen.
+    const invoiceFilters = useMemo(() => ({
+        month: selectedMonth,
+        year: selectedYear,
+        search: searchQuery,
+        filter,
+        isMobile,
+    }), [selectedMonth, selectedYear, searchQuery, filter, isMobile]);
+    const firstPage = useInvoicesFirstPageQuery(invoiceFilters);
+    const { queryClient, companyKey } = useScreenQueryClient();
+    const [invoices, setInvoices] = useState(() => firstPage.data?.invoices ?? []);
+    const [pageLoading, setPageLoading] = useState(false);
+    const loading = firstPage.isPending || pageLoading;
+    const refreshing = loading || firstPage.isFetching;
 
     const handleSearchSubmit = (e) => {
         if (e) e.preventDefault();
@@ -217,14 +244,9 @@ const Invoices = () => {
         setCurrentPage(1);
     };
     const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalInvoices, setTotalInvoices] = useState(0);
-    const isMobile = useIsMobile();
+    const [totalPages, setTotalPages] = useState(() => firstPage.data?.pagination?.totalPages || 1);
+    const [totalInvoices, setTotalInvoices] = useState(() => firstPage.data?.pagination?.total || 0);
     const PAGE_SIZE = 100;
-
-    const today = new Date();
-    const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [downloading, setDownloading] = useState(false);
 
     const [showFilters, setShowFilters] = useState(false);
@@ -263,21 +285,44 @@ const Invoices = () => {
     const { statusConfig: ADJUSTMENT_CONFIG = {} } = useStatusConfig();
     // ─────────────────────────────────────────────────────
 
-    const [stats, setStats] = useState({
-        total: 0,
-        paid: 0,
-        unpaid: 0,
-        totalAmount: 0,
-        unpaidAmount: 0
-    });
+    const [stats, setStats] = useState(() => firstPage.data?.stats || DEFAULT_INVOICE_STATS);
 
     const [loadingMore, setLoadingMore] = useState(false);
     const observerTarget = useRef(null);
 
+    const currentPageRef = useRef(currentPage);
+    useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+
+    const applyPage = useCallback((data, append) => {
+        if (append) {
+            setInvoices(prev => [...prev, ...(data.invoices || [])]);
+        } else {
+            setInvoices(data.invoices || []);
+        }
+        if (data.stats) {
+            setStats(data.stats);
+        }
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotalInvoices(data.pagination?.total || 0);
+    }, []);
+
+    // New month/year/filter/search: back to page 1 (its data comes from the query below).
     useEffect(() => {
+        currentPageRef.current = 1;
         setCurrentPage(1);
-        loadInvoices(1, false);
-    }, [selectedMonth, selectedYear, searchQuery, filter]);
+    }, [invoiceFilters]);
+
+    // Mirror the cached first page into the list. Skipped while the user is on a
+    // later page so a background refresh never yanks them back to page 1.
+    useEffect(() => {
+        if (!firstPage.data || firstPage.isPlaceholderData) return;
+        if (currentPageRef.current !== 1) return;
+        applyPage(firstPage.data, false);
+    }, [firstPage.data, firstPage.isPlaceholderData, applyPage]);
+
+    useEffect(() => {
+        if (firstPage.error) console.error('Error loading invoices:', firstPage.error);
+    }, [firstPage.error]);
 
     const loadStats = async () => {
         try {
@@ -293,43 +338,35 @@ const Invoices = () => {
     const loadInvoices = async (page = 1, append = false) => {
         if (append) {
             setLoadingMore(true);
-        } else {
-            setLoading(true);
+        } else if (page !== 1) {
+            setPageLoading(true);
         }
         try {
-            const params = {};
-            if (page > 1) params.page = page;
-            if (searchQuery) {
-                params.search = searchQuery.trim();
-                params.limit = isMobile ? 30 : 500;
+            if (page === 1 && !append) {
+                // Refresh page 1 through the cache so the next visit shows the fresh list.
+                const data = await queryClient.fetchQuery({
+                    ...invoicesFirstPageOptions(companyKey, invoiceFilters),
+                    staleTime: 0,
+                });
+                currentPageRef.current = 1;
+                applyPage(data, false);
             } else {
-                if (selectedMonth) params.month = selectedMonth;
-                if (selectedYear) params.year = selectedYear;
-                if (isMobile) params.limit = 30;
-            }
-            if (filter && filter !== 'all') params.status = filter;
-
-            const result = await getAllInvoices(params);
-            if (result.success) {
-                if (append) {
-                    setInvoices(prev => [...prev, ...(result.invoices || [])]);
-                } else {
-                    setInvoices(result.invoices || []);
-                }
-                if (result.stats) {
-                    setStats(result.stats);
-                }
-                setTotalPages(result.pagination?.totalPages || 1);
-                setTotalInvoices(result.pagination?.total || 0);
-            } else {
-                console.error('Error loading invoices:', result.error);
+                applyPage(await fetchInvoicesPage(invoiceFilters, page), append);
             }
         } catch (error) {
             console.error('Error loading invoices:', error);
         } finally {
-            setLoading(false);
+            setPageLoading(false);
             setLoadingMore(false);
         }
+    };
+
+    // After a payment/invoice change, cached lists of other months/filters and the
+    // related tabs are outdated: mark them stale so they refresh on their next visit.
+    const markRelatedDataStale = () => {
+        ['invoices', 'payments', 'payment-summary', 'dashboard'].forEach((key) => {
+            queryClient.invalidateQueries({ queryKey: [key, companyKey], refetchType: 'none' });
+        });
     };
 
     // Infinite scroll observer for mobile
@@ -503,7 +540,7 @@ const Invoices = () => {
         <PageHeader.Desktop
             title={t('invoices.title')}
             onRefresh={() => loadInvoices(currentPage)}
-            loading={loading}
+            loading={refreshing}
             refreshText={t('payments.refresh')}
             leadingActions={renderDateSelectors()}
             actions={
@@ -534,7 +571,7 @@ const Invoices = () => {
                 setCurrentPage(1);
                 loadInvoices(1, false);
             }}
-            loading={loading}
+            loading={refreshing}
             onFilterToggle={() => setShowFilters(prev => !prev)}
             showFilters={showFilters}
             datePicker={{
@@ -886,6 +923,7 @@ const Invoices = () => {
                     invoice={manualPayModal.invoice}
                     onClose={closeManualPayModal}
                     onSuccess={() => {
+                        markRelatedDataStale();
                         loadInvoices(currentPage);
                     }}
                 />
@@ -911,6 +949,8 @@ const Invoices = () => {
                     isOpen={addInvoicesModalOpen}
                     onClose={() => setAddInvoicesModalOpen(false)}
                     onSuccess={() => {
+                        markRelatedDataStale();
+                        setCurrentPage(1);
                         loadInvoices(1);
                     }}
                 />

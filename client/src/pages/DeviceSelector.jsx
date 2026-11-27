@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Edit, RefreshCw, Share2, BatteryLow, BatteryMedium, BatteryFull, Power, Zap, ZapOff, AlertTriangle, Search, X } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { formatOfflineTimeShort } from '../utils/helpers';
-import { getAllDevices, updateDevice, controlEngine } from '../services/api';
+import { updateDevice, controlEngine } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import useDeviceUpdates from '../hooks/useDeviceUpdates';
+import { useDevicesQuery, useScreenQueryClient, screenQueryKeys } from '../hooks/useScreenQueries';
 import DeviceFormModal from '../components/modals/DeviceFormModal';
 import ShareDeviceModal from '../components/modals/ShareDeviceModal';
 import StatCard from '../components/StatCard';
@@ -22,13 +23,28 @@ import { getDeviceElectricalHealth, BATTERY_STATUS, ALTERNATOR_STATUS } from '..
 import { ENGINERESUME, ENGINESTOP, COLORS } from '../constants';
 
 
+const EMPTY_DEVICES = {};
+
 const DeviceManagement = () => {
     const isMobile = useIsMobile();
     const [searchParams] = useSearchParams();
     const { t } = useTranslation();
     const { user } = useAuth();
-    const [devices, setDevices] = useState({});
-    const [loading, setLoading] = useState(true);
+    // Cached across tab switches: only the very first visit shows "Cargando…".
+    // SSE updates and engine commands write straight into the cached map.
+    const devicesQuery = useDevicesQuery();
+    const { queryClient, companyKey } = useScreenQueryClient();
+    const devices = devicesQuery.data ?? EMPTY_DEVICES;
+    const loading = devicesQuery.isPending;
+    const refreshing = devicesQuery.isFetching;
+    const setDevices = useCallback((updater) => {
+        queryClient.setQueryData(screenQueryKeys.devices(companyKey), (prev) => {
+            // Nothing cached yet (first load in flight): returning undefined is a no-op,
+            // so an early SSE event can't replace the loader with an empty list.
+            if (prev === undefined) return undefined;
+            return typeof updater === 'function' ? updater(prev) : updater;
+        });
+    }, [queryClient, companyKey]);
     const [showModal, setShowModal] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
     const [showShareModal, setShowShareModal] = useState(false);
@@ -47,28 +63,13 @@ const DeviceManagement = () => {
         simCardNumber: '',
         DailyPayment: false
     });
-    const loadDevices = async (isSilent = false) => {
-        if (!isSilent) setLoading(true);
-        try {
-            let result = await getAllDevices();
-            if (result.success) {
-                const deviceArray = result.devices || [];
-                const deviceMap = {};
-                deviceArray.forEach(d => {
-                    if (d.gpsId) deviceMap[String(d.gpsId)] = d;
-                });
-                setDevices(deviceMap);
-            }
-        } catch (err) {
-            console.error('Error fetching devices:', err);
-            if (!isSilent) showToast('Failed to load devices', 'error');
-        } finally {
-            if (!isSilent) setLoading(false);
-        }
-    };
+    const loadDevices = () => devicesQuery.refetch();
+
     useEffect(() => {
-        loadDevices();
-    }, []);
+        if (!devicesQuery.error) return;
+        console.error('Error fetching devices:', devicesQuery.error);
+        showToast('Failed to load devices', 'error');
+    }, [devicesQuery.error]);
 
     useDeviceUpdates((updates) => {
         setDevices((prevDevices) => {
@@ -370,7 +371,7 @@ const DeviceManagement = () => {
                 { label: t('devices.title') }
             ]}
             onRefresh={loadDevices}
-            loading={loading}
+            loading={refreshing}
             refreshText={t('payments.refresh')}
         />
     );
@@ -378,7 +379,7 @@ const DeviceManagement = () => {
     const mobileHeader = (
         <PageHeader.Mobile
             onRefresh={loadDevices}
-            loading={loading}
+            loading={refreshing}
             onFilterToggle={() => setShowFilters(!showFilters)}
             showFilters={showFilters}
         />

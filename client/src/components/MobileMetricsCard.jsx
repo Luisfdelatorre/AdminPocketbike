@@ -11,13 +11,14 @@ import React from 'react';
  * @param {Array<{ width: number, variant: string }>} [props.segments] - Progress bar segments (e.g. 'completed', 'pending', 'blue')
  * @param {Array<{ label: string, value: React.ReactNode, subcount?: string|number, dot?: string, icon?: React.ReactNode, valueClass?: string }>} props.columns - Metric columns (typically 3)
  * @param {string} [props.className] - Optional additional class name
+ * @param {boolean} [props.loading] - Shows skeletons instead of values (never a misleading "0% (0)")
  */
-const MobileMetricsCard = ({ segments = [], columns = [], className = '' }) => {
+const MobileMetricsCard = ({ segments = [], columns = [], className = '', loading = false }) => {
     return (
-        <div className={`mobile-metrics-card ${className}`.trim()}>
+        <div className={`mobile-metrics-card ${className}`.trim()} aria-busy={loading || undefined}>
             {segments.length > 0 && (
-                <div className="metrics-progress-bar">
-                    {segments.map((seg, idx) => (
+                <div className={`metrics-progress-bar${loading ? ' is-loading' : ''}`}>
+                    {!loading && segments.map((seg, idx) => (
                         <div
                             key={seg.key || seg.variant || idx}
                             className={`progress-fill fill-${seg.variant}`}
@@ -41,8 +42,8 @@ const MobileMetricsCard = ({ segments = [], columns = [], className = '' }) => {
                                 <span className="metrics-label">{col.label}</span>
                             </div>
                             <p className={`metrics-val${col.valueClass ? ` ${col.valueClass}` : ''}`}>
-                                {col.value}
-                                {col.subcount !== undefined && col.subcount !== null && (
+                                {loading ? <span className="skeleton" aria-hidden="true" /> : col.value}
+                                {!loading && col.subcount !== undefined && col.subcount !== null && (
                                     <> <span className="metrics-subcount">({col.subcount})</span></>
                                 )}
                             </p>
