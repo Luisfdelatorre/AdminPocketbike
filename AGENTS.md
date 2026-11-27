@@ -45,22 +45,20 @@ Los documentos históricos no deben condicionar una implementación salvo que el
 
 Toda intervención —incluidos arreglos no previstos detectados durante otra tarea— requiere supervisión directa:
 
-1. Antes de iniciar, presentar objetivo, alcance, archivos previstos, impacto, validaciones y rama propuesta; esperar señal explícita antes de crear la rama o modificar archivos.
-2. Crear la rama desde `dev` actualizado. No trabajar directamente sobre `dev` ni `master`.
-3. Usar una rama por propósito con prefijo coherente: `feat/`, `fix/`, `refactor/`, `docs/` o `ux/`.
-4. Mantener cambios ajenos intactos. Si el árbol está sucio, aislar el trabajo con un worktree o pedir dirección; no ocultar ni descartar cambios sin autorización.
+1. Antes de iniciar, presentar objetivo, alcance, archivos previstos, impacto y validaciones; esperar señal explícita antes de modificar archivos.
+2. Trabajar directamente sobre `dev` actualizado (`git pull --ff-only`). No crear ramas de intervención ni worktrees salvo que el usuario lo pida explícitamente. Nunca trabajar directamente sobre `master`.
+3. Separar los propósitos mediante commits independientes (no mediante ramas), usando el tipo coherente: `feat`, `fix`, `refactor`, `docs` o `ux`.
+4. Mantener cambios ajenos intactos. Si el árbol está sucio, no incluir esos archivos en los commits de la intervención; no ocultar ni descartar cambios sin autorización.
 5. Al finalizar, mostrar cambios, archivos, validaciones, incidencias y cualquier alcance adicional detectado.
 6. Para UI/UX, consultar y actualizar el índice de `INCOHERENCIAS_DISENO.md`. No registrar allí problemas de backend, Git o documentación.
 7. Un hallazgo solo se marca completado después de implementación y validación. Los hallazgos nuevos reciben un ID propio.
 
 ## Flujo de ramas, integración y publicación
 
-- `master` es la rama estable y `dev` es la rama de integración.
-- Las ramas de intervención nacen de `dev` y sus PR apuntan a `dev`.
-- `dev` llega a `master` únicamente mediante PR.
+- `master` es la rama estable y `dev` es la rama de trabajo e integración; las intervenciones se commitean directamente en `dev`.
+- `dev` llega a `master` únicamente mediante PR, salvo instrucción explícita del usuario.
 - No ejecutar `push`, crear o actualizar PRs, hacer merge, rebase, force-push, borrar ramas o retirar worktrees sin autorización explícita.
-- Después de un PR mergeado, sincronizar `dev` con `git pull --ff-only` y validar el resultado antes de continuar.
-- No reutilizar una rama cuyo PR ya fue mergeado para una intervención nueva; crear otra rama desde el `dev` actualizado.
+- Antes de cada intervención, sincronizar `dev` con `git pull --ff-only` y validar el resultado antes de continuar.
 - No usar force-push salvo solicitud explícita y justificación clara.
 
 ## Commit Composition Workflow
