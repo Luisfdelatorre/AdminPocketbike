@@ -53,6 +53,11 @@ Este índice detalla el estado de resolución de cada uno de los hallazgos descr
 | **29** | Exenciones de contrato invisibles en las tarjetas de Contratos (`Contracts.jsx`) | 🧪 En validación | Un contrato exento del apagado nocturno o del apagado automático no lo indicaba en su tarjeta; había que abrir el editor. Ahora la tarjeta muestra insignias de luna tachada (toque de queda) y rayo tachado (apagado automático), con título traducido. |
 | **30** | Reporte del Dashboard sin descarga y sin plantilla editable (`AdminDashboard.jsx`, `ReportTemplatesPanel.jsx`) | 🧪 En validación | El ícono de descarga del Dashboard estaba importado pero sin botón. Ahora el header ofrece «Reporte» (CSV) y Configuración → Sistema incluye el editor de plantillas por empresa (etiquetas, orden, formato y campos permitidos). |
 | **31** | Listas del asistente se mostraban en una sola línea (`VoiceAssistantPanel.css`) | 🧪 En validación | Las respuestas analíticas del asistente pueden traer una lista corta («- » por ítem), pero la burbuja del chat unía los saltos de línea. Ahora el texto respeta los saltos (`white-space: pre-line`) y la voz lee la lista como una frase, sin decir «guion». |
+| **32** | Tarjetas del asistente nunca llegaban al chat y Motos no tenía tarjetas (`useAssistantScreenBridge.js`, `DeviceSelector.jsx`) | 🧪 En validación | Pagos, Contratos y Resumen calculaban tarjetas para el asistente, pero el hook del puente no las reenviaba; las únicas tarjetas visibles eran las de datos demo. Ahora el hook las pasa, Motos publica sus propias tarjetas (placa, contrato, estado del motor y tiempo sin señal) y la voz no lee la lista que ya muestran las tarjetas. |
+| **33** | Cambiar de pestaña dejaba la pantalla en blanco sin header ni barra (`App.jsx`, `AdminLayout.jsx`) | 🧪 En validación | El `Suspense` global envolvía todo el layout, así que cargar el código de una pestaña ocultaba el header y la barra inferior tras un spinner a pantalla completa. Ahora el `Suspense` vive dentro del área de contenido (`ContentLoader`) y la navegación queda siempre visible. |
+| **34** | Cada pestaña mostraba «Cargando…» y repetía la petición al volver (`AdminDashboard.jsx`, `Contracts.jsx`, `Payments.jsx`, `PaymentSummary.jsx`, `Invoices.jsx`, `DeviceSelector.jsx`) | 🧪 En validación | Las pantallas cargaban en un `useEffect` y perdían los datos al desmontarse. Ahora usan TanStack Query (`useScreenQueries.js`): al volver se pinta el caché al instante y se refresca en segundo plano (Dispositivos siempre; el resto pasado 1 minuto); al cambiar de mes se mantiene la lista anterior mientras llega la nueva. |
+| **35** | Contadores de Contratos y Pagos mostraban «0% (0)» antes de los valores reales (`StatCard.jsx`, `MobileMetricsCard.jsx`) | 🧪 En validación | Los contadores se calculaban sobre la lista vacía inicial. Ahora, mientras no hay datos, `StatCard`, `MobileMetricsCard` y los contadores de filtros de Resumen muestran esqueletos con shimmer en vez de 0. |
+| **36** | Destellos negros y spinner a pantalla completa al cambiar de pestaña o recargar (`index.html`, `index.css`, `App.jsx`, `AuthContext.jsx`) | 🧪 En validación | El `body` heredaba el fondo oscuro de `css/styles.css` y se veía negro en cualquier cuadro sin layout; la primera visita a cada pestaña esperaba su chunk y al recargar la sesión se leía después del primer render. Ahora el fondo es claro desde el primer pintado, la navegación corre en una transición, los chunks de las pestañas se precargan en segundo plano y la sesión se lee antes del primer render. |
 
 ---
 
@@ -634,3 +639,63 @@ La página de configuración (`Settings.jsx` y `Settings.css`) acumulaba diverge
 ### Solución Implementada
 * `.va-msg p` usa `white-space: pre-line`: conserva los saltos de línea sin alterar el ajuste normal del texto.
 * [tts.js](client/src/services/voiceAssistant/tts.js) convierte los ítems «- » en una frase separada por comas antes de hablar, para que la voz no lea los guiones.
+
+## 32. Tarjetas del asistente nunca llegaban al chat y Motos no tenía tarjetas
+
+### El Problema
+* [useAssistantScreenBridge.js](client/src/hooks/useAssistantScreenBridge.js) no reenviaba `cardsData` al puente, así que las tarjetas de Pagos, Contratos y Resumen nunca se mostraban bajo la respuesta del asistente.
+* [DeviceSelector.jsx](client/src/pages/DeviceSelector.jsx) no publicaba tarjetas: «Muéstrame las motos apagadas» respondía solo con texto.
+* Las únicas tarjetas visibles venían del respaldo demo (placas `DMO-…`, «Conductor Demo»), mostrado como si fueran datos en vivo cuando fallaba la API.
+
+### Solución Implementada
+* El hook reenvía `cardsData` y vuelve a registrar el puente cuando cambian.
+* Motos publica hasta 5 tarjetas de la vista actual: placa, «Con/Sin contrato» y estado del motor, con el tiempo sin señal (o el estado) como valor.
+* Se eliminó el respaldo demo del asistente: si la API falla, se informa el error en lugar de mostrar datos inventados.
+* Doble texto: el chat conserva la enumeración y la voz la omite («Te dejé el detalle en pantalla»), vía [speechFromCards.js](client/src/services/voiceAssistant/speechFromCards.js).
+
+## 33. Cambiar de pestaña dejaba la pantalla en blanco sin header ni barra
+
+### El Problema
+* En [App.jsx](client/src/App.jsx) un único `<Suspense fallback={<LoadingSpinner />}>` envolvía todas las rutas, incluido `AdminLayout`.
+* Cada página es `lazy()`: la primera visita a una pestaña suspendía todo el árbol y mostraba un spinner `min-h-screen`, ocultando el header y la barra inferior.
+
+### Solución Implementada
+* [AdminLayout.jsx](client/src/components/AdminLayout.jsx) envuelve el `<Outlet>` en su propio `Suspense` con [ContentLoader.jsx](client/src/components/ContentLoader.jsx), un loader del tamaño del contenido que aparece con un leve retraso para no parpadear.
+* El `Suspense` de `App.jsx` queda solo para el login y la primera carga del layout.
+
+## 34. Cada pestaña mostraba «Cargando…» y repetía la petición al volver
+
+### El Problema
+* Contratos, Pagos y Resumen pedían sus datos en un `useEffect` al montarse y arrancaban con `loading = true`; al cambiar de pestaña se desmontaban y perdían todo.
+
+### Solución Implementada
+* TanStack Query v5 con un cliente compartido ([queryClient.js](client/src/services/queryClient.js)): `staleTime` de 60 s, `gcTime` de 10 min y sin recarga al enfocar la ventana (el tiempo real llega por SSE).
+* [useScreenQueries.js](client/src/hooks/useScreenQueries.js) define las consultas por empresa: contratos, página 1 de pagos por mes/año y resumen por mes/año, estas dos con `placeholderData: keepPreviousData`.
+* Inicio (estadísticas + salud eléctrica por mes/año), Facturas (página 1 por mes/año/filtro/búsqueda) y Dispositivos (mapa por `gpsId`) usan el mismo caché. Dispositivos tiene `staleTime: 0`: pinta el caché y siempre refresca al entrar; los eventos SSE y los comandos de motor escriben directo en su entrada.
+* Facturas no vuelve a la página 1 por un refresco en segundo plano; tras un pago manual o nuevas facturas marca como vencidos Facturas, Pagos, Resumen e Inicio para que se refresquen en su próxima visita.
+* «Cargando…» solo aparece en la primera visita; después el botón de actualizar gira mientras se refresca en segundo plano.
+* Pagos conserva las páginas del scroll infinito si un refresco en segundo plano trae la página 1 del mismo mes.
+* Resumen devuelve al caché los cambios de motor recibidos por SSE al salir de la pestaña, sin adelantar su vencimiento.
+* El caché se limpia al cerrar sesión y al cambiar de empresa.
+
+## 35. Contadores de Contratos y Pagos mostraban «0% (0)» antes de los valores reales
+
+### El Problema
+* Los contadores se calculaban sobre la lista vacía inicial (`[]`), así que primero se veía «0% (0)» y luego saltaban al valor real.
+
+### Solución Implementada
+* [StatCard.jsx](client/src/components/StatCard.jsx) y [MobileMetricsCard.jsx](client/src/components/MobileMetricsCard.jsx) aceptan `loading` y muestran esqueletos (`.skeleton` en `index.css`, con `prefers-reduced-motion`) en lugar del valor.
+* Contratos y Pagos pasan `loading` mientras no hay datos; Resumen oculta sus contadores de filtro tras esqueletos.
+
+## 36. Destellos negros y spinner a pantalla completa al cambiar de pestaña o recargar
+
+### El Problema
+* [css/styles.css](client/css/styles.css) (UI de pago heredada) pinta el `body` en `#0a0e1a`. Cualquier cuadro en que el layout no cubría la pantalla se veía como un destello negro.
+* La primera visita a cada pestaña esperaba la descarga de su chunk `lazy()`.
+* [AuthContext.jsx](client/src/context/AuthContext.jsx) leía la sesión guardada en un `useEffect`: el primer render era «sin sesión» y `AdminLayout` redirigía al login por un instante al recargar.
+
+### Solución Implementada
+* `html`, `body` y `#root` usan `#FAFBFB` desde [index.html](client/index.html) (primer pintado) y [index.css](client/src/index.css); `theme-color` claro.
+* `HashRouter` con `v7_startTransition`: la pestaña actual sigue visible mientras la siguiente está lista.
+* [pageLoaders.js](client/src/routes/pageLoaders.js) comparte los `import()` de las páginas; `AdminLayout` los precarga en segundo plano (`requestIdleCallback`) una vez por sesión.
+* La sesión se lee de forma síncrona al crear el estado de `AuthProvider`.

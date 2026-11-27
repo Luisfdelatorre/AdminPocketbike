@@ -42,6 +42,12 @@ Una intervención debe conservar esta dirección de dependencias. La UI no debe 
 
 La navegación principal usa `HashRouter`. Las rutas administrativas viven dentro de `AdminLayout`; la página del dispositivo usa `/Id/:deviceId`.
 
+Las páginas se cargan con `lazy()`. Las del panel se suspenden dentro del `<main>` de `AdminLayout` (`ContentLoader`), así que el header, el menú lateral y la barra inferior nunca desaparecen; el `Suspense` de `App.jsx` cubre solo el login y la primera carga del layout.
+
+Los chunks de las páginas se declaran en `client/src/routes/pageLoaders.js`; `AdminLayout` los precarga en segundo plano y `HashRouter` usa `v7_startTransition`, así que cambiar de pestaña mantiene la actual en pantalla hasta que la siguiente está lista. La sesión se lee de forma síncrona en `AuthProvider` y el fondo de `html`/`body` es claro (`index.html`, `index.css`) para que no haya destellos.
+
+Los datos de Inicio, Contratos, Pagos (página 1), Resumen, Facturas (página 1) y Dispositivos se cachean con TanStack Query (`client/src/services/queryClient.js`, `client/src/hooks/useScreenQueries.js`): `staleTime` de 60 s (0 en Dispositivos), claves por empresa y periodo/filtros, y `keepPreviousData` al cambiar de periodo. Las mutaciones vuelven a pedir los datos con `refetch`, los cambios por SSE se aplican sobre el estado de la pantalla (en Dispositivos, directo en el caché), y el caché se limpia al cerrar sesión o cambiar de empresa.
+
 ### Asistente de voz (demo)
 
 `AdminLayout` monta `VoiceAssistantProvider` (`client/src/context/VoiceAssistantContext.jsx`) y el panel Bottom Sheet `client/src/components/voiceAssistant/VoiceAssistantPanel.jsx`. La lógica vive en `client/src/services/voiceAssistant/` y `server/services/aiAssistantService.js`:
